@@ -1,8 +1,2 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ModelChoice {
-    /// Muse Spark.
-    #[default]
-    Quick,
-    /// Muse Wonder.
-    Thorough,
-}
+// One choice for the whole crate: the request builder serializes it to the model id.
+pub use crate::api::request::ModelChoice;

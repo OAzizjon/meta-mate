@@ -61,3 +61,10 @@ Drafts by DeepSeek (job #404), edited; picked over oss (#403). Pick one on Day 6
 | Reduce motion | Меньше движения |
 | Start with Windows | Запускать вместе с Windows |
 | Invite code / Your Meta API key | Код приглашения / Ваш ключ Meta API |
+| How {name} thinks | Как думает {name} |
+| Quick (Muse Spark 1.3) | Быстро (Muse Spark 1.3) |
+| Answers fast. Best for everyday help. | Отвечает быстро. Для повседневных дел. |
+| Thorough (Muse Wonder 1.0) | Вдумчиво (Muse Wonder 1.0) |
+| Thinks longer about tricky tasks. Slower. | Дольше думает над сложными задачами. Медленнее. |
+
+Model choice (D40): Spark is the default; Wonder only by the user's choice, never by voice.
