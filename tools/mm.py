@@ -339,6 +339,9 @@ def cmd_test(args, agent=False):
     _extend_path()
     env = _offline_env() if agent else None
     steps = [('tools', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-v'])]
+    if (ROOT / 'server' / 'tests').is_dir():
+        # The proxy's pure policy code: standard library only, so the same interpreter runs it.
+        steps.append(('server', [sys.executable, '-m', 'unittest', 'discover', '-s', 'server/tests', '-t', 'server']))
     if (ROOT / 'Cargo.toml').exists():
         has_nextest = run(['cargo', 'nextest', '--version'], env=env)[0] == 0
         offline = ['--offline'] if agent else []
