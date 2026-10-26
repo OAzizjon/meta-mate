@@ -42,7 +42,7 @@ text     := any characters except a "<" that starts a tag
 | `<end>` | The model is done (optional; end of stream also ends). | `<end>` |
 
 Timeline: the parser turns the answer into **one ordered timeline**; the player runs it in order.
-- `sfx` (without `solo`), `mood`, `point`, `step`, `show` **bind to the next sentence**: they start together with it.
+- `sfx` (without `solo`), `mood`, `point`, `step`, `show` **bind to the next sentence**: they start together with it. So write them right **before** the sentence they go with, never after it (a trailing `<sfx>` plays with the following sentence).
 - `sfx … solo`, `pause`, `wait`, `amb`, `lang`, `end` are **timeline items** at their position: e.g. a `<wait click>` after sentence 2 is reached only when sentence 2 has finished playing; a `solo` sound is a barrier (the next sentence starts when it ends).
 - Bound tags with no following sentence (end of answer) become timeline items after the last sentence.
 - Two bound tags of the same kind before one sentence: the last one wins (one mood, one point per sentence); two sfx are both kept.
@@ -53,14 +53,14 @@ Timeline: the parser turns the answer into **one ordered timeline**; the player 
 **Fairy tale (fun mode)**
 ```
 <lang en><mood calm><amb forest soft>Once upon a time, a little fox lived at the edge of a quiet forest.
-Every morning the birds woke him up. <sfx birds soft>
+<sfx birds soft>Every morning the birds woke him up.
 One day the sky turned dark. <sfx thunder solo><mood surprised>"Oh no," said the fox, "a storm!"
 He ran home just in time, <amb rain soft>and listened to the rain from his warm bed. <mood sleepy>
 ```
 
 **"Where is the Save button?" (Word, element list given)**
 ```
-<lang en><mood happy><point e12>It's right here, the little disk at the top left. <sfx ping soft>
+<lang en><mood happy><point e12><sfx ping soft>It's right here, the little disk at the top left.
 You can also press Control and S together.
 ```
 

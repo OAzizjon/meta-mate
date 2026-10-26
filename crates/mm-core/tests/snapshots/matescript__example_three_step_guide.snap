@@ -1,0 +1,15 @@
+---
+source: crates/mm-core/tests/matescript.rs
+assertion_line: 189
+expression: golden(& timeline)
+---
+Lang("ru")
+Say#1 "Сейчас покажу, это три шага." [Mood("calm")]
+Say#2 "Нажмите «Специальные возможности» слева." [Step(Step { number: 1, total: 3, target: Id("e3") })]
+Wait
+Say#3 "Теперь нажмите «Размер текста»." [Step(Step { number: 2, total: 3, target: Id("e8") })]
+Wait
+Say#4 "Передвиньте ползунок вправо и нажмите «Применить»." [Step(Step { number: 3, total: 3, target: Id("e21") })]
+Wait
+Say#5 "Готово!" [Sfx(Sound { name: "success", level: Soft, solo: false }), Mood("proud")]
+Say#6 "Текст стал крупнее." []

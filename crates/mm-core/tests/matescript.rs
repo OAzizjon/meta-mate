@@ -71,7 +71,11 @@ fn case(number: usize) -> (&'static str, &'static str) {
 }
 
 fn parse(input: &str, calm: bool) -> Vec<Item> {
-    let mut parser = Parser::new(settings(calm));
+    parse_with_settings(input, settings(calm))
+}
+
+fn parse_with_settings(input: &str, settings: Settings) -> Vec<Item> {
+    let mut parser = Parser::new(settings);
     let mut timeline = parser.push(input);
     timeline.extend(parser.finish());
     timeline
@@ -143,9 +147,63 @@ golden_case!(case_23, 23);
 golden_case!(case_24, 24);
 golden_case!(case_25, 25);
 
+// The four complete examples in docs/matescript.md, section 3.
+fn example(number: usize) -> (&'static str, Settings) {
+    let input = match number {
+        1 => {
+            r#"<lang en><mood calm><amb forest soft>Once upon a time, a little fox lived at the edge of a quiet forest.
+<sfx birds soft>Every morning the birds woke him up.
+One day the sky turned dark. <sfx thunder solo><mood surprised>"Oh no," said the fox, "a storm!"
+He ran home just in time, <amb rain soft>and listened to the rain from his warm bed. <mood sleepy>
+"#
+        }
+        2 => {
+            r#"<lang en><mood happy><point e12><sfx ping soft>It's right here, the little disk at the top left.
+You can also press Control and S together.
+"#
+        }
+        3 => {
+            r#"<lang ru><mood calm>Сейчас покажу, это три шага.
+<step 1/3 e3>Нажмите «Специальные возможности» слева. <wait click>
+<step 2/3 e8>Теперь нажмите «Размер текста». <wait click>
+<step 3/3 e21>Передвиньте ползунок вправо и нажмите «Применить». <wait click>
+<sfx success soft><mood proud>Готово! Текст стал крупнее.
+"#
+        }
+        4 => {
+            r#"<lang en><mood happy>Why did the computer go to the doctor?
+Because it had a virus! <sfx rimshot solo><mood proud>
+"#
+        }
+        _ => panic!("unknown example"),
+    };
+    // Fairy tale and rimshot use fun-mode sounds; the UI examples use calm mode.
+    (input, settings(matches!(number, 2 | 3)))
+}
+
+macro_rules! golden_example {
+    ($name:ident, $number:literal) => {
+        #[test]
+        fn $name() {
+            let (input, settings) = example($number);
+            let timeline = parse_with_settings(input, settings);
+            insta::assert_snapshot!(golden(&timeline));
+        }
+    };
+}
+
+golden_example!(example_fairy_tale, 1);
+golden_example!(example_save_button, 2);
+golden_example!(example_three_step_guide, 3);
+golden_example!(example_joke_with_rimshot, 4);
+
 fn chunked(input: &str, sizes: &[usize], calm: bool) -> Vec<Item> {
+    chunked_with_settings(input, sizes, settings(calm))
+}
+
+fn chunked_with_settings(input: &str, sizes: &[usize], settings: Settings) -> Vec<Item> {
     let chars: Vec<char> = input.chars().collect();
-    let mut parser = Parser::new(settings(calm));
+    let mut parser = Parser::new(settings);
     let mut timeline = Vec::new();
     let mut offset = 0;
     for size in sizes.iter().cycle() {
@@ -169,6 +227,17 @@ proptest! {
         for number in 1..=25 {
             let (input, _) = case(number);
             prop_assert_eq!(chunked(input, &sizes, number == 8), parse(input, number == 8));
+        }
+    }
+
+    #[test]
+    fn every_example_is_chunk_invariant(sizes in prop::collection::vec(1usize..=20, 1..100)) {
+        for number in 1..=4 {
+            let (input, settings) = example(number);
+            prop_assert_eq!(
+                chunked_with_settings(input, &sizes, settings.clone()),
+                parse_with_settings(input, settings),
+            );
         }
     }
 

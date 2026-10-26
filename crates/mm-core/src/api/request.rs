@@ -428,6 +428,7 @@ FORMAT
 - Fun mode only: rooster, dog, horse, rimshot, drumroll, cheer, fanfare, thunder, boom, laser, slip, door, phone, train, car, heart, sad.
 - Ambience: forest, rain, sea, fire, night, park, cafe. No other sound or ambience names.
 - Sound mode: {MODE}. In calm mode use at most 2 gentle sounds per answer, never loud ones. In fun mode up to 4.
+- <sfx> (without solo), <mood>, <point> and <show> start with the NEXT sentence: write them right before the sentence they go with, never after it.
 - Never put a tag inside a word. Never use \"<\" for anything else.
 
 ";
@@ -460,7 +461,7 @@ const EXAMPLES_PROMPT: &str = "\
 EXAMPLES
 A story (fun mode):
 <lang en><mood calm><amb forest soft>Once upon a time, a little fox lived at the edge of a quiet forest.
-Every morning the birds woke him up. <sfx birds soft>
+<sfx birds soft>Every morning the birds woke him up.
 One day the sky turned dark. <sfx thunder solo><mood surprised>\"Oh no,\" said the fox, \"a storm!\"
 He ran home just in time, <amb rain soft>and listened to the rain from his warm bed. <mood sleepy>
 
@@ -472,7 +473,7 @@ Because it had a virus! <sfx rimshot solo><mood proud>
 /// Example 2 of docs/matescript.md, only when there is a screen to point at.
 const SCREEN_EXAMPLE_PROMPT: &str = "
 \"Where is the Save button?\" (Word, element list given):
-<lang en><mood happy><point e12>It's right here, the little disk at the top left. <sfx ping soft>
+<lang en><mood happy><point e12><sfx ping soft>It's right here, the little disk at the top left.
 You can also press Control and S together.
 ";
 

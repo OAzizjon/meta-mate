@@ -1,0 +1,7 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+Say#1 "It's right here, the little disk at the top left." [Mood("happy"), Point(Id("e12")), Sfx(Sound { name: "ping", level: Soft, solo: false })]
+Say#2 "You can also press Control and S together." []

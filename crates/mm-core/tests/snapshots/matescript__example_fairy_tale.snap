@@ -1,0 +1,15 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+Amb { name: Some("forest"), level: Soft }
+Say#1 "Once upon a time, a little fox lived at the edge of a quiet forest." [Mood("calm")]
+Say#2 "Every morning the birds woke him up." [Sfx(Sound { name: "birds", level: Soft, solo: false })]
+Say#3 "One day the sky turned dark." []
+Sfx(Sound { name: "thunder", level: Loud, solo: true })
+Say#4 "\"Oh no,\" said the fox, \"a storm!\"" [Mood("surprised")]
+Say#5 "He ran home just in time," []
+Amb { name: Some("rain"), level: Soft }
+Say#6 "and listened to the rain from his warm bed." []
+Bound(Mood("sleepy"))
