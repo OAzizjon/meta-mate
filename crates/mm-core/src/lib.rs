@@ -5,3 +5,4 @@ pub mod api;
 pub mod constants;
 pub mod geom;
 pub mod matescript;
+pub mod teacher;
