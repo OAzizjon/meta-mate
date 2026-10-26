@@ -31,3 +31,8 @@ Format: `` `file name` `` — source URL — licence — author (if attribution 
 | `door.ogg` | https://commons.wikimedia.org/wiki/File:Door_handle_creaking.ogg | Public domain | stephan | fetched 2026-10-24 by tools/sounds_commons.py |
 | `train.ogg` | https://commons.wikimedia.org/wiki/File:Parovoz_sound.ogg | Public domain | Alex Alex Lep | fetched 2026-10-24 by tools/sounds_commons.py |
 | `heart.flac` | https://commons.wikimedia.org/wiki/File:Human_heart_rate.flac | CC0 | Wilfredor | fetched 2026-10-24 by tools/sounds_commons.py |
+| `rimshot.ogg` | https://commons.wikimedia.org/wiki/File:Sting.ogg | Public domain | Bart Nagel | fetched 2026-10-26 by tools/sounds_commons.py |
+| `boing.ogg` | https://commons.wikimedia.org/wiki/File:Comic_spring_up_or_magic_trick.ogg | Public domain | stephan | fetched 2026-10-26 by tools/sounds_commons.py |
+| `magic.ogg` | https://commons.wikimedia.org/wiki/File:AsGliss.ogg | Public domain | Daniel Musiklexikon | fetched 2026-10-26 by tools/sounds_commons.py |
+| `sad.ogg` | https://commons.wikimedia.org/wiki/File:Wah_tah_tah_taah.ogg | Public domain | ezwa | fetched 2026-10-26 by tools/sounds_commons.py |
+| `cheer.ogg` | https://commons.wikimedia.org/wiki/File:Hurray.ogg | Public domain | starlite | fetched 2026-10-26 by tools/sounds_commons.py |

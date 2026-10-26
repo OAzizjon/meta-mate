@@ -116,7 +116,7 @@
     "kind": "sfx",
     "query": "rimshot",
     "max_seconds": 8,
-    "file": null
+    "file": "File:Sting.ogg"
   },
   {
     "name": "drumroll",
@@ -172,7 +172,7 @@
     "kind": "sfx",
     "query": "boing",
     "max_seconds": 8,
-    "file": null
+    "file": "File:Comic spring up or magic trick.ogg"
   },
   {
     "name": "tada",
@@ -186,13 +186,20 @@
     "kind": "sfx",
     "query": "chimes",
     "max_seconds": 5,
-    "file": null
+    "file": "File:AsGliss.ogg"
   },
   {
     "name": "sad",
     "kind": "sfx",
-    "query": "trombone",
+    "query": "wah wah wah",
     "max_seconds": 8,
-    "file": null
+    "file": "File:Wah tah tah taah.ogg"
+  },
+  {
+    "name": "cheer",
+    "kind": "sfx",
+    "query": "cheering",
+    "max_seconds": 5,
+    "file": "File:Hurray.ogg"
   }
 ]

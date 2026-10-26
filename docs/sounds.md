@@ -82,3 +82,19 @@ Names below are the closed list given to the model (`<sfx NAME>` / `<amb NAME>`)
 ## First 12 to prepare (for the video)
 
 ping, success, oops, think, whoosh, done, forest, rain, birds, thunder, rimshot, applause.
+
+## Fun set fetched at the kickoff (D39, 2026-10-26)
+
+Five public-domain files from Wikimedia Commons, picked for jokes, stories and celebrations; listen to all of them in `assets/sounds/fun-preview.ogg` (in this order) and veto any before the Day-3 mixer:
+
+| name | file | why |
+|---|---|---|
+| rimshot | `File:Sting.ogg`: drum roll + cymbal | the punchline sting; the last of the "first 12" |
+| boing | `File:Comic spring up or magic trick.ogg` | jack-in-the-box comedy, allowed in calm mode |
+| magic | `File:AsGliss.ogg`: a harp glissando (5.1 s: fade it after ~2.5 s in the mixer) | stories, "a little magic" |
+| sad | `File:Wah tah tah taah.ogg`: a voice sings the sad-trombone line | gentle self-deprecating humour |
+| cheer | `File:Hurray.ogg`: a few people shout "hurray" | a finished task in fun mode |
+
+Not on Commons as CC0/PD: `tada` (only state fanfares came up) and `owl`. If a sixth is wanted, `tada` can be synthesized like the cues (a C-E then C-E-G-C stinger, recipe in Gemini #420).
+
+Hearing-aid risks among the existing files (Gemini #420), for the Day-3 mixer: `clock` (sharp clicks at −16 LUFS trigger hearing-aid transient suppression), `heart` (40–120 Hz: inaudible on laptops, rattles speakers), `door`, `train`, `rooster` (narrow 1.5–4 kHz whistles can set off feedback cancellers), `thunder` (masks speech). Consider sfx at −20 LUFS with a 300 Hz – 3.2 kHz band-pass instead of −16 LUFS.
