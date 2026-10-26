@@ -478,6 +478,9 @@ def cmd_sounds(args):
     for p in sources:
         kind = _sound_kind(p, src)
         out = base / kind / f'{p.stem}.ogg'
+        if not getattr(args, 'force', False) and out.exists() and out.stat().st_mtime_ns >= p.stat().st_mtime_ns:
+            say(None, p.name, 'up to date')
+            continue
         out.parent.mkdir(parents=True, exist_ok=True)
         layout = 'stereo' if kind == 'amb' else 'mono'
         # Cues are synthesized at deliberate levels below speech (tools/synth_cues.py): convert only.
@@ -667,6 +670,7 @@ def build_parser():
     sp.add_argument('names', nargs='*')
     sp = sub.add_parser('sounds', help='check licences / normalize loudness')
     sp.add_argument('action', nargs='?', choices=('check', 'normalize'), default='check')
+    sp.add_argument('--force', action='store_true', help='convert all sources even if outputs are up to date')
     sp = sub.add_parser('agents', help="the drafting team's queue")
     sp.add_argument('action', nargs='?', choices=('status', 'stats'), default='status')
     sp = sub.add_parser('keys', help='copy key values from another project (names printed only)')

@@ -242,6 +242,44 @@ class CliTests(unittest.TestCase):
         self.assertFalse(mm_checks._allowed(root, root / '.DRAFT-INPUT/file.py'))
         self.assertFalse(mm_checks._allowed(root, root / '../outside.py'))
 
+    def test_sound_normalize_only_converts_missing_or_older_outputs(self):
+        for kind in ('cues', 'sfx', 'amb'):
+            for state, output_time, force, converted in (
+                ('missing', None, False, True),
+                ('newer', 200, False, False),
+                ('equal', 100, False, False),
+                ('older', 50, False, True),
+                ('forced', 200, True, True),
+            ):
+                with self.subTest(kind=kind, state=state), tempfile.TemporaryDirectory() as folder:
+                    root = Path(folder)
+                    base = root / 'assets/sounds'
+                    source = base / 'src' / kind / 'beep.wav'
+                    source.parent.mkdir(parents=True)
+                    source.touch()
+                    os.utime(source, (100, 100))
+                    output = base / kind / 'beep.ogg'
+                    if output_time is not None:
+                        output.parent.mkdir(parents=True)
+                        output.write_bytes(b'existing audio')
+                        os.utime(output, (output_time, output_time))
+                    argv = ['sounds', 'normalize'] + (['--force'] if force else [])
+                    args = mm.build_parser().parse_args(argv)
+                    stdout = io.StringIO()
+                    with patch.object(mm, 'ROOT', root), patch.object(mm, '_extend_path'), patch.object(mm, '_licensed_names', return_value={'beep.wav'}), patch.object(mm.shutil, 'which', return_value='ffmpeg'), patch.object(mm, 'run', return_value=(0, '')) as run, contextlib.redirect_stdout(stdout):
+                        self.assertEqual(mm.cmd_sounds(args), 0)
+                    if converted:
+                        run.assert_called_once()
+                        cmd = run.call_args.args[0]
+                        self.assertEqual(cmd[cmd.index('-i') + 1], str(source))
+                        self.assertEqual(cmd[-1], str(output))
+                        self.assertNotIn('SKIP', stdout.getvalue())
+                    else:
+                        run.assert_not_called()
+                        self.assertEqual(stdout.getvalue(), f'SKIP  {"beep.wav":<22} up to date\n')
+                        self.assertEqual(output.read_bytes(), b'existing audio')
+                        self.assertEqual(output.stat().st_mtime, output_time)
+
     def test_sound_downmix_precedes_loudnorm_and_output_collisions_fail(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
