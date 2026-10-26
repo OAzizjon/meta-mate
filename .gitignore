@@ -1,0 +1,40 @@
+# Secrets
+.env
+.env.*
+*.env
+!.env.example
+*.pem
+*.key
+
+# Build output
+__pycache__/
+*.pyc
+/target/
+/src-tauri/target/
+/node_modules/
+/dist/
+/build/
+
+# Local data and media
+*.log
+*.sqlite3
+*.sqlite3-*
+/.screens/
+/recordings/
+/assets/sounds/raw/
+/assets/robot/concepts/raw/
+
+# Drafting agents
+/.draft-input/
+
+# OS / editors
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Downloaded sound sources: re-fetch with `py tools/sounds_commons.py` (pins in assets/sounds/sources.json)
+/assets/sounds/src/sfx/
+/assets/sounds/src/amb/
+
+# Raw research notes with other people's comments (summary lives in docs/research-reddit.md)
+/human_opinion.txt

@@ -1,0 +1,7 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+Bound(Sfx(Sound { name: "tada", level: Normal, solo: false }))
+Bound(Sfx(Sound { name: "pop", level: Soft, solo: false }))

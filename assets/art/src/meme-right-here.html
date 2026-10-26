@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- size: 1080x1080 -->
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; }
+  body { width: 1080px; height: 1080px; position: relative; overflow: hidden;
+         background: radial-gradient(circle at 30% 40%, #CFE8EA, #8FC1C9); font-family: 'Segoe UI', Arial, sans-serif; }
+  .cap { position: absolute; left: 0; right: 0; text-align: center; font-family: Impact, 'Arial Black', sans-serif;
+         font-size: 92px; line-height: 1; color: #fff; text-transform: uppercase; letter-spacing: 1px;
+         -webkit-text-stroke: 5px #000; paint-order: stroke fill; text-shadow: 0 6px 0 rgba(0,0,0,.25); }
+  .top { top: 34px; } .bottom { bottom: 40px; }
+  .win { position: absolute; left: 70px; top: 230px; width: 600px; height: 560px; background: #fff; border-radius: 18px;
+         box-shadow: 0 24px 60px rgba(31,42,68,.35); overflow: hidden; border: 4px solid #1F2A44; }
+  .bar { height: 56px; background: #2E5070; color: #fff; font-size: 24px; display: flex; align-items: center; padding: 0 22px; gap: 10px; }
+  .dots { margin-left: auto; display: flex; gap: 10px; } .dots i { width: 16px; height: 16px; border-radius: 50%; background: #FFC94A; display: block; }
+  .dots i:nth-child(2) { background: #7FD3C8; } .dots i:nth-child(3) { background: #FFB3A7; }
+  .tools { height: 92px; background: #EEE9DF; display: flex; align-items: center; gap: 22px; padding: 0 26px; border-bottom: 2px solid #D8D0C2; }
+  .tool { width: 58px; height: 58px; border-radius: 12px; background: #fff; border: 3px solid #B8C2CF; display: grid; place-items: center; }
+  .tool.save { border-color: #1F2A44; box-shadow: 0 0 0 8px #FFC94A, 0 0 0 18px rgba(255,201,74,.45), 0 0 38px 22px rgba(255,214,110,.8); }
+  .lines { padding: 34px 30px; } .lines div { height: 14px; background: #D7DEE6; border-radius: 7px; margin-bottom: 22px; }
+  .mate { position: absolute; left: 590px; top: 196px; transform: scaleX(-1) rotate(-14deg); transform-origin: 50% 50%; }
+</style></head>
+<body>
+  <div class="cap top">Where's the Save button?</div>
+  <div class="win">
+    <div class="bar">Letter to Ann <div class="dots"><i></i><i></i><i></i></div></div>
+    <div class="tools">
+      <div class="tool"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z" fill="#9AA8B8"/></svg></div>
+      <div class="tool"><svg width="30" height="30" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="6" fill="#9AA8B8"/><rect x="3" y="9" width="18" height="8" rx="2" fill="#9AA8B8"/><rect x="7" y="14" width="10" height="7" fill="#fff" stroke="#9AA8B8"/></svg></div>
+      <div class="tool"><svg width="30" height="30" viewBox="0 0 24 24"><path d="M5 19l4-1 10-10-3-3L6 15z" fill="#9AA8B8"/></svg></div>
+      <div class="tool save"><svg width="34" height="34" viewBox="0 0 24 24"><path d="M4 3h13l3 3v15H4z" fill="#2E5070"/><rect x="7" y="4" width="9" height="6" fill="#fff"/><rect x="7" y="13" width="10" height="7" rx="1" fill="#8FF5E9"/></svg></div>
+    </div>
+    <div class="lines"><div style="width:62%"></div><div style="width:88%"></div><div style="width:75%"></div><div style="width:83%"></div><div style="width:40%"></div><div style="width:70%"></div></div>
+  </div>
+  <div class="mate" id="mate"></div>
+  <div class="cap bottom">Right here, mate.</div>
+<script src="mate-lib.js"></script>
+<script>document.getElementById('mate').innerHTML = mate({ eyes: 'happy', arm: 'point', mouth: 'grin', size: 470 });</script>
+</body></html>

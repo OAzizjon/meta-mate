@@ -1,0 +1,113 @@
+{
+ "provider": "openrouter",
+ "model": "meta-llama/llama-4-maverick",
+ "kind": "click",
+ "question": "Where do I switch the page to dark colors?",
+ "shot_frame": [
+  0,
+  0,
+  1280,
+  800
+ ],
+ "sent_size": [
+  960,
+  600
+ ],
+ "total_ms": 2431,
+ "request": {
+  "model": "meta-llama/llama-4-maverick",
+  "instructions": "You guide an older person on a Windows PC. You never act yourself: the person clicks. Answer with exactly one tag first: <point eNN> with an element id from the list, or <point X,Y> in screenshot pixels if the target has no id, or <point none> if it is not visible. Then one short, kind sentence saying what to click.",
+  "input": [
+   {
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "Where do I switch the page to dark colors?\n\nInteractive elements (id, type, name, [x, y, w, h] in screenshot pixels):\ne1 Hyperlink \"Main page\" [30,18,90,21]\ne2 Edit \"Search the encyclopedia\" [315,15,315,27]\ne3 Button \"Search\" [638,15,67,27]\ne6 Hyperlink \"Contents\" [30,165,105,20]\ne9 RadioButton \"Small\" [720,131,150,24]\ne10 RadioButton \"Standard\" [720,161,150,24]\ne11 RadioButton \"Large\" [720,191,150,24]\ne13 RadioButton \"Light\" [720,259,150,24]\ne14 RadioButton \"Dark\" [720,289,150,24]\ne0 Window \"Photosynthesis - Synthetic Encyclopedia\" [0,0,960,600]\ne4 Text \"Photosynthesis\" [30,68,525,36]\ne5 Text \"Photosynthesis is how green plants turn light into food.\" [30,120,570,23]\ne7 Text \"Appearance\" [720,68,195,22]\ne8 Text \"Text\" [720,105,195,18]\ne12 Text \"Color\" [720,233,195,18]"
+     },
+     {
+      "type": "input_image",
+      "image_path": "fixtures/uia/synthetic-text-size.png",
+      "sent_size": [
+       960,
+       600
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "response": {
+  "id": "gen-1792991284-CWEAwLL5HBuxlBd6cklA",
+  "object": "response",
+  "created_at": 1792991284,
+  "model": "meta-llama/llama-4-maverick",
+  "status": "completed",
+  "completed_at": 1792991286,
+  "output": [
+   {
+    "id": "msg_tmp_7xdg2nl13f",
+    "type": "message",
+    "role": "assistant",
+    "status": "completed",
+    "content": [
+     {
+      "type": "output_text",
+      "text": "<point e14> \nPlease click on \"Dark\" to switch to dark colors.",
+      "annotations": [],
+      "logprobs": []
+     }
+    ]
+   }
+  ],
+  "error": null,
+  "incomplete_details": null,
+  "tools": [],
+  "tool_choice": "auto",
+  "parallel_tool_calls": true,
+  "max_output_tokens": null,
+  "temperature": 1,
+  "top_p": 1,
+  "presence_penalty": 0,
+  "frequency_penalty": 0,
+  "top_logprobs": 0,
+  "max_tool_calls": null,
+  "metadata": {},
+  "background": false,
+  "previous_response_id": null,
+  "service_tier": "auto",
+  "truncation": "disabled",
+  "store": false,
+  "instructions": "You guide an older person on a Windows PC. You never act yourself: the person clicks. Answer with exactly one tag first: <point eNN> with an element id from the list, or <point X,Y> in screenshot pixels if the target has no id, or <point none> if it is not visible. Then one short, kind sentence saying what to click.",
+  "text": {
+   "format": {
+    "type": "text"
+   }
+  },
+  "reasoning": null,
+  "safety_identifier": null,
+  "prompt_cache_key": null,
+  "prompt_cache_options": null,
+  "usage": {
+   "input_tokens": 1391,
+   "input_tokens_details": {
+    "cached_tokens": 64
+   },
+   "output_tokens": 19,
+   "output_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "total_tokens": 1410,
+   "cost": 0.00026441,
+   "is_byok": false,
+   "cost_details": {
+    "upstream_inference_cost": 0.00026441,
+    "upstream_inference_input_cost": 0.0002520125,
+    "upstream_inference_output_cost": 1.23975e-05
+   }
+  }
+ },
+ "hits": [
+  "HIT point at sent (795, 301) -> physical (1060, 401): e14 RadioButton \"Dark\" (interactive)"
+ ]
+}

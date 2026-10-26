@@ -1,0 +1,8 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+Say#1 "Hello." []
+Wait
+Say#2 "How are you?" []

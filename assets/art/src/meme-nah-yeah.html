@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- size: 1080x1080 -->
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; }
+  body { width: 1080px; height: 1080px; display: grid; grid-template-columns: 470px 610px; grid-template-rows: 540px 540px;
+         font-family: 'Segoe UI', Arial, sans-serif; color: #1F2A44; }
+  .pic { display: grid; place-items: center; }
+  .pic.no { background: #F2D7D2; } .pic.yes { background: #CDEDE7; }
+  .txt { background: #fff; display: flex; align-items: center; padding: 0 56px; font-size: 54px; font-weight: 700; line-height: 1.12; }
+  .txt small { display: block; font-size: 30px; font-weight: 500; opacity: .6; margin-top: 18px; }
+  .txt.no { border-bottom: 6px solid #1F2A44; } .pic.no { border-bottom: 6px solid #1F2A44; }
+  .pic { border-right: 6px solid #1F2A44; }
+  .mark { position: absolute; font-size: 64px; font-weight: 900; }
+</style></head>
+<body>
+  <div class="pic no" id="no"></div>
+  <div class="txt no"><div>An AI that clicks everything for you<small>while you just watch and learn nothing</small></div></div>
+  <div class="pic yes" id="yes"></div>
+  <div class="txt"><div>An AI that shows you where to click<small>so next time you can do it yourself</small></div></div>
+<script src="mate-lib.js"></script>
+<script>
+  document.getElementById('no').innerHTML = mate({ eyes: 'squint', arm: 'stop', mouth: 'flat', size: 400 });
+  document.getElementById('yes').innerHTML = mate({ eyes: 'happy', arm: 'point', mouth: 'grin', size: 400 });
+</script>
+</body></html>

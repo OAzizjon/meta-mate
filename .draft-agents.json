@@ -1,0 +1,9 @@
+{
+  "_comment": "How drafting agents with a shell (Codex, oss) run this project's checks in their sandboxed copy: no secrets, no network. See ~/.claude/skills/draft-agents.",
+  "tests": {
+    "python": "C:/Users/Acer Swift/AppData/Local/Programs/Python/Python314/python.exe",
+    "command": "tools/mm.py agent test",
+    "env": {},
+    "hint": "Agents run only the restricted command set: `tools/mm.py agent test` (unit tests of tools/ and, once they exist, cargo tests) and `tools/mm.py agent check` (offline checks). Until tools/mm.py exists, run `-m unittest discover -s tools/tests -v`. The final OK / FAILED line is what counts."
+  }
+}

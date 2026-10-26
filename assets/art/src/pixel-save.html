@@ -1,0 +1,63 @@
+<!doctype html>
+<!-- size: 1280x800 -->
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; background: #A8DADC; }
+  canvas { display: block; image-rendering: pixelated; }
+</style></head>
+<body><canvas id="c"></canvas>
+<script src="mate-lib.js"></script>
+<script>
+  // 160 x 100 art pixels, 8 screen pixels each: a retro desktop where Mate shines his light on SAVE.
+  const px = pixelCanvas('c', 160, 100, 8);
+  const INKC = '#1F2A44';
+  px.rect(0, 0, 160, 100, '#A8DADC');
+  [[150, 50], [20, 90], [140, 88], [118, 46]].forEach(([x, y]) => px.dot(x, y, '#CBEAEB'));
+
+  // taskbar
+  px.rect(0, 91, 160, 9, INKC);
+  px.rect(2, 92, 16, 7, '#2E8B80');
+  px.text('GO', 5, 92, '#F4EEE2');
+  px.rect(140, 94, 17, 3, '#5B6E8C');
+
+  // window frame, title bar, toolbar and page
+  px.rect(3, 4, 113, 82, INKC);
+  px.rect(4, 5, 111, 12, '#2E5070');
+  px.text('MY LETTER', 8, 7, '#F4EEE2');
+  [[96, '#FFC94A'], [102, '#7FD3C8'], [108, '#FFB3A7']].forEach(([x, c]) => px.rect(x, 9, 4, 4, c));
+  px.rect(4, 17, 111, 16, '#E9E4DA');
+  px.rect(4, 33, 111, 52, '#FFFFFF');
+
+  // Mate's beam: from his flashlight to the SAVE button (drawn under the buttons and text)
+  const mx = 128, my = 50;
+  px.tri(mx - 5, my + 12, 81, 15, 36, 36, 'rgba(255,226,140,0.5)');
+  px.tri(mx - 5, my + 12, 76, 18, 41, 33, 'rgba(255,214,102,0.4)');
+
+  const buttons = [['OPEN', 8], ['SAVE', 43], ['PRINT', 77]];
+  buttons.forEach(([label, x]) => {
+    const w = px.textWidth(label) + 6;
+    if (label === 'SAVE') {
+      px.rect(x - 4, 18, w + 8, 14, '#FFE9A8');
+      px.rect(x - 2, 19, w + 4, 12, '#FFC94A');
+    }
+    px.rect(x - 1, 20, w + 2, 10, INKC);
+    px.rect(x, 21, w, 8, label === 'SAVE' ? '#FFF6D6' : '#FFFFFF');
+    px.text(label, x + 3, 21, INKC);
+  });
+  px.text('DEAR ANN,', 9, 38, INKC);
+  [[9, 50, 88], [9, 56, 96], [9, 62, 70], [9, 68, 92], [9, 74, 54], [9, 80, 30]]
+    .forEach(([x, y, w]) => px.rect(x, y, w, 2, '#C9D3DE'));
+
+  // Mate, mirrored to face the window, with his flashlight on the left
+  px.grid(mateGrid('happy'), mx, my, true);
+  armCells(3).forEach(([x, y, ch]) => px.dot(mx + 23 - x, my + y, PAL[ch]));
+
+  // speech bubble
+  px.rect(118, 3, 41, 34, INKC);
+  px.rect(119, 4, 39, 32, '#FFFFFF');
+  px.text('RIGHT', 124, 7, INKC);
+  px.text('HERE,', 124, 16, INKC);
+  px.text('MATE!', 124, 25, '#2E8B80');
+  px.rect(138, 37, 5, 2, INKC); px.rect(139, 36, 3, 2, '#FFFFFF');
+  px.rect(139, 39, 3, 2, INKC); px.rect(140, 41, 1, 3, INKC);
+</script>
+</body></html>

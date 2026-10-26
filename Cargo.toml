@@ -1,0 +1,22 @@
+[workspace]
+resolver = "3"
+members = ["crates/mm-core", "crates/mm-platform"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[workspace.dependencies]
+mm-core = { path = "crates/mm-core" }
+# Versions from `cargo add` (docs/setup-windows.md), never from memory.
+insta = "1.49.0"
+proptest = "1.12.0"
+
+[profile.dev]
+debug = "line-tables-only"
+
+# Image and audio code is too slow unoptimized; our own crates stay fast to rebuild.
+[profile.dev.package."*"]
+opt-level = 2

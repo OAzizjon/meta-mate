@@ -1,0 +1,36 @@
+# MetaMate: names of the environment variables (values live only in the local secrets file, never in git or in prompts).
+# The desktop app never holds provider keys: it talks to the MetaMate proxy. Only the proxy and dev tools read these.
+
+# Meta Model API (Muse Spark, Muse Wonder, Muse Image, SAM 3.1, Muse Voice Transcribe)
+META_API_KEY
+# The same key under the name the owner used locally (tools/mm_probe.py reads either)
+META_KEY
+# Optional, the API base URL (confirm at kickoff)
+META_API_BASE
+
+# Modal: MMS-TTS service (Meta open weights)
+MODAL_TOKEN_ID
+MODAL_TOKEN_SECRET
+# URL of the deployed TTS endpoint and the shared secret the proxy sends to it
+MMS_TTS_URL
+MMS_TTS_SECRET
+
+# MetaMate proxy (server side)
+PROXY_PUBLIC_URL
+# Admin token for invite codes and quotas
+PROXY_ADMIN_TOKEN
+# Daily spend cap in USD for all invite codes together
+PROXY_DAILY_BUDGET_USD
+
+# Fallbacks only (development, outages); the demo runs on Meta models
+OPENROUTER_KEY
+GROQ_KEY
+CHATGPT_KEY
+
+# Optional: web search for the agent
+TAVILY_API_KEY
+
+# Tooling (tools/mm.py): 1 = restricted agent mode
+MM_AGENT
+# Drafting team only (never the app or the proxy): DeepSeek API for occasional creative second opinions
+DEEP_SEEK

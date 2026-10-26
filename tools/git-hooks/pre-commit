@@ -1,0 +1,42 @@
+#!/bin/bash
+# Refuses a commit that would publish secrets or local data (same rules as `mm check`'s secrets check).
+# Enabled per clone with: git config core.hooksPath tools/git-hooks
+# (a deliberate exception can still go through with git commit --no-verify).
+
+blocked=0
+git rev-parse --git-dir >/dev/null 2>&1 || exit 1
+
+# 1. Files that must never be committed, even if .gitignore is bypassed with -f.
+while IFS= read -r -d '' path; do
+	name=${path##*/}
+	name=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]')
+	case "$name" in
+		*.example) ;;
+		.env|.env.*|*.env|*.sqlite3|*.sqlite3-*|*.pem|*.key|id_rsa*|id_ed25519*)
+			echo 'pre-commit: refusing secrets or local data.' >&2
+			blocked=1 ;;
+	esac
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+# 2. Added lines that look like real credentials.
+pattern='(sk-(or-v1-)?[A-Za-z0-9_-]{16,}|AIza[0-9A-Za-z_-]{20,}|gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{16,}|gsk_[A-Za-z0-9_-]{16,}|xox[bap]-[A-Za-z0-9-]{10,}|[0-9]{5,}:AA[A-Za-z0-9_-]{20,}|BEGIN [A-Z0-9 ]*PRIVATE KEY)'
+pattern="$pattern|([A-Z][A-Z0-9_]*_(SECRET|TOKEN)|META_API_KEY)[[:space:]\"']*[:=][[:space:]\"']*[A-Za-z0-9_./+=-]{32,}"
+if git diff --cached -U0 --output-indicator-new='>' --no-color --no-ext-diff --no-textconv --diff-filter=ACMR | grep -E '^>' | grep -E "$pattern" >/dev/null; then
+	echo 'pre-commit: added content looks like credentials (values hidden).' >&2
+	blocked=1
+fi
+
+# 3. Fixtures and screenshots can contain private windows: make the author look at them.
+fixtures=$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR -- fixtures/ | grep -Ei '\.(png|json)$')
+if [ -n "$fixtures" ] && [ "${MM_FIXTURES_REVIEWED:-}" != "1" ]; then
+	echo "pre-commit: new fixtures need a privacy look first (titles, names, faces):" >&2
+	echo "$fixtures" | sed 's/^/  /' >&2
+	echo "Checked them? Commit again with MM_FIXTURES_REVIEWED=1." >&2
+	blocked=1
+fi
+
+if [ "$blocked" -ne 0 ]; then
+	echo "pre-commit: commit aborted. Keep secrets in environment variables (see env_keys_names.txt)." >&2
+	exit 1
+fi
+exit 0

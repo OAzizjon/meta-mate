@@ -1,0 +1,8 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+Amb { name: Some("rain"), level: Soft }
+Amb { name: Some("forest"), level: Soft }
+Say#1 "Birds sing." []

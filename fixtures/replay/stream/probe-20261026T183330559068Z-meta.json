@@ -1,0 +1,78 @@
+{
+ "provider": "meta",
+ "model": "muse-spark-1.1",
+ "kind": "stream",
+ "question": "My grandson says I should make the text bigger on my computer. How do I do that on Windows 11? Two short sentences.",
+ "first_token_ms": 7492,
+ "total_ms": 7952,
+ "text": "Press Windows + I to open Settings, then go to Accessibility > Text size. Move the slider to make the text bigger, then click Apply.",
+ "event_types": [
+  "response.completed",
+  "response.content_part.added",
+  "response.content_part.done",
+  "response.created",
+  "response.in_progress",
+  "response.output_item.added",
+  "response.output_item.done",
+  "response.output_text.delta",
+  "response.output_text.done"
+ ],
+ "response": {
+  "background": false,
+  "completed_at": 1793039608.0,
+  "created_at": 1793039602.0,
+  "error": null,
+  "id": "resp_6adf9cf2a1a180b2e7014742",
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 2000,
+  "model": "muse-spark-1.1",
+  "object": "response",
+  "output": [
+   {
+    "id": "rs_6adf9cf2a1a180b2e7014742:rs_01a1797d145d7159a5be36aa917549e9",
+    "status": "completed",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [
+     {
+      "annotations": [],
+      "logprobs": [],
+      "text": "Press Windows + I to open Settings, then go to Accessibility > Text size. Move the slider to make the text bigger, then click Apply.",
+      "type": "output_text"
+     }
+    ],
+    "id": "msg_01a1797d2b7e711d836493805004432b",
+    "role": "assistant",
+    "status": "completed",
+    "type": "message"
+   }
+  ],
+  "parallel_tool_calls": true,
+  "reasoning": {
+   "effort": "high"
+  },
+  "service_tier": "auto",
+  "status": "completed",
+  "store": true,
+  "temperature": 1.0,
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+   "input_tokens": 36,
+   "input_tokens_details": {
+    "cached_tokens": 0
+   },
+   "output_tokens": 1160,
+   "output_tokens_details": {
+    "reasoning_tokens": 1122
+   },
+   "total_tokens": 1196
+  }
+ }
+}

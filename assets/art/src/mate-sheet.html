@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- size: 1600x900 -->
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; }
+  body { width: 1600px; height: 900px; background: #FBF7EF; font-family: 'Segoe UI', Arial, sans-serif; color: #1F2A44; }
+  h1 { margin: 0; padding: 56px 72px 0; font-size: 72px; font-weight: 800; letter-spacing: -1px; }
+  h1 span { color: #2E8B80; }
+  p.sub { margin: 8px 72px 0; font-size: 28px; opacity: .75; }
+  .row { display: flex; justify-content: space-around; align-items: flex-end; padding: 40px 40px 0; }
+  .pose { text-align: center; }
+  .pose b { display: block; margin-top: 10px; font-size: 30px; }
+  .pose i { display: block; font-style: normal; font-size: 22px; opacity: .65; }
+  .swatches { position: absolute; left: 72px; bottom: 44px; display: flex; gap: 14px; font-size: 18px; }
+  .swatches div { display: flex; align-items: center; gap: 8px; }
+  .swatches span { width: 26px; height: 26px; border-radius: 6px; border: 3px solid #1F2A44; display: inline-block; }
+</style></head>
+<body>
+  <h1>Meet <span>Mate</span></h1>
+  <p class="sub">Your screen buddy. He shines a light on the right button, so you can click it yourself.</p>
+  <div class="row" id="row"></div>
+  <div class="swatches">
+    <div><span style="background:#FFEFAE"></span>glass #FFEFAE</div>
+    <div><span style="background:#FFD866"></span>warm edge #FFD866</div>
+    <div><span style="background:#2E5070"></span>base #2E5070</div>
+    <div><span style="background:#8FF5E9"></span>status light #8FF5E9</div>
+    <div><span style="background:#FFB3A7"></span>cheeks #FFB3A7</div>
+    <div><span style="background:#1F2A44"></span>ink #1F2A44</div>
+  </div>
+<script src="mate-lib.js"></script>
+<script>
+  const poses = [
+    [{ eyes: 'open', arm: 'none' }, 'idle', 'waiting nearby'],
+    [{ eyes: 'wide', arm: 'none', glow: true }, 'listening', 'glows brighter'],
+    [{ eyes: 'open', arm: 'point' }, 'pointing', 'his beam is the highlight'],
+    [{ eyes: 'happy', arm: 'none', mouth: 'grin' }, 'proud of you', 'after a right click'],
+  ];
+  document.getElementById('row').innerHTML = poses.map(([o, name, note]) =>
+    `<div class="pose">${mate({ ...o, size: 330 })}<b>${name}</b><i>${note}</i></div>`).join('');
+</script>
+</body></html>

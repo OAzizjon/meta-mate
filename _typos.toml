@@ -1,0 +1,14 @@
+# typos (run by `mm check`): words that are correct here.
+[files]
+# Recorded API responses (`mm probe`): opaque ids and receipts, not our text.
+extend-exclude = ["fixtures/replay/**/*.json"]
+
+[default.extend-words]
+# "ba-dum-tss", the rimshot sound in docs/sounds.md
+ba = "ba"
+dum = "dum"
+# "contraseña" (Spanish: password), split by the escape in tools/uia_dump.ps1
+contrase = "contrase"
+# Deliberately broken MateScript inputs in crates/mm-core/tests/matescript.rs
+hapy = "hapy"
+hel = "hel"

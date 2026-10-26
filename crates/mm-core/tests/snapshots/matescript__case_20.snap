@@ -1,0 +1,7 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+Pause(3000)
+Say#1 "Ready." []

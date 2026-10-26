@@ -1,0 +1,6 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+Say#1 "\"Done!\" she said." []

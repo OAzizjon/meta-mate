@@ -1,0 +1,7 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("ja")
+Say#1 "こんにちは。" []
+Say#2 "元気ですか？" []

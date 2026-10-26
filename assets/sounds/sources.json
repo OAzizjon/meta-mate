@@ -1,0 +1,198 @@
+[
+  {
+    "name": "forest",
+    "kind": "amb",
+    "query": "forest ambience",
+    "max_seconds": 60,
+    "file": "File:20090610 0 ambience.ogg"
+  },
+  {
+    "name": "rain",
+    "kind": "amb",
+    "query": "rain",
+    "max_seconds": 60,
+    "file": "File:Rain (1).ogg"
+  },
+  {
+    "name": "sea",
+    "kind": "amb",
+    "query": "sea waves",
+    "max_seconds": 60,
+    "file": null
+  },
+  {
+    "name": "fire",
+    "kind": "amb",
+    "query": "fire crackling",
+    "max_seconds": 60,
+    "file": null
+  },
+  {
+    "name": "night",
+    "kind": "amb",
+    "query": "crickets",
+    "max_seconds": 60,
+    "file": null
+  },
+  {
+    "name": "park",
+    "kind": "amb",
+    "query": "birds park",
+    "max_seconds": 60,
+    "file": null
+  },
+  {
+    "name": "birds",
+    "kind": "sfx",
+    "query": "birdsong",
+    "max_seconds": 8,
+    "file": "File:White-crowned Sparrow Denali National Park.ogg"
+  },
+  {
+    "name": "thunder",
+    "kind": "sfx",
+    "query": "thunder",
+    "max_seconds": 8,
+    "file": "File:Thunder and rain on a v.ogg"
+  },
+  {
+    "name": "rooster",
+    "kind": "sfx",
+    "query": "rooster crow",
+    "max_seconds": 8,
+    "file": "File:Small rooster crowing.ogg"
+  },
+  {
+    "name": "cat",
+    "kind": "sfx",
+    "query": "cat meow",
+    "max_seconds": 8,
+    "file": "File:Maullido de gata hembra joven.ogg"
+  },
+  {
+    "name": "dog",
+    "kind": "sfx",
+    "query": "dog bark",
+    "max_seconds": 8,
+    "file": null
+  },
+  {
+    "name": "owl",
+    "kind": "sfx",
+    "query": "owl hoot",
+    "max_seconds": 8,
+    "file": null
+  },
+  {
+    "name": "knock",
+    "kind": "sfx",
+    "query": "door knock",
+    "max_seconds": 8,
+    "file": "File:Knock on door.wav"
+  },
+  {
+    "name": "clock",
+    "kind": "sfx",
+    "query": "clock ticking",
+    "max_seconds": 8,
+    "file": "File:Clock ticking.ogg"
+  },
+  {
+    "name": "bell",
+    "kind": "sfx",
+    "query": "bell",
+    "max_seconds": 8,
+    "file": "File:Zajeci zvony kostel 2025.ogg"
+  },
+  {
+    "name": "applause",
+    "kind": "sfx",
+    "query": "applause",
+    "max_seconds": 8,
+    "file": "File:277021 sandermotions applause-2.wav"
+  },
+  {
+    "name": "rimshot",
+    "kind": "sfx",
+    "query": "rimshot",
+    "max_seconds": 8,
+    "file": null
+  },
+  {
+    "name": "drumroll",
+    "kind": "sfx",
+    "query": "drum roll",
+    "max_seconds": 8,
+    "file": "File:Drum Roll Intro.ogg"
+  },
+  {
+    "name": "splash",
+    "kind": "sfx",
+    "query": "water splash",
+    "max_seconds": 8,
+    "file": "File:Bathtub water splashes.ogg"
+  },
+  {
+    "name": "wind",
+    "kind": "sfx",
+    "query": "wind gust",
+    "max_seconds": 8,
+    "file": null
+  },
+  {
+    "name": "footsteps",
+    "kind": "sfx",
+    "query": "footsteps",
+    "max_seconds": 8,
+    "file": null
+  },
+  {
+    "name": "door",
+    "kind": "sfx",
+    "query": "door creak",
+    "max_seconds": 8,
+    "file": "File:Door handle creaking.ogg"
+  },
+  {
+    "name": "train",
+    "kind": "sfx",
+    "query": "train whistle",
+    "max_seconds": 8,
+    "file": "File:Parovoz sound.ogg"
+  },
+  {
+    "name": "heart",
+    "kind": "sfx",
+    "query": "heartbeat",
+    "max_seconds": 8,
+    "file": "File:Human heart rate.flac"
+  },
+  {
+    "name": "boing",
+    "kind": "sfx",
+    "query": "boing",
+    "max_seconds": 8,
+    "file": null
+  },
+  {
+    "name": "tada",
+    "kind": "sfx",
+    "query": "fanfare short",
+    "max_seconds": 5,
+    "file": null
+  },
+  {
+    "name": "magic",
+    "kind": "sfx",
+    "query": "chimes",
+    "max_seconds": 5,
+    "file": null
+  },
+  {
+    "name": "sad",
+    "kind": "sfx",
+    "query": "trombone",
+    "max_seconds": 8,
+    "file": null
+  }
+]

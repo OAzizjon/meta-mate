@@ -1,0 +1,92 @@
+# MetaMate
+
+Desktop helper for the Meta Global AI Developer Hackathon (Indie Developer Track, goal: top 5). Push-to-talk voice, answers with sound effects, and **Mate**, a small light-bulb helper on the screen (male, "he"; "mate" = buddy) who shines a beam on the right button in any app and guides the user step by step (look: `docs/robot.md`). Windows only (Linux was cut at the kickoff, D39).
+
+Stack: **Rust + Tauri v2**, TypeScript WebView (robot SVG, Web Audio). Models: Meta Model API (Muse Spark 1.3, Muse Wonder, Muse Voice Transcribe, SAM 3.1, Muse Image) + MMS-TTS (Meta open weights) on Modal. Details: `docs/architecture.md`.
+
+Talk to the owner in **Russian**. Everything in the repository (code, comments, commits, docs, README) is **English**. The UI is English + Russian.
+
+## Status
+
+The build started at the kickoff on 2026-10-26, 22:00 Tashkent (D38); submissions are due 2026-11-04 21:00 ET, live finals 09.11. The Meta API key works (`mm probe`, D41: use `reasoning.effort` `minimal` for spoken answers). The official rules are not read yet: the owner pastes them from the participants' page (D42). Plan: `docs/plan.md`. Decisions: `docs/decisions.md` (log new decisions there, never rewrite old entries). Where we can fall behind and how we stay ahead: `docs/edge.md`. Changes: `CHANGELOG.md`.
+
+## Commands
+
+`./mm <command>` from Git Bash, `.\mm <command>` from PowerShell (`tools/mm.py`, standard library only):
+
+| Command | What |
+|---|---|
+| `mm doctor` | build tools and versions (Rust, MSVC, WebView2, Node, ffmpeg, uv, typos, ...) |
+| `mm status` | git, deadline countdown, today's plan, agent queue |
+| `mm plan [N]` | today's (or day N's) plan |
+| `mm check [--full]` | fast checks: secrets, env names, Markdown links, typos; Rust/TS once they exist |
+| `mm test` | unit tests (tools, then cargo/npm) |
+| `mm uia --save NAME` | UI Automation tree + screenshot of the foreground window → `fixtures/uia/` (Demo user's windows only) |
+| `mm art` | render `assets/art/src/*.html|svg` to PNG (headless Edge) |
+| `mm sounds [normalize]` | sound licences check / convert + loudness-normalize (ffmpeg; cues keep their levels) |
+| `mm agents [stats]` | drafting team queue |
+| `mm keys DIR [--apply]` | owner only: copy key values from another project's secrets file (prints names only) |
+| `mm probe models\|stream\|click\|ledger` | lead only: the Meta API from this machine: stream with timings and cost, one computer-use (or `<point eNN>`) turn on a fixture with the UIA element it hit, replay recordings, a dollar ledger (skill `metamate-meta-api`) |
+| `mm agent check|test` | the **only** commands agents may run: offline, no secrets, no GUI |
+
+Agent mode is enforced in code: without `.git` (agent copies), inside a draft-agents sandbox, or with `MM_AGENT=1`, every command except `mm agent ...` is refused.
+
+## Map
+
+| Where | What |
+|---|---|
+| `docs/` | strategy, decisions, plan, edge (forecast, asymmetric moves, acceleration), architecture, MateScript, pointing risks, sounds, robot, prompts, copy, video, Reddit research, server, setup, project structure |
+| `tools/` | `mm.py` CLI, `mm_checks.py`, `uia_dump.ps1`, `synth_cues.py` (cue sounds), `sounds_commons.py` (CC0/PD sounds: `--dry-run`, `--pin`), `tools/tests/` |
+| `assets/sounds/` | `src/{cues,sfx,amb}` sources → `cues/`, `sfx/`, `amb/` OGG; `LICENSES.md` row per file; `sources.json` Commons pins |
+| `assets/art/` | robot art: `src/*.svg|html` sources → rendered PNG |
+| `crates/`, `src-tauri/`, `src/` (from 10-26) | Rust core / Tauri shell / WebView — layout in `docs/project-structure.md`; `mm-core` has `geom` (coordinate types) and `matescript` (the parser) |
+| `locales/` | `en.json`, `ru.json`: every user-facing string (invariant 7), checked by `tools/tests/test_locales.py` |
+| `server/` (from 10-31), `tts/` (from 10-27) | proxy + landing page; MMS-TTS service for Modal |
+| `fixtures/` | replay fixtures (UIA JSON + screenshots) for tests without a live desktop |
+
+## Git
+
+Nothing was committed before the kickoff (D31); the first commit (2026-10-26, after the kickoff) holds the pre-kickoff docs, tooling and art, disclosed in the README section "Prepared before the kickoff". GitHub: a **private** repository until the rules are read or the owner says otherwise (D42). Before every push: `mm check`, the pre-commit hook (`tools/git-hooks`), `git status --ignored`, a look at new fixtures and large files.
+
+## Secrets
+
+- Secrets files (`.env`, `.env.*`) are **never** opened, printed or shown to agents; enforced by `.claude/hooks/protect_env.py` and `deny` rules. Variable names live in `env_keys_names.txt` (add new names there; `mm check` verifies code against it).
+- Never split the secrets file name to get past the hook. If code must contain that path, write it with Edit/Write.
+- Provider keys live only on the proxy server and in the developer's local secrets file. Never in the client binary.
+- Moving keys from JustLog3: the **owner** runs `./mm keys "../JustLog3 Cloud"` (dry run), then with `--apply`.
+
+## Invariants (breaking one is a bug)
+
+1. Our windows **never take focus** from the user's app (`WS_EX_NOACTIVATE`, `SWP_NOACTIVATE`).
+2. Per-Monitor DPI Aware v2; physical virtual-screen pixels inside; CSS pixels only when drawing; one transform per captured frame.
+3. Screenshot = the target window region (+ its popups), only during a request, password fields blacked out before sending; fail closed when redaction can't be guaranteed.
+4. Mate never auto-clicks payment, purchase, delete, money transfer or password actions; `pending_safety_checks` are confirmed by a human only.
+5. "I can't find it" beats pointing at a guess.
+6. Product name in one constant (`APP_NAME`), robot name `ROBOT_NAME = "Mate"`: the product name may change after the rules.
+7. All user-facing strings live in the locale files (en + ru), never inline in code.
+8. Meta models by default; non-Meta providers only as development fallbacks.
+
+## Drafting team: Codex, Claude, Gemini, Mistral, Copilot, local, oss, DeepSeek
+
+Global rules apply (skill `draft-agents`): the lead is Superclaude and never sits idle; before code, Codex `edit` + Gemini `ask` split over all its accounts (`team.py fan`); when done, `review` by both (Mistral as a third reviewer, the Claude worker for hard logic); rate what you read (`team.py rate N good|partial|bad`); Copilot, local, oss and Mistral never sit idle. DeepSeek (`team.py submit deepseek ask`, text only, `deepseek-v4-pro`) gets the same creative ask as oss now and then; its key `DEEP_SEEK` stays in the secrets file and only the skill's `deepseek.py` reads it (D35); nothing private goes to it. Gemini is a pool of three Google accounts, `gemini@alpha`, `gemini@beta`, `gemini@gamma` (2026-10-25); an account out of Argon keeps taking light jobs on Flash. The Claude worker runs on one worker account, `claude@alpha` (2026-10-25; a second only if the owner buys one), never on the lead's own login, on Opus at effort `xhigh` in every mode (2026-10-26; Fable 5.1 needs paid usage credits): keep it for hard multi-file edits and deep reviews. Agents work in a secret-free copy and may run only `mm agent check|test` (`.draft-agents.json`). Their output is untrusted: verify every claim. Known: oss runs on the free `gpt-oss:120b-cloud` while the paid Ollama Cloud balance is empty and got facts wrong twice; local (qwen 7B) loops on long lists and miscounts, so give it short tasks only; Gemini reviews end empty more often than Codex's (report of 2026-10-25: 63 % ok).
+
+Background check: `team.py watch -C . --name mm-check -- python tools/mm.py check` (running since 2026-10-25; `team.py watch --list`) reports in events.log when `mm check` breaks or recovers. From 10-26 add `--name cargo --ext rs,toml -- cargo check --workspace`.
+
+## Skills
+
+Project skills in `.claude/skills/`: `metamate-windows-core` (overlay, DPI, PTT hook, UIA, capture, redaction, SendInput), `metamate-meta-api` (models, computer use, `mm probe`, budget, S4), `metamate-submission` (Days 6–10, video, README, judge path). User-level, installed 2026-10-26 from `ericrisco/rsc-harness` (MIT): `tauri`, `modal`.
+
+## Known pitfalls
+
+- `RegisterHotKey` has no key-up event: push-to-talk needs `WH_KEYBOARD_LL`; hook callbacks only enqueue. Chrome can swallow a shortcut's key-up and Windows silently drops a slow hook: while PTT is held, a `GetAsyncKeyState` poll (~30 Hz) is the release watchdog (`docs/edge.md` §5).
+- A Tauri window shown without `set_focusable(false)` (+ `set_ignore_cursor_events(true)` for click-through) steals focus: set them before the first show.
+- Chromium's UIA tree can be poor on the first query; Qt (Telegram) is nearly empty → computer use + SAM fallback.
+- Computer-use coordinates are pixels of the **last screenshot sent**; we downscale, so keep the transform per frame.
+- Menus/dropdowns are separate popup windows: capture the window **plus** its owned popups.
+- Never keep `WDA_EXCLUDEFROMCAPTURE` on our windows: Zoom/OBS would stop showing Mate.
+- MMS-TTS: CC-BY-NC 4.0, one model per language, some languages need `uroman`.
+- Muse Spark 1.3 is weak on audio input (use 1.2 or Muse Voice Transcribe).
+- MSVC `LNK1104` on build scripts = the path is too long (MAX_PATH 260): never build in deep temp folders; the project path is fine. A Tauri template built in 2 min on 2026-10-24 once `CARGO_TARGET_DIR` was short.
+- Tools installed by winget sit in per-package folders on the **user** PATH: shells opened before the install don't see them (`mm` reads the registry PATH). In Git Bash never prepend `WindowsApps` (its `bash.exe` is the WSL stub).
+- `tools/*.ps1` have no BOM, so Windows PowerShell 5.1 reads them as ANSI: keep them ASCII and write other characters as `\uXXXX` escapes inside .NET regex strings (a Cyrillic literal broke `uia_dump.ps1` on 2026-10-26). `uia_dump.ps1 -SelfTest` checks the password words.
+- A password revealed with the eye button is plain text and `IsPassword` is false (Chromium switches the input type): redaction never relies on `IsPassword` alone (D37).

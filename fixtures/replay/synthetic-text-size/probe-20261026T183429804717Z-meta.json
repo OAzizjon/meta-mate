@@ -1,0 +1,135 @@
+{
+ "provider": "meta",
+ "model": "muse-spark-1.3",
+ "kind": "click",
+ "question": "How do I make the text bigger?",
+ "shot_frame": [
+  0,
+  0,
+  1280,
+  800
+ ],
+ "sent_size": [
+  1280,
+  800
+ ],
+ "total_ms": 6880,
+ "request": {
+  "model": "muse-spark-1.3",
+  "instructions": "You guide an older person on a Windows PC. You never act yourself: the person clicks. Return exactly one computer action: a click on the element that answers the request. If that element is not visible in the screenshot, say so in one sentence and do not click.",
+  "input": [
+   {
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "How do I make the text bigger?\n\nInteractive elements (id, type, name, [x, y, w, h] in screenshot pixels):\ne1 Hyperlink \"Main page\" [40,24,120,28]\ne2 Edit \"Search the encyclopedia\" [420,20,420,36]\ne3 Button \"Search\" [850,20,90,36]\ne6 Hyperlink \"Contents\" [40,220,140,26]\ne9 RadioButton \"Small\" [960,175,200,32]\ne10 RadioButton \"Standard\" [960,215,200,32]\ne11 RadioButton \"Large\" [960,255,200,32]\ne13 RadioButton \"Light\" [960,345,200,32]\ne14 RadioButton \"Dark\" [960,385,200,32]\ne0 Window \"Photosynthesis - Synthetic Encyclopedia\" [0,0,1280,800]\ne4 Text \"Photosynthesis\" [40,90,700,48]\ne5 Text \"Photosynthesis is how green plants turn light into food.\" [40,160,760,30]\ne7 Text \"Appearance\" [960,90,260,30]\ne8 Text \"Text\" [960,140,260,24]\ne12 Text \"Color\" [960,310,260,24]"
+     },
+     {
+      "type": "input_image",
+      "image_path": "fixtures/uia/synthetic-text-size.png",
+      "sent_size": [
+       1280,
+       800
+      ]
+     }
+    ]
+   }
+  ],
+  "tools": [
+   {
+    "type": "computer"
+   }
+  ],
+  "reasoning": {
+   "effort": "low"
+  }
+ },
+ "response": {
+  "background": false,
+  "completed_at": 1793039668.0,
+  "created_at": 1793039664.0,
+  "error": null,
+  "id": "resp_6adf9d301738a1d876924b87",
+  "incomplete_details": null,
+  "instructions": "You guide an older person on a Windows PC. You never act yourself: the person clicks. Return exactly one computer action: a click on the element that answers the request. If that element is not visible in the screenshot, say so in one sentence and do not click.",
+  "model": "muse-spark-1.3",
+  "object": "response",
+  "output": [
+   {
+    "id": "rs_6adf9d301738a1d876924b87:rs_69733e7b-4d30-417c-bb17-a15092f7d301",
+    "status": "completed",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [
+     {
+      "annotations": [],
+      "logprobs": [],
+      "text": "Making the text bigger is just one click — I'll highlight the Large option.",
+      "type": "output_text"
+     }
+    ],
+    "id": "rs_b38a6d59-f939-4302-853c-b1c25c09938d",
+    "phase": "commentary",
+    "role": "assistant",
+    "status": "completed",
+    "type": "message"
+   },
+   {
+    "actions": [
+     {
+      "button": "left",
+      "type": "click",
+      "x": 1059,
+      "y": 271
+     }
+    ],
+    "call_id": "call_7843efcd-f263-420b-94fc-518063a4d1e5",
+    "id": "cc_7843efcd-f263-420b-94fc-518063a4d1e5",
+    "meta_safety_replay_receipt": "cu_sr_Q_DoFwGkYExoi2MHmVFgEFQJwhqImguSlrcybN47dKsfn2umYx985viq58hX1Pm0W2bUhQW4BKgnDz-dasTVnBP4E3zM-eiA7QhtxiGg0W54l3TH5p-xzi2lzHDynPpuZSq_gJL19FqXI16UcnmhvAX-azK6X_KS5R10Oy3mM3aZegc10uO0AYpvpFypWDDK2F7BLmzXdm5l2Ot040Qbgj3WcrRbFV-inm27B83smjWvXKa21M0A5d8-0VRQCbZcGc7RKdMlWQb2x9GG4dk1-IQ9JVHkvHh8CjQ5u2wpMWObcOW7Ho9uGpwGG4YFNLjEHDHkollVBymtIJwmX8vZB31GSgEBW4fatdfRDsCtsA7p0YO1AXYe-uqT6J3e_5mOyobXKA62RB1mp8nJ953MkB1oE0kbpHZPZn7o-2dofYIu5DXLyH3dKPrdDfDA-nC0oCNkZcVD59YErmQT8Fh1MJ-E8IJHbTjliKZB2qcffK-0ltd0Df-HzQNDYtTVT9ihxN-WrL4E_Y9Fl3AEM7eSUYLjE2-CLWi1ZzHX3ucPrmQ",
+    "pending_safety_checks": [
+     {
+      "code": "computer_action_requires_confirmation",
+      "id": "cu_sc_Q_DoFwEF-0hW5V7ZY6wvCJVSFZFX6-CEahl2mc0uqCua-lTIzPUbLxaymXeet3tAcbSQcynP6T85ML6CkDHaYoKdEnZT0rEDGv3fWQGpxJKGuv5fILt9FO3oK0RfSa0LcXTndWPZrw1HxUpTKyum3_PBjILaQ9mHWugGXP1BmKlHq1bMZNMdP4G3ZginckJbGmJ214OfC5eysdjtSpVSj-gk_mkXoN4fIuHxlGjw9SAZASO00ATu5epVKlhkkTpRmMqm20fIAXnOv7j1Pg_3_Za96DAT9wZjPwdRmYBfe4W3j0kI3eLF1fLXOlwUfAVzeYTuvlbfU59W1Wmmbwk5dGnNjFXuwDf6DFor7RseampUWRrMgywVsqggabgCctyTrOV2jML1_YB00LimGlt_v8QdxZCVFmMH4Z12W01yvChNHzsFkKnsiqrpDTcoMgX7Ogcb_J8ESHVqZPf2wO17NJTDHu_Jao5DknPqVpvVAu-7tlQYshPb1vfOnCDhAiXQIWKnWztpK2vtZNmNef05obitVdhh9FE9hRPwGnD4H0ZV1kPkvBcZ7lA",
+      "message": "Review and confirm before executing this computer action."
+     }
+    ],
+    "status": "completed",
+    "type": "computer_call"
+   }
+  ],
+  "parallel_tool_calls": true,
+  "reasoning": {
+   "effort": "low"
+  },
+  "service_tier": "auto",
+  "status": "completed",
+  "store": true,
+  "temperature": 1.0,
+  "tool_choice": "auto",
+  "tools": [
+   {
+    "type": "computer"
+   }
+  ],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+   "input_tokens": 3702,
+   "input_tokens_details": {
+    "cached_tokens": 0
+   },
+   "output_tokens": 570,
+   "output_tokens_details": {
+    "reasoning_tokens": 481
+   },
+   "total_tokens": 4272
+  }
+ },
+ "hits": [
+  "HIT click at sent (1059, 271) -> physical (1059, 271): e11 RadioButton \"Large\" (interactive)"
+ ]
+}

@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- size: 1800x860 -->
+<html><head><meta charset="utf-8"><style>
+  html, body { margin: 0; }
+  body { width: 1800px; height: 860px; background: #FBF7EF; font-family: 'Segoe UI', Arial, sans-serif; color: #1F2A44; position: relative; }
+  h1 { margin: 0; padding: 40px 60px 0; font-size: 60px; font-weight: 800; letter-spacing: -1px; }
+  h1 span { color: #2E8B80; }
+  p.sub { margin: 6px 60px 0; font-size: 24px; opacity: .7; }
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 28px 40px 0; }
+  .card { background: #fff; border: 4px solid #1F2A44; border-radius: 28px; padding: 16px 18px 20px; text-align: center; }
+  .card .tag { display: inline-block; background: #1F2A44; color: #fff; font-weight: 800; border-radius: 12px; padding: 2px 14px; font-size: 26px; }
+  .card h2 { margin: 8px 0 0; font-size: 34px; }
+  .card p { margin: 6px 6px 0; font-size: 19px; line-height: 1.3; opacity: .75; min-height: 50px; }
+  .poses { display: flex; justify-content: center; align-items: flex-end; gap: 6px; margin-top: 6px; }
+  .small { display: flex; justify-content: center; align-items: center; gap: 22px; margin-top: 10px; padding: 10px; border-radius: 16px;
+           background: repeating-linear-gradient(45deg, #E8EEF5 0 12px, #DDE5EF 12px 24px); }
+  .small span { font-size: 16px; opacity: .6; }
+  .current { position: absolute; right: 60px; top: 36px; display: flex; align-items: center; gap: 12px; font-size: 20px; opacity: .8; }
+</style></head>
+<body>
+  <h1>Who should <span>Mate</span> be?</h1>
+  <p class="sub">Four looks. Big: idle and pointing. Striped strip: how he reads at 64 px and 40 px on a busy screen.</p>
+  <div class="current"><div id="cur"></div><div>earlier look:<br><b>round orb</b></div></div>
+  <div class="grid" id="grid"></div>
+<script src="mate-lib.js"></script>
+<script src="avatars.js"></script>
+<script>
+  document.getElementById('cur').innerHTML = mateOrb({ eyes: 'open', arm: 'none', size: 90 });
+  document.getElementById('grid').innerHTML = AVATARS.map(([tag, name, fn, line]) => `
+    <div class="card">
+      <span class="tag">${tag}</span><h2>${name}</h2><p>${line}</p>
+      <div class="poses">${fn({ pose: 'idle', size: 210 })}${fn({ pose: 'point', size: 150 })}</div>
+      <div class="small">${fn({ pose: 'idle', size: 64 })}${fn({ pose: 'idle', size: 40 })}<span>64 / 40 px</span></div>
+    </div>`).join('');
+</script>
+</body></html>

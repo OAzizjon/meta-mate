@@ -1,0 +1,7 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+BadTag
+Say#1 "Hi." []

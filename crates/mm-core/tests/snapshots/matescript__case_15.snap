@@ -1,0 +1,6 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("ru")
+Say#1 "Это, т.е., пример." []

@@ -1,0 +1,102 @@
+# Decisions (log)
+
+Each decision records what we chose, why, and what we rejected. Add new entries at the bottom; don't rewrite old ones. If a decision changes, add a new entry linking to the old one.
+
+## 2026-10-24: decisions before the start (conversation with the owner)
+
+| # | Question | Decision | Why | Rejected |
+|---|---|---|---|---|
+| D1 | Language and stack | **Rust + Tauri v2**, frontend in TypeScript (robot: SVG/CSS, sound: Web Audio) | ~5–15 MB installer with no runtime; better animation (web); Rust for UIA/hooks/capture; easier to add Linux X11 later | C# WPF (Codex's advice: easier UIA and sound, but ~70+ MB and no Linux), Python (100+ MB, antivirus issues), Go+Wails (UIA through COM is painful), Electron (heavy) |
+| D2 | Custom language → C | **No compiler.** Build **MateScript**: a small streaming markup language written by the model (speech, sounds, emotions, directions), with its own grammar, parser, and tests | Latency comes from the network and models, not the CPU; a compiler would take 5–8 of our 10 days. MateScript gives us a "custom language" and visible technical depth in 1–2 days | A C compiler, raw JSON tool calls |
+| D3 | Main demo feature | **The pointing robot** (teaches the person); sounds are a secondary feature | What sets us apart from Copilot/Gemini: an embodied assistant that guides people step by step and checks their clicks | Putting sounds first |
+| D4 | Platforms | **Windows**; at the end, if 1–2 days remain, **Linux X11**: voice + robot, no pointer | A polished Windows demo matters more | Linux from the start |
+| D5 | Languages | **Automatic detection**: replies in the language of the question and finds buttons in any UI language | A strong point for the judges; Muse Voice Transcribe understands mixed speech | RU/EN only |
+| D6 | Video | The older adult in the video will probably speak **English**; possibly **recorded over Zoom** | — | — |
+| D7 | Demo scenarios | **Increase text size in Windows** + **video call / browser** | Windows Settings and Chrome/Edge have good UIA trees; these scenarios are reliable | Telegram (Qt, poor UIA)—only to show the SAM fallback if we have time; Word |
+| D8 | Speech recognition | **Muse Voice Transcribe** (Meta, real-time WebSocket, 25 languages, mixed speech, VAD) | "Maximum Meta" | Groq Whisper (kept as a development fallback) |
+| D9 | Speech synthesis | **Meta MMS-TTS** (open weights) **on Modal**; fallback: Windows voices (WinRT) | "Maximum Meta." A slightly mechanical voice suits a robot | OpenAI TTS, ElevenLabs |
+| D10 | Access for testers and judges | **Our own website with an installer + a proxy that keeps the keys on the server** (invite codes, limits). Server: **remove JustLog3 from the VPS and install MetaMate** (or buy a new server) | Keys must never be embedded in the executable | Users bring their own keys |
+| D11 | Screenshots | **Active window only, only when a question is asked, password fields masked** through UIA; ask permission for banking windows; show a "looking" indicator | Privacy; the judges will notice | Entire screen; ask every time |
+| D12 | Owner's time | **8+ hours a day** from 26.10 to 04.11 | The full plan, including SAM, step-by-step mode, and Linux at the end | — |
+| D13 | Name | Working name: **MetaMate**; wait for the rules (use of "Meta" in the name); keep alternatives ready; buy the domain after the rules; use a single constant for the name in code | Trademark risk | Buy the domain now |
+| D14 | Robot style | **Cute vector art**: concepts in Muse Image → animated SVG | Clear at any size, lightweight, and visibly uses Meta | Pixel art, 3D, hiring an artist |
+| D15 | Clicks | **Show + "do it for me"**: the model decides where to click (computer use), we intercept the click and show it; when asked to "do it for me," the robot clicks after confirmation. Never handle payments, deletions, or money transfers | We teach instead of doing things for people; Meta's computer use gives us this almost for free | Show only; full agent |
+
+## 2026-10-24: changes after Codex (#233) and Gemini (#234) review
+
+| # | Decision | Source |
+|---|---|---|
+| D16 | Don't suppress right Ctrl: use it for PTT only when held alone for 250 ms; another key pressed while it's held cancels PTT. Also add a "press — speak — pause" mode (recommended for older adults) | Codex 14, Gemini |
+| D17 | No pre-recording before the key is pressed (otherwise the microphone is always on); the `listen` sound means "speak" | Codex 9 |
+| D18 | Capture the window area **plus its pop-up menus**; hide the robot and highlights for one capture frame; don't keep `WDA_EXCLUDEFROMCAPTURE` enabled (otherwise Zoom/OBS won't show the robot) | Codex 7 |
+| D19 | Password masking is "fail closed": if it can't be guaranteed, ask first | Codex 2 |
+| D20 | Break a computer-use batch into substeps with completion rules; if the screen is unexpected, immediately send a new screenshot to the model | Codex 1 |
+| D21 | A step's spoken line should not go inside `computer_call` in MateScript; use the turn text (if the API provides it) or a fast parallel call + **pre-recorded audio phrases** | Gemini |
+| D22 | MateScript v0.2: precise segmentation, one ordered timeline, Unicode support in `<show>`, recovery rule | Codex 11–13 |
+| D23 | Plan v2: day 1 is only S1/S3/S4, with a 16:00 checkpoint; server and installer before the pilot; freeze the demo build and prepare a backup video by 01.11; SmartScreen | Gemini |
+| D24 | Keep Linux X11 (owner's decision), but decide on 03.11 at 12:00 and cut it first. Gemini recommended removing it immediately | Gemini, owner |
+
+## 2026-10-24 (evening): owner's follow-up
+
+| # | Decision | Why |
+|---|---|---|
+| D25 | The robot is **Mate**, male ("he"). "Mate" = buddy, so the product reads as "MetaMate: your mate on the screen" | Owner's choice |
+| D26 | All docs in **English** in `docs/` (the Russian `notes/` were translated by Copilot and removed); talk to the owner in Russian | One language for the repo, the judges and the agents |
+| D27 | Foundation before the kickoff = **tooling only**: git (no commits yet), `mm` CLI with an enforced agent mode, `mm_checks`, `uia_dump.ps1`, art pipeline. No product code until the rules are known | Owner asked for a foundation; product code waits for the rules |
+| D28 | Toolchain installed: MSVC Build Tools 2022 (UAC approved by the owner, no bypass), Rust (rustup), ffmpeg, uv, typos, sccache, hyperfine; cargo-nextest via cargo | See `setup-windows.md` |
+
+## 2026-10-24 (night): look, sounds, git
+
+| # | Decision | Why |
+|---|---|---|
+| D29 | Mate is a **light bulb**, variant **B1 "classic glow"** (navy base with a mint status light, a flashlight whose beam is the pointing gesture). Supersedes the round robot of D14 | Owner's choice from `assets/art/avatar-options.png` and `bulb-options.png`. His light is the highlight; the beam points in any direction. The cursor-arrow option was dropped: users could mistake it for their real pointer |
+| D30 | Start the sound library before the kickoff (assets, not code): the 10 calm cues are **synthesized by us** (`tools/synth_cues.py`, CC0, levels set below speech, 300 Hz – 3.2 kHz band for older ears); nature and fun sounds come only from **CC0 / public-domain** Wikimedia Commons files, curated by hand and pinned (`tools/sounds_commons.py`) | Owner approved; automatic picks were wrong (a 220 Hz test tone for "sea", a pronunciation recording for "birds") |
+| D31 | **No commits before the official rules.** The first commit after the kickoff holds the docs, tooling and art with an honest message, and the README has a "Prepared before the kickoff" section | Judges only see commits; `git init` itself leaves no trace. Open disclosure beats hidden preparation |
+| D32 | Placement estimate (4 agent judges + Monte Carlo): full plan works → median place ~10–20, **~20% top-5**; only the main scenario works → ~#90–155; realistic mix → **~6% top-5**. Priority: raise the chance of the FULL outcome (reliable pointing, honest tester, frictionless installer, ≤ 2.5 s latency), not more features | Simulation of 2026-10-24 |
+
+## 2026-10-25: kickoff timing, day 1, edge plan
+
+| # | Decision | Why |
+|---|---|---|
+| D33 | The kickoff on 26.10 is at **14:00 or 16:00 Tashkent time**, and the Meta API credits arrive only after the welcome stream; participation is already confirmed by email. Day 1 is reordered: the morning is for non-code preparation (fixtures, Modal sign-in, testers); after the stream come the rules, the first commit, the scaffold and the spikes that need no credits (S1, S3), while the team drafts the pure-Rust MateScript parser; S4 runs once the credits arrive (else first thing on Day 2). The S1/S3 checkpoint moves from 16:00 to **21:00** | Owner's information; Gemini #358, #360 |
+| D34 | Tauri stays on **v2**: pin `tauri@2` and `@tauri-apps/cli@2` | crates.io already lists `tauri 3.0.0-alpha.5` (2026-10-25): an alpha in the middle of a 10-day build is all risk |
+| D35 | The dev-fallback keys come from JustLog3 through `mm keys` (only names listed in `env_keys_names.txt`: `OPENROUTER_KEY`, `GROQ_KEY`, `CHATGPT_KEY`, `TAVILY_API_KEY`). DeepSeek's API (`DEEP_SEEK`) joins the drafting team as a text-only agent for an occasional creative second opinion next to oss; it is never used by the app or the proxy (invariant 8) | Owner's request; the agent reads the key in its own process only |
+| D36 | Edge plan in [`edge.md`](edge.md): do not compete on autonomy, number of apps, visual chrome or infrastructure; compete on the judge's first 60 seconds, real older testers (with their criticism), a visible Meta pipeline (debug view), privacy shown on screen rather than claimed, and accessibility engineering in sound and look. Cuts proposed in `edge.md` §6 wait for the owner's call | Gemini #358–#360, DeepSeek #369, oss #366, checked against our docs |
+| D37 | A **revealed password** is still a password: redaction does not rely on `IsPassword` alone. Signals: the field's label / automation id / help text (password, PIN, one-time code, CVV words in many languages), a show/hide-password toggle on screen, and fields that were password fields earlier in the session; an unclassifiable edit on a login or payment page → ask first. `tools/uia_dump.ps1` refuses screenshots on the same signals | Owner's screenshot of a login page with the password shown in plain text (2026-10-26); in Chromium `IsPassword` turns false after the reveal |
+
+## 2026-10-26: the organisers' timetable
+
+| # | Decision | Why |
+|---|---|---|
+| D38 | The kickoff is **12:00 PM GMT-5 = 17:00 UTC = 22:00 Tashkent** (ready at 21:00: the email also says "12PM EST (9AM PT)", which in daylight time would be 21:00). This replaces the 14:00/16:00 guess of D33. Day 1 becomes evening and night: rules, first commit, scaffold, then the agents' night jobs; S1/S3 on the morning of 27.10 with the checkpoint at 15:00; S4 when the credits arrive | The organisers' email and its calendar invite (start 2026-10-26T17:00Z, end 2026-11-05T02:00Z) |
+
+## 2026-10-26 (kickoff night): cuts, model choice, S4, repository
+
+| # | Decision | Why |
+|---|---|---|
+| D39 | The cuts of [`edge.md`](edge.md) §6, decided by the owner: (1) **Linux X11 is cut now**: Windows only, no Day-9 gate (supersedes D4, D24). (2) **Muse Wonder** is never automatic unless Spark fails scenario 1 on Day 5, **but the user can choose the model** (D40). (3) **Fun mode**: the calm cues and the sounds we have stay; **5–6 well-chosen fun sounds are added now**, the rest come last. (4) **JustLog3 is shut down** on Day 6 after a backup and a VPS snapshot, as D10 planned (the side-by-side alternative is rejected; still only after the owner's "yes" on the day; checklist in `server.md`) | Owner's answers at the kickoff; Gemini #418–#420 and Mistral #424 listed what changes |
+| D40 | **Model choice** in Settings: "How Mate thinks": *Quick* = `muse-spark-1.3` (default) or *Thorough* = `muse-wonder-1.0`. Never switched by voice or by a MateScript tag. The proxy enforces it: a model allowlist, server-side `max_output_tokens` caps, a per-invite Wonder allowance (calls and dollars per day) inside `PROXY_DAILY_BUDGET_USD` with a reserve kept for Spark, and a quiet fallback to Spark when the allowance runs out or Wonder fails (the debug view shows which model answered). The intent router and the spoken-line call always run on Spark. Manual Wonder never "escalates"; automatic escalation stays off unless the Day-5 gate turns it on | Owner: "yes, but add the ability to choose"; design from Gemini #419, checked against `server.md` and the $150 budget |
+| D41 | **S4 results** (`mm probe`, 2026-10-26 18:30 UTC). The base URL `https://api.meta.ai/v1` is right. Models: `muse-spark-1.1`, `-1.2`, `-1.3` (+ `-contributor` variants), `muse-wonder-1.0`, `muse-image-1.0`, `muse-voice-transcribe-1.0`, `sam-3.1`. **Every Spark reasons before it answers**: a two-sentence answer took 7–10 s to the first token at the default effort (1.3: 9.9 s, 1703 output tokens). `reasoning.effort` accepts `minimal`, `low`, `medium`, `high`, `xhigh`, `max` (not `none`); **`minimal`: first token after 1.9 s** (131 tokens), `low`: 3.2 s. Spoken answers use `minimal`. Computer use on Spark 1.3 works: the output is a `reasoning` item, a `message` with `phase: "commentary"` (the line Mate says: D21's open question is answered, text does come next to the call), then a `computer_call` with an `actions` array (`{"type": "click", "button": "left", "x", "y"}`), a `meta_safety_replay_receipt`, and `pending_safety_checks` (`computer_action_requires_confirmation`) **on every click**: the human confirms by clicking, so invariant 4 costs us nothing. The synthetic fixture hit the right element (HIT e11 "Large") at both `minimal` (5.3 s, 3702 tokens in, 356 out) and `low` (6.9 s). Prices are not in the API: read them on the Billing page | Measured; the replays are in `fixtures/replay/` |
+| D42 | **The rules and the repository.** At T0 + 1:30 the official rules are not on the public event page (the details and waiver pages render only for signed-in participants; the Discord channels can't be read without a bot), so the owner pastes them. Code written after the kickoff is in-event work, so the build starts now instead of waiting (D31 kept its purpose: nothing was committed before the kickoff). The first commit is made locally tonight; it goes to a **private** GitHub repository, which becomes public only after the rules are read (or the owner says so). Before every push: `mm check` (secrets), the pre-commit hook, `git status --ignored`, and a look at fixtures and large files | Owner: "the kickoff has started; if you put it on GitHub, do it carefully" |
+
+## Facts from the event page and the organisers' email (2026-10-26)
+
+- Indie track, verbatim: "For individual builders and students. Judged on creativity, technical ambition, and whether it works." Themes: "Build for Your World" ("Solve a problem you know firsthand, free up time and mental space, and make something possible that wasn't before") and "Push the Frontier". MetaMate is a Build-for-Your-World entry.
+- Models named: the Muse Spark series, Muse Wonder, Muse Image and SAM 3.1 through the Meta Model API, Meta open-weights models, and the **Muse Code** coding agent.
+- Partner credits for open-weights models ("to select participants"): **Modal $100** (Endpoints and serverless GPUs: our MMS-TTS), Baseten $100 with 2M TPM, Fireworks $25 with a workshop.
+- Dates: 27.10–04.11 live workshops and Discord office hours; submissions due 04.11 9:00 PM ET (05.11 02:00 UTC per the invite); judging 04.11–08.11; **closing ceremony with live finals on 09.11**.
+- "Official Rules will be published before the Hackathon begins on October 26, 2026 and must be accepted by the selected participants." Problem statements and the schedule are on the details page (rendered for signed-in participants only); the Discord server is joined.
+
+## Facts found on 2026-10-24 (verify at kickoff)
+
+- The Meta Model API includes: `muse-spark-1.3` (recommended), `muse-spark-1.2` (better for audio input), `muse-wonder-1.0` (preview, $4 / $20 per 1M tokens), `muse-image-1.0`, `muse-voice-transcribe-1.0` (STT, real-time `wss://api.meta.ai/v1/asr/realtime`), `sam-3.1` (boxes and masks from text, points, or boxes). There is no speech synthesis.
+- **Computer use**: the `{"type": "computer"}` tool in the Responses API, supported by `muse-wonder-1.0` and `muse-spark-1.3`. Actions include `click{x,y}`, `double_click`, `scroll`, `type`, `keypress`, `drag`, and others, in **pixels from the most recently sent screenshot**. It has `pending_safety_checks`, which a human must confirm. This is the core of our "teacher": we intercept `click` and show the action with the robot.
+- MMS-TTS: **CC-BY-NC 4.0** license (non-commercial use only—fine for the hackathon, but it will need to be replaced for a product), 36M parameters per language (~145 MB), a separate checkpoint for each language.
+- Codex voted for C# WPF (stack memo #223). Keep it as a fallback: if the Rust overlay or UIA isn't working by the end of day 1, switch to WPF (see `plan.md`).
+
+## Open questions
+
+- Rules: whether code is allowed before the 26th, whether "Meta" can be used in the name, video length, which models are required, and whether the repository must be published.
+- Which 25 languages Muse Voice Transcribe supports, and whether MMS-TTS checkpoints are available for them.
+- Server: droplet size and how to gracefully retire JustLog3 (see `server.md`).
+- Prices of Muse Spark per 1M tokens (Billing page) → `PRICES` in `tools/mm_probe.py` and `PROXY_DAILY_BUDGET_USD`.

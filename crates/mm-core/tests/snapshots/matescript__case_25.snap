@@ -1,0 +1,8 @@
+---
+source: crates/mm-core/tests/matescript.rs
+expression: golden(& timeline)
+---
+Lang("en")
+Sfx(Sound { name: "rimshot", level: Normal, solo: true })
+Say#1 "That's funny." []
+Say#2 "Nice." [Sfx(Sound { name: "success", level: Soft, solo: false })]

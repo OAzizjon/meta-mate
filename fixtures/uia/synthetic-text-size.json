@@ -1,0 +1,355 @@
+{
+ "window": {
+  "title": "Photosynthesis - Synthetic Encyclopedia (made-up page for tests, not a recording)",
+  "process": "synthetic",
+  "frame": [
+   0,
+   0,
+   1280,
+   800
+  ],
+  "popups": [],
+  "shot_frame": [
+   0,
+   0,
+   1280,
+   800
+  ],
+  "dpi": 96,
+  "dpi_awareness": "per-monitor",
+  "captured_at": "2026-10-26T10:30:00",
+  "truncated": false
+ },
+ "nodes": [
+  {
+   "id": "e0",
+   "parent": null,
+   "root": 0,
+   "level": 0,
+   "type": "Window",
+   "name": "Photosynthesis - Synthetic Encyclopedia",
+   "automation_id": "",
+   "class": "Chrome_WidgetWin_1",
+   "help": "",
+   "rect": [
+    0,
+    0,
+    1280,
+    800
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e1",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Hyperlink",
+   "name": "Main page",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    40,
+    24,
+    120,
+    28
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e2",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Edit",
+   "name": "Search the encyclopedia",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    420,
+    20,
+    420,
+    36
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e3",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Button",
+   "name": "Search",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    850,
+    20,
+    90,
+    36
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e4",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Text",
+   "name": "Photosynthesis",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    40,
+    90,
+    700,
+    48
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": false
+  },
+  {
+   "id": "e5",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Text",
+   "name": "Photosynthesis is how green plants turn light into food.",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    40,
+    160,
+    760,
+    30
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": false
+  },
+  {
+   "id": "e6",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Hyperlink",
+   "name": "Contents",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    40,
+    220,
+    140,
+    26
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e7",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Text",
+   "name": "Appearance",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    960,
+    90,
+    260,
+    30
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": false
+  },
+  {
+   "id": "e8",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Text",
+   "name": "Text",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    960,
+    140,
+    260,
+    24
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": false
+  },
+  {
+   "id": "e9",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "RadioButton",
+   "name": "Small",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    960,
+    175,
+    200,
+    32
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e10",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "RadioButton",
+   "name": "Standard",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    960,
+    215,
+    200,
+    32
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e11",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "RadioButton",
+   "name": "Large",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    960,
+    255,
+    200,
+    32
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e12",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "Text",
+   "name": "Color",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    960,
+    310,
+    260,
+    24
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": false
+  },
+  {
+   "id": "e13",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "RadioButton",
+   "name": "Light",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    960,
+    345,
+    200,
+    32
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  },
+  {
+   "id": "e14",
+   "parent": "e0",
+   "root": 0,
+   "level": 1,
+   "type": "RadioButton",
+   "name": "Dark",
+   "automation_id": "",
+   "class": "",
+   "help": "",
+   "rect": [
+    960,
+    385,
+    200,
+    32
+   ],
+   "enabled": true,
+   "offscreen": false,
+   "password": false,
+   "password_like": false,
+   "focusable": true
+  }
+ ]
+}

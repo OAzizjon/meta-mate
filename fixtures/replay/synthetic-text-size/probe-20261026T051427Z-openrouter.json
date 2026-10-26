@@ -1,0 +1,113 @@
+{
+ "provider": "openrouter",
+ "model": "meta-llama/llama-4-maverick",
+ "kind": "click",
+ "question": "I want to search for something. Where do I type?",
+ "shot_frame": [
+  0,
+  0,
+  1280,
+  800
+ ],
+ "sent_size": [
+  1024,
+  640
+ ],
+ "total_ms": 2291,
+ "request": {
+  "model": "meta-llama/llama-4-maverick",
+  "instructions": "You guide an older person on a Windows PC. You never act yourself: the person clicks. Answer with exactly one tag first: <point eNN> with an element id from the list, or <point X,Y> in screenshot pixels if the target has no id, or <point none> if it is not visible. Then one short, kind sentence saying what to click.",
+  "input": [
+   {
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "I want to search for something. Where do I type?\n\nInteractive elements (id, type, name, [x, y, w, h] in screenshot pixels):\ne1 Hyperlink \"Main page\" [32,19,96,23]\ne2 Edit \"Search the encyclopedia\" [336,16,336,29]\ne3 Button \"Search\" [680,16,72,29]\ne6 Hyperlink \"Contents\" [32,176,112,21]\ne9 RadioButton \"Small\" [768,140,160,26]\ne10 RadioButton \"Standard\" [768,172,160,26]\ne11 RadioButton \"Large\" [768,204,160,26]\ne13 RadioButton \"Light\" [768,276,160,26]\ne14 RadioButton \"Dark\" [768,308,160,26]\ne0 Window \"Photosynthesis - Synthetic Encyclopedia\" [0,0,1024,640]\ne4 Text \"Photosynthesis\" [32,72,560,38]\ne5 Text \"Photosynthesis is how green plants turn light into food.\" [32,128,608,24]\ne7 Text \"Appearance\" [768,72,208,24]\ne8 Text \"Text\" [768,112,208,19]\ne12 Text \"Color\" [768,248,208,19]"
+     },
+     {
+      "type": "input_image",
+      "image_path": "fixtures/uia/synthetic-text-size.png",
+      "sent_size": [
+       1024,
+       640
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "response": {
+  "id": "gen-1792991665-P5AanGhK1EDOqAl7oCvk",
+  "object": "response",
+  "created_at": 1792991665,
+  "model": "meta-llama/llama-4-maverick",
+  "status": "completed",
+  "completed_at": 1792991666,
+  "output": [
+   {
+    "id": "msg_tmp_lzbbo2njmf",
+    "type": "message",
+    "role": "assistant",
+    "status": "completed",
+    "content": [
+     {
+      "type": "output_text",
+      "text": "<point e2> \nType what you're looking for in the search box.",
+      "annotations": [],
+      "logprobs": []
+     }
+    ]
+   }
+  ],
+  "error": null,
+  "incomplete_details": null,
+  "tools": [],
+  "tool_choice": "auto",
+  "parallel_tool_calls": true,
+  "max_output_tokens": null,
+  "temperature": 1,
+  "top_p": 1,
+  "presence_penalty": 0,
+  "frequency_penalty": 0,
+  "top_logprobs": 0,
+  "max_tool_calls": null,
+  "metadata": {},
+  "background": false,
+  "previous_response_id": null,
+  "service_tier": "auto",
+  "truncation": "disabled",
+  "store": false,
+  "instructions": "You guide an older person on a Windows PC. You never act yourself: the person clicks. Answer with exactly one tag first: <point eNN> with an element id from the list, or <point X,Y> in screenshot pixels if the target has no id, or <point none> if it is not visible. Then one short, kind sentence saying what to click.",
+  "text": {
+   "format": {
+    "type": "text"
+   }
+  },
+  "reasoning": null,
+  "safety_identifier": null,
+  "prompt_cache_key": null,
+  "prompt_cache_options": null,
+  "usage": {
+   "input_tokens": 1684,
+   "input_tokens_details": {
+    "cached_tokens": 64
+   },
+   "output_tokens": 17,
+   "output_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "total_tokens": 1701,
+   "cost": 0.0003180425,
+   "is_byok": false,
+   "cost_details": {
+    "upstream_inference_cost": 0.0003180425,
+    "upstream_inference_input_cost": 0.00030695,
+    "upstream_inference_output_cost": 1.10925e-05
+   }
+  }
+ },
+ "hits": [
+  "HIT point at sent (504, 30) -> physical (630, 38): e2 Edit \"Search the encyclopedia\" (interactive)"
+ ]
+}

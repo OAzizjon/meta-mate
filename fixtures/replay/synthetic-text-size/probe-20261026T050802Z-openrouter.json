@@ -1,0 +1,113 @@
+{
+ "provider": "openrouter",
+ "model": "meta-llama/llama-4-maverick",
+ "kind": "click",
+ "question": "How do I make the text bigger on this page?",
+ "shot_frame": [
+  0,
+  0,
+  1280,
+  800
+ ],
+ "sent_size": [
+  1280,
+  800
+ ],
+ "total_ms": 2729,
+ "request": {
+  "model": "meta-llama/llama-4-maverick",
+  "instructions": "You guide an older person on a Windows PC. You never act yourself: the person clicks. Answer with exactly one tag first: <point eNN> with an element id from the list, or <point X,Y> in screenshot pixels if the target has no id, or <point none> if it is not visible. Then one short, kind sentence saying what to click.",
+  "input": [
+   {
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "How do I make the text bigger on this page?\n\nInteractive elements (id, type, name, [x, y, w, h] in screenshot pixels):\ne1 Hyperlink \"Main page\" [40,24,120,28]\ne2 Edit \"Search the encyclopedia\" [420,20,420,36]\ne3 Button \"Search\" [850,20,90,36]\ne6 Hyperlink \"Contents\" [40,220,140,26]\ne9 RadioButton \"Small\" [960,175,200,32]\ne10 RadioButton \"Standard\" [960,215,200,32]\ne11 RadioButton \"Large\" [960,255,200,32]\ne13 RadioButton \"Light\" [960,345,200,32]\ne14 RadioButton \"Dark\" [960,385,200,32]\ne0 Window \"Photosynthesis - Synthetic Encyclopedia\" [0,0,1280,800]\ne4 Text \"Photosynthesis\" [40,90,700,48]\ne5 Text \"Photosynthesis is how green plants turn light into food.\" [40,160,760,30]\ne7 Text \"Appearance\" [960,90,260,30]\ne8 Text \"Text\" [960,140,260,24]\ne12 Text \"Color\" [960,310,260,24]"
+     },
+     {
+      "type": "input_image",
+      "image_path": "fixtures/uia/synthetic-text-size.png",
+      "sent_size": [
+       1280,
+       800
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "response": {
+  "id": "gen-1792991279-VZK6ytuscQAgkNhhRDo2",
+  "object": "response",
+  "created_at": 1792991279,
+  "model": "meta-llama/llama-4-maverick",
+  "status": "completed",
+  "completed_at": 1792991281,
+  "output": [
+   {
+    "id": "msg_tmp_pvqgls0wppm",
+    "type": "message",
+    "role": "assistant",
+    "status": "completed",
+    "content": [
+     {
+      "type": "output_text",
+      "text": "<point e11> \nClick \"Large\" to make the text bigger.",
+      "annotations": [],
+      "logprobs": []
+     }
+    ]
+   }
+  ],
+  "error": null,
+  "incomplete_details": null,
+  "tools": [],
+  "tool_choice": "auto",
+  "parallel_tool_calls": true,
+  "max_output_tokens": null,
+  "temperature": 1,
+  "top_p": 1,
+  "presence_penalty": 0,
+  "frequency_penalty": 0,
+  "top_logprobs": 0,
+  "max_tool_calls": null,
+  "metadata": {},
+  "background": false,
+  "previous_response_id": null,
+  "service_tier": "auto",
+  "truncation": "disabled",
+  "store": false,
+  "instructions": "You guide an older person on a Windows PC. You never act yourself: the person clicks. Answer with exactly one tag first: <point eNN> with an element id from the list, or <point X,Y> in screenshot pixels if the target has no id, or <point none> if it is not visible. Then one short, kind sentence saying what to click.",
+  "text": {
+   "format": {
+    "type": "text"
+   }
+  },
+  "reasoning": null,
+  "safety_identifier": null,
+  "prompt_cache_key": null,
+  "prompt_cache_options": null,
+  "usage": {
+   "input_tokens": 2263,
+   "input_tokens_details": {
+    "cached_tokens": 0
+   },
+   "output_tokens": 17,
+   "output_tokens_details": {
+    "reasoning_tokens": 0
+   },
+   "total_tokens": 2280,
+   "cost": 0.000435405,
+   "is_byok": false,
+   "cost_details": {
+    "upstream_inference_cost": 0.000435405,
+    "upstream_inference_input_cost": 0.0004243125,
+    "upstream_inference_output_cost": 1.10925e-05
+   }
+  }
+ },
+ "hits": [
+  "HIT point at sent (1060, 271) -> physical (1060, 271): e11 RadioButton \"Large\" (interactive)"
+ ]
+}

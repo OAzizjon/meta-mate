@@ -1,0 +1,15 @@
+# Line endings: LF in the repository and in the working tree, so shell scripts, hooks and patches
+# behave the same on Windows, in Git Bash and on Linux. Only Windows-native scripts keep CRLF.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+mm text eol=lf
+tools/git-hooks/* text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.ogg binary
+*.wav binary
+*.woff2 binary
