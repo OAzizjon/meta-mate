@@ -8,8 +8,16 @@ I handle deployment and anything involving secrets; agents only review.
 | Part | What it does |
 |---|---|
 | Landing page | One page: what it is, video, “Download for Windows” button (file from GitHub Releases), privacy, contact details |
-| Proxy `/v1/*` | Meta and Modal keys on the server; invite codes; a daily limit per code and an overall $ limit; no content is stored |
+| Proxy `/v1/*` | Meta (`https://api.meta.ai/v1`, verified in S4, D41) and Modal keys on the server; model allowlist and token caps; invite codes with separate tester vs. judge limits and a daily Wonder allowance inside `PROXY_DAILY_BUDGET_USD`; no content is stored |
 | TLS | Let's Encrypt (certbot), as with JustLog3 now |
+
+Proxy rules (D40, D41):
+
+- **Model allowlist:** `/v1/responses` accepts only `muse-spark-1.3` (default, *Quick*) and `muse-wonder-1.0` (*Thorough*, user-selected in Settings; never switched by voice or MateScript tag); `/v1/asr*` uses `muse-voice-transcribe-1.0`; segmentation uses `sam-3.1`. Intent routing and spoken-line calls are pinned to `muse-spark-1.3`. Every Spark model reasons by default (9.9 s, 1,703 output tokens on S4), so spoken answers use `reasoning.effort: "minimal"` (1.9 s, 131 tokens, D41).
+- **Server-side `max_output_tokens` caps:** the proxy clamps `max_output_tokens` on every `/v1/responses` call (intent, spoken MateScript, and computer-use turns) so a client request or default reasoning cannot burn unbounded output tokens.
+- **Budget and per-invite daily Wonder allowance:** total daily spend across all codes is capped by `PROXY_DAILY_BUDGET_USD`, with a slice reserved strictly for `muse-spark-1.3` so Wonder ($4 / $20 per 1M input/output tokens) can never starve Spark. Inside the non-reserved budget, each invite has a daily Wonder allowance in **both calls and dollars** alongside its overall daily call/dollar quota (and a call-count cap while Spark prices from the Billing page are still unrecorded, D41).
+- **Quiet fallback to Spark + model header:** if an invite's daily Wonder allowance (or the shared budget outside the Spark reserve) is exhausted, or if `muse-wonder-1.0` returns an error or times out, the proxy serves the turn with `muse-spark-1.3` instead and sets the `X-MetaMate-Model` response header to the model that actually answered (`muse-spark-1.3` or `muse-wonder-1.0`) so the debug view shows it.
+- **Tester vs. judge invites:** **tester** codes carry a one-session daily cap and a small Wonder allowance for the Day-6 pilot and Day-8 recording; **judge** codes (including the pre-filled judge installer code) carry higher daily call and Wonder allowances and draw from the judge/Spark reserve so judging runs never hit a quota error.
 
 A domain is needed (once the rules about using the word “Meta” are known). Domain options will be available after 26.10.
 

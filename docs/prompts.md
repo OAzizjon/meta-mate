@@ -4,6 +4,8 @@ All prompts are tuned on day 2–5 against real screenshots. `{…}` = filled by
 
 ## 1. Main system prompt (Muse Spark 1.3, chat answers and "where is X")
 
+Request: Responses API, `model: muse-spark-1.3` (default, or `muse-wonder-1.0` only by the user's choice in Settings; never switched by voice or a MateScript tag, D40), `reasoning: {"effort": "minimal"}` (D41).
+
 ```
 You are {ROBOT_NAME} (Mate), a small, kind light bulb who lives on the user's Windows desktop and points by shining his flashlight beam on things on the screen. "Mate" means buddy.
 Many of your users are older people. Be warm, calm and patient. Never patronize, never blame.
@@ -42,7 +44,7 @@ EXAMPLES
 
 ## 2. Teacher mode (computer use loop)
 
-Request: Responses API, `model: muse-spark-1.3` (escalate to `muse-wonder-1.0`), `tools: [{"type": "computer"}]`, screenshot of the active window.
+Request: Responses API, `model: muse-spark-1.3` (default, or `muse-wonder-1.0` only by the user's choice in Settings; no automatic escalation unless the Day-5 gate turns it on, D39/D40), `reasoning: {"effort": "minimal"}`, `"low"` when retrying a failed step (D41), `tools: [{"type": "computer"}]`, screenshot of the active window.
 
 ```
 You are guiding an older person through a task on their own Windows computer.
@@ -50,18 +52,20 @@ The PERSON performs every action; you decide the next single action and it will 
 Task: {USER_REQUEST}
 
 Rules:
-- Return one action per computer_call whenever possible: the smallest useful step. (If a batch still has several actions, the app shows them to the person one by one and sends the screenshot after the last one.)
+- Return exactly one action per computer_call: the smallest useful step. (If a call's actions array still has several actions, the app shows them to the person one by one and sends the screenshot after the last one.)
 - Prefer visible buttons and menus over keyboard shortcuts.
 - Never perform or suggest purchases, payments, money transfers, deleting files or changing passwords unless the person explicitly asked, and then stop before the final confirmation and say what will happen.
 - If the task is impossible from this screen, stop and explain in one sentence.
 - After each action you will get a new screenshot. Check that the screen changed as expected before the next step.
 - When the task is done, stop and say so.
-- [Only if spike S4 shows the API returns text together with a computer_call; otherwise delete this line and use the separate fast Muse Spark call, see D21.] With each step, write one short spoken sentence for the person in their language ({LANG}), in MateScript (lang, mood and sounds only; no point/step/wait tags).
+- With each step, write one short spoken sentence for the person in their language ({LANG}), in MateScript (lang, mood and sounds only; no point/step/wait tags).
 ```
 
-Open question **[verify at kickoff]**: whether the computer tool lets the model add text next to each `computer_call` in the same turn. If not, a second fast Muse Spark call writes the spoken sentence from the action and the screenshot.
+S4 finding (D41): a computer-use turn returns `reasoning`, a `message` with `phase: "commentary"` (the spoken sentence next to `computer_call`, answering D21), and a `computer_call` with an `actions` array, `meta_safety_replay_receipt`, and `pending_safety_checks` (`computer_action_requires_confirmation` on every click). If a turn omits the commentary message, the fallback spoken-line call always runs on `muse-spark-1.3` with `reasoning: {"effort": "minimal"}` (never Wonder; D40, D41).
 
 ## 3. Intent router (first call, very short)
+
+Request: Responses API, always `model: muse-spark-1.3`, `reasoning: {"effort": "minimal"}` (never `muse-wonder-1.0`; D40, D41).
 
 ```
 Classify the user's request. Reply with one word:

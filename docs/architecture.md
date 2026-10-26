@@ -56,22 +56,22 @@ Each frame stores `{capture_origin_px, crop_rect_px, sent_width, sent_height, sc
 
 ## 3. Pointing ("teacher") pipeline
 
-Two paths, chosen by a short intent call (`WHERE` / `HOW` / `CHAT` / `DO`):
+Two paths, chosen by a short intent call (`WHERE` / `HOW` / `CHAT` / `DO`) that always runs on `muse-spark-1.3` with `reasoning.effort: "minimal"`. For the main teacher call, Settings ("How Mate thinks", D40) lets the user pick **Quick** (`muse-spark-1.3`, default) or **Thorough** (`muse-wonder-1.0`); the model is never switched by voice or by a MateScript tag. Every Spark model reasons before answering (`reasoning.effort` accepts `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, not `none`, D41).
 
 **A. "Where is X?" (one target):**
 1. `uia` snapshot + `capture` of the target region (same frame transform).
-2. Muse Spark 1.3 (Responses API, streaming) gets: request, screenshot, compact element list (`e17 Button "Text size" [x,y,w,h]`, max ~150 interactive elements, screenshot coordinates).
+2. `muse-spark-1.3` (or `muse-wonder-1.0` if chosen in Settings; Responses API, streaming, `reasoning.effort: "minimal"`) gets: request, screenshot, compact element list (`e17 Button "Text size" [x,y,w,h]`, max ~150 interactive elements, screenshot coordinates).
 3. The answer is MateScript with `<point e17>` (or `<point 812,344>` if the element is not in the list).
 4. Point → rect: id → rect; raw point → `ElementFromPoint` (own windows excluded, must lie inside the target window or its popups) → rect; still nothing → **SAM 3.1** with that point refines the outline. SAM refines a grounded target; it does not prove it is the right one. If the element's name/role clearly contradicts the request, don't point.
 5. Robot flies next to the rect (never on it), points; highlight draws the contour; tracked via `EVENT_OBJECT_LOCATIONCHANGE`.
 
 **B. "How do I …?" (multi-step): computer use with the human as the hand.**
-1. Responses API, `tools: [{"type": "computer"}]`, `muse-spark-1.3` (escalate to `muse-wonder-1.0` after 2 failed steps). First screenshot as `input_image`. The screenshot size stays fixed for the whole task.
-2. The model returns a `computer_call` with an `actions` batch. **We do not execute it.** The prompt asks for one action per call; a longer batch becomes an ordered list of **sub-steps**, each with its own completion rule:
+1. Responses API, `tools: [{"type": "computer"}]`, `muse-spark-1.3` by default or the user's `muse-wonder-1.0` choice; `reasoning.effort: "minimal"` by default (it hit the S4 fixture target `e11 "Large"` in 5.3 s with 3702 input / 356 output tokens; `low` hit it too in 6.9 s, D41), `low` when retrying a step that failed. Manual Wonder never escalates, and automatic escalation from Spark to Wonder stays off unless the Day-5 gate turns it on (D39, D40). First screenshot as `input_image`. The screenshot size stays fixed for the whole task.
+2. Each computer-use turn returns a `reasoning` item, a `message` with `phase: "commentary"` (the spoken line Mate says), and a `computer_call` containing an `actions` array (e.g. `{"type": "click", "button": "left", "x", "y"}`), a `meta_safety_replay_receipt`, and `pending_safety_checks` (`computer_action_requires_confirmation`) **on every click** (D41). **We do not execute the actions.** The prompt asks for one action per call; a longer `actions` array becomes an ordered list of **sub-steps**, each with its own completion rule:
 
 | Action | Shown as | Completed when |
 |---|---|---|
-| `click {x,y}` | robot points at the snapped element | mouse hook click inside the rect (± 8 px), plus UIA invoke/selection event if available |
+| `click {x,y}` (`button: "left"`) | robot points at the snapped element | mouse hook click inside the rect (± 8 px), plus UIA invoke/selection event if available |
 | `double_click` | points, "double-click" bubble | two clicks inside the rect within the double-click time |
 | `type {text}` | bubble with the text to type | the focused element's value contains the text (UIA ValuePattern), or the user says "done"/"next" |
 | `keypress {keys}` | keycaps bubble | keyboard hook sees that chord |
@@ -79,12 +79,12 @@ Two paths, chosen by a short intent call (`WHERE` / `HOW` / `CHAT` / `DO`):
 | `drag` | animated path | mouse up near the end point |
 | `wait` / `screenshot` / `move` | nothing to do | immediately |
 
-3. After the last sub-step: 600 ms settle → new capture (same frame size) → `computer_call_output`. If the screen changed unexpectedly mid-batch (a dialog, an error), we stop the batch and send the screenshot at once, so the model replans.
+3. After the last sub-step: 600 ms settle → new capture (same frame size) → `computer_call_output` (with the acknowledged safety check; whether `meta_safety_replay_receipt` must be passed back too: **[verify]** on the second S4 turn). If the screen changed unexpectedly mid-batch (a dialog, an error), we stop the batch and send the screenshot at once, so the model replans.
 4. Wrong click (> 40 px outside): no advance; robot says the `wrong_place` line from copy.md ("Almost. Click right where I'm pointing.") and re-points.
-5. "Do it for me": `act` performs the current sub-step after confirmation, unless blocked.
-6. `pending_safety_checks` are always shown to the human, never auto-acknowledged.
+5. "Do it for me": `act` performs the current sub-step after explicit human confirmation, unless blocked.
+6. Because the API attaches `pending_safety_checks` (`computer_action_requires_confirmation`) to every click (D41), the human's own click on the pointed target is what confirms the check in teaching mode (and the human's confirmation prompt answers it in "Do it for me"), so invariant 4 costs no extra UI step; checks are never auto-acknowledged without a human action.
 7. Budget: max 12 model turns per task, then stop and say so.
-8. The spoken line for each step is **not** MateScript inside the `computer_call` (risky): it comes from the turn's text output if the API returns one **[verify S4]**, otherwise from a fast parallel Muse Spark call (action + screenshot → one sentence in MateScript), and immediately from a **pre-cached phrase** ("Step 2 of 3", "Look here") while that call runs.
+8. Spoken line per step (D21, confirmed by S4 in D41): the API returns a `message` item with `phase: "commentary"` alongside `computer_call`, which is the line Mate speaks. A fast parallel `muse-spark-1.3` (`reasoning.effort: "minimal"`) call is used only if `commentary` is absent, while a **pre-cached phrase** ("Step 2 of 3", "Look here") plays immediately while the turn runs.
 
 **Refusal rule:** if the target cannot be validated, Mate says he can't find it. Pointing at the wrong place is worse than saying "I can't see it".
 
@@ -92,7 +92,7 @@ Two paths, chosen by a short intent call (`WHERE` / `HOW` / `CHAT` / `DO`):
 
 ```
 PTT start ─► robot "listening" ─► mic PCM ─► proxy WSS ─► Muse Voice Transcribe (realtime)
-PTT end   ─► finalize transcript (VAD/endpoint) ─► intent ─► Muse Spark 1.3 (streaming)
+PTT end   ─► finalize transcript (VAD/endpoint) ─► intent ─► Muse Spark 1.3 / Wonder (streaming, effort: minimal)
           ─► MateScript parser ─► one ordered playback timeline
 say(sentence) ─► proxy ─► Modal MMS-TTS (voice from <lang>) ─► PCM frames ─► speech bus
 ```
@@ -101,7 +101,8 @@ say(sentence) ─► proxy ─► Modal MMS-TTS (voice from <lang>) ─► PCM f
 - **Pre-cached phrases**: ~20 frequent lines per language (greeting, "One moment", "Look here", "Well done", "Almost…", "Step N of M", errors) synthesized once with MMS-TTS and shipped as audio files → the robot reacts at once while the real answer is generated.
 - ASR fallback: if the WSS path through the proxy adds > 500 ms or fails, send the recorded clip to the file endpoint (`POST /v1/asr/transcribe`) on PTT end.
 - Language: the model starts each answer with `<lang ru>`; the proxy maps it to an MMS checkpoint. **[verify]** which of the 25 Muse Voice Transcribe languages have MMS-TTS checkpoints.
-- **Latency budget** (PTT end → first audio of the real answer), measured warm and cold, p50/p95: endpoint/finalize 0.3 s + intent 0.3 s (can run in parallel with capture + UIA 0.3 s) + model first sentence 0.8–1.0 s + TTS 0.3–0.5 s + network/IPC/playback start 0.2 s ≈ **2.0–2.5 s**. Pre-cached "One moment" covers it. A late fallback TTS result is discarded once the primary arrives (generation ids).
+- **Reasoning effort and measured S4 first-token latency (D41):** every Spark model reasons before answering. At default effort, a two-sentence answer took **7–10 s** to first token (`muse-spark-1.3`: **9.9 s**, 1703 output tokens). Setting `reasoning.effort: "minimal"` cuts first-token time to **1.9 s** (131 output tokens; `low`: **3.2 s**); a full computer-use turn on the S4 fixture took **5.3 s** at `minimal` (vs **6.9 s** at `low`). All spoken and intent calls therefore force `reasoning.effort: "minimal"`.
+- **Latency budget** (PTT end → first audio of the real answer), measured warm and cold, p50/p95: endpoint/finalize 0.3 s + intent 0.3 s (can run in parallel with capture + UIA 0.3 s) + model first sentence ~1.9 s at `minimal` (target 0.8–1.9 s) + TTS 0.3–0.5 s + network/IPC/playback start 0.2 s ≈ **2.5–3.0 s** (was 2.0–2.5 s before S4). Pre-cached "One moment" covers the wait. A late fallback TTS result is discarded once the primary arrives (generation ids).
 - Fallback voice: Windows WinRT `SpeechSynthesizer` if Modal is slow (> 1.5 s) or down; switch only at a sentence boundary.
 - Barge-in: starting PTT while the robot speaks cancels the current generation id: speech, queued TTS and sfx stop at once.
 
@@ -119,9 +120,12 @@ The model's answer format, spec: [matescript.md](matescript.md). The parser (Rus
 
 ## 7. Proxy (server)
 
-Small HTTPS service on the VPS (FastAPI preferred).
-- `POST /v1/responses` → Meta Responses API (model allowlist; max output tokens capped).
-- `WSS /v1/asr` → Muse Voice Transcribe realtime; `POST /v1/asr/transcribe` → file fallback.
+Small HTTPS service on the VPS (FastAPI preferred; upstream `https://api.meta.ai/v1`, D41).
+- `POST /v1/responses` → Meta Responses API:
+  - **Model allowlist** (D40, D41): `muse-spark-1.3` (*Quick*, default) and `muse-wonder-1.0` (*Thorough*), plus `sam-3.1`; never switched by voice or MateScript tags.
+  - **Server-side `max_output_tokens` caps** per call type (prevents runaway reasoning token spend such as the 1703 output tokens seen at default effort in S4, D40, D41).
+  - **Wonder allowance & quiet fallback** (D40): inside `PROXY_DAILY_BUDGET_USD`, each invite has a daily `muse-wonder-1.0` allowance (calls and dollars per day), while a budget reserve is kept exclusively for `muse-spark-1.3`. When an invite's Wonder allowance or the global Wonder pool runs out, or if Wonder fails, the proxy falls back quietly to `muse-spark-1.3` (the response reports which model answered so the debug view shows it).
+- `WSS /v1/asr` → Muse Voice Transcribe (`muse-voice-transcribe-1.0`) realtime; `POST /v1/asr/transcribe` → file fallback.
 - `POST /v1/tts` → Modal MMS-TTS (shared secret).
 - Auth: invite code; per-code daily quota; global daily budget (`PROXY_DAILY_BUDGET_USD`).
 - Privacy: no request/response bodies stored; only counters (code, model, tokens, time).
