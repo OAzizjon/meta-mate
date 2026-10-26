@@ -155,8 +155,12 @@ impl Parser {
             Some(Tag::Item(item)) => {
                 // A positional action follows all speech already encountered.
                 self.flush();
-                if matches!(item, Item::End) {
+                // Waiting for a click needs the pointer up first: pending actions play
+                // before the wait instead of riding on the next sentence.
+                if matches!(item, Item::End | Item::Wait) {
                     self.orphans();
+                }
+                if matches!(item, Item::End) {
                     self.finished = true;
                 }
                 if matches!(item, Item::Lang(_)) {

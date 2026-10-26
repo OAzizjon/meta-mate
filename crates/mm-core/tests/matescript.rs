@@ -201,6 +201,21 @@ fn streaming_and_punctuation() {
     for input in ["Wait... What?", "Wait… What?", "One.) Two.", "One.\nnext"] {
         assert_eq!(speech(&parse(input, false)).len(), 2, "{input}");
     }
+    // A point right before <wait click> is shown before the wait, not after it.
+    let timeline = parse("<point e17><wait click>Good.", false);
+    assert_eq!(
+        timeline[1..3],
+        [
+            Item::Bound(Bound::Point(Point::Id("e17".into()))),
+            Item::Wait
+        ]
+    );
+    assert_eq!(speech(&timeline), ["Good."]);
+    // Full-width closing brackets stay with their sentence.
+    assert_eq!(
+        speech(&parse("「こんにちは。」次です。", false)),
+        ["「こんにちは。」", "次です。"]
+    );
 }
 
 #[test]

@@ -81,7 +81,10 @@ impl Sentence {
 }
 
 fn closing(ch: char) -> bool {
-    matches!(ch, '"' | '”' | '»' | '’' | ')' | ']')
+    matches!(
+        ch,
+        '"' | '”' | '»' | '’' | ')' | ']' | '」' | '』' | '）' | '】' | '〉' | '》'
+    )
 }
 fn terminator(ch: char) -> bool {
     matches!(ch, '.' | '!' | '?' | '…' | '。' | '！' | '？')

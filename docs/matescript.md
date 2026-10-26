@@ -22,7 +22,7 @@ text     := any characters except a "<" that starts a tag
 ```
 
 - A `<` followed by a lowercase ASCII letter starts a tag. Any other `<` (e.g. `3 < 5`) is text. A `<` at the very end of a chunk is held back until the next chunk shows what follows it.
-- **Recovery:** if a started tag sees a newline or 64 characters without `>`, everything from `<` up to that newline (or up to the next `>` within 256 characters) is discarded, never spoken; parsing resumes after it.
+- **Recovery:** if a started tag sees a newline or 64 characters without `>`, everything from `<` is discarded, never spoken, up to the next `>` (consumed) or the next newline, at most 256 characters; parsing resumes after it. A newline inside the tag ends the sentence before it and starts the discard, so in golden case 5 (`<sfx birds⏎soft>Morning.`) the tail `soft>` is dropped too. The 64 count the whole tag body (name included; the parser discards on the 64th character), so a `<show>` payload fits at most 58 characters in practice.
 - Tags are never placed inside a word.
 - Each sentence is one TTS chunk (see §4 for the exact segmentation rules).
 
