@@ -43,6 +43,8 @@ The kickoff is at **12:00 PM GMT-5 = 17:00 UTC = 22:00 Tashkent** (the organiser
 
 ## Day 2 — 27.10 (Tue): voice loop
 
+**Status 2026-10-27:** Voice loop wired; S5 and S7 passed. S2 still needs a person; S6 is written, but deployment awaits the owner.
+
 - Spikes **S2** (PTT), **S5** (Muse Voice Transcribe through the proxy), **S6** (MMS-TTS on Modal), **S7** (audio in WebView2 without a user gesture).
 - PTT → transcription → Muse Spark (stream) → MMS-TTS → audio; “hold to talk” and “press — talk — pause” modes; automatic language: `<lang>` from the model selects the TTS voice, answers in the user's language (D5).
 - Robot: idle / listening / thinking / speaking (temporary SVG).
@@ -50,12 +52,16 @@ The kickoff is at **12:00 PM GMT-5 = 17:00 UTC = 22:00 Tashkent** (the organiser
 
 ## Day 3 — 28.10 (Wed): MateScript and sound
 
+**Status 2026-10-27:** MateScript parser, player, cached phrases and text normalization done; mixer and debug window partly done.
+
 - MateScript parser (Rust): finish the Day-1 draft and wire it to the player; golden cases from `matescript-cases.md`, fuzzing by chunks, segmentation, timeline order (the local draft from 24.10 got stuck in a loop and isn't usable).
 - Mixer: speech / effects / background, ducking, limiter, calm and fun modes; debug window with MateScript highlighting.
 - About 20 pre-recorded phrases per language, synthesized with MMS-TTS and included in the build.
 - Mate's states from the locked B1 SVG (`assets/art/src/mate-lib.js`, D29): idle, listening, thinking, speaking and pointing first.
 
 ## Day 4 — 29.10 (Thu): “Where's the button?”
+
+**Status 2026-10-27:** “Where is the button?” works live in Windows Settings; multi-monitor highlighting and Edge/Chrome tree sizes remain open.
 
 - UIA snapshot + capture of the window area, including its pop-up menus; mask passwords (fail closed) → Muse Spark → `<point>`.
 - The redaction step (lead): the only producer of `RedactedImage` (`mm_core::api::request`), painting every `must_hide` element and refusing on a truncated snapshot; `point_ids` from `ElementList::ids` (safety review #460).

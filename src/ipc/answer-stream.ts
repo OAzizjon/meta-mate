@@ -17,6 +17,11 @@ export const ANSWER_LINE_KEYS = [
   "robot.network_error",
   "robot.cant_find",
   "robot.listening",
+  // The look and pointing (src-tauri/src/screen.rs LookFailure::line, pointing.rs).
+  "robot.cant_look",
+  "robot.protected_window",
+  "robot.other_monitor",
+  "robot.window_closed",
 ] as const satisfies readonly LocaleKey[];
 export type AnswerLineKey = (typeof ANSWER_LINE_KEYS)[number];
 

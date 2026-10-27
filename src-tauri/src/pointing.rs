@@ -32,7 +32,7 @@ impl Pointing {
         }
     }
 
-    fn get(&self, generation: u64) -> Option<Arc<Look>> {
+    pub fn look(&self, generation: u64) -> Option<Arc<Look>> {
         let current = self.current.lock().ok()?;
         let (pointed, look) = current.as_ref()?;
         (*pointed == generation).then(|| Arc::clone(look))
@@ -76,8 +76,38 @@ pub fn point_at(
     point: Point,
     step: Option<StepNumber>,
 ) -> Option<MateRect> {
-    let look = app.try_state::<Pointing>()?.get(generation)?;
-    let target = look.resolve(&point)?;
+    let pointing = app.try_state::<Pointing>()?;
+    let look = pointing.look(generation)?;
+    // The picture must still be true: the window there, unmoved.
+    if !mm_win32::window::still_shown(look.snapshot.target, look.window_frame) {
+        let _ = crate::highlight::clear(&app);
+        app.state::<AnswerStream>().send(AnswerMsg::Line {
+            generation,
+            key: "robot.window_closed",
+        });
+        return None;
+    }
+    let Some(target) = look.resolve(&point) else {
+        // Nothing pointable there: the ring of an earlier point must not stay lit.
+        let _ = crate::highlight::clear(&app);
+        return None;
+    };
+    // A newer press may have ended this answer while we resolved: show nothing then.
+    if pointing.generation() != Some(generation) {
+        return None;
+    }
+    show_target(&app, generation, target, step.map(|s| (s.number, s.total)))
+}
+
+/// Mate beside `target` and the highlight on it (also the teacher's way of pointing).
+/// None when it cannot be shown: on a monitor the highlight does not cover (Mate says so)
+/// or nowhere Mate fits.
+pub fn show_target(
+    app: &AppHandle,
+    generation: u64,
+    target: PhysRect,
+    step: Option<(u32, u32)>,
+) -> Option<MateRect> {
     let monitors = mm_win32::monitors::monitors();
     let monitor = monitors.iter().find(|m| m.primary).or(monitors.first())?;
     if !monitor.area.contains(target.center()) {
@@ -99,8 +129,7 @@ pub fn point_at(
     if let Some(flight) = app.try_state::<Flight>() {
         flight.fly_to(placement.mate);
     }
-    let step = step.map(|s| (s.number, s.total));
-    if let Err(error) = crate::highlight::show(&app, monitor, target, Some(placement.mate), step) {
+    if let Err(error) = crate::highlight::show(app, monitor, target, Some(placement.mate), step) {
         eprintln!("pointing: highlight: {error:?}");
     }
     Some(in_mate(target, placement.mate, scale))

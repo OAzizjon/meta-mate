@@ -70,6 +70,14 @@ const REPORTS: [&str; 7] = [
 const KEPT_REPORTS: usize = 64;
 
 impl AnswerStream {
+    /// Whether `generation` was cancelled (a newer press): its work must not touch the
+    /// screen any more.
+    pub fn is_cancelled(&self, generation: u64) -> bool {
+        self.cancelled
+            .lock()
+            .is_ok_and(|cancelled| cancelled.is_some_and(|through| generation <= through))
+    }
+
     pub fn subscribed(&self) -> bool {
         self.inner.lock().is_ok_and(|inner| inner.is_some())
     }

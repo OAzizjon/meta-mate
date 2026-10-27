@@ -18,13 +18,14 @@ use std::time::{Duration, Instant};
 
 use mm_core::api::intent::{Intent, guess_intent};
 use mm_core::api::request::{ModelChoice, ReasoningEffort, chat_request, point_request};
-use mm_core::matescript::{Item, Mode, Parser, Settings};
+use mm_core::matescript::{Bound, Item, Mode, Parser, Settings};
 use mm_core::ptt::{PttEvent, PttSettings};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{Notify, mpsc};
 use tokio::task::{AbortHandle, JoinHandle};
 
 use crate::answer_stream::{AnswerMsg, AnswerStream};
+use crate::flight::Flight;
 use crate::mic::Microphone;
 use crate::pointing::{Pointing, stop_pointing};
 use crate::proxy::{CallKind, Proxy, ProxyError, Transcript};
@@ -181,12 +182,9 @@ async fn run(app: AppHandle, proxy: Proxy, mut events: mpsc::UnboundedReceiver<P
     while let Some(event) = events.recv().await {
         match event {
             PttEvent::Start { generation } => {
-                if app
-                    .try_state::<Pointing>()
-                    .is_some_and(|pointing| pointing.generation().is_some())
-                {
-                    stop_pointing(&app);
-                }
+                // Always: a late point_at of the last answer may have lit the ring after
+                // its look was dropped, so "no look" does not mean "nothing shown".
+                stop_pointing(&app);
                 if let Some(previous) = current.take() {
                     stream.send(AnswerMsg::Cancel {
                         generation: previous.generation,
@@ -297,7 +295,16 @@ async fn answer(
     let screen = !matches!(guess_intent(&question), Intent::Chat);
     let (body, settings, wait_phrase) = if screen {
         let own = own_windows(&app);
-        match tokio::task::spawn_blocking(move || crate::screen::take_look(&own)).await {
+        let looker = app.clone();
+        let looked = tokio::task::spawn_blocking(move || {
+            // Mate may still be flying home: the copy waits until he is still.
+            if let Some(flight) = looker.try_state::<Flight>() {
+                flight.wait_idle(Duration::from_secs(1));
+            }
+            let wanted = || !looker.state::<AnswerStream>().is_cancelled(generation);
+            crate::screen::take_look(&own, &wanted)
+        });
+        match looked.await {
             Ok(Ok(look)) => {
                 let body = point_request(
                     ModelChoice::Quick,
@@ -371,8 +378,19 @@ async fn answer(
         let mut parser = Parser::new(settings);
         let mut lang = locale.to_owned();
         let ended = &AtomicBool::new(false);
+        // A sentence whose point the look cannot resolve is never spoken as "here": it
+        // becomes "I can't see that here" before its speech is made (invariant 5).
+        let look = app
+            .try_state::<Pointing>()
+            .and_then(|pointing| pointing.look(generation));
         let mut emit = move |items: Vec<Item>| {
             for item in items {
+                let item = match item {
+                    Item::Say(say) if look.as_ref().is_some_and(|look| !resolvable(look, &say)) => {
+                        Item::PointRejected
+                    }
+                    other => other,
+                };
                 if !matches!(item, Item::Lang(_) | Item::BadTag)
                     && !started.swap(true, Ordering::AcqRel)
                 {
@@ -429,6 +447,15 @@ async fn answer(
             }
         });
     }
+}
+
+/// Whether every point of `say` resolves against `look` (a sentence without one does).
+fn resolvable(look: &crate::screen::Look, say: &mm_core::matescript::Say) -> bool {
+    say.bound.iter().all(|bound| match bound {
+        Bound::Point(point) => look.resolve(point).is_some(),
+        Bound::Step(step) => look.resolve(&step.target).is_some(),
+        _ => true,
+    })
 }
 
 /// Our windows' handles (Mate, the highlight): never a target, hidden while capturing.

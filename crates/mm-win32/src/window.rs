@@ -60,7 +60,8 @@ pub fn foreground_target(own: &[HWND]) -> Option<Target> {
     let mut process_id = 0u32;
     // SAFETY: the out pointer is a local u32 that outlives the call.
     let thread_id = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process_id)) };
-    if thread_id == 0 {
+    // Never one of our own windows, even one `own` does not list.
+    if thread_id == 0 || process_id == std::process::id() {
         return None;
     }
     let frame = frame_of(hwnd)?;
@@ -78,6 +79,16 @@ pub fn foreground_target(own: &[HWND]) -> Option<Target> {
         popup_hwnds,
         region,
     })
+}
+
+/// Whether the window a look was taken of is still there, shown and exactly where it was:
+/// pointing at a stale picture would ring whatever is there now (invariant 5).
+pub fn still_shown(window: TargetWindow, frame: PhysRect) -> bool {
+    let hwnd = HWND(window.handle as usize as *mut std::ffi::c_void);
+    let mut process_id = 0u32;
+    // SAFETY: the out pointer is a local u32; a stale handle gives thread 0.
+    let thread = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process_id)) };
+    thread != 0 && process_id == window.process_id && shown(hwnd) && frame_of(hwnd) == Some(frame)
 }
 
 /// The capture region: the bounding box of `frame` and every popup, each clipped to

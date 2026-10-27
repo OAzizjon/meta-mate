@@ -24,6 +24,9 @@ pub struct Look {
     pub snapshot: UiSnapshot,
     pub redacted: Redacted,
     pub list: ElementList,
+    /// The target window's own frame when it was captured: pointing later checks the
+    /// window is still there, unmoved (`take_look` sets it; `prepare` uses the region).
+    pub window_frame: PhysRect,
 }
 
 impl std::fmt::Debug for Look {
@@ -42,6 +45,9 @@ pub enum LookError {
     Redaction(RedactionError),
     /// The capture does not have the shape of a BGRA image.
     Capture,
+    /// A field that must be hidden is on screen but UIA gave no bounds for it: it cannot
+    /// be painted, so nothing is sent (invariant 3, fail closed).
+    UnlocatedSensitive,
 }
 
 impl std::fmt::Display for LookError {
@@ -49,6 +55,7 @@ impl std::fmt::Display for LookError {
         match self {
             Self::Redaction(error) => write!(f, "redaction refused: {error}"),
             Self::Capture => f.write_str("the capture is not a BGRA image"),
+            Self::UnlocatedSensitive => f.write_str("a field to hide has no bounds"),
         }
     }
 }
@@ -59,6 +66,16 @@ impl std::error::Error for LookError {}
 /// point at. Every element UIA reports as a password, or that looks like one (D37), is
 /// painted over and its name never reaches the prompt.
 pub fn prepare(snapshot: UiSnapshot, capture: &CapturedImage) -> Result<Look, LookError> {
+    // UIA reports an unrendered element without bounds (and offscreen); one it calls on
+    // screen without bounds could be anywhere in the picture.
+    let unlocated = snapshot.elements.iter().any(|element| {
+        element.rect.is_none()
+            && !element.offscreen
+            && must_hide(element.is_password, element.password_like, false)
+    });
+    if unlocated {
+        return Err(LookError::UnlocatedSensitive);
+    }
     let fields: Vec<Field> = snapshot
         .elements
         .iter()
@@ -100,10 +117,12 @@ pub fn prepare(snapshot: UiSnapshot, capture: &CapturedImage) -> Result<Look, Lo
         })
         .collect();
     let list = render_element_list(&lines, MAX_LISTED);
+    let window_frame = snapshot.frame;
     Ok(Look {
         snapshot,
         redacted,
         list,
+        window_frame,
     })
 }
 
@@ -128,7 +147,17 @@ impl Look {
                 if !self.list.ids.iter().any(|listed| listed == id) {
                     return None;
                 }
-                self.snapshot.element(id)?.rect?
+                // Only something a person can act on: never the window itself, static
+                // text or a disabled or hidden control (the same rule as `target_at`).
+                let element = self.snapshot.element(id)?;
+                let pointable = element.interactive
+                    && element.parent.is_some()
+                    && element.enabled
+                    && !element.offscreen;
+                if !pointable {
+                    return None;
+                }
+                element.rect?
             }
             Point::Pixel(x, y) => {
                 let shot = ShotPoint::new(f64::from(*x) + 0.5, f64::from(*y) + 0.5).ok()?;
@@ -151,6 +180,13 @@ pub enum LookFailure {
     Capture(mm_win32::capture::CaptureError),
     /// Redaction refused (fail closed).
     Prepare(LookError),
+    /// The window moved, resized, opened or closed a popup, or lost the foreground while
+    /// it was walked and copied: the masks would not match the picture.
+    Changed,
+    /// Our own windows could not be found, so they could not be hidden from the picture.
+    OwnWindows,
+    /// The question was cancelled (a newer press) before the copy.
+    Cancelled,
 }
 
 impl std::fmt::Display for LookFailure {
@@ -160,6 +196,9 @@ impl std::fmt::Display for LookFailure {
             Self::Uia => f.write_str("UI Automation could not walk the window"),
             Self::Capture(error) => write!(f, "capture: {error}"),
             Self::Prepare(error) => write!(f, "{error}"),
+            Self::Changed => f.write_str("the window changed during the look"),
+            Self::OwnWindows => f.write_str("our windows are not known"),
+            Self::Cancelled => f.write_str("cancelled"),
         }
     }
 }
@@ -170,7 +209,12 @@ impl LookFailure {
         match self {
             Self::NoWindow => "robot.cant_find",
             Self::Capture(mm_win32::capture::CaptureError::Black) => "robot.protected_window",
-            Self::Uia | Self::Capture(_) | Self::Prepare(_) => "robot.cant_look",
+            Self::Uia
+            | Self::Capture(_)
+            | Self::Prepare(_)
+            | Self::Changed
+            | Self::OwnWindows
+            | Self::Cancelled => "robot.cant_look",
         }
     }
 }
@@ -178,18 +222,58 @@ impl LookFailure {
 /// How long our hidden windows stay hidden before the copy: one composed frame.
 const HIDDEN_FRAME: std::time::Duration = std::time::Duration::from_millis(50);
 
-/// One look at the foreground window (blocking: UIA and GDI; call it off the async
-/// runtime). `own` are our windows' handles (Mate, the highlight): never a target, and
-/// hidden while the screen is copied so they are not in the picture.
-pub fn take_look(own: &[isize]) -> Result<Look, LookFailure> {
-    use mm_win32::HWND;
-    use mm_win32::{capture, overlay, uia, window};
+/// One look at a time: two overlapping looks would show and hide our windows in each
+/// other's copy.
+static LOOKING: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+/// Our windows hidden while the screen is copied, shown again however the copy ends.
+struct Hidden<'a>(&'a [mm_win32::HWND]);
+
+impl<'a> Hidden<'a> {
+    fn new(windows: &'a [mm_win32::HWND]) -> Self {
+        for &hwnd in windows {
+            mm_win32::overlay::hide_for_capture(hwnd);
+        }
+        Self(windows)
+    }
+}
+
+impl Drop for Hidden<'_> {
+    fn drop(&mut self) {
+        for &hwnd in self.0 {
+            mm_win32::overlay::show_after_capture(hwnd);
+        }
+    }
+}
+
+/// One look at the foreground window (blocking: UIA and GDI; call it off the async
+/// runtime). `own` are our windows' handles (Mate, the highlight; both required): never a
+/// target, and hidden while the screen is copied. `wanted` is asked just before our
+/// windows hide: a cancelled question never touches the screen. The window is checked
+/// again after the copy; if it changed, the look is taken once more, then refused.
+pub fn take_look(own: &[isize], wanted: &dyn Fn() -> bool) -> Result<Look, LookFailure> {
+    use mm_win32::HWND;
+
+    if own.len() < 2 || own.contains(&0) {
+        return Err(LookFailure::OwnWindows);
+    }
     let own: Vec<HWND> = own
         .iter()
         .map(|&h| HWND(h as *mut std::ffi::c_void))
         .collect();
-    let target = window::foreground_target(&own).ok_or(LookFailure::NoWindow)?;
+    let _one = LOOKING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    match look_once(&own, wanted) {
+        Err(LookFailure::Changed) => look_once(&own, wanted),
+        result => result,
+    }
+}
+
+fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, LookFailure> {
+    use mm_win32::{capture, uia, window};
+
+    let target = window::foreground_target(own).ok_or(LookFailure::NoWindow)?;
     let walker = uia::UiaWalker::new().map_err(|_| LookFailure::Uia)?;
     let snapshot = walker
         .snapshot_with_popups(
@@ -199,16 +283,27 @@ pub fn take_look(own: &[isize]) -> Result<Look, LookFailure> {
             uia::WalkLimits::default(),
         )
         .map_err(|_| LookFailure::Uia)?;
-    for &hwnd in &own {
-        overlay::hide_for_capture(hwnd);
+    if !wanted() {
+        return Err(LookFailure::Cancelled);
     }
-    std::thread::sleep(HIDDEN_FRAME);
-    let copied = capture::capture_region(target.region);
-    for &hwnd in &own {
-        overlay::show_after_capture(hwnd);
-    }
+    let copied = {
+        let _hidden = Hidden::new(own);
+        std::thread::sleep(HIDDEN_FRAME);
+        capture::capture_region(target.region)
+    };
     let capture = copied.map_err(LookFailure::Capture)?;
-    prepare(snapshot, &capture).map_err(LookFailure::Prepare)
+    // The masks come from the walk: the window must be exactly where it was then.
+    let after = window::foreground_target(own).ok_or(LookFailure::Changed)?;
+    if after.hwnd != target.hwnd
+        || after.frame != target.frame
+        || after.popups != target.popups
+        || after.region != target.region
+    {
+        return Err(LookFailure::Changed);
+    }
+    let mut look = prepare(snapshot, &capture).map_err(LookFailure::Prepare)?;
+    look.window_frame = target.frame;
+    Ok(look)
 }
 
 /// `--look-probe`: walks the foreground window (after 3 s to switch to it) with several
@@ -369,6 +464,32 @@ mod tests {
             prepare(snapshot(), &small),
             Err(LookError::Redaction(RedactionError::CaptureMismatch))
         ));
+    }
+
+    #[test]
+    fn a_hidden_field_without_bounds_on_screen_is_refused() {
+        let mut unlocated = snapshot();
+        let mut field = element("e4", "Edit", "PIN", REGION);
+        field.rect = None;
+        field.password_like = true;
+        unlocated.elements.push(field.clone());
+        assert!(matches!(
+            prepare(unlocated, &capture()),
+            Err(LookError::UnlocatedSensitive)
+        ));
+        // Offscreen without bounds: not in the picture, nothing to paint.
+        let mut offscreen = snapshot();
+        field.offscreen = true;
+        offscreen.elements.push(field);
+        assert!(prepare(offscreen, &capture()).is_ok());
+    }
+
+    #[test]
+    fn only_pointable_elements_resolve_by_id() {
+        let look = prepare(snapshot(), &capture()).unwrap();
+        // The window itself and static text are listed, but never targets.
+        assert_eq!(look.resolve(&Point::Id("e0".into())), None);
+        assert_eq!(look.resolve(&Point::Id("e2".into())), None);
     }
 
     #[test]
