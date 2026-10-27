@@ -32,5 +32,7 @@ TAVILY_API_KEY
 
 # Tooling (tools/mm.py): 1 = restricted agent mode
 MM_AGENT
+# tts/mms.py: use only the Hugging Face cache, never download at run time
+HF_HUB_OFFLINE
 # Drafting team only (never the app or the proxy): DeepSeek API for occasional creative second opinions
 DEEP_SEEK

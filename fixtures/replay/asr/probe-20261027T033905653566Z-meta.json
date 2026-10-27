@@ -1,0 +1,19 @@
+{
+ "provider": "meta",
+ "model": "muse-voice-transcribe-1.0",
+ "kind": "asr",
+ "audio": "ask-ru.wav",
+ "audio_s": 2.816,
+ "total_ms": 2066,
+ "request": {
+  "mode": "PUSH_TO_TALK",
+  "model": "muse-voice-transcribe-1.0",
+  "audioEncoding": "WAV"
+ },
+ "response": {
+  "sessionId": "voyager/transcribe/2368EAFCA2EC4C0CA125689730BE0589",
+  "transcript": "Как сделать сделать боксы крупнее?",
+  "audioDurationMs": 2880,
+  "turns": []
+ }
+}

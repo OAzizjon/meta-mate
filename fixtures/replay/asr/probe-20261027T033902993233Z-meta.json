@@ -1,0 +1,19 @@
+{
+ "provider": "meta",
+ "model": "muse-voice-transcribe-1.0",
+ "kind": "asr",
+ "audio": "ask-en.wav",
+ "audio_s": 3.28,
+ "total_ms": 2652,
+ "request": {
+  "mode": "PUSH_TO_TALK",
+  "model": "muse-voice-transcribe-1.0",
+  "audioEncoding": "WAV"
+ },
+ "response": {
+  "sessionId": "voyager/transcribe/EE7C04C8AB5349AAABA95BD63190F74C",
+  "transcript": "How do I make the text bigger on my computer?.",
+  "audioDurationMs": 3280,
+  "turns": []
+ }
+}

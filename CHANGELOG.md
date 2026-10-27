@@ -19,6 +19,11 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Teacher state machine in `crates/mm-core/src/teacher/`.
 - Proxy pure model and spending policy in `server/metamate_proxy/policy.py`.
 - Golden tests for the MateScript specification examples.
+- Tauri 2 app shell with Mate's B1 SVG in the WebView (`src-tauri/`, `src/robot/`).
+- `crates/mm-win32` (no-focus overlays, Per-Monitor DPI v2, UI Automation snapshots) with the S1/S3 self-tests.
+- The redaction step and screenshot pixels in `crates/mm-core/src/redaction.rs` and `shot.rs`.
+- The multilingual password-word detector in `crates/mm-core/src/privacy.rs`.
+- The WebView audio engine and i18n in `src/audio/` and `src/i18n/`.
 
 ### Changed
 

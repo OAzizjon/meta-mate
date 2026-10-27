@@ -21,9 +21,11 @@ import argparse
 import base64
 import datetime as dt
 import http.client
+import io
 import json
 import math
 import re
+import secrets
 import shutil
 import stat
 import subprocess
@@ -32,6 +34,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import wave
 from pathlib import Path
 
 import mm_fixture
@@ -167,16 +170,18 @@ def _retry_after(error: urllib.error.HTTPError, attempt: int) -> float:
     return min(wait, 30.0)
 
 
-def _request(url: str, key: str, payload: dict | None, timeout: float, stream: bool = False):
+def _request(url: str, key: str, payload: dict | None, timeout: float, stream: bool = False,
+             body: bytes | None = None, content_type: str | None = None):
     """Only 429 and 503 are retried, and only before any byte of an answer arrived:
-    a retry after that could pay twice."""
-    data = None if payload is None else json.dumps(payload).encode('utf-8')
+    a retry after that could pay twice. `body` + `content_type` send raw bytes instead of
+    the JSON `payload` (the multipart ASR upload)."""
+    data = body if body is not None else (None if payload is None else json.dumps(payload).encode('utf-8'))
     req = urllib.request.Request(url, data=data, method='GET' if data is None else 'POST')
     # Unredirected: even a followed redirect would not carry the key (the opener refuses them anyway).
     req.add_unredirected_header('Authorization', 'Bearer ' + key)
     req.add_header('Accept', 'text/event-stream' if stream else 'application/json')
     if data is not None:
-        req.add_header('Content-Type', 'application/json')
+        req.add_header('Content-Type', content_type or 'application/json')
     for attempt in range(3):
         try:
             return _open(req, timeout)
@@ -366,6 +371,68 @@ def report(model: str, t_first: float | None, t_total: float, tokens: tuple[int,
     first = f'first token {t_first * 1000:.0f} ms, ' if t_first is not None else ''
     cost = f'${usd:.4f}' if usd is not None else 'cost unknown (pass --price IN OUT, USD per 1M tokens)'
     print(f'\n{model}: {first}total {t_total * 1000:.0f} ms, tokens in {tokens[0]} / out {tokens[1]}, {cost}')
+
+
+ASR_MODEL = 'muse-voice-transcribe-1.0'
+ASR_MAX_BYTES = 32 * 1024 * 1024
+
+
+def multipart(fields: list[tuple[str, str | None, bytes, str]]) -> tuple[bytes, str]:
+    """(name, filename, data, content type) parts as multipart/form-data."""
+    boundary = 'mm-' + secrets.token_hex(12)
+    out = []
+    for name, filename, data, ctype in fields:
+        disposition = f'form-data; name="{name}"' + (f'; filename="{filename}"' if filename else '')
+        head = f'--{boundary}\r\nContent-Disposition: {disposition}\r\nContent-Type: {ctype}\r\n\r\n'
+        out.append(head.encode() + data + b'\r\n')
+    out.append(f'--{boundary}--\r\n'.encode())
+    return b''.join(out), f'multipart/form-data; boundary={boundary}'
+
+
+def wav_info(data: bytes) -> tuple[int, int, float]:
+    """(channels, sample rate, seconds); refuses what the ASR file endpoint does not take."""
+    try:
+        with wave.open(io.BytesIO(data)) as w:
+            channels, width, rate, frames = w.getnchannels(), w.getsampwidth(), w.getframerate(), w.getnframes()
+    except (wave.Error, EOFError) as error:
+        raise ProbeError(f'not a WAV file: {error}') from None
+    if channels != 1 or width != 2 or rate not in (16000, 24000):
+        raise ProbeError(f'need mono 16-bit PCM at 16 or 24 kHz, got {channels} ch, {8 * width}-bit, {rate} Hz')
+    return channels, rate, frames / rate
+
+
+def cmd_asr(args) -> int:
+    """Muse Voice Transcribe, file endpoint (S5): one WAV in, the transcript and the time out."""
+    if args.provider != 'meta':
+        raise ProbeError('speech recognition is Muse Voice Transcribe: --provider meta only')
+    audio = Path(args.audio)
+    if not is_plain_file(audio):
+        raise ProbeError(f'{audio}: not a plain file')
+    data = audio.read_bytes()
+    if len(data) > ASR_MAX_BYTES:
+        raise ProbeError('the file endpoint takes at most 32 MB')
+    _, rate, seconds = wav_info(data)
+    _, key, base = provider_config('meta')
+    guard_budget('meta', args.budget, args.max_unpriced)
+    model = args.model or ASR_MODEL
+    request = {'mode': args.mode, 'model': model, 'audioEncoding': 'WAV'}
+    body, ctype = multipart([('request', None, json.dumps(request).encode('utf-8'), 'application/json'),
+                             ('audio', audio.name, data, 'audio/wav')])
+    started = time.perf_counter()
+    with _request(base + '/asr/transcribe', key, None, args.timeout, body=body, content_type=ctype) as resp:
+        result = json.loads(resp.read().decode('utf-8'))
+    total = time.perf_counter() - started
+    transcript = result.get('transcript') if isinstance(result, dict) else None
+    print(scrub(str(transcript), key))
+    print(f'\n{model}: {seconds:.2f} s of {rate // 1000} kHz audio, answered in {total * 1000:.0f} ms '
+          f'(real-time factor {total / seconds:.2f}), cost unknown')
+    ledger_add({'ts': time.time(), 'provider': 'meta', 'model': model, 'kind': 'asr',
+                'audio_s': round(seconds, 3), 'usd': None})
+    path = record('asr', {'provider': 'meta', 'model': model, 'kind': 'asr', 'audio': audio.name,
+                          'audio_s': round(seconds, 3), 'total_ms': round(total * 1000), 'request': request,
+                          'response': result}, key)
+    print(f'recorded: {path.relative_to(ROOT).as_posix()}')
+    return 0
 
 
 # --- commands -----------------------------------------------------------------
@@ -628,6 +695,10 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument('--mode', choices=('computer', 'point'),
                     help='computer: the computer-use tool (Meta); point: a <point eNN> answer, any vision model')
     sp.set_defaults(func=cmd_click)
+    sp = sub.add_parser('asr', parents=[common], help='Muse Voice Transcribe on a WAV file (file endpoint)')
+    sp.add_argument('audio')
+    sp.add_argument('--mode', default='PUSH_TO_TALK', choices=('PUSH_TO_TALK', 'ENDPOINTING'))
+    sp.set_defaults(func=cmd_asr)
     sp = sub.add_parser('ledger')
     sp.set_defaults(func=cmd_ledger)
     return parser

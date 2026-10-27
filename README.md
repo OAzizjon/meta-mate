@@ -76,6 +76,18 @@ The `mm` helper is available from Git Bash as `./mm <command>` or PowerShell as 
 | `mm check` | Run fast project checks |
 | `mm test` | Run available unit tests |
 
+## Build from source (Windows)
+
+1. Install Rust 1.99+ with rustup and the `stable-msvc` toolchain, and install Node.js 24.
+2. Run `npm install`.
+3. Run `npm run build`.
+4. Run `cargo build -p metamate --features custom-protocol`.
+5. Run `target/debug/metamate.exe`.
+
+Self-tests of the Windows layer: `metamate --s1-selftest` (overlay windows never take focus, DPI per monitor) and `metamate --s3-selftest` (UI Automation and password detection on a test page).
+
+Checks and tests: `./mm check` and `./mm test`.
+
 ## Status, roadmap, and privacy
 
 The hackathon build started at kickoff on October 26, 2026 and ends November 4, 2026. See the [day-by-day roadmap](docs/plan.md).
