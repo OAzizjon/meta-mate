@@ -58,6 +58,7 @@ The kickoff is at **12:00 PM GMT-5 = 17:00 UTC = 22:00 Tashkent** (the organiser
 ## Day 4 — 29.10 (Thu): “Where's the button?”
 
 - UIA snapshot + capture of the window area, including its pop-up menus; mask passwords (fail closed) → Muse Spark → `<point>`.
+- The redaction step (lead): the only producer of `RedactedImage` (`mm_core::api::request`), painting every `must_hide` element and refusing on a truncated snapshot; `point_ids` from `ElementList::ids` (safety review #460).
 - Highlighting overlay across multiple monitors, DPI, robot flight, “don't cover the target” rule.
 - Evening goal: accurately point out buttons in Windows Settings and Edge.
 
@@ -77,7 +78,7 @@ The kickoff is at **12:00 PM GMT-5 = 17:00 UTC = 22:00 Tashkent** (the organiser
 ## Day 7 — 01.11 (Sun): fallbacks, scenario 2, freeze
 
 - SAM 3.1 + `ElementFromPoint` for apps without UIA.
-- “Do it for me” with confirmation + blocklist; `pending_safety_checks` → human.
+- “Do it for me” with confirmation + blocklist; `pending_safety_checks` → human. Move `HumanConfirmation` behind a platform `ask_confirmation(&action, target)` and re-check the confirmed element right before injecting (safety review #460).
 - Scenario 2: **video call / browser**.
 - Fix issues from the pilot.
 - **In the evening: freeze demo build v0.9** (tag it and save the installer) and **record a backup video** of all scenarios on the demo machine — the “can't-miss minimum” in case the Zoom recording fails. After that, make changes only on a branch; put only verified changes in the demo build.
