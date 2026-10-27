@@ -54,5 +54,11 @@
   "settings.model_quick": "Quick (Muse Spark 1.3)",
   "settings.model_quick_hint": "Answers fast. Best for everyday help.",
   "settings.model_thorough": "Thorough (Muse Wonder 1.0)",
-  "settings.model_thorough_hint": "Thinks longer about tricky tasks. Slower."
+  "settings.model_thorough_hint": "Thinks longer about tricky tasks. Slower.",
+  "onboarding.example_1": "Where is the volume control?",
+  "onboarding.example_2": "How do I make the text bigger?",
+  "onboarding.example_3": "Where is the zoom slider?",
+  "onboarding.example_4": "How do I open a new tab?",
+  "onboarding.example_5": "Where is the Wi-Fi switch?",
+  "onboarding.example_6": "How do I print this page?"
 }

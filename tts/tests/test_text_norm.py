@@ -11,6 +11,37 @@ from text_norm import normalize
 
 
 class NormalizeTests(unittest.TestCase):
+    def test_times(self):
+        cases = [
+            ('10:30', 'ten thirty', 'десять тридцать'),
+            ('09:05', 'nine five', 'девять пять'),
+            ('0:00', 'zero zero', 'ноль ноль'),
+            ('23:59', 'twenty-three fifty-nine', 'двадцать три пятьдесят девять'),
+        ]
+        for text, en, ru in cases:
+            for lang, expected in [('en', en), ('ru', ru)]:
+                with self.subTest(text=text, lang=lang):
+                    self.assertEqual(normalize(lang, text), expected)
+        self.assertEqual(normalize('ru', 'Напоминание: откройте Settings в 10:30.'),
+                         'Напоминание, откройте Сеттингс в десять тридцать.')
+        self.assertEqual(normalize('en', 'Reminder: open Settings at 10:30.'),
+                         'Reminder, open Settings at ten thirty.')
+        # A colon outside a valid clock time remains a pause.
+        self.assertEqual(normalize('en', '24:60'), 'twenty-four, sixty')
+        self.assertEqual(normalize('ru', 'Громкость: 30%'), 'Громкость, тридцать процентов')
+
+    def test_years(self):
+        cases = [
+            ('ru', '2026 год', 'две тысячи двадцать шесть год'),
+            ('ru', 'в 2026 году', 'в две тысячи двадцать шесть году'),
+            ('ru', 'Как увеличить текст в 2026 году?',
+             'Как увеличить текст в две тысячи двадцать шесть году?'),
+            ('en', 'The year is 2026.', 'The year is two thousand twenty-six.'),
+        ]
+        for lang, text, expected in cases:
+            with self.subTest(lang=lang, text=text):
+                self.assertEqual(normalize(lang, text), expected)
+
     def test_russian_genitive_after_the_preposition(self):
         cases = {
             'Шаг 2 из 3': 'Шаг два из трёх',

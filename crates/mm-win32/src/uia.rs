@@ -126,7 +126,7 @@ impl UiaWalker {
         let mut truncated = false;
         // (element, parent id, depth)
         let mut stack: Vec<(UIElement, Option<String>, usize)> = vec![(root, None, 0)];
-        while let Some((element, parent, depth)) = stack.pop() {
+        'walk: while let Some((element, parent, depth)) = stack.pop() {
             if elements.len() >= limits.max_nodes {
                 truncated = true;
                 break;
@@ -140,26 +140,32 @@ impl UiaWalker {
                 }
             }
             if depth + 1 > limits.max_depth {
-                if self
+                truncated |= match self
                     .walker
                     .get_first_child_build_cache(&element, &self.cache)
-                    .is_ok()
                 {
-                    truncated = true;
-                }
+                    Ok(_) => true,
+                    Err(error) => !is_end(error.code()),
+                };
                 continue;
             }
             // Children are pushed in reverse so they pop in document order.
             let mut children = Vec::new();
             let mut next = self
                 .walker
-                .get_first_child_build_cache(&element, &self.cache)
-                .ok();
-            while let Some(child) = next {
+                .get_first_child_build_cache(&element, &self.cache);
+            loop {
+                let child = match next {
+                    Ok(child) => child,
+                    Err(error) if is_end(error.code()) => break,
+                    Err(_) => {
+                        truncated = true;
+                        continue 'walk;
+                    }
+                };
                 next = self
                     .walker
-                    .get_next_sibling_build_cache(&child, &self.cache)
-                    .ok();
+                    .get_next_sibling_build_cache(&child, &self.cache);
                 children.push(child);
                 if children.len() > limits.max_nodes {
                     truncated = true;
@@ -174,38 +180,77 @@ impl UiaWalker {
     }
 }
 
+/// A successful COM call with a null element means the traversal has ended.
+fn is_end(code: i32) -> bool {
+    code == 0
+}
+
+struct PropertyFlags {
+    password_like: bool,
+    is_password: bool,
+    enabled: bool,
+    offscreen: bool,
+}
+
+/// Missing text may conceal a password signal; unknown visibility stays on screen.
+fn property_flags(
+    control_type: &str,
+    texts: [Option<&str>; 4],
+    is_password: Option<bool>,
+    enabled: Option<bool>,
+    offscreen: Option<bool>,
+) -> PropertyFlags {
+    let password_like = match texts {
+        [
+            Some(name),
+            Some(automation_id),
+            Some(class_name),
+            Some(help_text),
+        ] => password_like(control_type, name, automation_id, help_text, class_name),
+        _ => true,
+    };
+    PropertyFlags {
+        password_like,
+        is_password: is_password.unwrap_or(true),
+        enabled: enabled.unwrap_or(false),
+        offscreen: offscreen.unwrap_or(false),
+    }
+}
+
 /// One element's cached properties; `None` when the provider failed to answer.
 fn describe(element: &UIElement, id: &str, parent: Option<String>) -> Option<UiElement> {
     let control_type = format!("{:?}", element.get_cached_control_type().ok()?);
-    let name = element.get_cached_name().unwrap_or_default();
-    let automation_id = element.get_cached_automation_id().unwrap_or_default();
-    let class_name = element.get_cached_classname().unwrap_or_default();
-    let help_text = element.get_cached_help_text().unwrap_or_default();
+    let name = element.get_cached_name();
+    let automation_id = element.get_cached_automation_id();
+    let class_name = element.get_cached_classname();
+    let help_text = element.get_cached_help_text();
     let rect = element
         .get_cached_bounding_rectangle()
         .ok()
         .and_then(|r| PhysRect::new(r.get_left(), r.get_top(), r.get_right(), r.get_bottom()).ok());
-    // Unknown flags fail closed, like the replay backend.
-    let is_password = element.is_cached_password().unwrap_or(true);
-    let enabled = element.is_cached_enabled().unwrap_or(false);
-    let offscreen = element.is_cached_offscreen().unwrap_or(true);
+    let flags = property_flags(
+        &control_type,
+        [
+            name.as_deref().ok(),
+            automation_id.as_deref().ok(),
+            class_name.as_deref().ok(),
+            help_text.as_deref().ok(),
+        ],
+        element.is_cached_password().ok(),
+        element.is_cached_enabled().ok(),
+        element.is_cached_offscreen().ok(),
+    );
     Some(UiElement {
         id: id.to_owned(),
         parent,
         interactive: is_interactive_type(&control_type),
-        password_like: password_like(
-            &control_type,
-            &name,
-            &automation_id,
-            &help_text,
-            &class_name,
-        ),
+        password_like: flags.password_like,
         control_type,
-        name,
+        name: name.unwrap_or_default(),
         rect,
-        enabled,
-        offscreen,
-        is_password,
+        enabled: flags.enabled,
+        offscreen: flags.offscreen,
+        is_password: flags.is_password,
     })
 }
 
@@ -216,5 +261,67 @@ fn target_window(hwnd: HWND) -> TargetWindow {
     TargetWindow {
         handle: hwnd.0 as usize as u64,
         process_id,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_s_ok_is_end() {
+        assert!(is_end(0));
+        for code in [
+            1,
+            0x80040201u32 as i32,
+            0x80131505u32 as i32,
+            0x800706BAu32 as i32,
+        ] {
+            assert!(!is_end(code));
+        }
+    }
+
+    #[test]
+    fn each_failed_text_read_is_password_like() {
+        for index in 0..4 {
+            let mut texts = [Some(""); 4];
+            texts[index] = None;
+            let flags = property_flags("Text", texts, Some(false), Some(true), Some(false));
+            assert!(flags.password_like, "failed text read {index}");
+        }
+    }
+
+    #[test]
+    fn successful_text_reads_keep_password_heuristics() {
+        let plain = property_flags("Edit", [Some(""); 4], None, None, None);
+        assert!(!plain.password_like);
+        for index in 0..4 {
+            let mut texts = [Some(""); 4];
+            texts[index] = Some(if index == 2 {
+                "PasswordBox"
+            } else {
+                "Password"
+            });
+            assert!(property_flags("Edit", texts, None, None, None).password_like);
+        }
+    }
+
+    #[test]
+    fn failed_flags_fail_closed() {
+        let flags = property_flags("Edit", [Some(""); 4], None, None, None);
+        assert!(flags.is_password);
+        assert!(!flags.enabled);
+        assert!(!flags.offscreen);
+    }
+
+    #[test]
+    fn successful_flags_keep_both_values() {
+        for value in [false, true] {
+            let flags =
+                property_flags("Edit", [Some(""); 4], Some(value), Some(value), Some(value));
+            assert_eq!(flags.is_password, value);
+            assert_eq!(flags.enabled, value);
+            assert_eq!(flags.offscreen, value);
+        }
     }
 }

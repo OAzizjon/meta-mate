@@ -37,9 +37,16 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Cached phrases: `mm phrases build|check` synthesizes Mate's short lines into `assets/phrases/` once; Mate speaks them at once (the wait phrase, "I can't see that here").
 - MMS-TTS on a Modal GPU (`tts/modal_app.py`) and its deploy script (`tts/deploy_modal.py`); `server/run_dev.py --tts-modal` uses it.
 - `metamate --look-probe` measures the foreground window's UI Automation tree.
+- A mouse hook and click recognizer for the teacher; `src-tauri/src/teacher.rs` turns "How do I...?" questions into step-by-step lessons, with Mate pointing at each step and waiting for the person's own click.
+- One highlight window per monitor.
+- `--debug-window` mirrors the answer stream in a debug window.
+- The robot's mouth follows the voice level while listening.
+- `mm_core::geom::uncovered` computes the areas of a region not covered by other rectangles.
 
 ### Changed
 
+- Redaction now includes revealed-password neighbours and descendants of hidden UI Automation elements (`UiSnapshot::hidden_ids`).
+- `crates/mm-win32/src/window.rs` finds windows lying over the target (`occluders`).
 - Safety fixes from a deep review: model points are checked against the screenshot and the target, only the person's own left click confirms a step, screenshots enter requests only as `RedactedImage`, rejected points clear the highlight.
 - README status now says the hackathon build is in progress and Windows-only; Muse Wonder is an optional choice in settings.
 - Linux X11 support was cut, and the JustLog3 shutdown checklist in `docs/server.md` was extended (decisions D39-D42 in `docs/decisions.md`).

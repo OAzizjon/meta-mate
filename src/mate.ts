@@ -8,6 +8,7 @@ import { getLocale, setLocale, t } from "./i18n";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerMsg } from "./ipc/answer-stream";
+import { mountOnboarding, setOnboardingTranslator, stopOnboarding } from "./onboarding";
 import { createTimelinePlayer } from "./player";
 import { isRobotMood, isRobotState, mountRobot } from "./robot";
 import type { CssRect, RobotController, RobotState } from "./robot";
@@ -171,6 +172,8 @@ async function createRouter(
     },
   });
   return (msg) => {
+    // The first sign of a real answer ends the first-run examples.
+    stopOnboarding();
     switch (msg.type) {
       case "state":
         setState(msg.state);
@@ -213,6 +216,8 @@ if (container) {
   robot.setMood("calm");
   robot.setState("idle");
   const bubble = document.getElementById("mate-bubble");
+  setOnboardingTranslator((key) => t(key));
+  mountOnboarding();
   const live =
     bubble && "__TAURI_INTERNALS__" in window ? startLiveAnswers(robot, mountBubble(bubble)) : null;
   if (import.meta.env.DEV) {

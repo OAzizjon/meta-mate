@@ -26,6 +26,7 @@ _LETTERS = dict(zip('abdefghijklmnopqr stuvwxz'.replace(' ', ''),
                     ('а', 'б', 'д', 'е', 'ф', 'г', 'х', 'и', 'дж', 'к', 'л', 'м',
                      'н', 'о', 'п', 'к', 'р', 'с', 'т', 'у', 'в', 'в', 'кс', 'з')))
 _NUMBER = re.compile(r'[0-9]+(?:[.,][0-9]+)?(?:\s*%)?')
+_TIME = re.compile(r'(?<![\w:])([01]?[0-9]|2[0-3]):([0-5][0-9])(?![\w:])')
 _ABBREVIATIONS = {
     'en': {r'e\.\s*g\.': 'for example', r'i\.\s*e\.': 'that is',
            r'etc\.': 'et cetera', r'vs\.': 'versus'},
@@ -128,6 +129,7 @@ def normalize(lang: str, text: str) -> str:
     """Expand abbreviations/numbers/symbols, then keep the voice's alphabet.
 
     Decimal fractions are spoken digit by digit, including trailing zeros.
+    Clock times use cardinal hours and minutes; years use cardinal integers.
     Integers above 999999 fall back to digit spelling. Unsupported marks become
     spaces so adjacent words do not run together. Punctuation alone is silent.
     """
@@ -136,6 +138,8 @@ def normalize(lang: str, text: str) -> str:
     # Match raw dotted forms before number spacing or Latin transliteration.
     for pattern, expansion in _ABBREVIATIONS[lang].items():
         text = re.sub(r'(?<!\w)' + pattern + r'(?!\w)', expansion, text, flags=re.IGNORECASE)
+    text = _TIME.sub(lambda match: ' '.join(_integer(lang, int(part))
+                                           for part in match.groups()), text)
     text = _NUMBER.sub(lambda match: _number(lang, match), text)
     symbols = {'+': ('plus', 'плюс'), '&': ('and', 'и'), '@': ('at', 'собака')}
     text = re.sub(r'[+&@]', lambda match: ' ' + symbols[match.group()][lang == 'ru'] + ' ', text)

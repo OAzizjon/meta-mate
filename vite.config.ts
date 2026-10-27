@@ -13,7 +13,13 @@ export default defineConfig({
   build: {
     target: "es2022",
     rollupOptions: {
-      input: { mate: "mate.html", highlight: "highlight.html", s3: "s3.html", debug: "debug.html" },
+      input: {
+        mate: "mate.html",
+        highlight: "highlight.html",
+        s3: "s3.html",
+        debug: "debug.html",
+        settings: "settings.html",
+      },
     },
   },
 });

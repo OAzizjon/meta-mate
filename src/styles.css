@@ -38,6 +38,28 @@ body {
   display: none;
 }
 
+/* First-run onboarding prompt (src/onboarding.ts), below Mate; `hidden` removes it. */
+#mate-onboarding {
+  position: fixed;
+  left: 50%;
+  top: calc(50% + 56px);
+  transform: translateX(-50%);
+  max-width: min(320px, calc(100% - 16px));
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #fffdf5;
+  color: #1f2430;
+  font: 14px/1.35 "Segoe UI", system-ui, sans-serif;
+  text-align: center;
+  overflow-wrap: anywhere;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
+#mate-onboarding[hidden] {
+  display: none;
+}
+
 #highlight {
   position: fixed;
   inset: 0;
