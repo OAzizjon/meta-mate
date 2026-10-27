@@ -19,7 +19,7 @@ use mm_core::api::response::{Action, ParsedResponse};
 use mm_core::geom::{PhysRect, ShotPoint};
 use mm_core::matescript::{Item, Say};
 use mm_core::teacher::{
-    ClickRecognizer, LineKey, Teacher, TeacherCommand, TeacherConfig, TeacherInput,
+    ClickRecognizer, LineKey, RefusalReason, Teacher, TeacherCommand, TeacherConfig, TeacherInput,
 };
 use tauri::{AppHandle, Manager};
 use tokio::sync::mpsc;
@@ -175,6 +175,11 @@ pub async fn teach(
         &current.redacted.image,
     );
     let mut sentence = 0u64;
+    // The model's first point is sometimes off its target (live: a slider drag that
+    // started 80 px to its left). Instead of guessing, the first turn is asked once more
+    // with a little more reasoning; a second miss is "I can't find it" (invariant 5).
+    let mut first_turn = true;
+    let mut retried = false;
     let mut acknowledged: Vec<String> = Vec::new();
     let mut tick = tokio::time::interval(TICK);
     'turns: loop {
@@ -207,6 +212,26 @@ pub async fn teach(
                 )
             }
         };
+        let missed = pending.iter().any(|command| {
+            matches!(
+                command,
+                TeacherCommand::Refused(RefusalReason::TargetNotFound)
+            )
+        });
+        if first_turn && missed && !retried {
+            retried = true;
+            teacher = Teacher::new(TeacherConfig::default());
+            session.effort = ReasoningEffort::Low;
+            body = computer_request(
+                session.model,
+                session.effort,
+                &question,
+                &current.list,
+                &current.redacted.image,
+            );
+            continue 'turns;
+        }
+        first_turn = false;
         if let Some(pointing) = app.try_state::<Pointing>() {
             pointing.set_shared(generation, Arc::clone(&current));
         }

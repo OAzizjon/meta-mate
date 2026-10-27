@@ -17,7 +17,7 @@ pub(super) fn immediate(action: &Action) -> bool {
 pub(super) fn supported(action: &Action) -> bool {
     match action {
         Action::Click { button, .. } => button == "left",
-        Action::Scroll { .. } | Action::Drag { .. } => false,
+        Action::Scroll { .. } => false,
         _ => true,
     }
 }

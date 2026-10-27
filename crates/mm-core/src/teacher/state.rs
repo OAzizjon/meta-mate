@@ -179,9 +179,9 @@ impl Teacher {
     }
 
     /// The snapped element must be a real target for this action: non-empty, centred
-    /// inside the captured region, and (for a click) the model's own point must lie on
-    /// the screenshot and within the hit tolerance of the element. Otherwise the element
-    /// came from somewhere else than the model's click (invariant 5).
+    /// inside the captured region, and (for a click or drag start) the model's own
+    /// point must lie on the screenshot and within the hit tolerance of the element.
+    /// Otherwise the element came from somewhere else than the model's point (invariant 5).
     fn plausible_target(&self, action: &Action, rect: PhysRect, frame: FrameTransform) -> bool {
         if rect.left >= rect.right
             || rect.top >= rect.bottom
@@ -189,18 +189,23 @@ impl Teacher {
         {
             return false;
         }
-        match action {
-            Action::Click { x, y, .. } | Action::DoubleClick { x, y } => {
-                let point = ShotPoint {
-                    x: *x as f64,
-                    y: *y as f64,
-                };
-                frame.shot_to_phys_checked(point).is_some_and(|phys| {
-                    rect.distance_to(phys) <= f64::from(self.config.hit_tolerance_px)
-                })
+        let (x, y) = match action {
+            Action::Click { x, y, .. } | Action::DoubleClick { x, y } => (*x, *y),
+            Action::Drag { path } => {
+                if path.len() < 2 {
+                    return false;
+                }
+                path[0]
             }
-            _ => true,
-        }
+            _ => return true,
+        };
+        let point = ShotPoint {
+            x: x as f64,
+            y: y as f64,
+        };
+        frame
+            .shot_to_phys_checked(point)
+            .is_some_and(|phys| rect.distance_to(phys) <= f64::from(self.config.hit_tolerance_px))
     }
 
     fn model_failed(&mut self, out: &mut Vec<TeacherCommand>) {
@@ -216,7 +221,7 @@ impl Teacher {
         };
         let is_click = matches!(
             step.action,
-            Action::Click { .. } | Action::DoubleClick { .. }
+            Action::Click { .. } | Action::DoubleClick { .. } | Action::Drag { .. }
         );
         let (completed, human) = match (&step.action, &event) {
             // Software input (ours included) and other buttons never complete a step:
@@ -236,6 +241,24 @@ impl Teacher {
                     } else {
                         self.failures = 0;
                     }
+                    self.point(out);
+                    return;
+                }
+                (true, true)
+            }
+            (Action::Drag { .. }, TeacherInput::Click { at, .. }) => {
+                // The recognizer reports button-up: the thumb may end anywhere
+                // inside the slider's inflated rect. Widen before inflating.
+                let near = i64::from(self.config.near_px);
+                let x = i64::from(at.x);
+                let y = i64::from(at.y);
+                if x < i64::from(step.rect.left) - near
+                    || x >= i64::from(step.rect.right) + near
+                    || y < i64::from(step.rect.top) - near
+                    || y >= i64::from(step.rect.bottom) + near
+                {
+                    out.push(TeacherCommand::Say(LineKey::WrongPlace));
+                    self.failed_attempt(out);
                     self.point(out);
                     return;
                 }

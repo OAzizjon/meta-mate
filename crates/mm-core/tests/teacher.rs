@@ -455,9 +455,6 @@ fn unverifiable_gestures_fail_closed() {
             scroll_x: 0,
             scroll_y: 1,
         },
-        Action::Drag {
-            path: vec![(0, 0), (1, 1)],
-        },
         Action::Click {
             x: 0,
             y: 0,
@@ -578,6 +575,174 @@ fn right_and_injected_clicks_and_keys_never_complete_a_step() {
     });
     assert!(injected.is_empty());
     assert!(ack(&teacher.input(click(110, 2))));
+}
+
+fn drag_action() -> Action {
+    // The first point maps to (100, 100); the end is outside the target.
+    Action::Drag {
+        path: vec![(150, 100), (200, 100)],
+    }
+}
+
+#[test]
+fn drag_points_at_slider_and_human_release_confirms_safety_checks() {
+    // Includes points outside hit tolerance and a corner of the inflated rect.
+    for at in [
+        rect().center(),
+        PhysPoint { x: 159, y: 110 },
+        PhysPoint { x: 60, y: 60 },
+        PhysPoint { x: 159, y: 159 },
+    ] {
+        let mut teacher = Teacher::new(TeacherConfig::default());
+        assert_eq!(
+            teacher.input(turn(vec![drag_action()])),
+            vec![
+                Command::Say(LineKey::StepN),
+                Command::PointAt {
+                    rect: rect(),
+                    step: 1,
+                    total: 1,
+                }
+            ]
+        );
+        assert_eq!(
+            teacher.input(Input::Click {
+                at,
+                left: true,
+                injected: false,
+                now_ms: 10,
+            }),
+            vec![
+                Command::AcknowledgeSafetyChecks(vec!["confirm".into()]),
+                Command::Say(LineKey::RightClick),
+            ]
+        );
+        assert!(teacher.input(Input::Tick { now_ms: 609 }).is_empty());
+        assert_eq!(
+            teacher.input(Input::Tick { now_ms: 610 }),
+            vec![Command::RequestScreenshot]
+        );
+    }
+}
+
+#[test]
+fn drag_ignores_injected_and_non_left_releases() {
+    let mut teacher = Teacher::new(TeacherConfig::default());
+    teacher.input(turn(vec![drag_action()]));
+    for (left, injected) in [(true, true), (false, false), (false, true)] {
+        assert!(
+            teacher
+                .input(Input::Click {
+                    at: rect().center(),
+                    left,
+                    injected,
+                    now_ms: 1,
+                })
+                .is_empty()
+        );
+    }
+    assert!(teacher.input(Input::UserSaidNext { now_ms: 2 }).is_empty());
+    assert!(teacher.input(Input::Tick { now_ms: 1000 }).is_empty());
+    assert!(ack(&teacher.input(click(110, 1001))));
+}
+
+#[test]
+fn far_drag_releases_repoint_and_count_as_failed_attempts() {
+    for at in [
+        PhysPoint { x: 200, y: 110 },
+        PhysPoint { x: 59, y: 110 },
+        PhysPoint { x: 160, y: 110 },
+        PhysPoint { x: 110, y: 59 },
+        PhysPoint { x: 110, y: 160 },
+    ] {
+        let mut teacher = Teacher::new(TeacherConfig {
+            auto_escalate: true,
+            ..Default::default()
+        });
+        teacher.input(turn(vec![drag_action()]));
+        let release = |now_ms| Input::Click {
+            at,
+            left: true,
+            injected: false,
+            now_ms,
+        };
+        let repoint = Command::PointAt {
+            rect: rect(),
+            step: 1,
+            total: 1,
+        };
+        assert_eq!(
+            teacher.input(release(1)),
+            vec![Command::Say(LineKey::WrongPlace), repoint.clone()]
+        );
+        assert_eq!(
+            teacher.input(release(2)),
+            vec![
+                Command::Say(LineKey::WrongPlace),
+                Command::UseModel(ModelChoice::Thorough),
+                repoint,
+            ]
+        );
+        assert_eq!(
+            teacher.input(click(150, 3)),
+            vec![
+                Command::AcknowledgeSafetyChecks(vec!["confirm".into()]),
+                Command::UseModel(ModelChoice::Quick),
+                Command::Say(LineKey::RightClick),
+            ]
+        );
+    }
+}
+
+#[test]
+fn short_or_implausible_drag_starts_are_refused() {
+    for path in [
+        vec![],
+        vec![(150, 100)],
+        vec![(-1, 100), (150, 100)],
+        vec![(740, 100), (150, 100)],
+        vec![(150, 450), (150, 100)],
+        vec![(400, 300), (150, 100)],
+    ] {
+        let mut teacher = Teacher::new(TeacherConfig::default());
+        assert_eq!(
+            teacher.input(turn(vec![Action::Drag { path }])),
+            vec![
+                Command::Refused(RefusalReason::TargetNotFound),
+                Command::Say(LineKey::CantFind),
+            ]
+        );
+        assert!(teacher.input(click(110, 1)).is_empty());
+    }
+}
+
+#[test]
+fn drag_then_click_runs_in_order_and_checks_cover_both() {
+    let mut teacher = Teacher::new(TeacherConfig::default());
+    teacher.input(turn(vec![drag_action(), click_action()]));
+    // This release is inside the drag's inflated rect, beyond click tolerance.
+    assert_eq!(
+        teacher.input(click(150, 1)),
+        vec![
+            Command::Say(LineKey::RightClick),
+            Command::Say(LineKey::StepN),
+            Command::PointAt {
+                rect: rect(),
+                step: 2,
+                total: 2,
+            },
+        ]
+    );
+    assert!(
+        teacher
+            .input(click(150, 2))
+            .contains(&Command::Say(LineKey::WrongPlace))
+    );
+    assert!(ack(&teacher.input(click(110, 3))));
+    assert_eq!(
+        teacher.input(Input::Tick { now_ms: 603 }),
+        vec![Command::RequestScreenshot]
+    );
 }
 
 #[test]
