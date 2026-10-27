@@ -5,9 +5,12 @@
 //! foreground window never changed and that DPI follows each monitor, prints a JSON
 //! report and exits with 0 (pass) or 1. `--voice-selftest FILE.wav` runs the voice path
 //! against the dev proxy without any window (voice_selftest.rs). `--ptt-probe` prints
-//! push-to-talk events for 60 s without any window (spike S2, ptt.rs).
+//! push-to-talk events for 60 s without any window (spike S2, ptt.rs). `--ask "question"`
+//! plays one answer in Mate's window and exits (spike S7, voice.rs). A normal start
+//! in a development build also runs the live voice loop (voice.rs) when
+//! `server/run_dev.py --tts` is up.
 
-#[allow(dead_code)] // wired to push-to-talk next (Day 2)
+mod answer_stream;
 mod mic;
 mod overlay;
 mod proxy;
@@ -17,6 +20,8 @@ mod ptt;
 mod s3;
 #[cfg(windows)]
 mod selftest;
+#[cfg(windows)]
+mod voice;
 mod voice_selftest;
 
 /// Starts the app. Errors at startup are printed and end the process with code 1.
@@ -34,8 +39,18 @@ pub fn run() {
     let selftest = std::env::args().any(|arg| arg == "--s1-selftest");
     let control = std::env::args().any(|arg| arg == "--s1-control");
     let s3 = std::env::args().any(|arg| arg == "--s3-selftest");
+    let ask = args
+        .iter()
+        .position(|arg| arg == "--ask")
+        .and_then(|at| args.get(at + 1))
+        .cloned();
 
     let result = tauri::Builder::default()
+        .manage(answer_stream::AnswerStream::default())
+        .invoke_handler(tauri::generate_handler![
+            answer_stream::subscribe_answer_stream,
+            answer_stream::report_playback
+        ])
         .setup(move |app| {
             #[cfg(windows)]
             let before = mm_win32::focus::foreground();
@@ -53,6 +68,17 @@ pub fn run() {
             #[cfg(windows)]
             if selftest {
                 selftest::spawn(app.handle().clone(), overlays, before, per_monitor_v2);
+                return Ok(());
+            }
+            #[cfg(windows)]
+            if let Some(question) = ask {
+                voice::ask(app.handle(), question);
+                return Ok(());
+            }
+            #[cfg(windows)]
+            if let Some(voice) = voice::start(app.handle()) {
+                use tauri::Manager;
+                app.manage(voice);
             }
             #[cfg(not(windows))]
             let _ = (overlays, selftest, control, s3);

@@ -40,7 +40,7 @@ The desktop app never ships with our provider keys. It holds an invite code, or 
 |---|---|---|---|
 | `hotkey` | Push-to-talk while any app is focused | `windows` crate, `SetWindowsHookEx(WH_KEYBOARD_LL)` on its own thread with a message pump | The callback only enqueues `{key, down/up, time, injected}` and returns (slow hooks are silently removed by Windows). **Right Ctrl is not suppressed**: PTT starts when Right Ctrl is held alone for 250 ms; any other key during the hold cancels PTT (it was a shortcut). Ignore auto-repeat and injected events; recover from a missed key-up via `GetAsyncKeyState` polling. Modes: **hold** (default), **tap to start, auto-stop on silence** (VAD/endpointing; recommended for the elderly tester), press-and-hold on the robot. `RegisterHotKey` cannot report key-up. |
 | `mouse` | User clicks for step verification | `WH_MOUSE_LL`, same thread rules | Position + button only. |
-| `mic` | Capture while PTT is active | `cpal` (WASAPI shared mode) | Take the device's native format (often 48 kHz float stereo), downmix + resample to 16 kHz PCM16 **off the audio callback thread**. No pre-roll (that would need an always-open mic, which Windows shows as "in use"); the `listen` blip plays when the stream is actually open, telling the user to speak. |
+| `mic` | Capture while PTT is active | `cpal` (WASAPI shared mode) | Capture at the device's native rate, then frame as 80 ms PCM16 at 24 kHz. Frames buffer while the speech socket connects; there is no always-open microphone. |
 | `uia` | Snapshot of the target: id, control type, name, automation id, help text, rect, enabled, offscreen, is-password; `ElementFromPoint`; events | `uiautomation` crate or raw `windows` COM; dedicated MTA worker; `IUIAutomation2` connection/transaction timeouts set | A Rust-side deadline does not cancel a hung provider call: if the worker is stuck > 2 s, abandon it and start a fresh worker (move to a helper process if this happens in practice). Bounded walk (~400 nodes). Exclude our own HWNDs from every result. Chromium's tree may be poor on the first query **[spike S3]**. |
 | `capture` | Image of the **target region**: the foreground window's visible frame **plus its owned popups** (menus and dropdowns are separate windows) | Windows.Graphics.Capture on the monitor, cropped to the union of the window's `DWMWA_EXTENDED_FRAME_BOUNDS` and its visible owned popups; `BitBlt` fallback only with a timeout, and a capture is rejected (not silently accepted) if it is black or incomplete | Our own windows must not appear in the image: hide the robot and highlight for the capture frame (opacity 0 for ~1 frame). **Do not** keep `WDA_EXCLUDEFROMCAPTURE` on our windows, or Zoom/OBS would not show the robot in the demo. **[spike]** |
 | `overlay` | Robot window + highlight overlay | Tauri windows created with `transparent: true`, `decorations: false`, `focus: false`, `skip_taskbar: true`, `always_on_top: true`, transparent WebView background and CSS; then extended styles added on the HWND **keeping existing bits** | Robot: `WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`, draggable, shown/moved only with `SWP_NOACTIVATE`. Highlight: one window per monitor, `set_ignore_cursor_events(true)` + `WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE`; verify that clicks reach another process. Unique window labels; **one** WebView owns audio. Per-Monitor DPI Aware v2 in the manifest; handle `WM_DPICHANGED` and display changes. **[spike S1]** If WebView2 transparency misbehaves, the highlight can be a native Win32 layered window (Direct2D) while the robot stays in the WebView. |
@@ -91,25 +91,24 @@ Two paths, chosen by a short intent call (`WHERE` / `HOW` / `CHAT` / `DO`) that 
 ## 4. Voice pipeline
 
 ```
-PTT start ─► robot "listening" ─► mic PCM ─► proxy WSS ─► Muse Voice Transcribe (realtime)
-PTT end   ─► finalize transcript (VAD/endpoint) ─► intent ─► Muse Spark 1.3 / Wonder (streaming, effort: minimal)
-          ─► MateScript parser ─► one ordered playback timeline
-say(sentence) ─► proxy ─► Modal MMS-TTS (voice from <lang>) ─► PCM frames ─► speech bus
+PTT key-down ─► open speech socket; robot "listening" ─► mic frames ─► proxy
+PTT key-up   ─► Muse Spark 1.3 (streaming, reasoning.effort: minimal)
+             ─► MateScript parser ─► one ordered Tauri channel to Mate's window
+sentence ─► proxy ─► Modal MMS-TTS ─► PCM ─► channel ─► speech
 ```
 
-- Sentence-level TTS; sentence N+1 is synthesized while N plays.
-- **Pre-cached phrases**: ~20 frequent lines per language (greeting, "One moment", "Look here", "Well done", "Almost…", "Step N of M", errors) synthesized once with MMS-TTS and shipped as audio files → the robot reacts at once while the real answer is generated.
-- ASR fallback: if the WSS path through the proxy adds > 500 ms or fails, send the recorded clip to the file endpoint (`POST /v1/asr/transcribe`) on PTT end.
-- Language: the model starts each answer with `<lang ru>`; the proxy maps it to an MMS checkpoint. **[verify]** which of the 25 Muse Voice Transcribe languages have MMS-TTS checkpoints.
-- **Reasoning effort and measured S4 first-token latency (D41):** every Spark model reasons before answering. At default effort, a two-sentence answer took **7–10 s** to first token (`muse-spark-1.3`: **9.9 s**, 1703 output tokens). Setting `reasoning.effort: "minimal"` cuts first-token time to **1.9 s** (131 output tokens; `low`: **3.2 s**); a full computer-use turn on the S4 fixture took **5.3 s** at `minimal` (vs **6.9 s** at `low`). All spoken and intent calls therefore force `reasoning.effort: "minimal"`.
-- **Latency budget** (PTT end → first audio of the real answer), measured warm and cold, p50/p95: endpoint/finalize 0.3 s + intent 0.3 s (can run in parallel with capture + UIA 0.3 s) + model first sentence ~1.9 s at `minimal` (target 0.8–1.9 s) + TTS 0.3–0.5 s + network/IPC/playback start 0.2 s ≈ **2.5–3.0 s** (was 2.0–2.5 s before S4). Pre-cached "One moment" covers the wait. A late fallback TTS result is discarded once the primary arrives (generation ids).
-- Fallback voice: Windows WinRT `SpeechSynthesizer` if Modal is slow (> 1.5 s) or down; switch only at a sentence boundary.
-- Barge-in: starting PTT while the robot speaks cancels the current generation id: speech, queued TTS and sfx stop at once.
+- The speech socket opens on key-down. Frames buffer while it connects (about **1.9 s**, D44). The microphone is captured at the device's own rate and framed as **80 ms PCM16 at 24 kHz**.
+- After key-up, Muse Spark streams the answer with `reasoning.effort: minimal`; the parser sends each sentence to MMS-TTS as it emits it.
+- If no sentence has arrived **700 ms** after key-up, the cached "let me think" phrase plays. It uses locale key `robot.thinking` and is synthesized once at startup in both voices.
+- `subscribe_answer_stream(channel, locale)` sends one ordered Rust-to-Mate-window Tauri channel. Each message is tagged by `type`: `state` (`listening`, `thinking`, `idle`); `item` (a MateScript timeline item `{kind, value}`); `pcm` (base64 PCM16LE mono, one chunk per sentence with `eos`; sentence 0 is a cached phrase outside the timeline, and an empty `eos` chunk ends a sentence with no audio); `cancel` (barge-in: generations up to N stop); or `line` (a locale key shown in the bubble).
+- A new press cancels the answer still playing: speech, queued TTS and sfx stop at once, and the window drops any late message of a cancelled generation. The parser never invents `<end>`, so the answer path appends `End` itself and Mate returns to idle.
+- **Measured latency (D45):** key-up to first sound is **3.5–4.5 s** with CPU TTS. The **2–3 s** goal needs the cached phrase plus a GPU on Modal.
+- Still planned: more cached phrases per language (greeting, "Look here", "Well done", "Almost…", errors), shipped as audio files; if the speech socket fails, the recorded clip goes to the file endpoint (`POST /v1/asr/transcribe`) on key-up; a fallback voice (Windows WinRT `SpeechSynthesizer`) when Modal is slow (> 1.5 s) or down, switched only at a sentence boundary. **[verify]** which Muse Voice Transcribe languages have MMS-TTS checkpoints.
 
 ## 5. Audio path and mixer
 
-- Transport: Rust sends PCM16 frames (with generation id and sentence id) to the audio-owner WebView over a Tauri channel; an **AudioWorklet** ring buffer plays them; bounded queue, resampling to the context rate, cancellation by generation id. SFX/ambience files are preloaded and decoded once.
-- Autoplay: native PTT is not a DOM gesture, so the WebView2 is started with `--autoplay-policy=no-user-gesture-required` (Tauri additional browser args) and the AudioContext is resumed on startup **[spike S7]**. Fallback if this is unreliable: play all audio in Rust (`rodio` + `symphonia`) and keep the WebView silent.
+- Transport: the ordered Tauri channel described above carries sentence PCM as base64 PCM16LE mono chunks, tagged with `eos`; an empty `eos` chunk ends a sentence that has no audio. Sentence 0 is the cached phrase and is outside the MateScript timeline. An **AudioWorklet** ring buffer (120 s) plays them, resampling to the context rate; a sentence that does not fit is skipped but still ends, so the timeline never hangs.
+- Autoplay (spike S7, passed 2026-10-27): every window starts WebView2 with `--autoplay-policy=no-user-gesture-required`, and the AudioContext runs without a gesture; the output device's clock can take ~1.5 s to start, so the resume check waits for it. `metamate --ask "question"` proves it unattended: the window reports each sentence's end and the whole answer played out.
 - Buses → master with a limiter: **speech**, **sfx**, **ambience** (looping, 1.5 s crossfade). Ducking while speech plays: ambience −12 dB, sfx −6 dB (300 ms attack, 600 ms release).
 - Volume classes: `soft`, `normal`, `loud`; **calm mode** caps at `soft`, blocks `calm: no` sounds, max 2 sfx per answer.
 - Spatial hint: the `ping` is panned (StereoPanner) toward the target's horizontal position (clamped to ±30 %).
@@ -125,7 +124,7 @@ Small HTTPS service on the VPS (FastAPI preferred; upstream `https://api.meta.ai
   - **Model allowlist** (D40, D41): `muse-spark-1.3` (*Quick*, default) and `muse-wonder-1.0` (*Thorough*), plus `sam-3.1`; never switched by voice or MateScript tags.
   - **Server-side `max_output_tokens` caps** per call type (prevents runaway reasoning token spend such as the 1703 output tokens seen at default effort in S4, D40, D41).
   - **Wonder allowance & quiet fallback** (D40): inside `PROXY_DAILY_BUDGET_USD`, each invite has a daily `muse-wonder-1.0` allowance (calls and dollars per day), while a budget reserve is kept exclusively for `muse-spark-1.3`. When an invite's Wonder allowance or the global Wonder pool runs out, or if Wonder fails, the proxy falls back quietly to `muse-spark-1.3` (the response reports which model answered so the debug view shows it).
-- `WSS /v1/asr` → Muse Voice Transcribe (`muse-voice-transcribe-1.0`) realtime; `POST /v1/asr/transcribe` → file fallback.
+- Speech socket → Muse Voice Transcribe (`muse-voice-transcribe-1.0`) realtime; it opens on PTT key-down while microphone frames buffer during connection.
 - `POST /v1/tts` → Modal MMS-TTS (shared secret).
 - Auth: invite code; per-code daily quota; global daily budget (`PROXY_DAILY_BUDGET_USD`).
 - Privacy: no request/response bodies stored; only counters (code, model, tokens, time).
@@ -134,10 +133,8 @@ Small HTTPS service on the VPS (FastAPI preferred; upstream `https://api.meta.ai
 ## 8. TTS service (Modal)
 
 - Python, `transformers` `VitsModel` + tokenizer for `facebook/mms-tts-<iso>`; preload eng, rus + a few common languages; others lazily.
-- CPU container first (36M params per language) **[spike S6]**; GPU only if CPU latency > 400 ms per sentence.
 - One warm container on demo and judging days; scale to zero otherwise.
-- Some languages need romanization (`uroman`) before tokenization **[verify]**.
-- Text normalization before synthesis: numbers → words, common abbreviations, strip emoji/markup.
+- Input is normalized before synthesis because the MMS alphabets drop anything else: numbers and percent to words, keyboard names and symbols to words, and Latin words transliterated for the Russian voice.
 - Output: PCM16 at the model's sampling rate; the client resamples.
 - License: MMS-TTS weights are **CC-BY-NC 4.0** (fine for the hackathon; a commercial version needs another voice).
 

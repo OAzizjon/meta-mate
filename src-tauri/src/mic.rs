@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self as std_mpsc, RecvTimeoutError, SyncSender};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{ErrorKind, InputCallbackInfo, SampleFormat, Stream, StreamConfig};
@@ -20,6 +20,10 @@ use tokio::sync::mpsc;
 const RING_SECONDS: usize = 2;
 const DRAIN_INTERVAL: Duration = Duration::from_millis(20);
 const DRAIN_CHUNK_SAMPLES: usize = 2_048;
+/// A full frame queue is retried this often, so a cancel is seen at once.
+const SEND_RETRY: Duration = Duration::from_millis(10);
+/// How long a stop may wait for the queue to take its last frames.
+const FLUSH_DEADLINE: Duration = Duration::from_secs(2);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MicError {
@@ -52,6 +56,8 @@ enum Command {
 pub struct Microphone {
     command: Option<std_mpsc::Sender<Command>>,
     worker: Option<JoinHandle<()>>,
+    /// Set by Drop (a cancel): a send waiting on a full queue gives up at once.
+    abandon: Arc<AtomicBool>,
 }
 
 impl fmt::Debug for Microphone {
@@ -68,14 +74,17 @@ impl Microphone {
     ) -> Result<Microphone, MicError> {
         let (ready_tx, ready_rx) = std_mpsc::sync_channel(1);
         let (command_tx, command_rx) = std_mpsc::channel();
+        let abandon = Arc::new(AtomicBool::new(false));
+        let worker_abandon = Arc::clone(&abandon);
         let worker = thread::Builder::new()
             .name("metamate-mic".into())
-            .spawn(move || session(frames, on_level, ready_tx, command_rx))
+            .spawn(move || session(frames, on_level, ready_tx, command_rx, &worker_abandon))
             .map_err(device_error)?;
         match ready_rx.recv() {
             Ok(Ok(())) => Ok(Self {
                 command: Some(command_tx),
                 worker: Some(worker),
+                abandon,
             }),
             Ok(Err(error)) => {
                 let _ = worker.join();
@@ -103,6 +112,7 @@ impl Microphone {
 
 impl Drop for Microphone {
     fn drop(&mut self) {
+        self.abandon.store(true, Ordering::Release);
         if let Some(command) = self.command.take() {
             let _ = command.send(Command::Cancel);
         }
@@ -117,6 +127,7 @@ fn session(
     mut on_level: impl FnMut(f32) + Send + 'static,
     ready: SyncSender<Result<(), MicError>>,
     commands: std_mpsc::Receiver<Command>,
+    abandon: &AtomicBool,
 ) {
     let opened = open_stream();
     let (stream, mut consumer, mut framer, device_lost) = match opened {
@@ -136,11 +147,16 @@ fn session(
             Ok(Command::Stop) => {
                 drop(stream);
                 if !device_lost.load(Ordering::Acquire) {
+                    let outlet = Outlet {
+                        frames: &frames,
+                        abandon,
+                        deadline: Some(Instant::now() + FLUSH_DEADLINE),
+                    };
                     let _ = flush_ring(
                         &mut consumer,
                         &mut scratch,
                         &mut framer,
-                        &frames,
+                        &outlet,
                         &mut on_level,
                     );
                 }
@@ -153,11 +169,16 @@ fn session(
                 if device_lost.load(Ordering::Acquire) {
                     break;
                 }
+                let outlet = Outlet {
+                    frames: &frames,
+                    abandon,
+                    deadline: None,
+                };
                 if !drain_ring(
                     &mut consumer,
                     &mut scratch,
                     &mut framer,
-                    &frames,
+                    &outlet,
                     &mut on_level,
                 ) {
                     break;
@@ -266,11 +287,19 @@ fn push_u16(producer: &mut impl Producer<Item = f32>, data: &[u16]) {
     }
 }
 
+/// Where frames go. A send never blocks past a cancel, nor past a stop's deadline: the
+/// queue's reader may be stuck (a stalled speech socket), the person must not be.
+struct Outlet<'a> {
+    frames: &'a mpsc::Sender<Vec<u8>>,
+    abandon: &'a AtomicBool,
+    deadline: Option<Instant>,
+}
+
 fn drain_ring(
     consumer: &mut impl Consumer<Item = f32>,
     scratch: &mut [f32],
     framer: &mut Framer,
-    frames: &mpsc::Sender<Vec<u8>>,
+    frames: &Outlet<'_>,
     on_level: &mut (impl FnMut(f32) + Send),
 ) -> bool {
     loop {
@@ -290,7 +319,7 @@ fn flush_ring(
     consumer: &mut impl Consumer<Item = f32>,
     scratch: &mut [f32],
     framer: &mut Framer,
-    frames: &mpsc::Sender<Vec<u8>>,
+    frames: &Outlet<'_>,
     on_level: &mut (impl FnMut(f32) + Send),
 ) -> bool {
     if !drain_ring(consumer, scratch, framer, frames, on_level) {
@@ -304,12 +333,26 @@ fn flush_ring(
 
 fn send_frame(
     frame: Vec<u8>,
-    frames: &mpsc::Sender<Vec<u8>>,
+    outlet: &Outlet<'_>,
     on_level: &mut (impl FnMut(f32) + Send),
 ) -> bool {
     let rms = level(&frame);
-    if frames.blocking_send(frame).is_err() {
-        return false;
+    let mut frame = frame;
+    loop {
+        match outlet.frames.try_send(frame) {
+            Ok(()) => break,
+            Err(mpsc::error::TrySendError::Closed(_)) => return false,
+            Err(mpsc::error::TrySendError::Full(back)) => {
+                let late = outlet
+                    .deadline
+                    .is_some_and(|deadline| Instant::now() >= deadline);
+                if outlet.abandon.load(Ordering::Acquire) || late {
+                    return false;
+                }
+                frame = back;
+                thread::sleep(SEND_RETRY);
+            }
+        }
     }
     on_level(rms);
     true
@@ -352,13 +395,19 @@ mod tests {
         let mut framer = Framer::new(OUTPUT_RATE, 1).unwrap();
         let mut scratch = vec![0.0_f32; 512];
         let (tx, mut rx) = mpsc::channel(8);
+        let abandon = AtomicBool::new(false);
+        let outlet = Outlet {
+            frames: &tx,
+            abandon: &abandon,
+            deadline: None,
+        };
         let mut levels = Vec::new();
 
         assert!(drain_ring(
             &mut consumer,
             &mut scratch,
             &mut framer,
-            &tx,
+            &outlet,
             &mut |rms| levels.push(rms),
         ));
         assert_eq!(levels.len(), 1);
@@ -370,7 +419,7 @@ mod tests {
             &mut consumer,
             &mut scratch,
             &mut framer,
-            &tx,
+            &outlet,
             &mut |rms| levels.push(rms),
         ));
         drop(tx);
@@ -389,15 +438,41 @@ mod tests {
         let mut scratch = vec![0.0_f32; 512];
         let (tx, rx) = mpsc::channel(1);
         drop(rx);
+        let abandon = AtomicBool::new(false);
+        let outlet = Outlet {
+            frames: &tx,
+            abandon: &abandon,
+            deadline: None,
+        };
         let mut levels = Vec::new();
 
         assert!(!drain_ring(
             &mut consumer,
             &mut scratch,
             &mut framer,
-            &tx,
+            &outlet,
             &mut |rms| levels.push(rms),
         ));
         assert!(levels.is_empty());
+    }
+
+    #[test]
+    fn a_full_queue_gives_up_on_cancel_and_after_the_deadline() {
+        let (tx, _rx) = mpsc::channel(1);
+        tx.try_send(vec![0; FRAME_BYTES]).unwrap();
+        let abandon = AtomicBool::new(true);
+        let cancelled = Outlet {
+            frames: &tx,
+            abandon: &abandon,
+            deadline: None,
+        };
+        assert!(!send_frame(vec![0; FRAME_BYTES], &cancelled, &mut |_| {}));
+        let calm = AtomicBool::new(false);
+        let late = Outlet {
+            frames: &tx,
+            abandon: &calm,
+            deadline: Some(Instant::now()),
+        };
+        assert!(!send_frame(vec![0; FRAME_BYTES], &late, &mut |_| {}));
     }
 }

@@ -2,8 +2,8 @@
 //! unattended, with every latency measured. The WAV is streamed in real time as if spoken
 //! into the microphone (the socket opens at key-down, D44) → Muse Voice Transcribe →
 //! Muse Spark with the spoken-answer prompt → MateScript timeline → MMS-TTS sentence by
-//! sentence. Prints a JSON report and writes each spoken sentence as
-//! `FILE.answer-N.wav`. Needs `server/run_dev.py --tts` (the invite is read from
+//! sentence. Prints a JSON report and writes each spoken sentence next to the input as
+//! `NAME.answer-N.wav`. Needs `server/run_dev.py --tts` (the invite is read from
 //! `server/.dev-invite`). Exit code 0 when an answer was spoken, 1 otherwise.
 
 use std::path::{Path, PathBuf};
@@ -45,9 +45,10 @@ pub fn run_if_requested(args: &[String]) -> Option<i32> {
         }
     };
     let report = runtime.block_on(selftest(Path::new(wav), proxy));
-    let spoken = report["sentences"]
-        .as_array()
-        .is_some_and(|all| !all.is_empty());
+    // Every sentence spoken and written, not merely attempted.
+    let spoken = report["sentences"].as_array().is_some_and(|all| {
+        !all.is_empty() && all.iter().all(|sentence| sentence["wav"].is_string())
+    });
     println!(
         "{}",
         serde_json::to_string_pretty(&report).unwrap_or_default()

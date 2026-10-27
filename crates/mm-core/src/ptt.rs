@@ -96,6 +96,12 @@ impl Ptt {
         }
     }
 
+    /// Whether the push-to-talk key is down as far as the hook said. A lost key-up keeps
+    /// it so until a `Poll` clears it: the caller polls while this or a session is on.
+    pub fn key_pressed(&self) -> bool {
+        self.pressed_at.is_some()
+    }
+
     pub fn input(&mut self, input: PttInput) -> Vec<PttEvent> {
         let mut out = Vec::new();
         match input {

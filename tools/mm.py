@@ -342,6 +342,9 @@ def cmd_test(args, agent=False):
     if (ROOT / 'server' / 'tests').is_dir():
         # The proxy's pure policy code: standard library only, so the same interpreter runs it.
         steps.append(('server', [sys.executable, '-m', 'unittest', 'discover', '-s', 'server/tests', '-t', 'server']))
+    if (ROOT / 'tts' / 'tests').is_dir():
+        # Text normalization needs no model dependencies.
+        steps.append(('tts', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tts/tests', '-t', 'tts']))
     if (ROOT / 'Cargo.toml').exists():
         has_nextest = run(['cargo', 'nextest', '--version'], env=env)[0] == 0
         offline = ['--offline'] if agent else []

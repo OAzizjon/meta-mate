@@ -1,6 +1,9 @@
 {
   "robot.first_launch": "Hello! I'm {name}. To talk, press and hold Right Ctrl, or press and hold me.",
   "robot.listening": "I'm listening.",
+  "robot.thinking": "Let me think.",
+  "robot.thinking_2": "One moment.",
+  "robot.thinking_3": "Let me see.",
   "robot.looking": "One moment. I'm looking only at this window.",
   "robot.found_it": "Here it is. Look where I'm pointing.",
   "robot.step": "Step {n} of {m}: {instruction}",

@@ -120,6 +120,28 @@ class KeyTests(unittest.TestCase):
 
 
 class CliTests(unittest.TestCase):
+    def test_tts_tests_use_same_interpreter_when_present(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for agent in (False, True):
+                for present in (False, True):
+                    tests = root / 'tts' / 'tests'
+                    if present:
+                        tests.mkdir(parents=True, exist_ok=True)
+                    elif tests.exists():
+                        tests.rmdir()
+                    with self.subTest(agent=agent, present=present), \
+                            patch.object(mm, 'ROOT', root), patch.object(mm, '_extend_path'), \
+                            patch.object(mm.shutil, 'which', side_effect=lambda name: name), \
+                            patch.object(mm.subprocess, 'call', return_value=0) as call, \
+                            contextlib.redirect_stdout(io.StringIO()):
+                        self.assertEqual(mm.cmd_test(argparse.Namespace(), agent=agent), 0)
+                        self.assertEqual(call.call_count, 2 if present else 1)
+                        if present:
+                            self.assertEqual(call.call_args_list[1].args[0],
+                                             [sys.executable, '-m', 'unittest', 'discover',
+                                              '-s', 'tts/tests', '-t', 'tts'])
+
     def test_all_lead_commands_are_refused(self):
         for argv in (['uia'], ['art'], ['keys', 'dummy'], ['sounds', 'normalize'], ['agents'], ['doctor'],
                      ['probe'], ['probe', '--help'], ['probe', 'stream', 'hi']):

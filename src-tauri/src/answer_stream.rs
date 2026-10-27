@@ -1,0 +1,197 @@
+//! Rust → Mate's WebView: one ordered channel for the robot's state, the answer's timeline
+//! items, its speech PCM, barge-in cancels and localized lines (src/ipc/answer-stream.ts
+//! is the other end). One channel keeps items and audio in order.
+
+use std::sync::Mutex;
+use std::time::Instant;
+
+use base64::Engine;
+use mm_core::matescript::Item;
+use serde::Serialize;
+use tauri::ipc::Channel;
+
+#[derive(Clone, Serialize)]
+#[serde(
+    tag = "type",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
+pub enum AnswerMsg {
+    /// "listening", "thinking" or "idle".
+    State {
+        generation: u64,
+        state: &'static str,
+    },
+    Item {
+        generation: u64,
+        item: Item,
+    },
+    /// PCM16LE mono, base64. Sentence 0 is a cached phrase outside the timeline; an empty
+    /// chunk with `eos` ends a sentence that has no audio.
+    Pcm {
+        generation: u64,
+        sentence: u64,
+        sample_rate: u32,
+        eos: bool,
+        samples_b64: String,
+    },
+    /// Barge-in: everything of generations up to this one stops.
+    Cancel {
+        generation: u64,
+    },
+    /// A locale key the WebView shows in the bubble.
+    Line {
+        generation: u64,
+        key: &'static str,
+    },
+}
+
+/// The subscribed channel and the UI locale the WebView reported, and what it reported
+/// about playback.
+#[derive(Default)]
+pub struct AnswerStream {
+    inner: Mutex<Option<(Channel<AnswerMsg>, String)>>,
+    /// The newest cancelled generation: a dying task's late message for it, or an older
+    /// one, never reaches the window after its `Cancel`.
+    cancelled: Mutex<Option<u64>>,
+    reports: Mutex<Vec<(&'static str, u64, Instant, String)>>,
+}
+
+/// The playback reports the window may send (src/ipc/answer-stream.ts `reportPlayback`).
+const REPORTS: [&str; 7] = [
+    "audio_running",
+    "audio_suspended",
+    "done",
+    "pcm",
+    "dropped",
+    "failed",
+    "trace",
+];
+const KEPT_REPORTS: usize = 64;
+
+impl AnswerStream {
+    pub fn subscribed(&self) -> bool {
+        self.inner.lock().is_ok_and(|inner| inner.is_some())
+    }
+
+    /// Every report so far: event, generation, detail.
+    pub fn reports(&self) -> Vec<(&'static str, u64, String)> {
+        self.reports.lock().map_or_else(
+            |_| Vec::new(),
+            |reports| {
+                reports
+                    .iter()
+                    .map(|(event, generation, _, detail)| (*event, *generation, detail.clone()))
+                    .collect()
+            },
+        )
+    }
+
+    /// The latest report of `event` for `generation`, if any.
+    pub fn reported(&self, event: &str, generation: u64) -> Option<Instant> {
+        let reports = self.reports.lock().ok()?;
+        reports
+            .iter()
+            .rev()
+            .find(|(name, number, ..)| *name == event && *number == generation)
+            .map(|(_, _, at, _)| *at)
+    }
+
+    /// Sends to the WebView; a message before it subscribed, or to a closed window, is dropped.
+    pub fn send(&self, message: AnswerMsg) {
+        // Held while sending, so a Cancel and a late message never cross.
+        let Ok(mut cancelled) = self.cancelled.lock() else {
+            return;
+        };
+        match &message {
+            AnswerMsg::Cancel { generation } => {
+                *cancelled = Some(cancelled.map_or(*generation, |old| old.max(*generation)));
+            }
+            AnswerMsg::State { generation, .. }
+            | AnswerMsg::Item { generation, .. }
+            | AnswerMsg::Pcm { generation, .. }
+            | AnswerMsg::Line { generation, .. } => {
+                if cancelled.is_some_and(|through| *generation <= through) {
+                    return;
+                }
+            }
+        }
+        let channel = self
+            .inner
+            .lock()
+            .ok()
+            .and_then(|inner| inner.as_ref().map(|(channel, _)| channel.clone()));
+        if let Some(channel) = channel {
+            let _ = channel.send(message);
+        }
+    }
+
+    /// The UI locale ("en" unless the WebView said "ru").
+    pub fn locale(&self) -> String {
+        self.inner
+            .lock()
+            .ok()
+            .and_then(|inner| inner.as_ref().map(|(_, locale)| locale.clone()))
+            .unwrap_or_else(|| "en".into())
+    }
+
+    /// One sentence's WAV as a single PCM chunk; anything but mono PCM16 becomes an empty
+    /// chunk, so the sentence still ends.
+    pub fn send_wav(&self, generation: u64, sentence: u64, wav: &[u8]) {
+        let (sample_rate, samples) = match mm_core::wav::pcm16_samples(wav) {
+            // The window takes 8-48 kHz only (src/ipc/answer-stream.ts).
+            Ok((rate @ 8_000..=48_000, 1, samples)) => (rate, samples),
+            _ => (16_000, &[][..]),
+        };
+        self.send(AnswerMsg::Pcm {
+            generation,
+            sentence,
+            sample_rate,
+            eos: true,
+            samples_b64: base64::engine::general_purpose::STANDARD.encode(samples),
+        });
+    }
+
+    pub fn end_sentence(&self, generation: u64, sentence: u64) {
+        self.send_wav(generation, sentence, &[]);
+    }
+}
+
+/// The window's playback reports: the audio engine's state, an answer played out.
+#[tauri::command]
+pub fn report_playback(
+    event: String,
+    generation: u64,
+    detail: Option<String>,
+    stream: tauri::State<'_, AnswerStream>,
+) {
+    let Some(event) = REPORTS.into_iter().find(|known| *known == event) else {
+        return;
+    };
+    if let Ok(mut reports) = stream.reports.lock() {
+        if reports.len() >= KEPT_REPORTS {
+            reports.remove(0);
+        }
+        // A short diagnostic (the audio clock): plain characters only, never answer text.
+        let detail: String = detail
+            .unwrap_or_default()
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || " .=_-".contains(*c))
+            .take(80)
+            .collect();
+        reports.push((event, generation, Instant::now(), detail));
+    }
+}
+
+/// Called by the Mate window at startup and whenever its UI locale changes.
+#[tauri::command]
+pub fn subscribe_answer_stream(
+    channel: Channel<AnswerMsg>,
+    locale: String,
+    stream: tauri::State<'_, AnswerStream>,
+) {
+    let locale = if locale == "ru" { "ru" } else { "en" };
+    if let Ok(mut inner) = stream.inner.lock() {
+        *inner = Some((channel, locale.into()));
+    }
+}

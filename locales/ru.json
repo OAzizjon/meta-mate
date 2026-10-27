@@ -1,6 +1,9 @@
 {
   "robot.first_launch": "Здравствуйте! Я {name}. Зажмите правый Ctrl или меня, чтобы поговорить.",
   "robot.listening": "Слушаю.",
+  "robot.thinking": "Сейчас подумаю.",
+  "robot.thinking_2": "Одну секунду.",
+  "robot.thinking_3": "Минутку.",
   "robot.looking": "Секунду. Смотрю только на это окно.",
   "robot.found_it": "Вот она. Посмотрите, куда я показываю.",
   "robot.step": "Шаг {n} из {m}: {instruction}",

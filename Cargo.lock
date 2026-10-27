@@ -2143,6 +2143,7 @@ dependencies = [
 name = "metamate"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "cpal",
  "futures-util",
  "mm-core",

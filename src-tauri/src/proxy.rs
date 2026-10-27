@@ -15,14 +15,22 @@ use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
-/// The longest silence inside a streamed answer before it counts as stalled (the first
-/// token takes up to ~10 s at the default effort, D41).
-const READ_IDLE: Duration = Duration::from_secs(20);
+/// The longest silence inside a reply before it counts as stalled: the first token takes
+/// up to ~10 s at the default effort (D41), a cold Modal TTS container longer.
+const READ_IDLE: Duration = Duration::from_secs(40);
+/// One WebSocket write: a peer that stops reading must not hold a send forever.
+const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 /// MMS-TTS on a cold Modal container; the caller covers the wait with a cached phrase.
 const TTS_TIMEOUT: Duration = Duration::from_secs(35);
 const ASR_ACK_TIMEOUT: Duration = Duration::from_secs(10);
 /// After `endStream` the final transcript came in 364 ms (D44).
 const ASR_FINAL_TIMEOUT: Duration = Duration::from_secs(15);
+/// The proxy ends a session after 90 s; a dead connection must not hold this one longer.
+const ASR_SESSION_TIMEOUT: Duration = Duration::from_secs(105);
+/// A JSON answer or an error body: far below this.
+const JSON_MAX_BYTES: usize = 4 << 20;
+/// One spoken sentence (300 characters, about 20 s of 16 kHz PCM16): far below this.
+const WAV_MAX_BYTES: usize = 8 << 20;
 const ASR_END_STREAM: &str = r#"{"type":"endStream"}"#;
 const SSE_EVENT_MAX_BYTES: usize = 1 << 20;
 
@@ -150,9 +158,18 @@ impl Proxy {
     /// `base` is the proxy's origin (`http://127.0.0.1:8787` in development).
     pub fn new(base: &str, invite: &str) -> Result<Self, ProxyError> {
         let base = base.trim_end_matches('/');
-        if !(base.starts_with("https://") || base.starts_with("http://127.0.0.1:")) {
+        // Parsed, not prefix-matched: "http://127.0.0.1:x@elsewhere" is another host.
+        let url =
+            reqwest::Url::parse(base).map_err(|_| ProxyError::Protocol("bad proxy address"))?;
+        let local = url.scheme() == "http" && url.host_str() == Some("127.0.0.1");
+        if !(url.scheme() == "https" || local)
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.path() != "/"
+            || url.query().is_some()
+        {
             return Err(ProxyError::Protocol(
-                "the proxy must be https (http only on 127.0.0.1)",
+                "the proxy must be an https origin (http only on 127.0.0.1)",
             ));
         }
         let http = reqwest::Client::builder()
@@ -191,7 +208,9 @@ impl Proxy {
             .map(str::to_owned);
         let response = accepted(response).await?;
         if body["stream"] != json!(true) {
-            let value: Value = response.json().await.map_err(network)?;
+            let raw = capped_body(response, JSON_MAX_BYTES).await?;
+            let value: Value = serde_json::from_slice(&raw)
+                .map_err(|_| ProxyError::Protocol("the answer is not JSON"))?;
             let response =
                 mm_core::api::response::parse_response_value(&value).map_err(ProxyError::Answer)?;
             return Ok(Answer { response, model });
@@ -240,7 +259,7 @@ impl Proxy {
             .get("x-synth-ms")
             .and_then(|value| value.to_str().ok())
             .and_then(|value| value.parse().ok());
-        let wav = response.bytes().await.map_err(network)?.to_vec();
+        let wav = capped_body(response, WAV_MAX_BYTES).await?;
         Ok(Speech { wav, synth_ms })
     }
 
@@ -269,9 +288,7 @@ impl Proxy {
             "partialMode": "CUMULATIVE",
             "emitAudioProgress": false,
         });
-        sink.send(Message::Text(handshake.to_string().into()))
-            .await
-            .map_err(network)?;
+        send_within(&mut sink, Message::Text(handshake.to_string().into())).await?;
         let deadline = tokio::time::Instant::now() + ASR_ACK_TIMEOUT;
         loop {
             let message = timeout_at(deadline, stream.next(), "the speech handshake").await?;
@@ -289,13 +306,9 @@ impl Proxy {
         let mut ended_at = None;
         let send = async {
             while let Some(frame) = frames.recv().await {
-                sink.send(Message::Binary(frame.into()))
-                    .await
-                    .map_err(network)?;
+                send_within(&mut sink, Message::Binary(frame.into())).await?;
             }
-            sink.send(Message::Text(ASR_END_STREAM.into()))
-                .await
-                .map_err(network)?;
+            send_within(&mut sink, Message::Text(ASR_END_STREAM.into())).await?;
             Ok::<_, ProxyError>(Instant::now())
         };
         let receive = async {
@@ -315,6 +328,7 @@ impl Proxy {
         };
         tokio::pin!(send, receive);
         let mut final_deadline = None;
+        let session_deadline = tokio::time::Instant::now() + ASR_SESSION_TIMEOUT;
         loop {
             tokio::select! {
                 sent = &mut send, if ended_at.is_none() => {
@@ -328,6 +342,9 @@ impl Proxy {
                     if final_deadline.is_some() => {
                     return Err(ProxyError::Timeout("the final transcript"));
                 }
+                () = sleep_until(session_deadline) => {
+                    return Err(ProxyError::Timeout("the speech session"));
+                }
             }
         }
     }
@@ -339,7 +356,10 @@ async fn accepted(response: reqwest::Response) -> Result<reqwest::Response, Prox
     if status.is_success() {
         return Ok(response);
     }
-    let body: Value = response.json().await.unwrap_or(Value::Null);
+    let body: Value = match capped_body(response, JSON_MAX_BYTES).await {
+        Ok(raw) => serde_json::from_slice(&raw).unwrap_or(Value::Null),
+        Err(_) => Value::Null,
+    };
     let message = body["error"]["message"]
         .as_str()
         .unwrap_or("no message")
@@ -350,6 +370,32 @@ async fn accepted(response: reqwest::Response) -> Result<reqwest::Response, Prox
         status: status.as_u16(),
         message,
     })
+}
+
+/// One WebSocket message, or a timeout when the peer stopped reading.
+async fn send_within(
+    sink: &mut (impl futures_util::Sink<Message, Error = tokio_tungstenite::tungstenite::Error> + Unpin),
+    message: Message,
+) -> Result<(), ProxyError> {
+    timeout(SEND_TIMEOUT, sink.send(message))
+        .await
+        .map_err(|_| ProxyError::Timeout("sending to the speech socket"))?
+        .map_err(network)
+}
+
+/// A whole body, but never more than `cap` bytes: the proxy is ours, yet a broken one
+/// must not exhaust memory.
+async fn capped_body(response: reqwest::Response, cap: usize) -> Result<Vec<u8>, ProxyError> {
+    let mut body = Vec::new();
+    let mut chunks = response.bytes_stream();
+    while let Some(chunk) = chunks.next().await {
+        let chunk = chunk.map_err(network)?;
+        if body.len() + chunk.len() > cap {
+            return Err(ProxyError::Protocol("a reply is too large"));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
 }
 
 fn feed(

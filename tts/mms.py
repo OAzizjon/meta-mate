@@ -21,6 +21,11 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 from transformers import AutoTokenizer, VitsModel  # noqa: E402
 
+if __package__:
+    from .text_norm import normalize
+else:
+    from text_norm import normalize
+
 # Language codes as MateScript's <lang> sends them (ISO 639-1) -> MMS checkpoints.
 CHECKPOINTS = {'en': 'facebook/mms-tts-eng', 'ru': 'facebook/mms-tts-rus'}
 _loaded: dict[str, tuple[VitsModel, AutoTokenizer]] = {}
@@ -37,6 +42,9 @@ def load(lang: str) -> tuple[VitsModel, AutoTokenizer]:
 
 def synthesize(lang: str, text: str) -> tuple[np.ndarray, int]:
     """Mono float32 samples in [-1, 1] and the sample rate (16 kHz for MMS)."""
+    text = normalize(lang, text)
+    if not text:
+        raise ValueError('nothing to say')
     model, tokenizer = load(lang)
     inputs = tokenizer(text, return_tensors='pt')
     with torch.no_grad():

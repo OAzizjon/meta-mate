@@ -4,7 +4,9 @@ import type { WorkletInboundMsg, WorkletOutboundMsg } from "./types.ts";
 
 export const TTS_WORKLET_NAME = "tts-ring-processor";
 export const DEFAULT_WORKLET_SAMPLE_RATE = 48_000;
-export const RING_BUFFER_SECONDS = 30;
+// Rust sends each sentence whole as soon as it is synthesized: a long answer on a fast GPU
+// can be far ahead of playback (about 23 MB of float samples at 48 kHz).
+export const RING_BUFFER_SECONDS = 120;
 export const RING_BUFFER_CAPACITY =
   DEFAULT_WORKLET_SAMPLE_RATE * RING_BUFFER_SECONDS;
 const RMS_EMIT_HZ = 30;
@@ -165,6 +167,12 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
     }
 
     if (!this.writeResampled(pcm, srcSampleRate, eos, generationId, sentenceId)) {
+      // Nothing retries a rejected chunk: the sentence is skipped but still ends, so the
+      // timeline player waiting for it goes on instead of hanging.
+      if (eos && !this.findOpenSentence(generationId, sentenceId)) {
+        this.emit({ type: "sentence-start", generationId, sentenceId });
+        this.emit({ type: "sentence-end", generationId, sentenceId });
+      }
       return;
     }
 

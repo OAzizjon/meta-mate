@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -20,6 +20,11 @@ use mm_win32::keyboard::{self, HookError, KeyEvent, KeyboardHook, RIGHT_CTRL};
 /// The longest wait between two wake-ups: the Tick and the ~30 Hz watchdog.
 const WAKE: Duration = Duration::from_millis(33);
 const PROBE: Duration = Duration::from_secs(60);
+/// Right Ctrl held this long while the hook reported nothing of it: Windows removed the
+/// hook (a slow one is dropped silently), so it is installed again, at most every
+/// `REINSTALL_EVERY`.
+const HOOK_SILENT: Duration = Duration::from_millis(500);
+const REINSTALL_EVERY: Duration = Duration::from_secs(5);
 
 /// The running driver. Dropping it stops the thread within one wake-up and unhooks.
 pub struct PttDriver {
@@ -44,7 +49,7 @@ pub fn spawn(
 ) -> Result<PttDriver, HookError> {
     let started = Instant::now();
     let (events, keys) = mpsc::channel();
-    let hook = keyboard::start(events)?;
+    let hook = keyboard::start(events.clone())?;
     let stop = Arc::new(AtomicBool::new(false));
     let thread = std::thread::Builder::new()
         .name("mm-ptt".into())
@@ -54,6 +59,7 @@ pub fn spawn(
                 run(
                     Feed::new(settings, started),
                     keys,
+                    events,
                     hook,
                     &stop,
                     &mut on_event,
@@ -70,35 +76,61 @@ pub fn spawn(
 fn run(
     mut feed: Feed,
     keys: Receiver<KeyEvent>,
-    _hook: KeyboardHook, // unhooks when the loop ends
+    events: Sender<KeyEvent>,
+    mut hook: KeyboardHook, // unhooks when the loop ends
     stop: &AtomicBool,
     on_event: &mut impl FnMut(PttEvent),
 ) {
     let mut emit = |events: Vec<PttEvent>| events.into_iter().for_each(&mut *on_event);
+    // The last Right Ctrl event the hook delivered, and the last reinstall.
+    let mut last_ctrl = Instant::now();
+    let mut reinstalled = Instant::now()
+        .checked_sub(REINSTALL_EVERY)
+        .unwrap_or_else(Instant::now);
     while !stop.load(Ordering::Relaxed) {
-        let quiet = match keys.recv_timeout(WAKE) {
+        match keys.recv_timeout(WAKE) {
             Ok(event) => {
+                if event.vk == RIGHT_CTRL {
+                    last_ctrl = event.at;
+                }
                 emit(feed.key(event));
-                false
             }
-            Err(RecvTimeoutError::Timeout) => true,
+            Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
-        };
-        emit(feed.tick(Instant::now()));
+        }
+        let now = Instant::now();
+        emit(feed.tick(now));
         // Windows updates the async key state only after the hook returns: polled right
-        // after a hook event it can still say "up" and drop a press. A quiet wait has
-        // let it catch up.
-        if quiet && feed.active() {
-            let down = keyboard::right_ctrl_down();
-            let now = Instant::now();
-            // A key-up the hook saw is queued before the async state shows it: it goes
-            // first, and the next quiet wait polls again.
+        // after a Right Ctrl event it can still read the old state. One WAKE later it has
+        // caught up; other keys' events do not matter.
+        let silent = now.saturating_duration_since(last_ctrl);
+        if silent < WAKE {
+            continue;
+        }
+        let down = keyboard::right_ctrl_down();
+        if feed.needs_poll() {
+            // An event queued meanwhile goes first; the next wake polls again.
             match keys.try_recv() {
-                Ok(event) => emit(feed.key(event)),
+                Ok(event) => {
+                    if event.vk == RIGHT_CTRL {
+                        last_ctrl = event.at;
+                    }
+                    emit(feed.key(event));
+                }
                 Err(_) => emit(feed.poll(down, now)),
+            }
+        } else if down
+            && silent >= HOOK_SILENT
+            && now.saturating_duration_since(reinstalled) >= REINSTALL_EVERY
+        {
+            // Held, yet the hook never said so: Windows removed it.
+            reinstalled = now;
+            if let Ok(fresh) = keyboard::start(events.clone()) {
+                hook = fresh;
             }
         }
     }
+    drop(hook);
 }
 
 /// Hook events and wake-ups as `PttInput`s on one clock, and whether a session is on
@@ -118,8 +150,15 @@ impl Feed {
         }
     }
 
+    #[cfg(test)]
     fn active(&self) -> bool {
         self.active
+    }
+
+    /// Polling is due during a session and while a press the hook reported is pending
+    /// (after TooLong or a chord too): a lost key-up must never wedge the next press.
+    fn needs_poll(&self) -> bool {
+        self.active || self.ptt.key_pressed()
     }
 
     fn key(&mut self, event: KeyEvent) -> Vec<PttEvent> {
@@ -253,6 +292,29 @@ mod tests {
             stop(1, StopReason::Released)
         );
         assert!(!feed.active());
+    }
+
+    #[test]
+    fn a_pending_press_keeps_polling_after_a_chord_until_the_release_is_seen() {
+        let t0 = Instant::now();
+        let mut feed = Feed::new(PttSettings::default(), t0);
+        assert!(!feed.needs_poll());
+        assert_eq!(feed.key(key(RIGHT_CTRL, true, at(t0, 0))), nothing());
+        assert!(feed.needs_poll());
+        assert_eq!(feed.tick(at(t0, 250)), start(1));
+        assert_eq!(
+            feed.key(key(A, true, at(t0, 300))),
+            vec![PttEvent::Cancel { generation: 1 }]
+        );
+        // The session is over, but Right Ctrl's key-up was lost: polling goes on.
+        assert!(!feed.active());
+        assert!(feed.needs_poll());
+        assert_eq!(feed.key(key(A, false, at(t0, 350))), nothing());
+        assert_eq!(feed.poll(false, at(t0, 400)), nothing());
+        assert!(!feed.needs_poll());
+        // The next press works.
+        assert_eq!(feed.key(key(RIGHT_CTRL, true, at(t0, 500))), nothing());
+        assert_eq!(feed.tick(at(t0, 750)), start(2));
     }
 
     #[test]

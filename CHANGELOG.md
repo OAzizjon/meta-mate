@@ -29,6 +29,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Push-to-talk: the keyboard hook (`crates/mm-win32/src/keyboard.rs`), its driver and `--ptt-probe` (`src-tauri/src/ptt.rs`), and microphone capture (`src-tauri/src/mic.rs`).
 - The microphone framer, a streaming SSE parser and a WAV reader in `crates/mm-core`.
 - The WebView timeline player and its IPC parser (`src/player/`, `src/ipc/`).
+- The live voice loop (`src-tauri/src/voice.rs`): hold Right Ctrl, speak, release, and Mate answers aloud in his window, sentence by sentence, with a rotating "let me think" phrase while the answer starts; a new press interrupts him. Development builds run it against `server/run_dev.py --tts`.
+- `metamate --ask "question"` plays one answer in Mate's window and reports how it played, with no microphone (spike S7).
+- Text normalization for MMS-TTS (`tts/text_norm.py`): numbers, percent, key names and symbols become words; Latin words are transliterated for the Russian voice.
 
 ### Changed
 
@@ -38,7 +41,8 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - `mm test` now also runs Rust doctests; agent Rust builds run without sccache and incremental compilation.
 - Proxy hardening from security reviews (D45): only the app's request shapes are accepted, text is priced per UTF-8 byte and continuations by their reported history, Meta's errors and stream events never carry the key, a refused call costs nothing, and speech recognition time is reserved before connecting.
 - Spoken answers may use up to 1000 output tokens, since reasoning alone took up to 398 (D45).
-- Every window starts WebView2 with autoplay allowed, so Mate can speak after push-to-talk (spike S7).
+- Every window starts WebView2 with autoplay allowed, so Mate can speak after push-to-talk (spike S7, passed: D46).
+- Review fixes in the voice path: the push-to-talk watchdog keeps polling while a press is pending and reinstalls a hook Windows removed; microphone sends never block a cancel; speech socket writes time out; proxy addresses are parsed and replies capped.
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)
 

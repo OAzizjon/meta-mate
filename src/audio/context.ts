@@ -7,6 +7,7 @@ import workletUrl from "./tts-worklet.processor.ts?worker&url";
 
 export const AUDIO_SAMPLE_RATE = 48_000;
 const CLOCK_CHECK_DELAY_MS = 50;
+const CLOCK_START_TIMEOUT_MS = 2000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -41,20 +42,23 @@ export async function ensureResumed(ctx: AudioContext): Promise<boolean> {
     return false;
   }
 
+  // The output device can take over a second to start: a running context whose clock has
+  // not moved yet is not blocked (measured 2026-10-27: t=0 at 50 ms, t=1.45 at 1.5 s).
   const startClock = ctx.currentTime;
-  await sleep(CLOCK_CHECK_DELAY_MS);
-
-  if (ctx.state !== "running") {
-    try {
-      await ctx.resume();
-    } catch {
-      return false;
+  for (let waited = 0; waited < CLOCK_START_TIMEOUT_MS; waited += CLOCK_CHECK_DELAY_MS) {
+    await sleep(CLOCK_CHECK_DELAY_MS);
+    if (ctx.state !== "running") {
+      try {
+        await ctx.resume();
+      } catch {
+        return false;
+      }
+    }
+    if (ctx.state === "running" && (ctx.currentTime > startClock || ctx.currentTime > 0)) {
+      return true;
     }
   }
-
-  return (
-    ctx.state === "running" && (ctx.currentTime > startClock || ctx.currentTime > 0)
-  );
+  return false;
 }
 
 export function toResumeState(resumed: boolean): AudioResumeState {

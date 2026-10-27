@@ -82,20 +82,18 @@ test("cancellation and sentence changes reset the resampler", () => {
   assert.deepEqual([...render(processor, processor.bufferedFrames)], [-0.25, -0.25]);
 });
 
-test("overflow rejects the whole chunk, preserves queued speech, and reports capacity", () => {
-  // Small target rate gives a 128-frame ring without allocating 30 seconds of PCM.
+test("overflow rejects the whole chunk, preserves queued speech, and ends the skipped sentence", () => {
+  // A small target rate gives a ring of a few hundred frames instead of 120 seconds of PCM.
   const { processor, messages } = setup(4);
-  const accepted = new Int16Array(120).fill(8192);
+  const capacity = processor.bufferedFrames + 4 * 120; // RING_BUFFER_SECONDS at 4 Hz
+  const accepted = new Int16Array(capacity - 8).fill(8192);
   processor.pushPcm(1, 1, 4, true, accepted);
   const rejected = new Int16Array(9).fill(16384);
   processor.pushPcm(1, 2, 4, true, rejected);
-  assert.equal(processor.bufferedFrames, 120);
-  assert.deepEqual(messages, [{ type: "overflow", generationId: 1, sentenceId: 2,
+  assert.equal(processor.bufferedFrames, capacity - 8);
+  assert.deepEqual(messages.slice(0, 1), [{ type: "overflow", generationId: 1, sentenceId: 2,
     requiredFrames: 9, availableFrames: 8 }]);
-  assert.deepEqual([...render(processor, 120)], Array(120).fill(0.25));
-  assert.equal(messages.some((message) => "sentenceId" in message &&
-    message.sentenceId === 2 && message.type !== "overflow"), false);
-  processor.pushPcm(1, 2, 4, true, rejected);
-  assert.deepEqual([...render(processor, 9)], Array(9).fill(0.5));
+  // Nothing retries it: the skipped sentence still ends, so the player never hangs on it.
   assert.ok(messages.some((message) => message.type === "sentence-end" && message.sentenceId === 2));
+  assert.deepEqual([...render(processor, capacity - 8)], Array(capacity - 8).fill(0.25));
 });

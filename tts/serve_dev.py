@@ -59,7 +59,7 @@ class Handler(BaseHTTPRequestHandler):
         started = time.perf_counter()
         try:
             samples, rate = mms.synthesize(lang, text)
-        except Exception:  # e.g. "123" or "...": nothing the VITS tokenizer can speak
+        except Exception:  # e.g. "...": nothing the VITS tokenizer can speak
             return self.reply(422, b'{}')
         wav = mms.to_wav(samples, rate)
         self.send_response(200)
