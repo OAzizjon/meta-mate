@@ -1,0 +1,286 @@
+<!doctype html>
+<!-- Development debug window (WP14): developer tool only, never ships in release builds.
+     Shows timeline chips, muted text, PCM arrivals per sentence, timings bar chart,
+     and look stats per generation (newest on top, keeps last 20). -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MetaMate Debug</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #13161c;
+        color: #e2e5eb;
+        font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      }
+      .debug-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: #1a1e27;
+        border-bottom: 1px solid #2d3342;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .debug-header h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        color: #ffd23f;
+      }
+      .debug-subtitle {
+        font-size: 11px;
+        color: #8b949e;
+      }
+      #debug-app {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 16px 20px 40px;
+        box-sizing: border-box;
+      }
+      .generation-card {
+        background: #1c212c;
+        border: 1px solid #2c3344;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        padding: 14px 16px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      }
+      .generation-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #2a3140;
+        padding-bottom: 8px;
+        margin-bottom: 10px;
+      }
+      .generation-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #60a5fa;
+        margin: 0;
+      }
+      .generation-badges {
+        display: flex;
+        gap: 6px;
+      }
+      .badge {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        line-height: 1.2;
+      }
+      .badge-state {
+        background: #172554;
+        color: #93c5fd;
+        border: 1px solid #1e40af;
+      }
+      .badge-cancelled {
+        background: #450a0a;
+        color: #fca5a5;
+        border: 1px solid #991b1b;
+      }
+      .badge-line {
+        background: #422006;
+        color: #fef08a;
+        border: 1px solid #a16207;
+      }
+      .debug-section {
+        margin-top: 10px;
+      }
+      .section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #8b949e;
+        margin: 0 0 6px 0;
+      }
+      .look-box {
+        background: #232a37;
+        border: 1px solid #323b4e;
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: #cbd5e1;
+      }
+      .timings-chart {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .timing-row {
+        display: grid;
+        grid-template-columns: 120px 1fr 65px;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+      }
+      .timing-name {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        color: #94a3b8;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .timing-track {
+        background: #252d3d;
+        border-radius: 3px;
+        height: 12px;
+        overflow: hidden;
+        position: relative;
+      }
+      .timing-bar {
+        background: #38bdf8;
+        height: 100%;
+        border-radius: 3px;
+        min-width: 2px;
+        transition: width 0.15s ease-out;
+      }
+      .timing-val {
+        text-align: right;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        color: #cbd5e1;
+      }
+      .timeline-entries {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .timeline-entry {
+        background: #222938;
+        border: 1px solid #2d364a;
+        border-radius: 4px;
+        padding: 6px 8px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 11px;
+        font-weight: 500;
+        padding: 2px 7px;
+        border-radius: 9999px;
+        border: 1px solid transparent;
+        line-height: 1.25;
+      }
+      .chip-say {
+        background: #172554;
+        border-color: #1d4ed8;
+        color: #93c5fd;
+      }
+      .chip-point {
+        background: #422006;
+        border-color: #b45309;
+        color: #fde047;
+      }
+      .chip-pause {
+        background: #3b0764;
+        border-color: #7e22ce;
+        color: #d8b4fe;
+      }
+      .chip-end {
+        background: #022c22;
+        border-color: #047857;
+        color: #6ee7b7;
+      }
+      .chip-wait {
+        background: #312e81;
+        border-color: #4338ca;
+        color: #c7d2fe;
+      }
+      .chip-sfx {
+        background: #500724;
+        border-color: #be185d;
+        color: #f472b6;
+      }
+      .chip-amb {
+        background: #064e3b;
+        border-color: #059669;
+        color: #6ee7b7;
+      }
+      .chip-mood {
+        background: #164e63;
+        border-color: #0891b2;
+        color: #67e8f9;
+      }
+      .chip-step {
+        background: #431407;
+        border-color: #c2410c;
+        color: #fdba74;
+      }
+      .chip-show {
+        background: #27272a;
+        border-color: #52525b;
+        color: #e4e4e7;
+      }
+      .chip-lang {
+        background: #1e293b;
+        border-color: #334155;
+        color: #94a3b8;
+      }
+      .chip-point_rejected,
+      .chip-bad_tag {
+        background: #450a0a;
+        border-color: #991b1b;
+        color: #fca5a5;
+      }
+      .sentence-text {
+        margin: 5px 0 2px 6px;
+        font-size: 12px;
+      }
+      .muted {
+        color: #8b949e;
+        font-style: italic;
+      }
+      .pcm-list {
+        margin: 0;
+        padding-left: 20px;
+        font-size: 12px;
+        color: #cbd5e1;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      .pcm-item {
+        margin-bottom: 2px;
+      }
+      .debug-empty {
+        text-align: center;
+        padding: 60px 20px;
+        font-size: 14px;
+      }
+      .debug-empty-gen {
+        padding: 6px 0;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="debug-header">
+      <h1>MetaMate Debug</h1>
+      <span class="debug-subtitle">Development builds only</span>
+    </header>
+    <main id="debug-app"></main>
+    <script type="module" src="/src/debug.ts"></script>
+  </body>
+</html>

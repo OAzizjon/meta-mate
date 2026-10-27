@@ -87,6 +87,64 @@ impl PhysRect {
     }
 }
 
+/// Disjoint parts of `region` outside all covers, ordered top to bottom, left to right.
+/// Empty/inverted regions yield no rectangles; empty/inverted covers are ignored.
+/// Clipped cover edges form O(n^2) cells, merged horizontally within each row band.
+pub fn uncovered(region: PhysRect, covers: &[PhysRect]) -> Vec<PhysRect> {
+    if region.left >= region.right || region.top >= region.bottom {
+        return Vec::new();
+    }
+    let covers: Vec<PhysRect> = covers
+        .iter()
+        .filter_map(|cover| {
+            let clipped = PhysRect {
+                left: region.left.max(cover.left),
+                top: region.top.max(cover.top),
+                right: region.right.min(cover.right),
+                bottom: region.bottom.min(cover.bottom),
+            };
+            (clipped.left < clipped.right && clipped.top < clipped.bottom).then_some(clipped)
+        })
+        .collect();
+    let mut xs = vec![region.left, region.right];
+    let mut ys = vec![region.top, region.bottom];
+    for cover in &covers {
+        xs.extend([cover.left, cover.right]);
+        ys.extend([cover.top, cover.bottom]);
+    }
+    xs.sort_unstable();
+    xs.dedup();
+    ys.sort_unstable();
+    ys.dedup();
+
+    let mut result: Vec<PhysRect> = Vec::new();
+    for y in ys.windows(2) {
+        for x in xs.windows(2) {
+            // Every cover boundary is a grid edge, so one corner classifies the cell.
+            if covers
+                .iter()
+                .any(|cover| cover.contains(PhysPoint { x: x[0], y: y[0] }))
+            {
+                continue;
+            }
+            if let Some(previous) = result.last_mut()
+                && previous.top == y[0]
+                && previous.right == x[0]
+            {
+                previous.right = x[1];
+                continue;
+            }
+            result.push(PhysRect {
+                left: x[0],
+                top: y[0],
+                right: x[1],
+                bottom: y[1],
+            });
+        }
+    }
+    result
+}
+
 macro_rules! float_geometry {
     ($point:ident, $rect:ident, $space:literal) => {
         #[doc = $space]

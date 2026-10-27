@@ -5,6 +5,7 @@
 //! verify those gestures. Targets are already snapped in physical coordinates;
 //! the frame is never used to manufacture a fallback target.
 
+mod clicks;
 mod command;
 mod config;
 mod confirmation;
@@ -15,6 +16,7 @@ mod refusal;
 mod state;
 mod step;
 
+pub use clicks::ClickRecognizer;
 pub use command::TeacherCommand;
 pub use config::TeacherConfig;
 pub use input::TeacherInput;
