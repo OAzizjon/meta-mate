@@ -77,15 +77,8 @@ pub struct RedactedImage {
 }
 
 impl RedactedImage {
-    /// For the redaction step only (crate-private on purpose): `data_url` must already
-    /// have every hidden element painted over.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "the redaction step (lead, Day 4) is its only caller"
-        )
-    )]
+    /// For `crate::redaction::redact` only (crate-private on purpose): `data_url` must
+    /// already have every hidden element painted over.
     pub(crate) fn from_redacted_data_url(data_url: String) -> Self {
         Self { data_url }
     }
