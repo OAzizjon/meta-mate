@@ -32,8 +32,11 @@ use crate::voice::{Phrases, say_line, voice_of};
 
 /// How often the teacher's clock ticks (settle time, timeouts).
 const TICK: Duration = Duration::from_millis(100);
-/// The longest a lesson waits for the person between two of their actions.
+/// The longest a lesson waits for progress (a step done or a new turn); stray clicks do
+/// not extend it.
 const IDLE_LIMIT: Duration = Duration::from_secs(180);
+/// The longest a lesson may run at all: the mouse hook is system-wide.
+const LESSON_LIMIT: Duration = Duration::from_secs(600);
 
 /// The locale key of a teacher line; None for a line that needs words the model gives
 /// (the step's own commentary says it).
@@ -123,6 +126,10 @@ fn listen_for_clicks(
 async fn look(app: &AppHandle, generation: u64, own: Vec<isize>) -> Result<Look, LookFailure> {
     let looker = app.clone();
     tokio::task::spawn_blocking(move || {
+        // Mate may still be flying: the copy waits until he is still.
+        if let Some(flight) = looker.try_state::<crate::flight::Flight>() {
+            flight.wait_idle(Duration::from_secs(1));
+        }
         let wanted = || !looker.state::<AnswerStream>().is_cancelled(generation);
         take_look(&own, &wanted)
     })
@@ -166,7 +173,12 @@ pub async fn teach(
     };
     let mut teacher = Teacher::new(TeacherConfig::default());
     let (inputs, mut received) = mpsc::unbounded_channel();
-    let _clicks = listen_for_clicks(started, inputs);
+    let Some(_clicks) = listen_for_clicks(started, inputs) else {
+        // Without the hook no step could ever complete.
+        say_line(&stream, &phrases, &locale, generation, "robot.cant_look");
+        finish(&app, &stream, generation);
+        return;
+    };
     let mut body = computer_request(
         session.model,
         session.effort,
@@ -183,35 +195,56 @@ pub async fn teach(
     let mut acknowledged: Vec<String> = Vec::new();
     let mut tick = tokio::time::interval(TICK);
     'turns: loop {
-        // One model turn on the current look.
-        let (mut pending, last_turn) = match proxy.respond(CallKind::Computer, &body, |_| {}).await
-        {
-            Ok(answer) => {
-                let response = answer.response;
-                let call_id = response
-                    .computer_calls
-                    .first()
-                    .map(|call| call.call_id.clone());
-                let turn = (response.id.clone(), call_id);
-                let targets = targets_for(&current, &response);
-                #[cfg(debug_assertions)]
-                eprintln!("teacher: turn {response:?} targets {targets:?}");
-                let frame = current.redacted.frame;
-                let commands = teacher.input(TeacherInput::ModelTurn {
-                    response,
-                    frame,
-                    targets,
-                });
-                (commands, Some(turn))
-            }
-            Err(error) => {
-                eprintln!("teacher: model turn: {error}");
-                (
-                    teacher.input(TeacherInput::ModelFailed { now_ms: now() }),
-                    None,
-                )
-            }
-        };
+        let cancelled = || stream.is_cancelled(generation);
+        // One model turn on the current look. A failed turn (an error, a cut or unfinished
+        // answer, or more than one computer call: the prompt asks for one) is asked again;
+        // the teacher refuses on the second failure.
+        let (mut pending, last_turn, failed) =
+            match proxy.respond(CallKind::Computer, &body, |_| {}).await {
+                Ok(answer) => {
+                    let response = answer.response;
+                    let failed = response.status != "completed"
+                        || response.incomplete_reason.is_some()
+                        || response.computer_calls.len() > 1;
+                    if failed {
+                        let commands = teacher.input(TeacherInput::ModelFailed { now_ms: now() });
+                        (commands, None, true)
+                    } else {
+                        let call_id = response
+                            .computer_calls
+                            .first()
+                            .map(|call| call.call_id.clone());
+                        let turn = (response.id.clone(), call_id);
+                        let targets = targets_for(&current, &response);
+                        #[cfg(debug_assertions)]
+                        eprintln!("teacher: turn {response:?} targets {targets:?}");
+                        let frame = current.redacted.frame;
+                        let commands = teacher.input(TeacherInput::ModelTurn {
+                            response,
+                            frame,
+                            targets,
+                        });
+                        (commands, Some(turn), false)
+                    }
+                }
+                Err(error) => {
+                    eprintln!("teacher: model turn: {error}");
+                    let commands = teacher.input(TeacherInput::ModelFailed { now_ms: now() });
+                    (commands, None, true)
+                }
+            };
+        if cancelled() {
+            return;
+        }
+        let refused = pending.iter().any(|command| {
+            matches!(
+                command,
+                TeacherCommand::Refused(_) | TeacherCommand::Finished
+            )
+        });
+        if failed && !refused {
+            continue 'turns;
+        }
         let missed = pending.iter().any(|command| {
             matches!(
                 command,
@@ -235,25 +268,51 @@ pub async fn teach(
         if let Some(pointing) = app.try_state::<Pointing>() {
             pointing.set_shared(generation, Arc::clone(&current));
         }
-        let mut idle_since = Instant::now();
+        let mut progress = Instant::now();
+        // Clicks made before the current step was shown never complete it (invariant 4:
+        // an impatient second click must not confirm a step the person never saw).
+        let mut pointed_ms = now();
         loop {
             #[cfg(debug_assertions)]
             if !pending.is_empty() {
                 eprintln!("teacher: commands {pending:?}");
             }
+            let mut ended = false;
             for command in std::mem::take(&mut pending) {
+                if cancelled() {
+                    return;
+                }
                 match command {
                     TeacherCommand::SpeakCommentary(text) => {
                         sentence += 1;
                         speak(&stream, &proxy, &locale, generation, sentence, text).await;
                     }
                     TeacherCommand::PointAt { rect, step, total } => {
-                        let _ = show_target(
-                            &app,
-                            generation,
-                            rect,
-                            Some((u32::from(step), u32::from(total))),
+                        progress = Instant::now();
+                        // The picture must still be true where the ring goes.
+                        let true_picture = mm_win32::window::still_shown(
+                            current.snapshot.target,
+                            current.window_frame,
                         );
+                        let shown = true_picture
+                            && show_target(
+                                &app,
+                                generation,
+                                rect,
+                                Some((u32::from(step), u32::from(total))),
+                            )
+                            .is_some();
+                        pointed_ms = now();
+                        if !true_picture {
+                            pending.extend(
+                                teacher.input(TeacherInput::ScreenChangedUnexpectedly {
+                                    now_ms: now(),
+                                }),
+                            );
+                        } else if !shown {
+                            say_line(&stream, &phrases, &locale, generation, "robot.cant_find");
+                            ended = true;
+                        }
                     }
                     TeacherCommand::Say(line) => {
                         if let Some(key) = line_key(line) {
@@ -270,12 +329,19 @@ pub async fn teach(
                         match look(&app, generation, own.clone()).await {
                             Ok(next) => current = Arc::new(next),
                             Err(failure) => {
+                                if cancelled() {
+                                    return;
+                                }
                                 eprintln!("teacher: look: {failure}");
                                 say_line(&stream, &phrases, &locale, generation, failure.line());
                                 finish(&app, &stream, generation);
                                 return;
                             }
                         }
+                        // The model answers in pixels of the image it was last sent: each
+                        // turn's own frame maps them (D48), so the size may follow the window.
+                        (session.sent_width, session.sent_height) =
+                            current.redacted.frame.sent_size();
                         body = computer_followup(
                             session,
                             &response_id,
@@ -286,21 +352,36 @@ pub async fn teach(
                         acknowledged.clear();
                         continue 'turns;
                     }
-                    TeacherCommand::Finished | TeacherCommand::Refused(_) => {
-                        finish(&app, &stream, generation);
-                        return;
-                    }
+                    // The lines of the same batch ("I don't press that", "All done") are
+                    // still said before the lesson ends.
+                    TeacherCommand::Finished | TeacherCommand::Refused(_) => ended = true,
                 }
             }
-            if idle_since.elapsed() > IDLE_LIMIT {
+            if ended {
+                finish(&app, &stream, generation);
+                return;
+            }
+            if progress.elapsed() > IDLE_LIMIT || started.elapsed() > LESSON_LIMIT {
+                say_line(&stream, &phrases, &locale, generation, "robot.sleep");
                 finish(&app, &stream, generation);
                 return;
             }
             tokio::select! {
                 input = received.recv() => {
-                    let Some(input) = input else { continue };
-                    idle_since = Instant::now();
-                    pending = teacher.input(input);
+                    let Some(input) = input else {
+                        // The click thread is gone: no step can complete any more.
+                        finish(&app, &stream, generation);
+                        return;
+                    };
+                    let stale = match &input {
+                        TeacherInput::Click { now_ms, .. } | TeacherInput::DoubleClick { now_ms, .. } => {
+                            *now_ms < pointed_ms
+                        }
+                        _ => false,
+                    };
+                    if !stale {
+                        pending = teacher.input(input);
+                    }
                 }
                 _ = tick.tick() => pending = teacher.input(TeacherInput::Tick { now_ms: now() }),
             }
@@ -335,8 +416,11 @@ async fn speak(
     }
 }
 
-/// The lesson's timeline ends and the beam goes out.
+/// The lesson's timeline ends and the beam goes out (unless a newer press took over).
 fn finish(app: &AppHandle, stream: &AnswerStream, generation: u64) {
+    if stream.is_cancelled(generation) {
+        return;
+    }
     stream.send(AnswerMsg::Item {
         generation,
         item: Item::End,

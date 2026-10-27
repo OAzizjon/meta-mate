@@ -179,7 +179,7 @@ const MALFORMED: unknown[] = [
   ...[7999, 48001, 16000.5, 1e9, -16000, "16000", NaN, Infinity, null].map((sampleRate) => ({ ...PCM, sampleRate })),
   ...["true", 1, null].map((eos) => ({ ...PCM, eos })),
   ...[null, 4, ["AAAA"], new Uint8Array(4)].map((samplesB64) => ({ ...PCM, samplesB64 })),
-  ...["robot.done", "robot.cant_find ", "CantFind", "", null, 1].map((key) => ({ ...LINE, key })),
+  ...["robot.found_it", "robot.cant_find ", "CantFind", "", null, 1].map((key) => ({ ...LINE, key })),
 ];
 
 test("malformed messages are rejected", () => {

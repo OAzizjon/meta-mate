@@ -83,27 +83,27 @@ Two paths, chosen by a short intent call (`WHERE` / `HOW` / `CHAT` / `DO`) that 
    - `Point::Id(id)`: `id` must be in the prompt's listed ids (`list.ids`), and the snapshot element must be pointable (`interactive`, `parent.is_some()`, `enabled`, and not `offscreen`).
    - `Point::Pixel(x, y)`: mapped to physical screen space (`shot_to_phys_checked`) within image bounds and snapped to the pointable element under the pixel via `snapshot.target_at(phys)`.
    - The resolved rectangle is clipped to `snapshot.frame`. If unresolvable or missing, returns `None` (clears the highlight; never guesses, invariant 5).
-6. **Placement and flight:** `place_mate` calculates Mate's target position adjacent to the element (offset by `GAP = 24` CSS px, scaled by monitor DPI, preferring free space) without covering it or clipping off the work area. `Flight::fly_to` animates Mate there; his eyes and beam aim at the target in relative coordinates (`in_mate`).
-7. **Highlight ring and beam:** Tauri emits `HighlightMsg::Target` to the highlight overlay window (`src/highlight.ts`), which draws a glowing target ring (padded by 6 px, rounded corners, 1.5 s pulse) around the element rect and a warm-white beam polygon from Mate to the nearest edge of the target rect (plus an optional step badge).
+6. **Placement and flight:** There is now one highlight window per monitor and Mate flies to the monitor holding the target (`src-tauri/src/overlay.rs`, `highlight.rs`, `pointing.rs show_target`). `place_mate` calculates Mate's target position adjacent to the element (offset by `GAP = 24` CSS px, scaled by monitor DPI, preferring free space) without covering it or clipping off the work area. `Flight::fly_to` animates Mate there; his eyes and beam aim at the target in relative coordinates (`in_mate`).
+7. **Highlight ring and beam:** Tauri emits `HighlightMsg::Target` to the highlight overlay window for that monitor (`src/highlight.ts`), which draws a glowing target ring (padded by 6 px, rounded corners, 1.5 s pulse) around the element rect and a warm-white beam polygon from Mate to the nearest edge of the target rect (plus an optional step badge).
 8. **Stopping pointing:** The beam and ring linger for 3 seconds (`POINT_LINGER = Duration::from_secs(3)`) after the answer finishes playing (`done`), or clear immediately on a new PTT press or cancellation. `stop_pointing` clears the highlight and flies Mate home (`flight.land`).
 9. **What is still planned:**
    - **SAM 3.1 fallback:** Visual contour refinement when UIA is flat or empty (canvas, Qt/Telegram Desktop, games).
    - **`EVENT_OBJECT_LOCATIONCHANGE` tracking:** Follow the target if the window moves or scrolls while pointing.
-   - **Per-monitor highlight windows (in progress):** Multi-monitor highlight overlays (currently restricted to the primary monitor; targets on secondary monitors speak `robot.other_monitor`).
    - **Bigger UIA limits for Chromium:** Adaptive/larger limits for deep DOM trees (probed via `--look-probe`; 400 nodes / depth 12 currently causes fail-closed refusals on Electron apps like VS Code).
 
 **B. "How do I …?" (multi-step): computer use with the human as the hand.**
-1. Responses API, `tools: [{"type": "computer"}]`, `muse-spark-1.3` by default or the user's `muse-wonder-1.0` choice; `reasoning.effort: "minimal"` by default (it hit the S4 fixture target `e11 "Large"` in 5.3 s with 3702 input / 356 output tokens; `low` hit it too in 6.9 s, D41), `low` when retrying a step that failed. Manual Wonder never escalates, and automatic escalation from Spark to Wonder stays off unless the Day-5 gate turns it on (D39, D40). First screenshot as `input_image`. The screenshot size stays fixed for the whole task.
-2. Each computer-use turn returns a `reasoning` item, a `message` with `phase: "commentary"` (the spoken line Mate says), and a `computer_call` containing an `actions` array (e.g. `{"type": "click", "button": "left", "x", "y"}`), a `meta_safety_replay_receipt`, and `pending_safety_checks` (`computer_action_requires_confirmation`) **on every click** (D41). **We do not execute the actions.** The prompt asks for one action per call; a longer `actions` array becomes an ordered list of **sub-steps**, each with its own completion rule:
+The teacher driver now exists (`src-tauri/src/teacher.rs`): how-do-I questions are routed to it.
+1. Responses API, `tools: [{"type": "computer"}]`, `muse-spark-1.3` by default or the user's `muse-wonder-1.0` choice; `reasoning.effort: "minimal"` by default (it hit the S4 fixture target `e11 "Large"` in 5.3 s with 3702 input / 356 output tokens; `low` hit it too in 6.9 s, D41), `low` when retrying a step that failed. A first-turn miss is asked once more at reasoning effort low. Manual Wonder never escalates, and automatic escalation from Spark to Wonder stays off unless the Day-5 gate turns it on (D39, D40). First screenshot as `input_image`. The screenshot size stays fixed for the whole task.
+2. Each computer-use turn returns a `reasoning` item, a `message` with `phase: "commentary"` (the spoken line Mate speaks), and a `computer_call` containing an `actions` array (e.g. `{"type": "click", "button": "left", "x", "y"}`), a `meta_safety_replay_receipt`, and `pending_safety_checks` (`computer_action_requires_confirmation`) **on every click** (D41). **We do not execute the actions.** The prompt asks for one action per call; a longer `actions` array becomes an ordered list of **sub-steps**, each with its own completion rule:
 
 | Action | Shown as | Completed when |
 |---|---|---|
 | `click {x,y}` (`button: "left"`) | robot points at the snapped element | mouse hook click inside the rect (± 8 px), plus UIA invoke/selection event if available |
 | `double_click` | points, "double-click" bubble | two clicks inside the rect within the double-click time |
-| `type {text}` | bubble with the text to type | the focused element's value contains the text (UIA ValuePattern), or the user says "done"/"next" |
-| `keypress {keys}` | keycaps bubble | keyboard hook sees that chord |
+| `type {text}` | bubble with the text to type | refused until a keyboard source exists (WP28/WP29 in progress) |
+| `keypress {keys}` | keycaps bubble | refused until a keyboard source exists (WP28/WP29 in progress) |
 | `scroll` | robot gestures up/down | a scroll event over the target area, then the next screenshot shows the change |
-| `drag` | animated path | mouse up near the end point |
+| `drag` | animated path | button-up near the path's end or on the slider |
 | `wait` / `screenshot` / `move` | nothing to do | immediately |
 
 3. After the last sub-step: 600 ms settle → new capture (same frame size) → `computer_call_output` (with the acknowledged safety check; whether `meta_safety_replay_receipt` must be passed back too: **[verify]** on the second S4 turn). If the screen changed unexpectedly mid-batch (a dialog, an error), we stop the batch and send the screenshot at once, so the model replans.
@@ -113,7 +113,7 @@ Two paths, chosen by a short intent call (`WHERE` / `HOW` / `CHAT` / `DO`) that 
 7. Budget: max 12 model turns per task, then stop and say so.
 8. Spoken line per step (D21, confirmed by S4 in D41): the API returns a `message` item with `phase: "commentary"` alongside `computer_call`, which is the line Mate speaks. A fast parallel `muse-spark-1.3` (`reasoning.effort: "minimal"`) call is used only if `commentary` is absent, while a **pre-cached phrase** ("Step 2 of 3", "Look here") plays immediately while the turn runs.
 
-**Refusal rule:** if the target cannot be validated, Mate says he can't find it. Pointing at the wrong place is worse than saying "I can't see it".
+**Refusal rule:** if the target cannot be validated, Mate says he can't find it (a first-turn miss is asked once more at reasoning effort low). Pointing at the wrong place is worse than saying "I can't see it".
 
 ## 4. Voice pipeline
 

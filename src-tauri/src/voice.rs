@@ -182,15 +182,16 @@ async fn run(app: AppHandle, proxy: Proxy, mut events: mpsc::UnboundedReceiver<P
     while let Some(event) = events.recv().await {
         match event {
             PttEvent::Start { generation } => {
-                // Always: a late point_at of the last answer may have lit the ring after
-                // its look was dropped, so "no look" does not mean "nothing shown".
-                stop_pointing(&app);
+                // Cancel and abort first, so the old answer can no longer light the ring
+                // or store its look; then clear whatever it showed (always: a late
+                // point_at may have lit the ring after its look was dropped).
                 if let Some(previous) = current.take() {
                     stream.send(AnswerMsg::Cancel {
                         generation: previous.generation,
                     });
                     previous.abort();
                 }
+                stop_pointing(&app);
                 stream.send(AnswerMsg::State {
                     generation,
                     state: "listening",

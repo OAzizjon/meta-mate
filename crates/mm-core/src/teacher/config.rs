@@ -4,6 +4,7 @@ use super::ModelChoice;
 pub struct TeacherConfig {
     pub configured_model: ModelChoice,
     pub auto_escalate: bool,
+    pub keyboard_steps: bool,
     pub max_turns: u8,
     pub hit_tolerance_px: u32,
     pub near_px: u32,
@@ -15,6 +16,7 @@ impl Default for TeacherConfig {
         Self {
             configured_model: ModelChoice::Quick,
             auto_escalate: false,
+            keyboard_steps: false,
             max_turns: 12,
             hit_tolerance_px: 8,
             near_px: 40,

@@ -23,6 +23,13 @@ export const ANSWER_LINE_KEYS = [
   "robot.protected_window",
   "robot.other_monitor",
   "robot.window_closed",
+  // The teacher (src-tauri/src/teacher.rs line_key) and its idle limit.
+  "robot.wrong_place",
+  "robot.right_click",
+  "robot.done",
+  "robot.too_many_turns",
+  "robot.wont_press",
+  "robot.sleep",
 ] as const satisfies readonly LocaleKey[];
 export type AnswerLineKey = (typeof ANSWER_LINE_KEYS)[number];
 

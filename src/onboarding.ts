@@ -218,6 +218,8 @@ export function startOnboarding(
       } else {
         sink.showBubble(translate(key));
       }
+      // A sink may have stopped onboarding meanwhile: no timer after a stop.
+      if (!active) return;
       timer = clock.setTimeout(advance, stepMs);
     } else {
       active = false;

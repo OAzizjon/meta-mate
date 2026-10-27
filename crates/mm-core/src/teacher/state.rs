@@ -88,7 +88,11 @@ impl Teacher {
             .is_some_and(|start| self.now_ms.saturating_sub(start) >= self.config.settle_ms)
         {
             self.settled_from = None;
-            out.push(TeacherCommand::RequestScreenshot);
+            if self.turns >= u16::from(self.config.max_turns) {
+                self.refuse(RefusalReason::TooManyTurns, LineKey::TooManyTurns, &mut out);
+            } else {
+                out.push(TeacherCommand::RequestScreenshot);
+            }
         }
         out
     }
@@ -153,7 +157,7 @@ impl Teacher {
                     self.refuse(RefusalReason::TargetNotFound, LineKey::CantFind, out);
                     return;
                 }
-                if !supported(&action) {
+                if !supported(&action, self.config.keyboard_steps) {
                     self.refuse(RefusalReason::UnsupportedAction, LineKey::WontPress, out);
                     return;
                 }
@@ -162,9 +166,19 @@ impl Teacher {
                     return;
                 }
                 if let Some(rect) = rect {
+                    let drag_end = match &action {
+                        Action::Drag { path } => path.last().and_then(|&(x, y)| {
+                            frame.shot_to_phys_checked(ShotPoint {
+                                x: x as f64,
+                                y: y as f64,
+                            })
+                        }),
+                        _ => None,
+                    };
                     self.steps.push(Step {
                         action,
                         rect,
+                        drag_end,
                         call: call_index,
                     });
                 }
@@ -193,6 +207,16 @@ impl Teacher {
             Action::Click { x, y, .. } | Action::DoubleClick { x, y } => (*x, *y),
             Action::Drag { path } => {
                 if path.len() < 2 {
+                    return false;
+                }
+                let (x, y) = path[path.len() - 1];
+                if frame
+                    .shot_to_phys_checked(ShotPoint {
+                        x: x as f64,
+                        y: y as f64,
+                    })
+                    .is_none()
+                {
                     return false;
                 }
                 path[0]
@@ -247,15 +271,20 @@ impl Teacher {
                 (true, true)
             }
             (Action::Drag { .. }, TeacherInput::Click { at, .. }) => {
-                // The recognizer reports button-up: the thumb may end anywhere
-                // inside the slider's inflated rect. Widen before inflating.
+                // Button-up near the mapped endpoint completes a drag. Also allow
+                // a short nudge inside the start rect inflated with widened math.
                 let near = i64::from(self.config.near_px);
                 let x = i64::from(at.x);
                 let y = i64::from(at.y);
-                if x < i64::from(step.rect.left) - near
-                    || x >= i64::from(step.rect.right) + near
-                    || y < i64::from(step.rect.top) - near
-                    || y >= i64::from(step.rect.bottom) + near
+                let near_end = step.drag_end.is_some_and(|end| {
+                    (f64::from(at.x) - f64::from(end.x)).hypot(f64::from(at.y) - f64::from(end.y))
+                        <= f64::from(self.config.near_px)
+                });
+                if !near_end
+                    && (x < i64::from(step.rect.left) - near
+                        || x >= i64::from(step.rect.right) + near
+                        || y < i64::from(step.rect.top) - near
+                        || y >= i64::from(step.rect.bottom) + near)
                 {
                     out.push(TeacherCommand::Say(LineKey::WrongPlace));
                     self.failed_attempt(out);

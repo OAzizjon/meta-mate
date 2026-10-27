@@ -30,6 +30,7 @@ mod s3;
 mod screen;
 #[cfg(windows)]
 mod selftest;
+mod settings;
 #[cfg(windows)]
 mod teacher;
 #[cfg(windows)]
@@ -68,9 +69,15 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             answer_stream::subscribe_answer_stream,
             answer_stream::report_playback,
-            pointing::point_at
+            pointing::point_at,
+            settings::load_settings,
+            settings::save_settings
         ])
         .setup(move |app| {
+            {
+                use tauri::Manager;
+                app.manage(settings::SettingsStore::new(settings::load(app.handle())));
+            }
             #[cfg(windows)]
             let before = mm_win32::focus::foreground();
             #[cfg(windows)]

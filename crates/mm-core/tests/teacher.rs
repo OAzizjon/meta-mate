@@ -213,7 +213,10 @@ fn wonder_unavailable_falls_back_for_the_rest_of_task() {
 
 #[test]
 fn double_click_and_key_chord_complete_in_order() {
-    let mut teacher = Teacher::new(TeacherConfig::default());
+    let mut teacher = Teacher::new(TeacherConfig {
+        keyboard_steps: true,
+        ..Default::default()
+    });
     teacher.input(turn(vec![
         Action::DoubleClick { x: 150, y: 100 },
         Action::Keypress {
@@ -255,7 +258,10 @@ fn typed_value_or_next_completes_without_acknowledging_checks() {
         },
         Input::UserSaidNext { now_ms: 10 },
     ] {
-        let mut teacher = Teacher::new(TeacherConfig::default());
+        let mut teacher = Teacher::new(TeacherConfig {
+            keyboard_steps: true,
+            ..Default::default()
+        });
         teacher.input(turn(vec![Action::Type {
             text: "hello".into(),
         }]));
@@ -377,7 +383,10 @@ fn passive_steps_and_speech_never_acknowledge_safety_checks() {
 
 #[test]
 fn checks_cover_the_whole_call_and_trailing_passive_steps() {
-    let mut teacher = Teacher::new(TeacherConfig::default());
+    let mut teacher = Teacher::new(TeacherConfig {
+        keyboard_steps: true,
+        ..Default::default()
+    });
     teacher.input(turn(vec![click_action(), click_action(), Action::Wait]));
     assert!(!ack(&teacher.input(click(110, 1))));
     assert!(ack(&teacher.input(click(110, 2))));
@@ -564,7 +573,10 @@ fn right_and_injected_clicks_and_keys_never_complete_a_step() {
         });
         assert!(out.is_empty(), "left={left} injected={injected}");
     }
-    let mut keys = Teacher::new(TeacherConfig::default());
+    let mut keys = Teacher::new(TeacherConfig {
+        keyboard_steps: true,
+        ..Default::default()
+    });
     keys.input(turn(vec![Action::Keypress {
         keys: vec!["Enter".into()],
     }]));
@@ -649,9 +661,9 @@ fn drag_ignores_injected_and_non_left_releases() {
 #[test]
 fn far_drag_releases_repoint_and_count_as_failed_attempts() {
     for at in [
-        PhysPoint { x: 200, y: 110 },
+        PhysPoint { x: 250, y: 110 },
         PhysPoint { x: 59, y: 110 },
-        PhysPoint { x: 160, y: 110 },
+        PhysPoint { x: 160, y: 140 },
         PhysPoint { x: 110, y: 59 },
         PhysPoint { x: 110, y: 160 },
     ] {
@@ -703,6 +715,10 @@ fn short_or_implausible_drag_starts_are_refused() {
         vec![(740, 100), (150, 100)],
         vec![(150, 450), (150, 100)],
         vec![(400, 300), (150, 100)],
+        vec![(150, 100), (-1, 100)],
+        vec![(150, 100), (740, 100)],
+        vec![(150, 100), (200, 450)],
+        vec![(150, 100), (200, -1)],
     ] {
         let mut teacher = Teacher::new(TeacherConfig::default());
         assert_eq!(
@@ -765,6 +781,127 @@ fn a_cut_off_turn_is_a_model_failure_not_done() {
             Command::Say(LineKey::NetworkError)
         ]
     );
+}
+
+#[test]
+fn disabled_keyboard_steps_refuse_before_commentary_or_pointing() {
+    assert!(!TeacherConfig::default().keyboard_steps);
+    for action in [
+        Action::Type {
+            text: "hello".into(),
+        },
+        Action::Keypress {
+            keys: vec!["Enter".into()],
+        },
+    ] {
+        let mut teacher = Teacher::new(TeacherConfig::default());
+        let mut response = response(vec![click_action(), action]);
+        response.commentary.push("Click here first".into());
+        assert_eq!(
+            teacher.input(Input::ModelTurn {
+                response,
+                frame: frame(),
+                targets: vec![Some(rect()), None],
+            }),
+            vec![
+                Command::Refused(RefusalReason::UnsupportedAction),
+                Command::Say(LineKey::WontPress),
+            ]
+        );
+        assert!(teacher.input(click(110, 1)).is_empty());
+    }
+}
+
+#[test]
+fn turn_budget_refuses_at_settle_before_requesting_an_extra_turn() {
+    for passive in [false, true] {
+        let mut teacher = Teacher::new(TeacherConfig {
+            max_turns: 2,
+            ..Default::default()
+        });
+        for turn_index in 0..2 {
+            let start = turn_index * 600;
+            teacher.input(turn(vec![if passive {
+                Action::Wait
+            } else {
+                click_action()
+            }]));
+            if !passive {
+                assert!(ack(&teacher.input(click(110, start))));
+            }
+            assert!(
+                teacher
+                    .input(Input::Tick {
+                        now_ms: start + 599
+                    })
+                    .is_empty()
+            );
+            assert_eq!(
+                teacher.input(Input::Tick {
+                    now_ms: start + 600
+                }),
+                if turn_index == 0 {
+                    vec![Command::RequestScreenshot]
+                } else {
+                    vec![
+                        Command::Refused(RefusalReason::TooManyTurns),
+                        Command::Say(LineKey::TooManyTurns),
+                    ]
+                }
+            );
+        }
+        assert!(teacher.input(Input::Tick { now_ms: 2000 }).is_empty());
+        assert!(teacher.input(turn(vec![click_action()])).is_empty());
+    }
+}
+
+#[test]
+fn drag_release_near_mapped_endpoint_completes() {
+    // frame() scales by two and has a negative origin: (400, 200) -> (600, 300).
+    for at in [
+        PhysPoint { x: 600, y: 300 },
+        PhysPoint { x: 624, y: 332 }, // Exactly near_px from the endpoint.
+    ] {
+        let mut teacher = Teacher::new(TeacherConfig::default());
+        teacher.input(turn(vec![Action::Drag {
+            path: vec![(150, 100), (400, 200)],
+        }]));
+        for (left, injected) in [(true, true), (false, false)] {
+            assert!(
+                teacher
+                    .input(Input::Click {
+                        at,
+                        left,
+                        injected,
+                        now_ms: 1,
+                    })
+                    .is_empty()
+            );
+        }
+        // A screenshot-space release and a point just beyond the endpoint radius miss.
+        for wrong in [PhysPoint { x: 400, y: 200 }, PhysPoint { x: 625, y: 332 }] {
+            let out = teacher.input(Input::Click {
+                at: wrong,
+                left: true,
+                injected: false,
+                now_ms: 2,
+            });
+            assert!(out.contains(&Command::Say(LineKey::WrongPlace)));
+            assert!(!ack(&out));
+        }
+        assert_eq!(
+            teacher.input(Input::Click {
+                at,
+                left: true,
+                injected: false,
+                now_ms: 3,
+            }),
+            vec![
+                Command::AcknowledgeSafetyChecks(vec!["confirm".into()]),
+                Command::Say(LineKey::RightClick),
+            ]
+        );
+    }
 }
 
 #[test]

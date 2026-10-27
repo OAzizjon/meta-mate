@@ -17,9 +17,9 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_RCONTROL};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, GetMessageW, HHOOK, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLKHF_UP, MSG,
-    PM_NOREMOVE, PeekMessageW, PostThreadMessageW, SetWindowsHookExW, UnhookWindowsHookEx,
-    WH_KEYBOARD_LL, WM_KEYUP, WM_QUIT, WM_SYSKEYUP, WM_USER,
+    CallNextHookEx, GetMessageW, HHOOK, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLKHF_LOWER_IL_INJECTED,
+    LLKHF_UP, MSG, PM_NOREMOVE, PeekMessageW, PostThreadMessageW, SetWindowsHookExW,
+    UnhookWindowsHookEx, WH_KEYBOARD_LL, WM_KEYUP, WM_QUIT, WM_SYSKEYUP, WM_USER,
 };
 use windows::core::PCWSTR;
 
@@ -31,7 +31,7 @@ pub const RIGHT_CTRL: u32 = VK_RCONTROL.0 as u32;
 pub struct KeyEvent {
     pub vk: u32,
     pub down: bool,
-    /// `LLKHF_INJECTED`: software (`SendInput`, ours included) made it, not a person.
+    /// Either injected flag: software (`SendInput`, ours included) made it, not a person.
     pub injected: bool,
     /// When the hook procedure ran.
     pub at: Instant,
@@ -170,7 +170,7 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         let event = KeyEvent {
             vk: info.vkCode,
             down: !up,
-            injected: (info.flags.0 & LLKHF_INJECTED.0) != 0,
+            injected: (info.flags.0 & (LLKHF_INJECTED.0 | LLKHF_LOWER_IL_INJECTED.0)) != 0,
             at,
         };
         let _ = EVENTS.try_with(|events| {

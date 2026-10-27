@@ -1,4 +1,5 @@
-//! Label-based password detection from `tools/uia_dump.ps1` (D37, invariant 3).
+//! Label-based password detection from `tools/uia_dump.ps1` (D37, invariant 3), and the
+//! "do it for me" blocklist (`forbidden`, invariant 4).
 //! Revealing a password clears IsPassword, so callers must also check these signals.
 
 use std::sync::LazyLock;
@@ -90,4 +91,192 @@ pub fn password_like(
     automation_id.eq_ignore_ascii_case("RevealButton")
         || password_toggle(name)
         || password_toggle(automation_id)
+}
+
+/// Lowercase stems of actions Mate never performs for the user (invariant 4): paying,
+/// buying, ordering, deleting, moving money. ASCII stems match at the start of a word
+/// ("Pay now", "btnDelete", never "Voice Recorder"); Cyrillic stems match anywhere,
+/// because Russian puts prefixes in front of them ("предоплата", "покупка").
+const FORBIDDEN_STEMS: [&str; 31] = [
+    "pay",
+    "prepay",
+    "repay",
+    "buy",
+    "purchase",
+    "purchasing",
+    "order",
+    "reorder",
+    "checkout",
+    "check out",
+    "delete",
+    "remove",
+    "uninstall",
+    "transfer",
+    "send money",
+    "donate",
+    "donation",
+    "withdraw",
+    "оплат",
+    "заплат",
+    "платёж",
+    "платеж",
+    "купи",
+    "куплю",
+    "покуп",
+    "заказ",
+    "удал",
+    "перевод",
+    "перевести деньги",
+    "отправить деньги",
+    "пожертв",
+];
+
+/// Whether clicking a control labelled `name` could pay, buy, order, delete, move money or
+/// touch a password (invariant 4). `control_type` is the UIA control type name: short
+/// tokens such as "PIN" only count in an edit field, as in `password_like`. Callers check
+/// every label they have (name, automation id); a match means never click it for the user.
+pub fn forbidden(name: &str, control_type: &str) -> bool {
+    if password_toggle(name) || (control_type.eq_ignore_ascii_case("Edit") && password_words(name))
+    {
+        return true;
+    }
+    let text = separated(name);
+    FORBIDDEN_STEMS
+        .into_iter()
+        .any(|stem| contains_stem(&text, stem))
+}
+
+/// `name` with every run of whitespace, hyphens and underscores as one space ("Check-out",
+/// "send_money"), without leading or trailing gaps.
+fn separated(name: &str) -> String {
+    let mut text = String::with_capacity(name.len());
+    let mut gap = false;
+    for c in name.chars() {
+        if c.is_whitespace() || c == '-' || c == '_' {
+            gap = true;
+            continue;
+        }
+        if gap && !text.is_empty() {
+            text.push(' ');
+        }
+        gap = false;
+        text.push(c);
+    }
+    text
+}
+
+/// Case-insensitive; an ASCII stem must also start a word.
+fn contains_stem(text: &str, stem: &str) -> bool {
+    text.char_indices().any(|(start, first)| {
+        let Some(candidate) = text.get(start..start + stem.len()) else {
+            return false;
+        };
+        candidate
+            .chars()
+            .flat_map(char::to_lowercase)
+            .eq(stem.chars())
+            && (!stem.is_ascii() || word_start(text[..start].chars().next_back(), first))
+    })
+}
+
+/// A word starts after anything but a letter or digit, or at a camelCase hump.
+fn word_start(before: Option<char>, first: char) -> bool {
+    before.is_none_or(|before| {
+        !before.is_alphanumeric() || (before.is_lowercase() && first.is_uppercase())
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn money_delete_and_password_controls_are_forbidden() {
+        for name in [
+            "Pay now",
+            "PayPal",
+            "Prepay",
+            "Buy now",
+            "Buy it again",
+            "Complete purchase",
+            "Place order",
+            "Reorder",
+            "Checkout",
+            "Proceed to check-out",
+            "Delete",
+            "btnDelete",
+            "DELETE_ACCOUNT",
+            "Remove from cart",
+            "Uninstall",
+            "Transfer funds",
+            "Send  money",
+            "send_money",
+            "Donate",
+            "Withdraw",
+            "Оплатить",
+            "Предоплата",
+            "ПЛАТЁЖ",
+            "Платеж",
+            "Купить",
+            "Покупки",
+            "Оформить заказ",
+            "Удалить",
+            "Перевод",
+            "Перевести  деньги",
+            "Отправить деньги",
+            "Пожертвовать",
+            "Show password",
+            "Показать пароль",
+        ] {
+            assert!(forbidden(name, "Button"), "expected forbidden: {name}");
+        }
+    }
+
+    #[test]
+    fn everyday_controls_are_not_forbidden() {
+        for name in [
+            "",
+            "Display",
+            "Border",
+            "Voice Recorder",
+            "Papaya theme",
+            "Removable disk",
+            "Replay",
+            "Zoom in",
+            "Print",
+            "New tab",
+            "Volume",
+            "Text size",
+            "Wi-Fi",
+            "Pin tab",
+            "Стереорежим",
+            "Платформа",
+            "Показать",
+            "Настройки",
+            "Громкость",
+            "Печать",
+        ] {
+            assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
+        }
+    }
+
+    #[test]
+    fn short_password_tokens_count_only_in_edit_fields() {
+        for name in ["PIN", "otp_input", "CVV", "пин"] {
+            assert!(forbidden(name, "Edit"), "expected forbidden: {name}");
+            assert!(forbidden(name, "edit"), "expected forbidden: {name}");
+            assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
+        }
+        assert!(forbidden("Password", "Text"));
+    }
+
+    #[test]
+    fn ascii_stems_start_a_word_and_cyrillic_stems_match_anywhere() {
+        assert!(forbidden("Proceed (pay)", "Button"));
+        assert!(forbidden("Step 2: Delete", "Hyperlink"));
+        assert!(!forbidden("Taxpayer info", "Button"));
+        assert!(!forbidden("undelete", "Button"));
+        assert!(forbidden("Предоплатить", "Button"));
+        assert!(forbidden("Нажмите, чтобы удалить", "Text"));
+    }
 }
