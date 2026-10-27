@@ -1,15 +1,17 @@
-//! Rust → the highlight window: the ring around the element Mate points at, the beam from
-//! Mate and the step badge (src/highlight.ts is the other end). The window covers one
-//! monitor's area, so everything sent is CSS pixels relative to that monitor (invariant 2).
+//! Rust → the highlight windows: the ring around the element Mate points at, the beam from
+//! Mate and the step badge (src/highlight.ts is the other end). Each monitor has its own
+//! window covering its area, so everything sent is CSS pixels relative to that monitor
+//! (invariant 2).
 
 use std::fmt;
 
 use mm_core::geom::{CssPoint, CssRect, GeomError, MonitorTransform, PhysPoint, PhysRect};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
-/// The highlight window's label (overlay.rs) and the event it listens to.
-const WINDOW: &str = "highlight";
+/// The highlight windows' labels start with this, then the monitor's index (overlay.rs);
+/// the event they listen to.
+const WINDOW_PREFIX: &str = "highlight-";
 const EVENT: &str = "highlight";
 /// The highest step total the window draws a badge for (src/highlight.ts drops the
 /// whole message otherwise).
@@ -76,8 +78,8 @@ impl From<CssPoint> for Point {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum HighlightError {
-    /// The target's center is not on the monitor the highlight window covers: the caller
-    /// speaks without a beam.
+    /// The target's center is not on the given monitor (the caller picks the one it is
+    /// on): nothing is drawn.
     OtherMonitor,
     /// An empty rectangle or an invalid monitor scale.
     Geometry(GeomError),
@@ -106,28 +108,54 @@ impl From<GeomError> for HighlightError {
     }
 }
 
-/// Draws the ring around `target` on `monitor` (the one the highlight window covers), the
-/// beam from `mate` and the badge for `step` (number, total) when given.
+/// The label of the highlight window covering monitor `index` of
+/// `mm_win32::monitors::monitors()`.
+pub fn label(index: usize) -> String {
+    format!("{WINDOW_PREFIX}{index}")
+}
+
+/// Draws the ring around `target` on monitor `monitor_index` (`monitor`, the one its
+/// highlight window covers), the beam from `mate` and the badge for `step` (number, total)
+/// when given. One ring at a time: the other monitors' windows fade out.
 #[cfg(windows)]
 pub fn show(
     app: &AppHandle,
+    monitor_index: usize,
     monitor: &mm_win32::monitors::Monitor,
     target: PhysRect,
     mate: Option<PhysRect>,
     step: Option<(u32, u32)>,
 ) -> Result<(), HighlightError> {
     let payload = message(monitor.area, monitor.scale(), target, mate, step)?;
-    send(app, payload)
+    let shown = label(monitor_index);
+    let others = send_all(app, |other| other != shown, &HighlightMsg::Clear);
+    send(app, &shown, payload).and(others)
 }
 
-/// Fades the ring, the beam and the badge out.
+/// Fades the ring, the beam and the badge out on every monitor.
 pub fn clear(app: &AppHandle) -> Result<(), HighlightError> {
-    send(app, HighlightMsg::Clear)
+    send_all(app, |_| true, &HighlightMsg::Clear)
 }
 
-fn send(app: &AppHandle, payload: HighlightMsg) -> Result<(), HighlightError> {
-    app.emit_to(WINDOW, EVENT, payload)
+fn send(app: &AppHandle, label: &str, payload: HighlightMsg) -> Result<(), HighlightError> {
+    app.emit_to(label, EVENT, payload)
         .map_err(|error| HighlightError::Emit(error.to_string()))
+}
+
+/// `payload` to every highlight window whose label is `wanted`; all are tried, the first
+/// failure is returned.
+fn send_all(
+    app: &AppHandle,
+    wanted: impl Fn(&str) -> bool,
+    payload: &HighlightMsg,
+) -> Result<(), HighlightError> {
+    let mut result = Ok(());
+    for label in app.webview_windows().into_keys() {
+        if label.starts_with(WINDOW_PREFIX) && wanted(label.as_str()) {
+            result = result.and(send(app, &label, payload.clone()));
+        }
+    }
+    result
 }
 
 /// The message for `target` on the monitor covering `monitor_area` at `scale`. A target
@@ -364,6 +392,12 @@ mod tests {
         for (number, total) in [(0, 3), (4, 3), (0, 0), (21, 21)] {
             assert_eq!(step(number, total), Err(HighlightError::StepOutOfRange));
         }
+    }
+
+    #[test]
+    fn labels_each_window_by_its_monitors_index() {
+        assert_eq!(label(0), "highlight-0");
+        assert_eq!(label(12), "highlight-12");
     }
 
     #[test]

@@ -1,5 +1,6 @@
 //! A flat snapshot of the target's UI Automation tree, as in `fixtures/uia/*.json`.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use mm_core::geom::{PhysPoint, PhysRect};
@@ -45,6 +46,62 @@ pub struct UiSnapshot {
 }
 
 impl UiSnapshot {
+    /// Ids whose pixels and names must be hidden, including revealed password siblings
+    /// and all descendants. Only links to existing parents establish a relationship.
+    pub fn hidden_ids(&self) -> BTreeSet<String> {
+        let ids: BTreeSet<&str> = self
+            .elements
+            .iter()
+            .map(|element| element.id.as_str())
+            .collect();
+        let mut children: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        let mut toggle_parents = BTreeSet::new();
+        for element in &self.elements {
+            if let Some(parent) = element
+                .parent
+                .as_deref()
+                .filter(|parent| ids.contains(parent))
+            {
+                children
+                    .entry(parent)
+                    .or_default()
+                    .push(element.id.as_str());
+                if mm_core::privacy::password_toggle(&element.name) {
+                    toggle_parents.insert(parent);
+                }
+            }
+        }
+
+        let mut hidden = BTreeSet::new();
+        let mut pending = Vec::new();
+        for element in &self.elements {
+            let toggle_sibling = matches!(
+                element.control_type.as_str(),
+                "Edit" | "Document" | "Custom"
+            ) && element
+                .parent
+                .as_deref()
+                .is_some_and(|parent| toggle_parents.contains(parent));
+            if (mm_core::api::request::must_hide(element.is_password, element.password_like, false)
+                || toggle_sibling)
+                && hidden.insert(element.id.clone())
+            {
+                pending.push(element.id.as_str());
+            }
+        }
+        // Each id is queued once, even if malformed parent links form a cycle.
+        while let Some(parent) = pending.pop() {
+            if let Some(descendants) = children.get(parent) {
+                for &child in descendants {
+                    if hidden.insert(child.to_owned()) {
+                        pending.push(child);
+                    }
+                }
+            }
+        }
+        hidden
+    }
+
     /// The element with this snapshot-local id, e.g. "e11" from `<point e11>`.
     pub fn element(&self, id: &str) -> Option<&UiElement> {
         self.elements.iter().find(|element| element.id == id)
@@ -158,6 +215,163 @@ mod tests {
         snapshot
             .element_at(PhysPoint { x, y })
             .map(|element| element.id.as_str())
+    }
+
+    fn child(id: &str, parent: &str, control_type: &str) -> UiElement {
+        let mut child = element(id, control_type, rect(0, 0, 10, 10));
+        child.parent = Some(parent.to_owned());
+        child
+    }
+
+    fn hidden(elements: Vec<UiElement>) -> BTreeSet<String> {
+        UiSnapshot {
+            target: TargetWindow {
+                handle: 1,
+                process_id: 1,
+            },
+            frame: rect(0, 0, 100, 100),
+            elements,
+            truncated: false,
+        }
+        .hidden_ids()
+    }
+
+    fn ids(expected: &[&str]) -> BTreeSet<String> {
+        expected.iter().map(|id| (*id).to_owned()).collect()
+    }
+
+    #[test]
+    fn hidden_ids_respects_each_password_flag() {
+        let mut password = element("password", "Edit", rect(0, 0, 10, 10));
+        password.is_password = true;
+        let mut password_like = element("like", "Custom", rect(0, 0, 10, 10));
+        password_like.password_like = true;
+        assert_eq!(
+            hidden(vec![
+                password,
+                password_like,
+                element("plain", "Edit", rect(0, 0, 10, 10)),
+            ]),
+            ids(&["password", "like"])
+        );
+    }
+
+    #[test]
+    fn hidden_ids_hides_revealed_siblings_for_each_supported_type() {
+        for label in ["Show password", "Hide password", "Показать пароль"] {
+            let mut toggle = child("toggle", "root", "Button");
+            toggle.name = label.to_owned();
+            let mut edit = child("edit", "root", "Edit");
+            edit.name.clear();
+            assert_eq!(
+                hidden(vec![
+                    element("root", "Window", rect(0, 0, 100, 100)),
+                    toggle,
+                    edit,
+                    child("document", "root", "Document"),
+                    child("custom", "root", "Custom"),
+                    child("text", "root", "Text"),
+                    child("unrelated", "other", "Edit"),
+                    element("other", "Pane", rect(0, 0, 100, 100)),
+                ]),
+                ids(&["edit", "document", "custom"])
+            );
+        }
+    }
+
+    #[test]
+    fn hidden_ids_toggle_without_editable_siblings_hides_nothing_more() {
+        let mut toggle = child("toggle", "root", "Button");
+        toggle.name = "Hide password".to_owned();
+        toggle.password_like = true;
+        assert_eq!(
+            hidden(vec![
+                element("root", "Window", rect(0, 0, 100, 100)),
+                toggle,
+                child("text", "root", "Text"),
+                child("button", "root", "Button"),
+            ]),
+            ids(&["toggle"])
+        );
+    }
+
+    #[test]
+    fn hidden_ids_combines_rules_and_hides_deep_descendants_in_any_order() {
+        let mut password = child("password", "root", "Custom");
+        password.is_password = true;
+        let mut toggle = child("toggle", "root", "Button");
+        toggle.name = "Show password".to_owned();
+        toggle.password_like = true;
+        assert_eq!(
+            hidden(vec![
+                child("deep", "text", "Text"),
+                child("text", "password", "Text"),
+                child("revealed_text", "revealed", "Text"),
+                child("revealed", "root", "Edit"),
+                password,
+                toggle,
+                element("root", "Window", rect(0, 0, 100, 100)),
+            ]),
+            ids(&[
+                "deep",
+                "text",
+                "password",
+                "toggle",
+                "revealed",
+                "revealed_text"
+            ])
+        );
+    }
+
+    #[test]
+    fn hidden_ids_propagates_from_a_flagged_container_without_a_toggle() {
+        let mut container = element("container", "Pane", rect(0, 0, 100, 100));
+        container.password_like = true;
+        assert_eq!(
+            hidden(vec![
+                container,
+                child("child", "container", "Custom"),
+                child("text", "child", "Text"),
+            ]),
+            ids(&["container", "child", "text"])
+        );
+    }
+
+    #[test]
+    fn hidden_ids_parent_cycles_terminate() {
+        let mut password = child("password", "text", "Edit");
+        password.is_password = true;
+        assert_eq!(
+            hidden(vec![
+                password,
+                child("text", "password", "Text"),
+                child("unseeded_a", "unseeded_b", "Text"),
+                child("unseeded_b", "unseeded_a", "Text"),
+                child("self", "self", "Text"),
+            ]),
+            ids(&["password", "text"])
+        );
+    }
+
+    #[test]
+    fn hidden_ids_ignores_missing_parents_and_separate_roots() {
+        let mut toggle = child("toggle", "missing", "Button");
+        toggle.name = "Hide password".to_owned();
+        let mut root_toggle = element("root_toggle", "Button", rect(0, 0, 10, 10));
+        root_toggle.name = "Show password".to_owned();
+        let mut orphan = child("orphan", "missing", "Edit");
+        orphan.is_password = true;
+        assert_eq!(
+            hidden(vec![
+                toggle,
+                child("plain", "missing", "Edit"),
+                root_toggle,
+                element("root_edit", "Edit", rect(0, 0, 10, 10)),
+                orphan,
+                child("orphan_child", "orphan", "Text"),
+            ]),
+            ids(&["orphan", "orphan_child"])
+        );
     }
 
     #[test]

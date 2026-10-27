@@ -39,7 +39,8 @@ struct Report {
 }
 
 pub fn spawn(app: AppHandle, overlays: Overlays, before: HWND, per_monitor_v2: bool) {
-    let (Ok(mate), Ok(highlight)) = (overlays.mate.hwnd(), overlays.highlight.hwnd()) else {
+    let first = overlays.highlights.first().map(|(window, _)| window.hwnd());
+    let (Ok(mate), Some(Ok(highlight))) = (overlays.mate.hwnd(), first) else {
         println!("{{\"passed\":false,\"error\":\"no window handles\"}}");
         app.exit(1);
         return;

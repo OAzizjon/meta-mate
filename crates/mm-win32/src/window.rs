@@ -14,8 +14,9 @@ use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromRect,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GW_OWNER, GWL_STYLE, GetClassNameW, GetWindow, GetWindowLongPtrW, GetWindowRect,
-    GetWindowThreadProcessId, IsIconic, IsWindowVisible, WS_POPUP,
+    EnumWindows, GW_OWNER, GWL_EXSTYLE, GWL_STYLE, GetClassNameW, GetLayeredWindowAttributes,
+    GetWindow, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsIconic,
+    IsWindowVisible, LWA_ALPHA, WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::BOOL;
 
@@ -89,6 +90,82 @@ pub fn still_shown(window: TargetWindow, frame: PhysRect) -> bool {
     // SAFETY: the out pointer is a local u32; a stale handle gives thread 0.
     let thread = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process_id)) };
     thread != 0 && process_id == window.process_id && shown(hwnd) && frame_of(hwnd) == Some(frame)
+}
+
+/// Frames of other shown windows above the target, clipped to its capture region.
+/// Topmost windows count too; uncertain transparency is included conservatively.
+pub fn occluders(target: &Target, own: &[HWND]) -> Vec<PhysRect> {
+    let mut above = AboveTarget {
+        target: target.hwnd,
+        handles: Vec::new(),
+    };
+    // SAFETY: the callback receives our exclusive stack-local `above`, which outlives
+    // this synchronous enumeration. Stopping at the target intentionally returns false.
+    let _ = unsafe {
+        EnumWindows(
+            Some(collect_above),
+            LPARAM(std::ptr::from_mut(&mut above) as isize),
+        )
+    };
+    above
+        .handles
+        .into_iter()
+        .filter(|window| !target.popup_hwnds.contains(window) && !own.contains(window))
+        .filter(|&window| {
+            let mut process_id = 0u32;
+            // SAFETY: the out pointer is a local u32 that outlives the call.
+            unsafe { GetWindowThreadProcessId(window, Some(&mut process_id)) };
+            process_id != std::process::id() && shown(window) && !transparent(window)
+        })
+        .filter_map(|window| clip_to_region(frame_of(window)?, target.region))
+        .collect()
+}
+
+struct AboveTarget {
+    target: HWND,
+    handles: Vec<HWND>,
+}
+
+unsafe extern "system" fn collect_above(window: HWND, data: LPARAM) -> BOOL {
+    // SAFETY: `data` points to the exclusive `AboveTarget` supplied by `occluders`,
+    // alive throughout this synchronous enumeration.
+    let above = unsafe { &mut *(data.0 as *mut AboveTarget) };
+    // EnumWindows visits top-level windows from top to bottom. Never collect the
+    // target or continue into the windows underneath it.
+    if window == above.target {
+        return false.into();
+    }
+    above.handles.push(window);
+    true.into()
+}
+
+/// Only skip transparency that can be established by cheap window attributes.
+fn transparent(hwnd: HWND) -> bool {
+    // SAFETY: reads a window long; a stale handle returns zero.
+    let style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
+    if style & WS_EX_TRANSPARENT.0 != 0 {
+        return true;
+    }
+    if style & WS_EX_LAYERED.0 == 0 {
+        return false;
+    }
+    let mut alpha = 255u8;
+    let mut flags = LWA_ALPHA;
+    // SAFETY: both output pointers are writable locals that outlive this call.
+    let read =
+        unsafe { GetLayeredWindowAttributes(hwnd, None, Some(&mut alpha), Some(&mut flags)) };
+    read.is_ok() && flags.0 & LWA_ALPHA.0 != 0 && alpha == 0
+}
+
+/// Half-open intersection: touching edges, empty or inverted rectangles add no pixels.
+fn clip_to_region(frame: PhysRect, region: PhysRect) -> Option<PhysRect> {
+    PhysRect::new(
+        frame.left.max(region.left),
+        frame.top.max(region.top),
+        frame.right.min(region.right),
+        frame.bottom.min(region.bottom),
+    )
+    .ok()
 }
 
 /// The capture region: the bounding box of `frame` and every popup, each clipped to
@@ -253,6 +330,65 @@ mod tests {
             top,
             right,
             bottom,
+        }
+    }
+
+    #[test]
+    fn occluder_frames_are_clipped_on_every_side() {
+        let region = rect(100, 200, 800, 700);
+        assert_eq!(
+            clip_to_region(rect(50, 150, 900, 750), region),
+            Some(region)
+        );
+        assert_eq!(
+            clip_to_region(rect(50, 300, 400, 750), region),
+            Some(rect(100, 300, 400, 700))
+        );
+        assert_eq!(
+            clip_to_region(rect(400, 150, 900, 500), region),
+            Some(rect(400, 200, 800, 500))
+        );
+        let contained = rect(200, 300, 600, 500);
+        assert_eq!(clip_to_region(contained, region), Some(contained));
+    }
+
+    #[test]
+    fn occluder_edges_and_corners_do_not_intersect() {
+        let region = rect(100, 200, 800, 700);
+        for frame in [
+            rect(0, 300, 100, 500),
+            rect(800, 300, 900, 500),
+            rect(200, 100, 600, 200),
+            rect(200, 700, 600, 800),
+            rect(800, 700, 900, 800),
+            rect(900, 800, 1000, 900),
+        ] {
+            assert_eq!(clip_to_region(frame, region), None);
+            assert_eq!(clip_to_region(region, frame), None);
+        }
+    }
+
+    #[test]
+    fn occluder_clipping_handles_negative_and_extreme_coordinates() {
+        assert_eq!(
+            clip_to_region(rect(-2000, -500, -500, 500), rect(-1920, -200, 0, 880)),
+            Some(rect(-1920, -200, -500, 500))
+        );
+        assert_eq!(
+            clip_to_region(rect(i32::MIN, i32::MIN, i32::MAX, i32::MAX), MONITOR),
+            Some(MONITOR)
+        );
+    }
+
+    #[test]
+    fn occluder_clipping_refuses_invalid_rectangles() {
+        for invalid in [
+            rect(20, 20, 20, 40),
+            rect(20, 20, 40, 20),
+            rect(40, 40, 20, 20),
+        ] {
+            assert_eq!(clip_to_region(invalid, MONITOR), None);
+            assert_eq!(clip_to_region(MONITOR, invalid), None);
         }
     }
 

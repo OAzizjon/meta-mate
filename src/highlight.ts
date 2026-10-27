@@ -4,7 +4,7 @@
 // polygon from `beamFrom` to the target's nearest edge, and the numeric `"2 / 3"` step badge.
 // Never calls `focus()` (invariant 1).
 
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   BADGE_HEIGHT,
   BADGE_WIDTH,
@@ -279,7 +279,9 @@ if (typeof document !== "undefined") {
   if (svg instanceof SVGSVGElement) {
     const controller = mountHighlight(svg);
     if ("__TAURI_INTERNALS__" in window) {
-      void listen<unknown>("highlight", (event) => {
+      // This window only: with one highlight window per monitor, a global listener would
+      // draw every monitor's ring at its own coordinates.
+      void getCurrentWebviewWindow().listen<unknown>("highlight", (event) => {
         controller.handleRaw(event.payload);
       }).catch((error: unknown) => {
         console.error("[highlight] event listener failed", error);

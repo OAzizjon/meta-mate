@@ -11,6 +11,8 @@
 //! `server/run_dev.py --tts` is up.
 
 mod answer_stream;
+#[cfg(debug_assertions)]
+mod debug_view;
 #[cfg(windows)]
 mod flight;
 #[cfg(windows)]
@@ -28,6 +30,8 @@ mod s3;
 mod screen;
 #[cfg(windows)]
 mod selftest;
+#[cfg(windows)]
+mod teacher;
 #[cfg(windows)]
 mod voice;
 mod voice_selftest;
@@ -79,6 +83,14 @@ pub fn run() {
                 selftest::spawn_control(app.handle().clone(), before);
                 return Ok(());
             }
+            #[cfg(debug_assertions)]
+            {
+                use tauri::Manager;
+                // `--debug-window`: the live timeline, timings and looks (debug.html).
+                app.state::<answer_stream::AnswerStream>()
+                    .attach_debug(app.handle().clone());
+                debug_view::open(app.handle());
+            }
             let overlays = overlay::create(app.handle())?;
             #[cfg(windows)]
             if selftest {
@@ -88,14 +100,20 @@ pub fn run() {
             #[cfg(windows)]
             {
                 use tauri::Manager;
-                // Mate flies beside a target (pointing.rs); the highlight window is shown
-                // once, empty: transparent, click-through, never activated (invariant 1).
+                // Mate flies beside a target (pointing.rs); each monitor's highlight window
+                // is shown once, empty: transparent, click-through, never activated
+                // (invariant 1).
                 let home = overlay::home(&mm_win32::monitors::monitors());
                 if let (Ok(mate), Some(home)) = (overlays.mate.hwnd(), home) {
                     app.manage(flight::Flight::new(mate, home));
                 }
-                if let Ok(highlight) = overlays.highlight.hwnd() {
-                    mm_win32::overlay::show(highlight);
+                for (highlight, monitor) in &overlays.highlights {
+                    if let Ok(highlight) = highlight.hwnd() {
+                        mm_win32::overlay::show(highlight);
+                        // Placed again once shown, in case the scale change of its monitor
+                        // only arrived now (overlay.rs).
+                        let _ = mm_win32::overlay::place(highlight, monitor.area);
+                    }
                 }
             }
             #[cfg(windows)]

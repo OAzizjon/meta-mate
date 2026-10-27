@@ -10,7 +10,7 @@ import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc
 import type { AnswerMsg } from "./ipc/answer-stream";
 import { createTimelinePlayer } from "./player";
 import { isRobotMood, isRobotState, mountRobot } from "./robot";
-import type { CssRect, RobotController } from "./robot";
+import type { CssRect, RobotController, RobotState } from "./robot";
 
 /** How long the bubble shows a line from Rust, the "can't find" line, and stays after `End`. */
 const LINE_BUBBLE_MS = 4000;
@@ -138,8 +138,22 @@ async function createRouter(
       void reportPlayback("trace", 0, msg.type);
     }
   });
+  let listening = false;
+  const setState = (state: RobotState): void => {
+    if (listening && state !== "listening") {
+      listening = false;
+      robot.setVoiceLevel(0);
+    } else {
+      listening = state === "listening";
+    }
+    robot.setState(state);
+  };
   const player = createTimelinePlayer({
-    robot,
+    robot: {
+      setState,
+      setMood: (mood) => robot.setMood(mood),
+      aimAt: (target) => robot.aimAt(target),
+    },
     audio,
     resolveTarget: (point, generation, step) => pointAt(generation, point, step),
     showBubble: (text) => bubble.show(text),
@@ -150,7 +164,7 @@ async function createRouter(
       return new Promise<void>((resolve) => setTimeout(resolve, CANT_FIND_BUBBLE_MS));
     },
     onDone(generation) {
-      robot.setState("idle");
+      setState("idle");
       bubble.hideAfter(DONE_BUBBLE_MS);
       // Every sentence before `End` was played out: the worklet reported its end.
       void reportPlayback("done", generation);
@@ -159,8 +173,11 @@ async function createRouter(
   return (msg) => {
     switch (msg.type) {
       case "state":
-        robot.setState(msg.state);
+        setState(msg.state);
         if (msg.state === "listening") bubble.show(null);
+        return;
+      case "level":
+        if (listening) robot.setVoiceLevel(msg.level);
         return;
       case "item":
         player.push(msg.generation, msg.item);
@@ -181,7 +198,7 @@ async function createRouter(
       case "cancel":
         // Cancels the audio engine too.
         player.cancel(msg.generation);
-        robot.setState("idle");
+        setState("idle");
         return;
       case "line":
         bubble.show(t(msg.key), LINE_BUBBLE_MS);

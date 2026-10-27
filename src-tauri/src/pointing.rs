@@ -32,6 +32,13 @@ impl Pointing {
         }
     }
 
+    /// The teacher's current look (it changes every turn).
+    pub fn set_shared(&self, generation: u64, look: Arc<Look>) {
+        if let Ok(mut current) = self.current.lock() {
+            *current = Some((generation, look));
+        }
+    }
+
     pub fn look(&self, generation: u64) -> Option<Arc<Look>> {
         let current = self.current.lock().ok()?;
         let (pointed, look) = current.as_ref()?;
@@ -108,15 +115,12 @@ pub fn show_target(
     target: PhysRect,
     step: Option<(u32, u32)>,
 ) -> Option<MateRect> {
+    // Any monitor: each has its highlight window, by index (overlay.rs).
     let monitors = mm_win32::monitors::monitors();
-    let monitor = monitors.iter().find(|m| m.primary).or(monitors.first())?;
-    if !monitor.area.contains(target.center()) {
-        app.state::<AnswerStream>().send(AnswerMsg::Line {
-            generation,
-            key: "robot.other_monitor",
-        });
-        return None;
-    }
+    let (index, monitor) = monitors
+        .iter()
+        .enumerate()
+        .find(|(_, m)| m.area.contains(target.center()))?;
     let scale = monitor.scale();
     let size = (crate::overlay::MATE_SIZE * scale).round() as i32;
     let gap = (GAP * scale).round() as i32;
@@ -126,10 +130,13 @@ pub fn show_target(
         "pointing: generation {generation} target {target:?} mate {:?} ({:?})",
         placement.mate, placement.side
     );
+    #[cfg(not(debug_assertions))]
+    let _ = generation; // only the log above uses it
     if let Some(flight) = app.try_state::<Flight>() {
         flight.fly_to(placement.mate);
     }
-    if let Err(error) = crate::highlight::show(app, monitor, target, Some(placement.mate), step) {
+    let shown = crate::highlight::show(app, index, monitor, target, Some(placement.mate), step);
+    if let Err(error) = shown {
         eprintln!("pointing: highlight: {error:?}");
     }
     Some(in_mate(target, placement.mate, scale))

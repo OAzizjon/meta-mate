@@ -1,6 +1,14 @@
 # MetaMate
 
-**A patient desktop robot that shows you where to click, checks your progress, and lets you stay in control.**
+MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl and ask by voice; he answers aloud, flies next to the right button in any app, and teaches you step by step, with a golden ring showing where to click—he never clicks payments, deletions, or passwords for you.
+
+- The voice loop works end to end: hold Right Ctrl, speak, and Mate answers aloud.
+- “Where is the button?” works live on Windows Settings, with Mate flying beside the target and a ring around it.
+- Password fields are blacked out before anything is sent, and Mate fails closed when he cannot safely inspect a window.
+
+Meta models: Muse Spark 1.3, Muse Voice Transcribe, and MMS-TTS.
+
+<!-- demo GIF here -->
 
 ![Mate concept art](assets/art/mate-sheet.png)
 

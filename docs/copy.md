@@ -70,3 +70,13 @@ Drafts by DeepSeek (job #404), edited; picked over oss (#403). Pick one on Day 6
 | Thinks longer about tricky tasks. Slower. | Дольше думает над сложными задачами. Медленнее. |
 
 Model choice (D40): Spark is the default; Wonder only by the user's choice, never by voice.
+
+## Pitch lines (candidates, 2026-10-27)
+
+- Hold Right Ctrl, ask aloud; Mate points to the right button.
+- Mate flies to the right button, highlights it, and speaks your language.
+- A golden ring marks the exact button in any Windows app.
+- Удерживайте правый Ctrl, спросите вслух — Mate покажет нужную кнопку.
+- Mate подлетает к нужной кнопке, подсвечивает её и говорит на вашем языке.
+
+Proposed by DeepSeek, picked by the lead; final choice after the rules are read (D42).

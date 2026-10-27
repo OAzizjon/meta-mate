@@ -59,11 +59,38 @@ Each frame stores `{capture_origin_px, crop_rect_px, sent_width, sent_height, sc
 Two paths, chosen by a short intent call (`WHERE` / `HOW` / `CHAT` / `DO`) that always runs on `muse-spark-1.3` with `reasoning.effort: "minimal"`. For the main teacher call, Settings ("How Mate thinks", D40) lets the user pick **Quick** (`muse-spark-1.3`, default) or **Thorough** (`muse-wonder-1.0`); the model is never switched by voice or by a MateScript tag. Every Spark model reasons before answering (`reasoning.effort` accepts `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, not `none`, D41).
 
 **A. "Where is X?" (one target):**
-1. `uia` snapshot + `capture` of the target region (same frame transform).
-2. `muse-spark-1.3` (or `muse-wonder-1.0` if chosen in Settings; Responses API, streaming, `reasoning.effort: "minimal"`) gets: request, screenshot, compact element list (`e17 Button "Text size" [x,y,w,h]`, max ~150 interactive elements, screenshot coordinates).
-3. The answer is MateScript with `<point e17>` (or `<point 812,344>` if the element is not in the list).
-4. Point → rect: id → rect; raw point → `ElementFromPoint` (own windows excluded, must lie inside the target window or its popups) → rect; still nothing → **SAM 3.1** with that point refines the outline. SAM refines a grounded target; it does not prove it is the right one. If the element's name/role clearly contradicts the request, don't point.
-5. Robot flies next to the rect (never on it), points; highlight draws the contour; tracked via `EVENT_OBJECT_LOCATIONCHANGE`.
+1. **Offline routing:** Questions are routed immediately by `guess_intent` using English and Russian cue words ("where", "find", "где", "найди", "покажи", "show me"; D47), bypassing the ~2 s online classifier call.
+2. **One look (`take_look` in `src-tauri/src/screen.rs`):** A single look at a time (held by the `LOOKING` mutex).
+   - **Target window and popups:** `window::foreground_target(own)` finds the foreground window (`DWMWA_EXTENDED_FRAME_BOUNDS` without drop shadow), its visible owned popups and menu windows (`#32768`), and their bounding region clipped to the monitor. Shell/taskbar windows (`Progman`, `WorkerW`, `Shell_TrayWnd`, `Shell_SecondaryTrayWnd`), minimized, cloaked, zero-sized, and our own windows (`own`: Mate, highlight) are rejected.
+   - **UI Automation snapshot:** `UiaWalker::snapshot_with_popups` walks the window and its popups into a single snapshot sharing one continuous id space (`e0`, `e1`, ...) on a dedicated MTA thread, bounded by `WalkLimits` (`max_nodes: 400`, `max_depth: 12`).
+   - **Our windows hidden for one frame:** Mate and the highlight overlay are hidden (`hide_for_capture`, opacity 0) for one composed frame (`HIDDEN_FRAME = 50 ms`) before the copy and restored on drop (`show_after_capture`). A cancelled question (`!wanted()`) aborts before capturing.
+   - **GDI capture:** `capture::capture_region` copies the target region via `BitBlt` (`SRCCOPY | CAPTUREBLT`) into a 32-bit top-down DIB section (BGRA). Refuses empty, off-screen, or pure black captures (protected/DRM content).
+   - **Change re-check:** After capturing, the foreground target is re-checked against the original. If the HWND, frame bounds, popups, or region changed (`LookFailure::Changed`), the look is retried once (`look_once`); if it changed again, it fails closed.
+   - **Redaction and fail-closed refusals (`redact` / `screen::prepare`):** Every field marked `is_password` or `password_like` (multilingual keyword heuristics, D37) is painted black and omitted from the prompt. Only `RedactedImage` can enter requests. Redaction fails closed on:
+     - `SnapshotTruncated` (walk hit node/depth limits or a popup could not be walked),
+     - `UnclassifiedSensitiveField` (unclassified edit on a login or payment page),
+     - `CaptureMismatch` (capture dimensions do not match the target region),
+     - `StaleSnapshot` (window moved/resized between UIA walk and capture),
+     - `InvalidField` (sensitive field has empty or inverted bounds),
+     - `UnlocatedSensitive` (sensitive field on screen with no bounds),
+     - `Shot` (encoding failure).
+     Top-level `LookFailure` maps to spoken lines: `NoWindow` speaks `robot.cant_find`; `Capture::Black` speaks `robot.protected_window`; `Uia`, `Capture`, `Prepare`, `Changed`, `OwnWindows`, and `Cancelled` speak `robot.cant_look`.
+   - **Element list:** `render_element_list` outputs up to 60 (`MAX_LISTED`) visible, interactive elements in screenshot coordinates (`e17 Button "Text size" [x,y,w,h]`). The redacted image is downscaled to at most 1280 px on the long edge (`MAX_EDGE`).
+3. **Model call & MateScript:** `point_request` sent to `muse-spark-1.3` (or `muse-wonder-1.0` if chosen in Settings; Responses API, streaming, `reasoning.effort: "minimal"`). The answer streams MateScript with `<point e17>` (or `<point x,y>`).
+4. **WebView playback:** The WebView timeline player (`src/player/`, `src/mate.ts`) invokes the Tauri command `point_at(generation, point, step)` when playback reaches the sentence that points, so the beam lights up in sync with the spoken phrase.
+5. **`Look::resolve` rules:**
+   - The window must still be shown and unmoved (`window::still_shown`).
+   - `Point::Id(id)`: `id` must be in the prompt's listed ids (`list.ids`), and the snapshot element must be pointable (`interactive`, `parent.is_some()`, `enabled`, and not `offscreen`).
+   - `Point::Pixel(x, y)`: mapped to physical screen space (`shot_to_phys_checked`) within image bounds and snapped to the pointable element under the pixel via `snapshot.target_at(phys)`.
+   - The resolved rectangle is clipped to `snapshot.frame`. If unresolvable or missing, returns `None` (clears the highlight; never guesses, invariant 5).
+6. **Placement and flight:** `place_mate` calculates Mate's target position adjacent to the element (offset by `GAP = 24` CSS px, scaled by monitor DPI, preferring free space) without covering it or clipping off the work area. `Flight::fly_to` animates Mate there; his eyes and beam aim at the target in relative coordinates (`in_mate`).
+7. **Highlight ring and beam:** Tauri emits `HighlightMsg::Target` to the highlight overlay window (`src/highlight.ts`), which draws a glowing target ring (padded by 6 px, rounded corners, 1.5 s pulse) around the element rect and a warm-white beam polygon from Mate to the nearest edge of the target rect (plus an optional step badge).
+8. **Stopping pointing:** The beam and ring linger for 3 seconds (`POINT_LINGER = Duration::from_secs(3)`) after the answer finishes playing (`done`), or clear immediately on a new PTT press or cancellation. `stop_pointing` clears the highlight and flies Mate home (`flight.land`).
+9. **What is still planned:**
+   - **SAM 3.1 fallback:** Visual contour refinement when UIA is flat or empty (canvas, Qt/Telegram Desktop, games).
+   - **`EVENT_OBJECT_LOCATIONCHANGE` tracking:** Follow the target if the window moves or scrolls while pointing.
+   - **Per-monitor highlight windows (in progress):** Multi-monitor highlight overlays (currently restricted to the primary monitor; targets on secondary monitors speak `robot.other_monitor`).
+   - **Bigger UIA limits for Chromium:** Adaptive/larger limits for deep DOM trees (probed via `--look-probe`; 400 nodes / depth 12 currently causes fail-closed refusals on Electron apps like VS Code).
 
 **B. "How do I …?" (multi-step): computer use with the human as the hand.**
 1. Responses API, `tools: [{"type": "computer"}]`, `muse-spark-1.3` by default or the user's `muse-wonder-1.0` choice; `reasoning.effort: "minimal"` by default (it hit the S4 fixture target `e11 "Large"` in 5.3 s with 3702 input / 356 output tokens; `low` hit it too in 6.9 s, D41), `low` when retrying a step that failed. Manual Wonder never escalates, and automatic escalation from Spark to Wonder stays off unless the Day-5 gate turns it on (D39, D40). First screenshot as `input_image`. The screenshot size stays fixed for the whole task.

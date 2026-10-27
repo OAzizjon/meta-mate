@@ -51,7 +51,7 @@ const PLAY_LIMIT: Duration = Duration::from_secs(90);
 
 /// Cached phrase WAVs by voice and locale key: the built ones (assets/phrases, `mm
 /// phrases build`) and, for a wait phrase missing there, one synthesized at startup.
-type Phrases = Arc<Mutex<HashMap<(&'static str, String), Vec<u8>>>>;
+pub(crate) type Phrases = Arc<Mutex<HashMap<(&'static str, String), Vec<u8>>>>;
 
 /// Keeps the push-to-talk hook alive; dropping it stops the loop's input.
 pub struct VoiceLoop {
@@ -292,7 +292,38 @@ async fn answer(
     let locale = stream.locale();
     // D47: the offline guess routes at once (a classifier call would cost ~2 s); a question
     // about the screen gets one redacted look at the foreground window first.
-    let screen = !matches!(guess_intent(&question), Intent::Chat);
+    // Development builds: timings against key-up for the debug window.
+    let key_up = ack_at.checked_sub(ACK_AFTER).unwrap_or(ack_at);
+    #[cfg(debug_assertions)]
+    let since_key_up = |instant: tokio::time::Instant| {
+        u64::try_from(instant.saturating_duration_since(key_up).as_millis()).unwrap_or(u64::MAX)
+    };
+    #[cfg(debug_assertions)]
+    crate::debug_view::timing(
+        &app,
+        generation,
+        "transcript",
+        since_key_up(tokio::time::Instant::now()),
+    );
+    #[cfg(not(debug_assertions))]
+    let _ = key_up;
+    let intent = guess_intent(&question);
+    if matches!(intent, Intent::How | Intent::Do) {
+        // Several steps: the teacher, with the person as the hand (D48).
+        let own = own_windows(&app);
+        crate::teacher::teach(
+            app.clone(),
+            proxy.clone(),
+            Arc::clone(&phrases),
+            generation,
+            question,
+            locale,
+            own,
+        )
+        .await;
+        return;
+    }
+    let screen = intent == Intent::Where;
     let (body, settings, wait_phrase) = if screen {
         let own = own_windows(&app);
         let looker = app.clone();
@@ -306,6 +337,15 @@ async fn answer(
         });
         match looked.await {
             Ok(Ok(look)) => {
+                #[cfg(debug_assertions)]
+                crate::debug_view::look(
+                    &app,
+                    generation,
+                    look.snapshot.elements.len(),
+                    look.list.ids.len(),
+                    look.redacted.painted,
+                    since_key_up(tokio::time::Instant::now()),
+                );
                 let body = point_request(
                     ModelChoice::Quick,
                     ReasoningEffort::Minimal,
@@ -344,6 +384,8 @@ async fn answer(
         let turn = usize::try_from(generation).unwrap_or(0) % THINKING.len();
         (body, settings, THINKING[turn])
     };
+    #[cfg(debug_assertions)]
+    let debug_app = &app;
     // Plain references, so the three futures below can share them.
     let (stream, locale, phrases): (&AnswerStream, &str, &Phrases) = (&stream, &locale, &phrases);
     // Set by the first timeline item (or the answer's end): the cached phrase is too late then.
@@ -395,6 +437,13 @@ async fn answer(
                     && !started.swap(true, Ordering::AcqRel)
                 {
                     first_item.notify_one();
+                    #[cfg(debug_assertions)]
+                    crate::debug_view::timing(
+                        debug_app,
+                        generation,
+                        "first_item",
+                        since_key_up(tokio::time::Instant::now()),
+                    );
                 }
                 match &item {
                     Item::End => ended.store(true, Ordering::Relaxed),
@@ -458,11 +507,15 @@ fn resolvable(look: &crate::screen::Look, say: &mm_core::matescript::Say) -> boo
     })
 }
 
-/// Our windows' handles (Mate, the highlight): never a target, hidden while capturing.
+/// Our windows' handles (Mate, every monitor's highlight): never a target, hidden while
+/// capturing.
 fn own_windows(app: &AppHandle) -> Vec<isize> {
-    ["mate", "highlight"]
-        .into_iter()
-        .filter_map(|label| app.get_webview_window(label)?.hwnd().ok())
+    // Every window of ours (Mate, each monitor's highlight, the debug window): none may be
+    // in the picture. A window whose handle cannot be read makes the list short, and the
+    // look then refuses (screen.rs checks the count).
+    app.webview_windows()
+        .into_values()
+        .filter_map(|window| window.hwnd().ok())
         .map(|hwnd| hwnd.0 as isize)
         .collect()
 }
@@ -474,7 +527,7 @@ fn phrase(phrases: &Phrases, locale: &str, key: &str) -> Option<Vec<u8>> {
 }
 
 /// A line instead of an answer: shown in the bubble and, when it is cached, spoken.
-fn say_line(
+pub(crate) fn say_line(
     stream: &AnswerStream,
     phrases: &Phrases,
     locale: &str,
@@ -499,7 +552,7 @@ fn failed(stream: &AnswerStream, generation: u64) {
     });
 }
 
-fn voice_of(locale: &str) -> &'static str {
+pub(crate) fn voice_of(locale: &str) -> &'static str {
     if locale == "ru" { "ru" } else { "en" }
 }
 

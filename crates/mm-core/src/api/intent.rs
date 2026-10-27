@@ -95,7 +95,22 @@ pub fn guess_intent(question: &str) -> Intent {
             // greetings such as "как дела" as instructions.
             words[index + 1..]
                 .iter()
-                .find(|word| !matches!(**word, "мне" | "нам" | "можно"))
+                .find(|word| {
+                    !matches!(
+                        **word,
+                        "мне"
+                            | "нам"
+                            | "можно"
+                            | "я"
+                            | "мы"
+                            | "могу"
+                            | "можем"
+                            | "мог"
+                            | "бы"
+                            | "нужно"
+                            | "надо"
+                    )
+                })
                 .is_some_and(|word| {
                     let verb = word.strip_suffix("ся").or_else(|| word.strip_suffix("сь"));
                     let verb = verb.unwrap_or(word);

@@ -55,6 +55,8 @@ pub struct AnswerStream {
     /// one, never reaches the window after its `Cancel`.
     cancelled: Mutex<Option<u64>>,
     reports: Mutex<Vec<(&'static str, u64, Instant, String)>>,
+    #[cfg(debug_assertions)]
+    debug: Mutex<Option<tauri::AppHandle>>,
 }
 
 /// The playback reports the window may send (src/ipc/answer-stream.ts `reportPlayback`).
@@ -105,6 +107,14 @@ impl AnswerStream {
             .map(|(_, _, at, _)| *at)
     }
 
+    /// Connects the development debug mirror (`debug_view.rs`) once at startup.
+    #[cfg(debug_assertions)]
+    pub fn attach_debug(&self, app: tauri::AppHandle) {
+        if let Ok(mut debug) = self.debug.lock() {
+            *debug = Some(app);
+        }
+    }
+
     /// Sends to the WebView; a message before it subscribed, or to a closed window, is dropped.
     pub fn send(&self, message: AnswerMsg) {
         // Held while sending, so a Cancel and a late message never cross.
@@ -123,6 +133,10 @@ impl AnswerStream {
                     return;
                 }
             }
+        }
+        #[cfg(debug_assertions)]
+        if let Some(app) = self.debug.lock().ok().and_then(|debug| debug.clone()) {
+            crate::debug_view::answer(&app, &message);
         }
         let channel = self
             .inner

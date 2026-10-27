@@ -1,6 +1,7 @@
 // Rust → Mate's WebView: the one ordered Tauri channel of `src-tauri/src/answer_stream.rs`
 // (`AnswerMsg`, serde internal tagging on `type`, camelCase fields). It carries the robot's
-// state, the answer's timeline items, its speech PCM, barge-in cancels and locale lines.
+// state, the mic level while listening, the answer's timeline items, its speech PCM, barge-in
+// cancels and locale lines.
 // Tauri is loaded only when subscribing, so Node tests can import the parser. Spoken and shown
 // text never goes to the log.
 
@@ -28,6 +29,7 @@ export type AnswerLineKey = (typeof ANSWER_LINE_KEYS)[number];
 /** `AnswerMsg`, with the timeline item already validated. */
 export type AnswerMsg =
   | { readonly type: "state"; readonly generation: number; readonly state: AnswerState }
+  | { readonly type: "level"; readonly generation: number; readonly level: number }
   | { readonly type: "item"; readonly generation: number; readonly item: TimelineItem }
   | {
       readonly type: "pcm";
@@ -49,6 +51,7 @@ type JsonObject = Readonly<Record<string, unknown>>;
 /** The exact keys of each message on the wire. */
 const KEYS: Readonly<Record<AnswerType, readonly string[]>> = {
   state: ["type", "generation", "state"],
+  level: ["type", "generation", "level"],
   item: ["type", "generation", "item"],
   pcm: ["type", "generation", "sentence", "sampleRate", "eos", "samplesB64"],
   cancel: ["type", "generation"],
@@ -83,6 +86,10 @@ function parseMsg(raw: unknown): AnswerMsg | null {
     case "state": {
       const { state } = msg;
       return isAnswerState(state) ? { type, generation, state } : null;
+    }
+    case "level": {
+      const { level } = msg;
+      return isLevel(level) ? { type, generation, level: level === 0 ? 0 : level } : null;
     }
     case "item": {
       const item = parseTimelineItem(msg.item);
@@ -273,6 +280,10 @@ function isSampleRate(value: unknown): value is number {
 
 function isAnswerState(value: unknown): value is AnswerState {
   return typeof value === "string" && (ANSWER_STATES as readonly string[]).includes(value);
+}
+
+function isLevel(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
 function isAnswerLineKey(value: unknown): value is AnswerLineKey {

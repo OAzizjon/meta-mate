@@ -7,7 +7,7 @@
 import type { AnswerState } from "../ipc/answer-stream.ts";
 import { ANSWER_STATES } from "../ipc/answer-stream.ts";
 import { parseTimelineItem } from "../ipc/timeline.ts";
-import type { Bound, Level, Point, Say, Sound, Step, TimelineItem } from "../ipc/timeline.ts";
+import type { Bound, Point, Sound, TimelineItem } from "../ipc/timeline.ts";
 
 export const MAX_GENERATIONS = 20;
 

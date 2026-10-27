@@ -24,6 +24,7 @@ function encodePcm(samples: readonly number[]): string {
 }
 
 const STATE = { type: "state", generation: 1, state: "thinking" };
+const LEVEL = { type: "level", generation: 1, level: 0.25 };
 const ITEM = { type: "item", generation: 1, item: { kind: "end" } };
 const PCM = { type: "pcm", generation: 2, sentence: 1, sampleRate: 16000, eos: true, samplesB64: "AAD/fw==" };
 const CANCEL = { type: "cancel", generation: 1 };
@@ -32,6 +33,9 @@ const LINE = { type: "line", generation: 1, key: "robot.cant_find" };
 test("every message type parses into a fresh copy", () => {
   for (const raw of [
     ...ANSWER_STATES.map((state) => ({ type: "state", generation: 0, state })),
+    LEVEL,
+    { type: "level", generation: 0, level: 0 },
+    { type: "level", generation: 2, level: 1 },
     ITEM,
     { type: "item", generation: 3, item: { kind: "say", value: { id: 1, text: "Hi.", bound: [] } } },
     PCM,
@@ -50,6 +54,9 @@ test("every message type parses into a fresh copy", () => {
 test("Rust's JSON parses and serializes back unchanged", () => {
   for (const line of [
     '{"type":"state","generation":4,"state":"listening"}',
+    '{"type":"level","generation":4,"level":0}',
+    '{"type":"level","generation":4,"level":0.375}',
+    '{"type":"level","generation":4,"level":1}',
     '{"type":"item","generation":4,"item":{"kind":"lang","value":"ru"}}',
     '{"type":"item","generation":4,"item":{"kind":"point_rejected"}}',
     '{"type":"pcm","generation":4,"sentence":2,"sampleRate":22050,"eos":true,"samplesB64":"AID//w=="}',
@@ -152,6 +159,9 @@ const MALFORMED: unknown[] = [
   { ...CANCEL, extra: 1 },
   { type: "state", generation: 1 },
   { ...STATE, state: undefined },
+  { type: "level", generation: 1 },
+  { ...LEVEL, extra: 1 },
+  { ...LEVEL, level: undefined },
   { type: "item", generation: 1 },
   PCM_WITHOUT_EOS,
   { ...PCM, text: "Hi." },
@@ -159,8 +169,12 @@ const MALFORMED: unknown[] = [
   { type: "line", generation: 1 },
   ...NOT_IDS.map((generation) => ({ ...CANCEL, generation })),
   ...NOT_IDS.map((generation) => ({ ...STATE, generation })),
+  ...NOT_IDS.map((generation) => ({ ...LEVEL, generation })),
   ...NOT_IDS.map((sentence) => ({ ...PCM, sentence })),
   ...["speaking", "Listening", "idle ", "", null, 1].map((state) => ({ ...STATE, state })),
+  ...[-0.001, -1, 1.001, 2, Number.MAX_VALUE, Infinity, -Infinity, NaN, "0.5", null, true, {}, [0.5]].map(
+    (level) => ({ ...LEVEL, level }),
+  ),
   ...[{ kind: "nope" }, { kind: "end", value: null }, null, '{"kind":"end"}'].map((item) => ({ ...ITEM, item })),
   ...[7999, 48001, 16000.5, 1e9, -16000, "16000", NaN, Infinity, null].map((sampleRate) => ({ ...PCM, sampleRate })),
   ...["true", 1, null].map((eos) => ({ ...PCM, eos })),
@@ -184,6 +198,7 @@ test("hostile objects are rejected without throwing", () => {
     new Proxy({ ...CANCEL }, { getOwnPropertyDescriptor: boom }),
     { get type() { return boom(); }, generation: 1 },
     { type: "cancel", get generation() { return boom(); } },
+    { ...LEVEL, get level() { return boom(); } },
     { ...PCM, get samplesB64() { return boom(); } },
     { ...ITEM, item: new Proxy({ kind: "end" }, { ownKeys: boom }) },
     { ...STATE, state: { toString: boom } },
@@ -205,6 +220,19 @@ test("each field is read once and copied as a plain value", () => {
   const msg = parseAnswerMsg(raw);
   assert.deepEqual(msg, { type: "cancel", generation: 3 });
   assert.equal(Object.getOwnPropertyDescriptor(msg, "generation")?.value, 3);
+
+  let levelReads = 0;
+  const rawLevel = {
+    type: "level",
+    generation: 2,
+    get level() {
+      levelReads += 1;
+      return levelReads === 1 ? 0.5 : 2;
+    },
+  };
+  const levelMsg = parseAnswerMsg(rawLevel);
+  assert.deepEqual(levelMsg, { type: "level", generation: 2, level: 0.5 });
+  assert.equal(Object.getOwnPropertyDescriptor(levelMsg, "level")?.value, 0.5);
 });
 
 /** A fake Tauri connection: records the locale and lets the test send raw messages. */

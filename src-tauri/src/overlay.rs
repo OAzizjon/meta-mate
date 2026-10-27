@@ -1,5 +1,5 @@
-//! Mate's window and the highlight window: built hidden, made non-activating, then
-//! shown without taking focus (invariant 1; CLAUDE.md "Known pitfalls": never show a
+//! Mate's window and one highlight window per monitor: built hidden, made non-activating,
+//! then shown without taking focus (invariant 1; CLAUDE.md "Known pitfalls": never show a
 //! Tauri window before `focusable(false)`).
 
 use mm_core::constants::APP_NAME;
@@ -15,37 +15,51 @@ pub const MATE_SIZE: f64 = 220.0;
 
 pub struct Overlays {
     pub mate: WebviewWindow,
-    pub highlight: WebviewWindow,
+    /// One highlight window per monitor, in `mm_win32::monitors::monitors()` order:
+    /// `highlight-0` covers the first monitor's area (highlight.rs). Monitors added, removed
+    /// or rearranged while the app runs are not followed.
+    #[cfg(windows)]
+    pub highlights: Vec<(WebviewWindow, mm_win32::monitors::Monitor)>,
 }
 
 pub fn create(app: &AppHandle) -> Result<Overlays, Box<dyn std::error::Error>> {
     let mate = builder(app, "mate", "mate.html")
         .inner_size(MATE_SIZE, MATE_SIZE)
         .build()?;
-    let highlight = builder(app, "highlight", "highlight.html")
-        .inner_size(400.0, 300.0)
-        .build()?;
-    // The highlight never takes a click: everything goes to the app underneath.
-    highlight.set_ignore_cursor_events(true)?;
 
     #[cfg(windows)]
-    {
+    let highlights = {
         use mm_win32::overlay::{self, OverlayKind};
         let mate_hwnd = mate.hwnd()?;
-        let highlight_hwnd = highlight.hwnd()?;
         overlay::prepare(mate_hwnd, OverlayKind::Robot)?;
-        overlay::prepare(highlight_hwnd, OverlayKind::Highlight)?;
         let monitors = mm_win32::monitors::monitors();
         // Never show Mate at an arbitrary place: no monitor, no Mate.
         let area = home(&monitors).ok_or("no monitor to place Mate on")?;
         overlay::place(mate_hwnd, area)?;
-        // The highlight covers the primary monitor; one per monitor comes with Day 4.
-        if let Some(primary) = monitors.iter().find(|m| m.primary).or(monitors.first()) {
-            overlay::place(highlight_hwnd, primary.area)?;
+        let mut highlights = Vec::with_capacity(monitors.len());
+        for (index, monitor) in monitors.into_iter().enumerate() {
+            let label = crate::highlight::label(index);
+            let highlight = builder(app, &label, "highlight.html")
+                .inner_size(400.0, 300.0)
+                .build()?;
+            // The highlight never takes a click: everything goes to the app underneath.
+            highlight.set_ignore_cursor_events(true)?;
+            let highlight_hwnd = highlight.hwnd()?;
+            overlay::prepare(highlight_hwnd, OverlayKind::Highlight)?;
+            // Twice: a first move onto a monitor of another scale makes tao keep the
+            // window's logical size (WM_DPICHANGED); the second sets the exact area.
+            overlay::place(highlight_hwnd, monitor.area)?;
+            overlay::place(highlight_hwnd, monitor.area)?;
+            highlights.push((highlight, monitor));
         }
         overlay::show(mate_hwnd);
-    }
-    Ok(Overlays { mate, highlight })
+        highlights
+    };
+    Ok(Overlays {
+        mate,
+        #[cfg(windows)]
+        highlights,
+    })
 }
 
 /// Hidden, unfocusable, transparent, undecorated, topmost, not in the taskbar.
