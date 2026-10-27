@@ -59,7 +59,13 @@ fn whole_second_frame_counts_and_padding() {
                 let tail = tail.unwrap();
                 let used = count % FRAME_SAMPLES * 2;
                 assert_eq!(tail.len(), FRAME_BYTES);
-                assert!(tail[..used].chunks_exact(2).all(|b| b == [0, 64]));
+                assert!(
+                    tail[..used]
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
+                        .all(|b| *b == [0, 64])
+                );
                 assert!(tail[used..].iter().all(|&b| b == 0));
             }
         }
