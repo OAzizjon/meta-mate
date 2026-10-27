@@ -19,6 +19,8 @@ Mate is male: Russian lines use the masculine forms (нашёл, показал)
 | Do it for me? | Should I press this button for you? | Нажать эту кнопку за вас? |
 | Won't press | I don't press Pay or Delete. I'll show you where it is. | «Оплатить» и «Удалить» я не нажимаю. Но покажу, где это. |
 | Network error | I can't connect right now. Let's try again in a minute. | Сейчас нет связи. Попробуем ещё раз через минутку. |
+| Guide done | All done. Nice work! | Всё готово. Вы молодец! |
+| Too many steps | This is taking too long. Let's try another way. | Что-то долго получается. Давайте попробуем по-другому. |
 | Calm mode | Calm mode is on. I'll keep sounds gentle. | Спокойный режим. Звуки будут тихими. |
 | Fun mode | Fun mode is on. Let's have some fun! | Весёлый режим. Будет веселее! |
 | Sleep | I'll wait in the corner. Call me anytime. | Подожду в уголке. Зовите в любой момент. |

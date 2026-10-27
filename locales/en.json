@@ -13,6 +13,8 @@
   "robot.do_it_for_me": "Should I press this button for you?",
   "robot.wont_press": "I don't press Pay or Delete. I'll show you where it is.",
   "robot.network_error": "I can't connect right now. Let's try again in a minute.",
+  "robot.done": "All done. Nice work!",
+  "robot.too_many_turns": "This is taking too long. Let's try another way.",
   "robot.calm_mode": "Calm mode is on. I'll keep sounds gentle.",
   "robot.fun_mode": "Fun mode is on. Let's have some fun!",
   "robot.sleep": "I'll wait in the corner. Call me anytime.",
