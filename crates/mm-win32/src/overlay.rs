@@ -57,6 +57,14 @@ pub fn prepare(hwnd: HWND, kind: OverlayKind) -> windows::core::Result<()> {
             0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
         )
+    }?;
+    // Never show a window whose no-activate bits did not stick (invariant 1).
+    if ex_style(hwnd).contains(kind.ex_style()) {
+        Ok(())
+    } else {
+        Err(windows::core::Error::from_hresult(
+            windows::Win32::Foundation::E_FAIL,
+        ))
     }
 }
 

@@ -30,8 +30,13 @@ pub fn create(app: &AppHandle) -> Result<Overlays, Box<dyn std::error::Error>> {
         let highlight_hwnd = highlight.hwnd()?;
         overlay::prepare(mate_hwnd, OverlayKind::Robot)?;
         overlay::prepare(highlight_hwnd, OverlayKind::Highlight)?;
-        if let Some(area) = home(&mm_win32::monitors::monitors()) {
-            overlay::place(mate_hwnd, area)?;
+        let monitors = mm_win32::monitors::monitors();
+        // Never show Mate at an arbitrary place: no monitor, no Mate.
+        let area = home(&monitors).ok_or("no monitor to place Mate on")?;
+        overlay::place(mate_hwnd, area)?;
+        // The highlight covers the primary monitor; one per monitor comes with Day 4.
+        if let Some(primary) = monitors.iter().find(|m| m.primary).or(monitors.first()) {
+            overlay::place(highlight_hwnd, primary.area)?;
         }
         overlay::show(mate_hwnd);
     }

@@ -3,6 +3,8 @@
 //! window while Mate is shown, moved across every monitor, and the highlight is shown
 //! and hidden for a capture frame. Prints one JSON line and exits 0 (pass) or 1.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -29,6 +31,7 @@ struct Report {
     per_monitor_v2: bool,
     had_foreground: bool,
     foreground_kept: bool,
+    foreground_samples_changed: usize,
     mate_no_activate: bool,
     highlight_click_through: bool,
     monitors: Vec<MonitorReport>,
@@ -59,6 +62,21 @@ pub fn spawn(app: AppHandle, overlays: Overlays, before: HWND, per_monitor_v2: b
 fn run(mate: HWND, highlight: HWND, before: HWND, per_monitor_v2: bool) -> Report {
     let started = Instant::now();
     let kept = || focus::foreground() == before;
+    // Sample the foreground every 10 ms for the whole test: a steal that is undone
+    // between two checks still counts.
+    let stop = Arc::new(AtomicBool::new(false));
+    let changes = Arc::new(AtomicUsize::new(0));
+    let sampler = {
+        let (stop, changes, before) = (stop.clone(), changes.clone(), before.0 as isize);
+        std::thread::spawn(move || {
+            while !stop.load(Ordering::Relaxed) {
+                if focus::foreground().0 as isize != before {
+                    changes.fetch_add(1, Ordering::Relaxed);
+                }
+                sleep(Duration::from_millis(10));
+            }
+        })
+    };
     // Let both webviews finish loading: a late WebView2 init is when focus is stolen.
     sleep(Duration::from_millis(1500));
     let mut foreground_kept = kept();
@@ -100,17 +118,25 @@ fn run(mate: HWND, highlight: HWND, before: HWND, per_monitor_v2: bool) -> Repor
     sleep(Duration::from_millis(300));
     foreground_kept &= kept();
 
+    stop.store(true, Ordering::Relaxed);
+    let _ = sampler.join();
+    let foreground_samples_changed = changes.load(Ordering::Relaxed);
+    foreground_kept &= foreground_samples_changed == 0;
+    let had_foreground = !before.is_invalid();
     let dpi_follows = reports.iter().all(|m| m.mate_dpi == m.dpi);
     Report {
-        passed: per_monitor_v2
+        // Without a foreground window to begin with (a locked screen) nothing is proved.
+        passed: had_foreground
+            && per_monitor_v2
             && foreground_kept
             && mate_no_activate
             && highlight_click_through
             && dpi_follows
             && !reports.is_empty(),
         per_monitor_v2,
-        had_foreground: !before.is_invalid(),
+        had_foreground,
         foreground_kept,
+        foreground_samples_changed,
         mate_no_activate,
         highlight_click_through,
         monitors: reports,
@@ -129,14 +155,20 @@ pub fn spawn_control(app: AppHandle, before: HWND) {
     )
     .inner_size(200.0, 120.0)
     .build();
-    let before = before.0 as isize;
+    // Stolen means the control window itself became the foreground window.
+    let control = built
+        .as_ref()
+        .ok()
+        .and_then(|w| w.hwnd().ok())
+        .map(|h| h.0 as isize);
+    let _ = before;
     std::thread::spawn(move || {
         sleep(Duration::from_millis(1500));
-        let stolen = focus::foreground().0 as isize != before;
+        let stolen = control == Some(focus::foreground().0 as isize);
         println!(
             "{{\"control\":true,\"window_built\":{},\"foreground_stolen\":{stolen}}}",
-            built.is_ok()
+            control.is_some()
         );
-        app.exit(0);
+        app.exit(if stolen { 0 } else { 1 });
     });
 }

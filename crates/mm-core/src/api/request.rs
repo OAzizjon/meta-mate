@@ -146,10 +146,17 @@ impl ElementLine {
         if !is_element_id(id) {
             return None;
         }
-        // `shot_rect_to_phys` clamps to the capture, so the round trip clips the element
-        // to the screenshot like the probe's list (`tools/mm_fixture.py`).
-        let phys = frame.shot_rect_to_phys(frame.phys_rect_to_shot(rect));
-        let c = frame.phys_rect_to_shot(phys);
+        // Clip to the capture in physical pixels, then map once: a rounding round trip
+        // could collapse a thin element and drop it from the list.
+        let region = frame.region();
+        let clipped = PhysRect::new(
+            rect.left.max(region.left),
+            rect.top.max(region.top),
+            rect.right.min(region.right),
+            rect.bottom.min(region.bottom),
+        )
+        .ok()?;
+        let c = frame.phys_rect_to_shot(clipped);
         let rect = ShotRect::new(c.left, c.top, c.right, c.bottom).ok()?;
         Some(Self {
             id: id.to_owned(),
