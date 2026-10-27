@@ -5,6 +5,22 @@ from datetime import date, timedelta
 import json
 import unittest
 
+# A real 1x1 PNG built here: every image must be a valid embedded PNG.
+def _png_1x1() -> str:
+    import base64
+    import struct
+    import zlib
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+
+    png = (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+           + chunk(b"IDAT", zlib.compress(b"\x00\xff\xff\xff")) + chunk(b"IEND", b""))
+    return "data:image/png;base64," + base64.b64encode(png).decode()
+
+
+TINY_PNG = _png_1x1()
+
 from metamate_proxy.policy import (
     ALLOWED_MODELS, ANSWER_CAP, COMPUTER_CAP, IMAGE_TOKENS, INTENT_CAP,
     MAX_BODY_BYTES, MAX_IMAGES, PREVIOUS_TURN_TOKENS, SPEECH_CAP,
@@ -87,7 +103,7 @@ class RequestTests(unittest.TestCase):
 
     def test_nested_image_limit(self):
         self.assertEqual(MAX_IMAGES, 2)
-        images = [{"type": "input_image", "image_url": "data:image/png;base64,AA"}]
+        images = [{"type": "input_image", "image_url": TINY_PNG}]
         body = {"input": [{"content": images}, {"nested": [deepcopy(images)]}]}
         clamp_request(body, CallKind.COMPUTER, SPARK)
         body["input"].append({"deeper": {"content": deepcopy(images)}})
@@ -113,7 +129,7 @@ class RequestTests(unittest.TestCase):
         base = input_token_bound(clamp_request(body, CallKind.ANSWER, SPARK))
         self.assertEqual(base, 3)
         body["input"] = ["abc", {"content": [{"type": "input_image",
-                                               "image_url": "data:image/png;base64,AA"}]}]
+                                               "image_url": TINY_PNG}]}]
         with_image = input_token_bound(clamp_request(body, CallKind.ANSWER, SPARK))
         self.assertEqual(with_image, base + IMAGE_TOKENS)
         body["previous_response_id"] = "previous"
@@ -315,3 +331,59 @@ class FollowupImageTests(unittest.TestCase):
         three = {"input": [{"type": "computer_screenshot", "image_url": "x"}] * 3}
         with self.assertRaises(ValueError):
             clamp_request(three, CallKind.COMPUTER, SPARK)
+
+
+class HardeningTests(unittest.TestCase):
+    def test_images_must_be_embedded_pngs_within_limits(self):
+        from metamate_proxy.policy import MAX_IMAGE_EDGE, check_images
+        import base64
+        import struct
+        check_images({"input": [{"type": "input_image", "image_url": TINY_PNG}]})
+        for url in ("https://example.com/a.png", "data:image/jpeg;base64,AAAA",
+                    "data:image/png;base64,***", "data:image/png;base64,AAAA", 7):
+            with self.subTest(url=url), self.assertRaises(ValueError):
+                check_images({"input": [{"type": "input_image", "image_url": url}]})
+        header = base64.b64decode(TINY_PNG.split(",", 1)[1])
+        wide = header[:16] + struct.pack(">II", MAX_IMAGE_EDGE + 1, 1) + header[24:]
+        url = "data:image/png;base64," + base64.b64encode(wide).decode()
+        with self.assertRaisesRegex(ValueError, "1280"):
+            check_images({"input": [{"type": "computer_screenshot", "image_url": url}]})
+
+    def test_hostile_shapes_are_value_errors(self):
+        nested = {"input": "x"}
+        for _ in range(40):
+            nested = {"input": [nested]}
+        # An unhashable "type" is ordinary content now, not a crash.
+        clamp_request({"input": [{"type": []}]}, CallKind.ANSWER, SPARK)
+        with self.assertRaisesRegex(ValueError, "nests too deeply"):
+            clamp_request(nested, CallKind.ANSWER, SPARK)
+
+    def test_chain_depth_is_priced_and_owned(self):
+        from metamate_proxy.policy import PREVIOUS_TURN_TOKENS
+        owners = ResponseOwners()
+        owners.record("r1", "a", depth=5)
+        self.assertEqual(owners.depth("r1", "a"), 5)
+        self.assertIsNone(owners.depth("r1", "b"))
+        body = {"previous_response_id": "r1", "input": ""}
+        self.assertEqual(input_token_bound(body, chain_depth=5), 5 * PREVIOUS_TURN_TOKENS)
+
+    def test_daily_calls_and_asr_seconds(self):
+        from metamate_proxy.policy import asr_allowance, charge_asr
+        ledger, today = Ledger(), date(2026, 10, 27)
+        limits = InviteLimits(100, 10, 50, daily_calls=2, asr_seconds=60)
+        for _ in range(2):
+            reserve(ledger, "i", limits, Budget(100), SPARK, 0.01, today)
+        self.assertEqual(decide(ledger, "i", limits, Budget(100), SPARK, 0.01, today),
+                         Decision(None, "invite_calls"))
+        self.assertEqual(asr_allowance(ledger, "i", limits, today), 60)
+        charge_asr(ledger, "i", 45.5, today)
+        self.assertEqual(asr_allowance(ledger, "i", limits, today), 14.5)
+
+    def test_malformed_usage_keeps_the_reservation_and_settles(self):
+        ledger, today = Ledger(), date(2026, 10, 27)
+        prices = Prices(5, 25, 4, 20)
+        pending = reserve(ledger, "i", InviteLimits(100, 10, 50), Budget(100), SPARK, 1, today)
+        self.assertEqual(reconcile(ledger, pending, {"input_tokens": "lots"}, prices), "bad_usage")
+        self.assertEqual(ledger.days[today].overall.usd, 1)
+        with self.assertRaises(ValueError):
+            reconcile(ledger, pending, None, prices)

@@ -24,6 +24,15 @@ ASR_MODEL = 'muse-voice-transcribe-1.0'
 # One push-to-talk question; the ASR price is not known yet, so the length is the cap.
 ASR_MAX_SECONDS = 60
 ASR_MAX_STREAMS_PER_INVITE = 2
+# A session ends at the latest this long after the handshake, or after this much silence
+# from the client (the app sends audio every 80 ms while the key is held).
+ASR_SESSION_SECONDS = 90
+ASR_IDLE_SECONDS = 15
+ASR_END_STREAM = '{"type":"endStream"}'
+RESPONSES_IN_FLIGHT_PER_INVITE = 4
+BODY_READ_SECONDS = 15
+STREAM_SECONDS = 180
+SSE_EVENT_MAX_BYTES = 1_000_000
 CALL_KINDS = {kind.value: kind for kind in policy.CallKind}
 
 
@@ -69,6 +78,7 @@ class State:
     owners: policy.ResponseOwners = field(default_factory=policy.ResponseOwners)
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     asr_streams: dict[str, int] = field(default_factory=dict)
+    in_flight: dict[str, int] = field(default_factory=dict)
 
 
 def today() -> 'datetime.date':
@@ -112,26 +122,71 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         kind = CALL_KINDS.get(request.headers.get('x-metamate-call', 'answer'))
         if kind is None:
             return error(400, 'unknown call kind')
-        raw = await request.body()
-        if len(raw) > policy.MAX_BODY_BYTES:
-            return error(413, 'request too large')
+        if state.in_flight.get(invite, 0) >= RESPONSES_IN_FLIGHT_PER_INVITE:
+            return error(429, 'too many requests at once')
+        state.in_flight[invite] = state.in_flight.get(invite, 0) + 1
+        try:
+            return await handle(request, invite, limits, kind)
+        except BaseException:
+            release(invite)
+            raise
+
+    def release(invite: str) -> None:
+        state.in_flight[invite] = max(0, state.in_flight.get(invite, 0) - 1)
+
+    async def read_body(request: Request) -> bytes | None:
+        """The body, or None when it is over the limit or too slow (never fully buffered)."""
+        chunks, size = [], 0
+
+        async def collect() -> None:
+            nonlocal size
+            async for chunk in request.stream():
+                size += len(chunk)
+                if size > policy.MAX_BODY_BYTES:
+                    raise ValueError('too large')
+                chunks.append(chunk)
+
+        try:
+            await asyncio.wait_for(collect(), BODY_READ_SECONDS)
+        except (ValueError, asyncio.TimeoutError):
+            return None
+        return b''.join(chunks)
+
+    async def handle(request: Request, invite: str, limits: policy.InviteLimits,
+                     kind: policy.CallKind) -> Response:
+        """Owns one in-flight slot of `invite`: every path releases it exactly once."""
+        raw = await read_body(request)
+        if raw is None:
+            release(invite)
+            return error(413, 'request too large or too slow')
         try:
             body = json.loads(raw)
             if not isinstance(body, dict):
                 raise ValueError('body must be an object')
             clamped = policy.clamp_request(body, kind, str(body.get('model', policy.SPARK)))
-        except ValueError as problem:
-            return error(400, str(problem))
+        except (ValueError, RecursionError) as problem:
+            release(invite)
+            return error(400, str(problem) if isinstance(problem, ValueError) else 'request nests too deeply')
+        depth = 0
         previous = clamped.get('previous_response_id')
-        if previous is not None and not state.owners.check(str(previous), invite):
-            return error(403, 'unknown previous response')
-        estimate = policy.estimate_cost(clamped['model'], policy.input_token_bound(clamped),
-                                        clamped['max_output_tokens'], settings.prices)
+        if previous is not None:
+            depth = state.owners.depth(str(previous), invite) or 0
+            if depth == 0:
+                release(invite)
+                return error(403, 'unknown previous response')
+            if depth >= policy.MAX_CHAIN_DEPTH:
+                release(invite)
+                return error(429, 'conversation too long')
+        bound = policy.input_token_bound(clamped, depth)
+        # Reserve for the dearer of the requested model and the Spark it may fall back to.
+        estimate = max(policy.estimate_cost(model, bound, clamped['max_output_tokens'], settings.prices)
+                       for model in {clamped['model'], policy.SPARK})
         async with state.lock:
             try:
                 reservation = policy.reserve(state.ledger, invite, limits, settings.budget,
                                              clamped['model'], estimate, today())
             except ValueError as refused:
+                release(invite)
                 return error(429, str(refused))
         forward = policy.body_for(reservation, body, kind)
         headers = {'Authorization': 'Bearer ' + settings.meta_key, 'Content-Type': 'application/json'}
@@ -139,23 +194,35 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         answered = {'X-MetaMate-Model': reservation.model}
         if reservation.reason:
             answered['X-MetaMate-Fallback-Reason'] = reservation.reason
+        settled = False
+
+        async def settle_once(usage: dict | None, model: str | None) -> None:
+            nonlocal settled
+            if not settled:
+                settled = True
+                await settle(reservation, usage, model)
+                release(invite)
 
         if not forward.get('stream'):
+            usage, model = None, None
             try:
                 upstream = await http.post(url, json=forward, headers=headers)
                 data = upstream.json()
+                ok = upstream.status_code == 200 and isinstance(data, dict)
+                if ok:
+                    usage, model = data.get('usage'), data.get('model')
+                    if data.get('id'):
+                        state.owners.record(str(data['id']), invite, depth + 1)
+                return JSONResponse(data, status_code=upstream.status_code, headers=answered)
             except (httpx.HTTPError, ValueError):
-                await settle(reservation, None, None)
                 return error(502, 'upstream failed')
-            ok = upstream.status_code == 200 and isinstance(data, dict)
-            await settle(reservation, data.get('usage') if ok else None, data.get('model') if ok else None)
-            if ok and data.get('id'):
-                state.owners.record(str(data['id']), invite)
-            return JSONResponse(data, status_code=upstream.status_code, headers=answered)
+            finally:
+                # Also on cancellation: a cut request keeps its whole reservation.
+                await settle_once(usage, model)
 
         async def relay():
-            usage, model = None, None
-            completed = False
+            usage, model, completed = None, None, False
+            deadline = asyncio.get_running_loop().time() + STREAM_SECONDS
             try:
                 async with http.stream('POST', url, json=forward, headers=headers) as upstream:
                     if upstream.status_code != 200:
@@ -163,20 +230,22 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
                         return
                     buffer = b''
                     async for chunk in upstream.aiter_bytes():
+                        if asyncio.get_running_loop().time() > deadline:
+                            return
                         yield chunk
-                        buffer += chunk
+                        buffer = (buffer + chunk).replace(b'\r\n', b'\n')
                         # Only the final event is parsed (usage and id); nothing is kept.
                         while b'\n\n' in buffer:
                             event, buffer = buffer.split(b'\n\n', 1)
                             final = completed_response(event)
                             if final is not None:
-                                usage, model = final.get('usage'), final.get('model')
-                                completed = True
+                                usage, model, completed = final.get('usage'), final.get('model'), True
                                 if final.get('id'):
-                                    state.owners.record(str(final['id']), invite)
+                                    state.owners.record(str(final['id']), invite, depth + 1)
+                        if len(buffer) > SSE_EVENT_MAX_BYTES:
+                            buffer = b''  # an event this large is not one we read
             finally:
-                # A cut stream keeps its whole reservation (never a refund).
-                await settle(reservation, usage if completed else None, model if completed else None)
+                await settle_once(usage if completed else None, model if completed else None)
 
         return StreamingResponse(relay(), media_type='text/event-stream', headers=answered)
 
@@ -185,50 +254,65 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         await ws.accept()
         try:
             handshake = json.loads(await asyncio.wait_for(ws.receive_text(), 10))
-            token = str(handshake.get('authorization', {}).get('accessToken', ''))
-        except (asyncio.TimeoutError, ValueError, AttributeError, KeyError):
+            if not isinstance(handshake, dict):
+                raise ValueError('handshake must be an object')
+            auth = handshake.get('authorization')
+            token = auth.get('accessToken') if isinstance(auth, dict) else None
+            encoding = handshake.get('audioEncoding')
+            if not isinstance(token, str) or not isinstance(encoding, str):
+                raise ValueError('bad handshake')
+        except (asyncio.TimeoutError, ValueError, RecursionError):
             await ws.close(code=4400)
             return
         who = invite_of(token, settings)
         if who is None:
             await ws.close(code=4401)
             return
-        invite = who[0]
-        if state.asr_streams.get(invite, 0) >= ASR_MAX_STREAMS_PER_INVITE:
-            await ws.close(code=4429)
-            return
-        encoding = handshake.get('audioEncoding')
+        invite, limits = who
         rate = {'PCM_24KHZ': 24000, 'PCM_16KHZ': 16000}.get(encoding)
         if rate is None:
             await ws.close(code=4400)
+            return
+        async with state.lock:
+            allowance = policy.asr_allowance(state.ledger, invite, limits, today())
+        if allowance < 1 or state.asr_streams.get(invite, 0) >= ASR_MAX_STREAMS_PER_INVITE:
+            await ws.close(code=4429)
             return
         upstream_handshake = {key: value for key, value in handshake.items()
                               if key in ('audioEncoding', 'mode', 'partialMode', 'emitAudioProgress',
                                          'languageBias', 'keywords')}
         upstream_handshake.update({'authorization': {'accessToken': 'Bearer ' + settings.meta_key},
                                    'model': ASR_MODEL})
-        limit_bytes = ASR_MAX_SECONDS * rate * 2
+        limit_bytes = int(min(ASR_MAX_SECONDS, allowance) * rate * 2)
+        sent = 0
         state.asr_streams[invite] = state.asr_streams.get(invite, 0) + 1
+        tasks: list[asyncio.Task] = []
         try:
             async with connect(ASR_URL, max_size=2 ** 20) as upstream:
                 await upstream.send(json.dumps(upstream_handshake))
                 await ws.send_text(await asyncio.wait_for(upstream.recv(), 10))
 
                 async def up_from_client() -> None:
-                    sent = 0
+                    nonlocal sent
                     while True:
-                        message = await ws.receive()
+                        message = await asyncio.wait_for(ws.receive(), ASR_IDLE_SECONDS)
                         if message.get('type') == 'websocket.disconnect':
                             return
                         if message.get('bytes') is not None:
                             sent += len(message['bytes'])
                             if sent > limit_bytes:
-                                await upstream.send(json.dumps({'type': 'endStream'}))
+                                await upstream.send(ASR_END_STREAM)
                                 return
                             await upstream.send(message['bytes'])
                         elif message.get('text') is not None:
-                            # Only control messages travel this way (endStream).
-                            await upstream.send(message['text'])
+                            # The only control message is the end of the stream.
+                            try:
+                                control = json.loads(message['text'])
+                            except ValueError:
+                                control = None
+                            if control == {'type': 'endStream'}:
+                                await upstream.send(ASR_END_STREAM)
+                            return
 
                 async def down_to_client() -> None:
                     async for message in upstream:
@@ -238,16 +322,20 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
                             await ws.send_text(message)
 
                 tasks = [asyncio.create_task(up_from_client()), asyncio.create_task(down_to_client())]
-                done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                done, pending = await asyncio.wait(tasks, timeout=ASR_SESSION_SECONDS,
+                                                   return_when=asyncio.FIRST_COMPLETED)
                 if tasks[0] in done and tasks[1] in pending:
-                    # The client finished sending: let the final transcript come back.
+                    # The client finished: let the final transcript come back.
                     await asyncio.wait(pending, timeout=20)
-                for task in tasks:
-                    task.cancel()
         except (OSError, websockets.WebSocketException, asyncio.TimeoutError):
             pass
         finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
             state.asr_streams[invite] -= 1
+            async with state.lock:
+                policy.charge_asr(state.ledger, invite, sent / (rate * 2), today())
             try:
                 await ws.close()
             except RuntimeError:

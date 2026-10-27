@@ -1,5 +1,7 @@
 """Pure request and spending policy; callers must serialize ledger operations."""
 
+import base64
+import binascii
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
@@ -24,6 +26,15 @@ IMAGE_TOKENS = 4000
 PREVIOUS_TURN_TOKENS = 8000
 # A first turn sends input_image; a computer_call_output sends computer_screenshot.
 IMAGE_TYPES = {"input_image", "computer_screenshot"}
+# Images arrive as PNG data URLs made by the app (crates/mm-core/src/shot.rs): no remote
+# URLs (they would escape the body limit), at most 2 MB and 1280 px on the long edge.
+MAX_IMAGE_BYTES = 2_000_000
+MAX_IMAGE_EDGE = 1280
+PNG_PREFIX = "data:image/png;base64,"
+# A teacher task is at most 12 model turns (docs/architecture.md section 3): the history a
+# continuation is billed for grows with the chain, so the chain is capped and priced.
+MAX_CHAIN_DEPTH = 12
+MAX_JSON_DEPTH = 32
 
 
 class CallKind(Enum):
@@ -85,13 +96,53 @@ def _input_parts(value):
             pending.extend(part)
 
 
+def _is_image(part) -> bool:
+    return isinstance(part, dict) and isinstance(part.get("type"), str) and part["type"] in IMAGE_TYPES
+
+
 def _image_count(body: dict) -> int:
-    return sum(isinstance(part, dict) and part.get("type") in IMAGE_TYPES
-               for part in _input_parts(body.get("input")))
+    return sum(_is_image(part) for part in _input_parts(body.get("input")))
 
 
-def input_token_bound(body: dict) -> int:
-    """Bound clamped input/instructions text, images and billed previous context."""
+def _depth(value, limit: int = MAX_JSON_DEPTH) -> bool:
+    """Whether `value` nests at most `limit` levels deep (iteratively: no recursion)."""
+    pending = [(value, 1)]
+    while pending:
+        part, level = pending.pop()
+        if level > limit:
+            return False
+        if isinstance(part, dict):
+            pending.extend((child, level + 1) for child in part.values())
+        elif isinstance(part, list):
+            pending.extend((child, level + 1) for child in part)
+    return True
+
+
+def check_images(body: dict) -> None:
+    """Every image is an embedded PNG within the size and edge limits (ValueError otherwise)."""
+    for part in _input_parts(body.get("input")):
+        if not _is_image(part):
+            continue
+        url = part.get("image_url")
+        if not isinstance(url, str) or not url.startswith(PNG_PREFIX):
+            raise ValueError("images must be embedded PNG data URLs")
+        encoded = url[len(PNG_PREFIX):]
+        if len(encoded) > MAX_IMAGE_BYTES * 4 // 3 + 4:
+            raise ValueError("image too large")
+        try:
+            png = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError):
+            raise ValueError("image is not valid base64") from None
+        if len(png) > MAX_IMAGE_BYTES or len(png) < 24 or png[:8] != b"\x89PNG\r\n\x1a\n" or png[12:16] != b"IHDR":
+            raise ValueError("image is not a PNG within the size limit")
+        width, height = int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")
+        if not 0 < width <= MAX_IMAGE_EDGE or not 0 < height <= MAX_IMAGE_EDGE:
+            raise ValueError("image larger than 1280 px on an edge")
+
+
+def input_token_bound(body: dict, chain_depth: int = 0) -> int:
+    """Bound clamped input/instructions text, images and billed previous context: each
+    earlier turn of a `previous_response_id` chain is billed again."""
     characters = 0
     pending = [body.get("input"), body.get("instructions")]
     while pending:
@@ -99,20 +150,23 @@ def input_token_bound(body: dict) -> int:
         if isinstance(part, str):
             characters += len(part)
         elif isinstance(part, dict):
-            if part.get("type") not in IMAGE_TYPES:
+            if not _is_image(part):
                 pending.extend(part.values())
         elif isinstance(part, list):
             pending.extend(part)
-    return ((characters + 1) // 2 + _image_count(body) * IMAGE_TOKENS
-            + (PREVIOUS_TURN_TOKENS if "previous_response_id" in body else 0))
+    previous = PREVIOUS_TURN_TOKENS * max(1, chain_depth) if "previous_response_id" in body else 0
+    return (characters + 1) // 2 + _image_count(body) * IMAGE_TOKENS + previous
 
 
 def clamp_request(body: dict, kind: CallKind, model_choice: str) -> dict:
     """Return an allowlisted request without modifying the client's body."""
+    if not _depth(body):
+        raise ValueError("request nests too deeply")
     if len(json.dumps(body).encode("utf-8")) > MAX_BODY_BYTES:
         raise ValueError("request body too large")
     if _image_count(body) > MAX_IMAGES:
         raise ValueError("too many input images")
+    check_images(body)
     pinned = kind in {CallKind.INTENT, CallKind.SPEECH}
     if not pinned:
         _model(model_choice)
@@ -151,27 +205,34 @@ def estimate_cost(model: str, input_tokens: int, max_output_tokens: int,
 
 
 def actual_cost(model: str, usage: Mapping[str, int], prices: Prices) -> float:
-    """Price final usage; output_tokens already includes reasoning tokens."""
-    return estimate_cost(model, usage["input_tokens"], usage["output_tokens"], prices)
+    """Price final usage; output_tokens already includes reasoning tokens. Malformed
+    usage raises ValueError (the caller then keeps the whole reservation)."""
+    if not isinstance(usage, Mapping):
+        raise ValueError("usage must be an object")
+    return estimate_cost(model, usage.get("input_tokens"), usage.get("output_tokens"), prices)
 
 
 @dataclass(frozen=True)
 class InviteLimits:
-    """Per-invite daily USD and Wonder allowances."""
+    """Per-invite daily USD, Wonder, call and speech-recognition allowances."""
 
     daily_usd: float
     wonder_calls: int
     wonder_usd: float
+    daily_calls: int = 300
+    asr_seconds: int = 1200
 
     def __post_init__(self) -> None:
         _nonnegative(self.daily_usd, "daily_usd")
         _tokens(self.wonder_calls)
         _nonnegative(self.wonder_usd, "wonder_usd")
+        _tokens(self.daily_calls)
+        _tokens(self.asr_seconds)
 
 
 # Initial policy defaults, not provider pricing or a promise of unlimited judging.
-TESTER = InviteLimits(daily_usd=1.0, wonder_calls=5, wonder_usd=0.25)
-JUDGE = InviteLimits(daily_usd=5.0, wonder_calls=25, wonder_usd=2.0)
+TESTER = InviteLimits(daily_usd=1.0, wonder_calls=5, wonder_usd=0.25, daily_calls=150, asr_seconds=600)
+JUDGE = InviteLimits(daily_usd=5.0, wonder_calls=25, wonder_usd=2.0, daily_calls=400, asr_seconds=1800)
 
 
 @dataclass(frozen=True)
@@ -196,6 +257,7 @@ class DayTotals:
     overall: Totals = field(default_factory=Totals)
     invites: dict[str, Totals] = field(default_factory=dict)
     wonder: dict[str, Totals] = field(default_factory=dict)
+    asr_seconds: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -227,16 +289,21 @@ class ResponseOwners:
     In-memory ownership with the oldest recorded IDs dropped first; not thread-safe.
     """
 
-    _owners: dict[str, str] = field(default_factory=dict, init=False, repr=False)
+    _owners: dict[str, tuple[str, int]] = field(default_factory=dict, init=False, repr=False)
 
-    def record(self, response_id: str, invite: str) -> None:
-        self._owners[response_id] = invite
+    def record(self, response_id: str, invite: str, depth: int = 1) -> None:
+        """`depth`: how many turns the chain ending in this response has."""
+        self._owners[response_id] = (invite, depth)
         if len(self._owners) > 10_000:
             del self._owners[next(iter(self._owners))]
 
     def check(self, previous_response_id: str, invite: str) -> bool:
-        return (previous_response_id in self._owners
-                and self._owners[previous_response_id] == invite)
+        return self.depth(previous_response_id, invite) is not None
+
+    def depth(self, previous_response_id: str, invite: str) -> int | None:
+        """The chain depth of an own, known response; None for unknown or foreign ids."""
+        owner = self._owners.get(previous_response_id)
+        return owner[1] if owner is not None and owner[0] == invite else None
 
 
 @dataclass
@@ -253,7 +320,10 @@ def decide(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
     _model(requested_model)
     _nonnegative(estimated_cost, "estimated_cost")
     day = ledger.days.get(today, DayTotals())
-    spent = day.invites.get(invite, Totals()).usd
+    own = day.invites.get(invite, Totals())
+    if own.calls >= limits.daily_calls:
+        return Decision(None, "invite_calls")
+    spent = own.usd
     if spent >= limits.daily_usd or spent + estimated_cost > limits.daily_usd:
         return Decision(None, "invite_budget")
     if day.overall.usd >= budget.daily_usd or day.overall.usd + estimated_cost > budget.daily_usd:
@@ -306,7 +376,12 @@ def reconcile(ledger: Ledger, reservation: Reservation,
         del ledger._pending[id(reservation)]
         return "model_mismatch"
     if usage is not None:
-        cost = actual_cost(reservation.model, usage, prices)
+        try:
+            cost = actual_cost(reservation.model, usage, prices)
+        except ValueError:
+            # Malformed usage: keep the whole reservation, but settle it.
+            del ledger._pending[id(reservation)]
+            return "bad_usage"
         delta = cost - reservation.estimated_cost
         day = ledger.days[reservation.day]
         counters = [day.overall, day.invites[reservation.invite]]
@@ -315,3 +390,16 @@ def reconcile(ledger: Ledger, reservation: Reservation,
         for total in counters:
             total.usd = max(0.0, total.usd + delta)
     del ledger._pending[id(reservation)]
+
+
+def asr_allowance(ledger: Ledger, invite: str, limits: InviteLimits, today: date) -> float:
+    """Seconds of speech recognition this invite may still use today."""
+    used = ledger.days.get(today, DayTotals()).asr_seconds.get(invite, 0.0)
+    return max(0.0, limits.asr_seconds - used)
+
+
+def charge_asr(ledger: Ledger, invite: str, seconds: float, today: date) -> None:
+    """Add the audio a recognition session sent (callers serialize, like reserve)."""
+    _nonnegative(seconds, "seconds")
+    day = ledger.days.setdefault(today, DayTotals())
+    day.asr_seconds[invite] = day.asr_seconds.get(invite, 0.0) + seconds

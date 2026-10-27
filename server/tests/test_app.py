@@ -97,6 +97,45 @@ class ProxyTests(unittest.TestCase):
         self.assertIn(b'"delta":"Hi"', answer.content)
         self.assertIn(b'response.completed', answer.content)
 
+    def test_oversized_nested_and_remote_image_bodies_are_refused(self):
+        fake = FakeMeta()
+        client = client_for(fake)
+        huge = client.post('/v1/responses', content=b'{"input":"' + b'a' * 2_600_000 + b'"}',
+                           headers={'Authorization': f'Bearer {JUDGE_CODE}'})
+        self.assertEqual(huge.status_code, 413)
+        nested = '{"input":' * 40 + '"x"' + '}' * 40
+        self.assertEqual(client.post('/v1/responses', content=nested.encode(), headers={
+            'Authorization': f'Bearer {JUDGE_CODE}'}).status_code, 400)
+        remote = {'model': 'muse-spark-1.3', 'input': [{'type': 'message', 'role': 'user', 'content': [
+            {'type': 'input_image', 'image_url': 'https://example.com/screen.png'}]}]}
+        self.assertEqual(ask(client, remote).status_code, 400)
+        self.assertEqual(fake.requests, [])
+
+    def test_a_conversation_chain_is_capped(self):
+        from metamate_proxy.policy import MAX_CHAIN_DEPTH
+        fake = FakeMeta()
+        ids = iter(range(1000))
+
+        def handler(request):
+            fake.requests.append(request)
+            body = json.loads(request.content)
+            return httpx.Response(200, json={'id': f'r{next(ids)}', 'model': body['model'],
+                                             'status': 'completed', 'output': [],
+                                             'usage': {'input_tokens': 1, 'output_tokens': 1}})
+
+        client = TestClient(create_app(Settings.from_env(ENV), client=httpx.AsyncClient(
+            transport=httpx.MockTransport(handler))))
+        previous = None
+        for turn in range(MAX_CHAIN_DEPTH):
+            body = {'model': 'muse-spark-1.3', 'input': 'next'}
+            if previous:
+                body['previous_response_id'] = previous
+            answer = ask(client, body)
+            self.assertEqual(answer.status_code, 200, turn)
+            previous = answer.json()['id']
+        body = {'model': 'muse-spark-1.3', 'input': 'next', 'previous_response_id': previous}
+        self.assertEqual(ask(client, body).status_code, 429)
+
     def test_completed_response_reads_only_the_final_event(self):
         self.assertIsNone(completed_response(b'event: response.output_text.delta\ndata: {"delta":"x"}'))
         self.assertEqual(completed_response(b'data: {"type":"response.completed","response":{"id":"r"}}'),
