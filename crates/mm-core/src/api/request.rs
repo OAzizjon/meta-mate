@@ -15,6 +15,7 @@ use serde_json::{Value, json};
 use crate::constants::ROBOT_NAME;
 use crate::geom::{FrameTransform, PhysRect, ShotRect};
 use crate::matescript::Mode;
+pub use crate::redaction::RedactedImage;
 
 /// The model chosen in Settings (D40); never switched by voice or by a tag.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
@@ -66,33 +67,6 @@ pub struct ComputerSession {
     pub effort: ReasoningEffort,
     pub sent_width: u32,
     pub sent_height: u32,
-}
-
-/// A screenshot whose password fields were painted over, as a data URL (convention 4).
-/// Only the redaction step creates it, and it refuses when redaction cannot be
-/// guaranteed (a truncated UIA snapshot: invariant 3, fail closed). The request builders
-/// accept nothing else.
-pub struct RedactedImage {
-    data_url: String,
-}
-
-impl RedactedImage {
-    /// For `crate::redaction::redact` only (crate-private on purpose): `data_url` must
-    /// already have every hidden element painted over.
-    pub(crate) fn from_redacted_data_url(data_url: String) -> Self {
-        Self { data_url }
-    }
-
-    fn data_url(&self) -> &str {
-        &self.data_url
-    }
-}
-
-/// Metadata only (convention 3).
-impl fmt::Debug for RedactedImage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[RedactedImage {} bytes]", self.data_url.len())
-    }
 }
 
 /// The one rule for hiding an element, shared by the painter and the element list: a
@@ -557,7 +531,7 @@ mod tests {
     const DATA_URL: &str = "data:image/png;base64,AAAA";
 
     fn image() -> RedactedImage {
-        RedactedImage::from_redacted_data_url(DATA_URL.into())
+        RedactedImage::for_tests(DATA_URL.into())
     }
     const LARGE_LINE: &str = "e11 Button \"Large\" [960,255,200,32]";
     const QUICK: ModelChoice = ModelChoice::Quick;

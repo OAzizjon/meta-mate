@@ -28,6 +28,7 @@ fn input<'a>(pixels: &'a [u8], fields: &'a [Field]) -> RedactionInput<'a> {
     RedactionInput {
         capture: Bgra::new(W, H, pixels).unwrap(),
         region: region(),
+        snapshot_region: region(),
         fields,
         snapshot_truncated: false,
         unclassified_sensitive_field: false,
@@ -95,9 +96,14 @@ fn refuses_when_redaction_cannot_be_guaranteed() {
         redact(&unclear).unwrap_err(),
         RedactionError::UnclassifiedSensitiveField
     );
-    let mut moved = input(&pixels, &fields);
-    moved.region = PhysRect::new(0, 0, 41, 20).unwrap();
-    assert_eq!(redact(&moved).unwrap_err(), RedactionError::CaptureMismatch);
+    // The capture is 40x20 but both the snapshot and the capture claim 41x20.
+    let mut resized = input(&pixels, &fields);
+    resized.region = PhysRect::new(0, 0, 41, 20).unwrap();
+    resized.snapshot_region = resized.region;
+    assert_eq!(
+        redact(&resized).unwrap_err(),
+        RedactionError::CaptureMismatch
+    );
 }
 
 #[test]
@@ -111,4 +117,36 @@ fn downscaling_keeps_the_frame_transform_of_the_sent_image() {
     // The model's pixel (10, 5) in the 20x10 image is physical (-80, 60).
     let phys = frame.shot_to_phys(mm_core::geom::ShotPoint { x: 10.0, y: 5.0 });
     assert_eq!((phys.x, phys.y), (-80, 60));
+}
+
+#[test]
+fn a_window_that_moved_after_the_snapshot_is_refused() {
+    let pixels = white();
+    let fields = [field(true)];
+    let mut moved = input(&pixels, &fields);
+    // Same size, new place: the old field rects would paint the wrong pixels.
+    moved.region = PhysRect::new(0, 0, W as i32, H as i32).unwrap();
+    assert_eq!(redact(&moved).unwrap_err(), RedactionError::StaleSnapshot);
+}
+
+#[test]
+fn a_hidden_field_with_invalid_bounds_is_refused_not_skipped() {
+    let pixels = white();
+    let mut broken = field(true);
+    broken.rect = PhysRect {
+        left: -80,
+        top: 55,
+        right: -90,
+        bottom: 60,
+    };
+    let fields = [broken];
+    assert_eq!(
+        redact(&input(&pixels, &fields)).unwrap_err(),
+        RedactionError::InvalidField
+    );
+    // An ordinary field with odd bounds does not block the screenshot.
+    let mut plain = broken;
+    plain.password_like = false;
+    let fields = [plain];
+    assert!(redact(&input(&pixels, &fields)).is_ok());
 }

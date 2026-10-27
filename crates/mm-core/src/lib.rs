@@ -5,6 +5,7 @@ pub mod api;
 pub mod constants;
 pub mod geom;
 pub mod matescript;
+pub mod privacy;
 pub mod redaction;
 pub mod shot;
 pub mod teacher;

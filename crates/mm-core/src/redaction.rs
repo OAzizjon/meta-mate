@@ -4,9 +4,39 @@
 
 use std::fmt;
 
-use crate::api::request::{RedactedImage, must_hide};
+use crate::api::request::must_hide;
 use crate::geom::{FrameTransform, PhysRect};
 use crate::shot::{self, Bgra, ShotError, ShotRectPx};
+
+/// A screenshot whose password fields were painted over, as a data URL (convention 4).
+/// Only [`redact`] can make one (its constructor is private to this module), so the
+/// request builders, which take nothing else, can never send a raw capture.
+pub struct RedactedImage {
+    data_url: String,
+}
+
+impl RedactedImage {
+    fn new(data_url: String) -> Self {
+        Self { data_url }
+    }
+
+    /// For the request builders.
+    pub(crate) fn data_url(&self) -> &str {
+        &self.data_url
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_tests(data_url: String) -> Self {
+        Self::new(data_url)
+    }
+}
+
+/// Metadata only (convention 3).
+impl fmt::Debug for RedactedImage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[RedactedImage {} bytes]", self.data_url.len())
+    }
+}
 
 /// One element with bounds, as the UIA snapshot reports it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,6 +53,10 @@ pub struct RedactionInput<'a> {
     pub capture: Bgra<'a>,
     /// Where `capture` lies on the virtual screen.
     pub region: PhysRect,
+    /// The region the UIA snapshot (and so every field rect) was taken against. A
+    /// window that moved between the snapshot and the capture would get its fields
+    /// painted in the wrong place: it must equal `region`.
+    pub snapshot_region: PhysRect,
     pub fields: &'a [Field],
     /// The UIA walk hit its limit or its completeness is unknown.
     pub snapshot_truncated: bool,
@@ -40,6 +74,10 @@ pub enum RedactionError {
     UnclassifiedSensitiveField,
     /// The capture's size is not the region's: the field rects cannot be placed.
     CaptureMismatch,
+    /// The window moved or resized between the UIA snapshot and the capture.
+    StaleSnapshot,
+    /// A field that must be hidden has empty or inverted bounds: where it is is unknown.
+    InvalidField,
     Shot(ShotError),
 }
 
@@ -49,6 +87,8 @@ impl fmt::Display for RedactionError {
             Self::SnapshotTruncated => f.write_str("the UIA snapshot is incomplete"),
             Self::UnclassifiedSensitiveField => f.write_str("a field could not be classified"),
             Self::CaptureMismatch => f.write_str("the capture does not match its region"),
+            Self::StaleSnapshot => f.write_str("the window moved after the UIA snapshot"),
+            Self::InvalidField => f.write_str("a hidden field has invalid bounds"),
             Self::Shot(error) => write!(f, "screenshot: {error}"),
         }
     }
@@ -73,6 +113,9 @@ pub fn redact(input: &RedactionInput<'_>) -> Result<Redacted, RedactionError> {
         return Err(RedactionError::UnclassifiedSensitiveField);
     }
     let region = input.region;
+    if input.snapshot_region != region {
+        return Err(RedactionError::StaleSnapshot);
+    }
     let (width, height) = (input.capture.width, input.capture.height);
     if i64::from(region.right) - i64::from(region.left) != i64::from(width)
         || i64::from(region.bottom) - i64::from(region.top) != i64::from(height)
@@ -80,10 +123,20 @@ pub fn redact(input: &RedactionInput<'_>) -> Result<Redacted, RedactionError> {
         return Err(RedactionError::CaptureMismatch);
     }
 
-    let rects: Vec<ShotRectPx> = input
+    let hidden: Vec<&Field> = input
         .fields
         .iter()
         .filter(|f| must_hide(f.is_password, f.password_like, f.was_password_this_session))
+        .collect();
+    // Fail closed: a hidden field we cannot place is not silently skipped.
+    if hidden
+        .iter()
+        .any(|f| f.rect.left >= f.rect.right || f.rect.top >= f.rect.bottom)
+    {
+        return Err(RedactionError::InvalidField);
+    }
+    let rects: Vec<ShotRectPx> = hidden
+        .into_iter()
         .map(|f| ShotRectPx {
             left: i64::from(f.rect.left) - i64::from(region.left),
             top: i64::from(f.rect.top) - i64::from(region.top),
@@ -102,7 +155,7 @@ pub fn redact(input: &RedactionInput<'_>) -> Result<Redacted, RedactionError> {
     let frame = FrameTransform::new(region, sent_width, sent_height)
         .map_err(|_| RedactionError::CaptureMismatch)?;
     Ok(Redacted {
-        image: RedactedImage::from_redacted_data_url(shot::png_data_url(&png)),
+        image: RedactedImage::new(shot::png_data_url(&png)),
         frame,
         painted,
     })
