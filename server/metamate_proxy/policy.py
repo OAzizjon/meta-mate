@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
+import json
 from math import isfinite
 from typing import Mapping
 
@@ -16,6 +17,13 @@ INTENT_CAP = 200
 SPEECH_CAP = 300
 ANSWER_CAP = 1200
 COMPUTER_CAP = 1200
+MAX_BODY_BYTES = 2_500_000
+MAX_IMAGES = 2
+# S4 measured about 3.7k tokens for a 1280x800 screenshot with 15 elements.
+IMAGE_TOKENS = 4000
+PREVIOUS_TURN_TOKENS = 8000
+# A first turn sends input_image; a computer_call_output sends computer_screenshot.
+IMAGE_TYPES = {"input_image", "computer_screenshot"}
 
 
 class CallKind(Enum):
@@ -54,25 +62,66 @@ def _tokens(value: int) -> None:
 
 @dataclass(frozen=True)
 class Prices:
-    """USD per million tokens; caller supplies conservative Spark placeholders."""
+    """USD per million tokens; caller supplies all prices from the Billing page."""
 
     spark_input: float
     spark_output: float
-    wonder_input: float = 4.0
-    wonder_output: float = 20.0
+    wonder_input: float
+    wonder_output: float
 
     def __post_init__(self) -> None:
         for name, value in vars(self).items():
             _nonnegative(value, name)
 
 
+def _input_parts(value):
+    pending = [value]
+    while pending:
+        part = pending.pop()
+        yield part
+        if isinstance(part, dict):
+            pending.extend(part.values())
+        elif isinstance(part, list):
+            pending.extend(part)
+
+
+def _image_count(body: dict) -> int:
+    return sum(isinstance(part, dict) and part.get("type") in IMAGE_TYPES
+               for part in _input_parts(body.get("input")))
+
+
+def input_token_bound(body: dict) -> int:
+    """Bound clamped input/instructions text, images and billed previous context."""
+    characters = 0
+    pending = [body.get("input"), body.get("instructions")]
+    while pending:
+        part = pending.pop()
+        if isinstance(part, str):
+            characters += len(part)
+        elif isinstance(part, dict):
+            if part.get("type") not in IMAGE_TYPES:
+                pending.extend(part.values())
+        elif isinstance(part, list):
+            pending.extend(part)
+    return ((characters + 1) // 2 + _image_count(body) * IMAGE_TOKENS
+            + (PREVIOUS_TURN_TOKENS if "previous_response_id" in body else 0))
+
+
 def clamp_request(body: dict, kind: CallKind, model_choice: str) -> dict:
     """Return an allowlisted request without modifying the client's body."""
+    if len(json.dumps(body).encode("utf-8")) > MAX_BODY_BYTES:
+        raise ValueError("request body too large")
+    if _image_count(body) > MAX_IMAGES:
+        raise ValueError("too many input images")
     pinned = kind in {CallKind.INTENT, CallKind.SPEECH}
     if not pinned:
         _model(model_choice)
     result = {key: value for key, value in body.items() if key in REQUEST_KEYS}
     result["model"] = SPARK if pinned else model_choice
+    if kind == CallKind.COMPUTER:
+        result["tools"] = [{"type": "computer"}]
+    else:
+        result.pop("tools", None)
     cap = OUTPUT_CAPS[kind]
     tokens = body.get("max_output_tokens", cap)
     _tokens(tokens)
@@ -87,7 +136,10 @@ def clamp_request(body: dict, kind: CallKind, model_choice: str) -> dict:
 
 def estimate_cost(model: str, input_tokens: int, max_output_tokens: int,
                   prices: Prices) -> float:
-    """Estimate worst-case USD using a caller-supplied input token bound."""
+    """Estimate worst-case USD; callers must use input_token_bound(clamped_body).
+
+    Do not supply an independently calculated input token count.
+    """
     _model(model)
     _tokens(input_tokens)
     _tokens(max_output_tokens)
@@ -163,6 +215,30 @@ class Reservation:
     reason: str | None = None
 
 
+def body_for(reservation: Reservation, body: dict, kind: CallKind) -> dict:
+    """Forward the reserved model, including any downgrade to Spark."""
+    return clamp_request(body, kind, reservation.model)
+
+
+@dataclass
+class ResponseOwners:
+    """Proxy must reject a previous_response_id that check refuses.
+
+    In-memory ownership with the oldest recorded IDs dropped first; not thread-safe.
+    """
+
+    _owners: dict[str, str] = field(default_factory=dict, init=False, repr=False)
+
+    def record(self, response_id: str, invite: str) -> None:
+        self._owners[response_id] = invite
+        if len(self._owners) > 10_000:
+            del self._owners[next(iter(self._owners))]
+
+    def check(self, previous_response_id: str, invite: str) -> bool:
+        return (previous_response_id in self._owners
+                and self._owners[previous_response_id] == invite)
+
+
 @dataclass
 class Ledger:
     """In-memory counters keyed by caller-supplied UTC dates; not thread-safe."""
@@ -216,14 +292,19 @@ def reserve(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
 
 
 def reconcile(ledger: Ledger, reservation: Reservation,
-              usage: Mapping[str, int] | None, prices: Prices) -> None:
+              usage: Mapping[str, int] | None, prices: Prices,
+              upstream_model: str | None = None) -> str | None:
     """Settle once on the original day; absent usage keeps the full reservation.
 
     Pass None for failures or cut streams, even if partial usage is available.
     Callers must serialize reconciliation with decisions and reservations.
+    A different upstream model keeps the full reservation and returns model_mismatch.
     """
     if ledger._pending.get(id(reservation)) is not reservation:
         raise ValueError("unknown or already reconciled reservation")
+    if upstream_model is not None and upstream_model != reservation.model:
+        del ledger._pending[id(reservation)]
+        return "model_mismatch"
     if usage is not None:
         cost = actual_cost(reservation.model, usage, prices)
         delta = cost - reservation.estimated_cost

@@ -2,12 +2,15 @@
 
 from copy import deepcopy
 from datetime import date, timedelta
+import json
 import unittest
 
 from metamate_proxy.policy import (
-    ALLOWED_MODELS, ANSWER_CAP, COMPUTER_CAP, INTENT_CAP, SPEECH_CAP,
-    Budget, CallKind, Decision, InviteLimits, JUDGE, Ledger, Prices, SPARK,
-    TESTER, WONDER, actual_cost, clamp_request, decide, reconcile, reserve,
+    ALLOWED_MODELS, ANSWER_CAP, COMPUTER_CAP, IMAGE_TOKENS, INTENT_CAP,
+    MAX_BODY_BYTES, MAX_IMAGES, PREVIOUS_TURN_TOKENS, SPEECH_CAP,
+    Budget, CallKind, Decision, InviteLimits, JUDGE, Ledger, Prices, ResponseOwners,
+    SPARK, TESTER, WONDER, actual_cost, body_for, clamp_request, decide,
+    input_token_bound, reconcile, reserve,
 )
 
 
@@ -41,7 +44,7 @@ class RequestTests(unittest.TestCase):
         result = clamp_request(body, CallKind.ANSWER, WONDER)
         self.assertIsNot(result, body)
         self.assertEqual(body, original)
-        self.assertEqual(set(result), set(body) - {"unknown"})
+        self.assertEqual(set(result), set(body) - {"unknown", "tools"})
         self.assertEqual(result["reasoning"], {"effort": "minimal"})
         self.assertIs(result["stream"], False)
         result["reasoning"]["effort"] = "low"
@@ -69,14 +72,86 @@ class RequestTests(unittest.TestCase):
                 clamp_request({"max_output_tokens": value}, CallKind.ANSWER, SPARK)
 
 
+    def test_tools_are_only_the_computer_tool(self):
+        for kind in CallKind:
+            for tools in (None, [], [{"type": "web_search"}, {"type": "computer",
+                                                                  "extra": True}]):
+                body = {} if tools is None else {"tools": tools}
+                original = deepcopy(body)
+                result = clamp_request(body, kind, SPARK)
+                if kind == CallKind.COMPUTER:
+                    self.assertEqual(result["tools"], [{"type": "computer"}])
+                else:
+                    self.assertNotIn("tools", result)
+                self.assertEqual(body, original)
+
+    def test_nested_image_limit(self):
+        self.assertEqual(MAX_IMAGES, 2)
+        images = [{"type": "input_image", "image_url": "data:image/png;base64,AA"}]
+        body = {"input": [{"content": images}, {"nested": [deepcopy(images)]}]}
+        clamp_request(body, CallKind.COMPUTER, SPARK)
+        body["input"].append({"deeper": {"content": deepcopy(images)}})
+        with self.assertRaisesRegex(ValueError, "images"):
+            clamp_request(body, CallKind.COMPUTER, SPARK)
+
+    def test_json_body_byte_limit(self):
+        self.assertEqual(MAX_BODY_BYTES, 2_500_000)
+        body = {"input": ""}
+        overhead = len(json.dumps(body).encode("utf-8"))
+        body["input"] = "a" * (MAX_BODY_BYTES - overhead)
+        clamp_request(body, CallKind.ANSWER, SPARK)
+        body["input"] += "a"
+        with self.assertRaisesRegex(ValueError, "too large"):
+            clamp_request(body, CallKind.ANSWER, SPARK)
+        for body in ({"input": "a" * 3_000_000}, {"unknown": "a" * 3_000_000},
+                     {"input": "\u0430" * 500_000}):
+            with self.assertRaisesRegex(ValueError, "too large"):
+                clamp_request(body, CallKind.ANSWER, SPARK)
+
+    def test_input_bound_includes_images_and_previous_context(self):
+        body = {"input": "abc", "instructions": "de"}
+        base = input_token_bound(clamp_request(body, CallKind.ANSWER, SPARK))
+        self.assertEqual(base, 3)
+        body["input"] = ["abc", {"content": [{"type": "input_image",
+                                               "image_url": "data:image/png;base64,AA"}]}]
+        with_image = input_token_bound(clamp_request(body, CallKind.ANSWER, SPARK))
+        self.assertEqual(with_image, base + IMAGE_TOKENS)
+        body["previous_response_id"] = "previous"
+        self.assertEqual(input_token_bound(clamp_request(body, CallKind.ANSWER, SPARK)),
+                         with_image + PREVIOUS_TURN_TOKENS)
+
+
+class ResponseOwnerTests(unittest.TestCase):
+    def test_foreign_and_unknown_ids_refused(self):
+        owners = ResponseOwners()
+        owners.record("response", "alice")
+        self.assertTrue(owners.check("response", "alice"))
+        self.assertFalse(owners.check("response", "bob"))
+        self.assertFalse(owners.check("unknown", "alice"))
+
+    def test_oldest_ids_evicted_at_cap(self):
+        owners = ResponseOwners()
+        for index in range(10_000):
+            owners.record(str(index), "alice")
+        self.assertTrue(owners.check("0", "alice"))
+        owners.record("9999", "alice")
+        owners.record("10000", "bob")
+        self.assertFalse(owners.check("0", "alice"))
+        self.assertTrue(owners.check("1", "alice"))
+        self.assertTrue(owners.check("10000", "bob"))
+        owners.record("10001", "bob")
+        self.assertFalse(owners.check("1", "alice"))
+
+
 class SpendingTests(unittest.TestCase):
     def setUp(self):
         self.today = date(2026, 10, 27)
         self.ledger = Ledger()
         self.limits = InviteLimits(100, 10, 50)
         self.budget = Budget(10)
-        # Synthetic conservative placeholders, not Spark's real Billing prices.
-        self.prices = Prices(spark_input=5, spark_output=25)
+        # Synthetic prices for tests, not real Billing prices.
+        self.prices = Prices(spark_input=5, spark_output=25,
+                             wonder_input=4, wonder_output=20)
 
     def reserve(self, model=WONDER, cost=1, invite="tester", today=None):
         return reserve(self.ledger, invite, self.limits, self.budget,
@@ -98,6 +173,10 @@ class SpendingTests(unittest.TestCase):
         self.assertEqual(estimate_cost(WONDER, 1000, 2000, self.prices), 0.044)
         with self.assertRaises(TypeError):
             Prices()
+        with self.assertRaises(TypeError):
+            Prices(spark_input=5, spark_output=25)
+        with self.assertRaises(TypeError):
+            Prices(spark_input=5, spark_output=25, wonder_input=4)
         with self.assertRaises(ValueError):
             estimate_cost("other", 1, 1, self.prices)
 
@@ -122,6 +201,35 @@ class SpendingTests(unittest.TestCase):
         self.assertEqual(self.decide(SPARK, 2), Decision(SPARK))
         self.reserve(SPARK, 2)
         self.assertEqual(self.decide(SPARK, 0), Decision(None, "daily_budget"))
+
+    def test_body_for_forwards_downgraded_model(self):
+        self.reserve(cost=7)
+        pending = self.reserve(cost=1)
+        self.assertEqual(pending.model, SPARK)
+        body = {"model": WONDER, "tools": [{"type": "web_search"}]}
+        forwarded = body_for(pending, body, CallKind.COMPUTER)
+        self.assertEqual(forwarded, clamp_request(body, CallKind.COMPUTER, SPARK))
+        self.assertEqual(forwarded["model"], SPARK)
+        self.assertEqual(body["model"], WONDER)
+
+    def test_upstream_model_mismatch_keeps_full_reservation(self):
+        for model, upstream in ((WONDER, SPARK), (SPARK, WONDER), (SPARK, "other")):
+            with self.subTest(model=model, upstream=upstream):
+                pending = self.reserve(model=model)
+                before = deepcopy(self.ledger.days[self.today])
+                self.assertEqual(reconcile(self.ledger, pending,
+                                           {"input_tokens": 0, "output_tokens": 0},
+                                           self.prices, upstream), "model_mismatch")
+                self.assertEqual(self.ledger.days[self.today], before)
+                with self.assertRaisesRegex(ValueError, "already reconciled"):
+                    reconcile(self.ledger, pending, None, self.prices)
+
+    def test_matching_upstream_model_reconciles(self):
+        pending = self.reserve()
+        self.assertIsNone(reconcile(self.ledger, pending,
+                                    {"input_tokens": 0, "output_tokens": 0},
+                                    self.prices, WONDER))
+        self.assertEqual(self.ledger.days[self.today].overall.usd, 0)
 
     def test_overall_spend_also_limits_wonder(self):
         self.reserve(SPARK, 6)
@@ -191,3 +299,19 @@ class SpendingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FollowupImageTests(unittest.TestCase):
+    def test_a_computer_screenshot_counts_as_an_image_not_as_text(self):
+        data_url = "data:image/png;base64," + "A" * 1_000_000
+        body = {
+            "previous_response_id": "resp_1",
+            "input": [{"type": "computer_call_output", "call_id": "call_1",
+                       "output": {"type": "computer_screenshot", "image_url": data_url}}],
+        }
+        bound = input_token_bound(body)
+        self.assertLess(bound, IMAGE_TOKENS + PREVIOUS_TURN_TOKENS + 100)
+        self.assertGreaterEqual(bound, IMAGE_TOKENS + PREVIOUS_TURN_TOKENS)
+        three = {"input": [{"type": "computer_screenshot", "image_url": "x"}] * 3}
+        with self.assertRaises(ValueError):
+            clamp_request(three, CallKind.COMPUTER, SPARK)
