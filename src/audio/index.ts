@@ -1,5 +1,7 @@
 // Public facade for MetaMate's WebView audio engine.
 
+import { SentenceCompletions } from "./sentence-completions.ts";
+
 import {
   AUDIO_SAMPLE_RATE,
   bindAutoResume,
@@ -140,7 +142,8 @@ export interface AudioEngine {
   cancel(generationId: number): void;
   waitForSentenceEnd(generationId: number, sentenceId: number): Promise<void>;
   playCue(name: CueName, opts?: CueOptions): PlaybackHandle;
-  playSfx(sound: Sound | string): PlaybackHandle;
+  // Pass the answer generation when scheduling effects before its first PCM chunk.
+  playSfx(sound: Sound | string, generationId?: number): PlaybackHandle;
   setAmbience(name: string | null, level?: SoundLevel): void;
   setSettings(settings: Partial<AudioSettings>): void;
   onWorkletMessage(listener: (msg: WorkletOutboundMsg) => void): () => void;
@@ -178,7 +181,10 @@ export async function createAudioEngine(
   let resumeState: AudioResumeState = "fallback";
   const stateListeners = new Set<(state: AudioResumeState) => void>();
   const workletListeners = new Set<(msg: WorkletOutboundMsg) => void>();
-  const sentenceWaiters = new Map<string, Set<() => void>>();
+  const sentenceCompletions = new SentenceCompletions();
+  let canceledThrough = -1;
+  let activeGeneration = 0;
+  let disposed = false;
 
   const updateResumeState = (next: AudioResumeState): void => {
     if (resumeState === next) {
@@ -209,14 +215,7 @@ export async function createAudioEngine(
         mixer.setSpeechActive(msg.active);
         options.onVoiceLevel?.(msg.rms);
       } else if (msg.type === "sentence-end") {
-        const key = `${msg.generationId}:${msg.sentenceId}`;
-        const waiters = sentenceWaiters.get(key);
-        if (waiters) {
-          sentenceWaiters.delete(key);
-          for (const resolve of waiters) {
-            resolve();
-          }
-        }
+        sentenceCompletions.complete(msg.generationId, msg.sentenceId);
       }
       for (const listener of workletListeners) {
         listener(msg);
@@ -251,6 +250,11 @@ export async function createAudioEngine(
       return ok;
     },
     pushPcm(chunk: PcmChunk): void {
+      if (disposed || chunk.generationId <= canceledThrough || chunk.generationId < activeGeneration) return;
+      if (chunk.generationId > activeGeneration) {
+        activeGeneration = chunk.generationId;
+        soundBank.beginGeneration(activeGeneration);
+      }
       if (!workletNode) {
         return;
       }
@@ -266,6 +270,7 @@ export async function createAudioEngine(
       workletNode.port.postMessage(msg, [pcm]);
     },
     cancel(generationId: number): void {
+      canceledThrough = Math.max(canceledThrough, generationId);
       if (workletNode) {
         const msg: WorkletInboundMsg = {
           type: "cancel",
@@ -273,39 +278,32 @@ export async function createAudioEngine(
         };
         workletNode.port.postMessage(msg);
       }
-      mixer.setSpeechActive(false);
-      options.onVoiceLevel?.(0);
-      soundBank.stopAllSfxAndCues();
-
-      // Resolve any pending sentence waiters for older or equal generations.
-      for (const [key, waiters] of sentenceWaiters.entries()) {
-        const genPart = Number(key.split(":", 1)[0]);
-        if (Number.isFinite(genPart) && genPart <= generationId) {
-          sentenceWaiters.delete(key);
-          for (const resolve of waiters) {
-            resolve();
-          }
-        }
+      if (generationId >= activeGeneration) {
+        activeGeneration = generationId + 1;
+        mixer.setSpeechActive(false);
+        options.onVoiceLevel?.(0);
+        soundBank.beginGeneration(activeGeneration);
       }
+
+      sentenceCompletions.cancel(generationId);
     },
     waitForSentenceEnd(
       generationId: number,
       sentenceId: number,
     ): Promise<void> {
-      const key = `${generationId}:${sentenceId}`;
-      return new Promise<void>((resolve) => {
-        let set = sentenceWaiters.get(key);
-        if (!set) {
-          set = new Set();
-          sentenceWaiters.set(key, set);
-        }
-        set.add(resolve);
-      });
+      return sentenceCompletions.wait(generationId, sentenceId);
     },
     playCue(name: CueName, opts?: CueOptions): PlaybackHandle {
       return soundBank.playCue(name, opts);
     },
-    playSfx(sound: Sound | string): PlaybackHandle {
+    playSfx(sound: Sound | string, generationId = activeGeneration): PlaybackHandle {
+      if (disposed || generationId <= canceledThrough || generationId < activeGeneration) {
+        return { stop: () => {}, finished: Promise.resolve() };
+      }
+      if (generationId > activeGeneration) {
+        activeGeneration = generationId;
+        soundBank.beginGeneration(generationId);
+      }
       return soundBank.playSfx(sound);
     },
     setAmbience(name: string | null, level?: SoundLevel): void {
@@ -327,15 +325,11 @@ export async function createAudioEngine(
       };
     },
     async dispose(): Promise<void> {
+      disposed = true;
       unbindAutoResume();
       soundBank.stopAllSfxAndCues();
       soundBank.stopAmbienceImmediately();
-      for (const waiters of sentenceWaiters.values()) {
-        for (const resolve of waiters) {
-          resolve();
-        }
-      }
-      sentenceWaiters.clear();
+      sentenceCompletions.dispose();
       workletListeners.clear();
       stateListeners.clear();
       if (workletNode) {

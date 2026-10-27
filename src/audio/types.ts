@@ -138,6 +138,13 @@ export type WorkletInboundMsg =
 
 export type WorkletOutboundMsg =
   | {
+      readonly type: "overflow";
+      readonly generationId: number;
+      readonly sentenceId: number;
+      readonly requiredFrames: number;
+      readonly availableFrames: number;
+    }
+  | {
       readonly type: "sentence-start" | "sentence-end";
       readonly generationId: number;
       readonly sentenceId: number;

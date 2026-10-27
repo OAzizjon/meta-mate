@@ -136,6 +136,9 @@ export class SoundBank {
   private readonly activeStops = new Set<() => void>();
   private activeThinkStop: (() => void) | null = null;
   private currentAmbience: ActiveAmbienceBed | null = null;
+  private readonly fadingAmbience = new Set<ActiveAmbienceBed>();
+  private sfxGeneration = 0;
+  private sfxCount = 0;
   private ambienceRequestToken = 0;
 
   constructor(
@@ -147,6 +150,18 @@ export class SoundBank {
     this.mixer = mixer;
     this.basePath = options?.basePath ?? SOUNDS_BASE_PATH;
     this.fetcher = options?.fetcher ?? globalThis.fetch.bind(globalThis);
+    this.mixer.onModeChange(() => {
+      // Stop old policy playback, including pending one-shots and fading beds.
+      this.stopAllSfxAndCues();
+      this.stopAmbienceImmediately();
+    });
+  }
+
+  beginGeneration(generationId: number): void {
+    if (generationId <= this.sfxGeneration) return;
+    this.sfxGeneration = generationId;
+    this.sfxCount = 0;
+    this.stopAllSfxAndCues();
   }
 
   getCachedBuffer(kind: SoundKind, name: string): AudioBuffer | undefined {
@@ -311,7 +326,11 @@ export class SoundBank {
 
     const requestedLevel: SoundLevel =
       typeof soundInput === "string" ? entry.defaultLevel : soundInput.level;
-    const targetGain = this.mixer.levelGain(requestedLevel, mode);
+    if (this.sfxCount >= (mode === "calm" ? 2 : 4)) {
+      return { stop: () => {}, finished: Promise.resolve() };
+    }
+    // Reserve before loading so concurrent requests share the same budget.
+    this.sfxCount += 1;
 
     let cancelled = false;
     let activeSource: AudioBufferSourceNode | null = null;
@@ -362,7 +381,8 @@ export class SoundBank {
 
     void loadBuffer()
       .then((buffer) => {
-        if (cancelled) {
+        const currentMode = this.mixer.getMode();
+        if (cancelled || !isSoundAllowedInMode(rawName, currentMode)) {
           cleanup();
           return;
         }
@@ -371,6 +391,7 @@ export class SoundBank {
 
         const gainNode = this.ctx.createGain();
         const now = this.ctx.currentTime;
+        const targetGain = this.mixer.levelGain(requestedLevel, currentMode);
         gainNode.gain.setValueAtTime(targetGain, now);
 
         // `magic` (AsGliss.ogg, 5.1 s): fade out after ~2.5 s in the mixer (docs/sounds.md:94).
@@ -419,7 +440,7 @@ export class SoundBank {
       return;
     }
 
-    const targetGain = this.mixer.levelGain(level, this.mixer.getMode());
+    const targetGain = this.mixer.levelGain(level);
 
     if (this.currentAmbience && this.currentAmbience.name === normalized) {
       const now = this.ctx.currentTime;
@@ -453,7 +474,7 @@ export class SoundBank {
         const now = this.ctx.currentTime;
         gainNode.gain.setValueAtTime(0, now);
         gainNode.gain.linearRampToValueAtTime(
-          targetGain,
+          this.mixer.levelGain(level),
           now + AMBIENCE_CROSSFADE_SECONDS,
         );
 
@@ -487,11 +508,14 @@ export class SoundBank {
 
   stopAmbienceImmediately(): void {
     this.ambienceRequestToken += 1;
-    if (!this.currentAmbience) {
-      return;
-    }
-    const bed = this.currentAmbience;
+    const beds = new Set(this.fadingAmbience);
+    if (this.currentAmbience) beds.add(this.currentAmbience);
     this.currentAmbience = null;
+    this.fadingAmbience.clear();
+    for (const bed of beds) this.stopAmbienceBed(bed);
+  }
+
+  private stopAmbienceBed(bed: ActiveAmbienceBed): void {
     if (bed.stopTimer !== null) {
       clearTimeout(bed.stopTimer);
     }
@@ -505,6 +529,7 @@ export class SoundBank {
   }
 
   private fadeOutAmbienceBed(bed: ActiveAmbienceBed): void {
+    this.fadingAmbience.add(bed);
     const now = this.ctx.currentTime;
     bed.gainNode.gain.setValueAtTime(bed.gainNode.gain.value, now);
     bed.gainNode.gain.linearRampToValueAtTime(
@@ -512,13 +537,8 @@ export class SoundBank {
       now + AMBIENCE_CROSSFADE_SECONDS,
     );
     bed.stopTimer = setTimeout(() => {
-      try {
-        bed.source.stop();
-      } catch {
-        // Ignore if already stopped.
-      }
-      bed.source.disconnect();
-      bed.gainNode.disconnect();
+      this.fadingAmbience.delete(bed);
+      this.stopAmbienceBed(bed);
     }, Math.round(AMBIENCE_CROSSFADE_SECONDS * 1000) + 50);
   }
 }

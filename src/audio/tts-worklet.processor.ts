@@ -70,6 +70,13 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
   private readPos = 0;
   private writePos = 0;
   private activeGenerationId = 0;
+  private canceledThrough = -1;
+  private resampleKey = "";
+  private sourceRate = 0;
+  private sourceFrames = 0;
+  private nextSourcePosition = 0;
+  private boundarySample = 0;
+  private chunkStart = 0;
   private speaking = false;
   private framesSinceRms = 0;
 
@@ -122,13 +129,20 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
   }
 
   cancel(generationId: number): void {
-    if (generationId > this.activeGenerationId) {
-      this.activeGenerationId = generationId;
+    this.canceledThrough = Math.max(this.canceledThrough, generationId);
+    if (generationId < this.activeGenerationId) {
+      return;
     }
+    this.activeGenerationId = generationId;
+    this.resetStream();
+  }
+
+  private resetStream(): void {
     this.readPos = 0;
     this.writePos = 0;
     this.sentences.length = 0;
     this.framesSinceRms = 0;
+    this.resampleKey = "";
     if (this.speaking) {
       this.speaking = false;
       this.emit({ type: "speech-active", active: false, rms: 0 });
@@ -142,11 +156,16 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
     eos: boolean,
     pcm: Int16Array,
   ): void {
-    if (generationId < this.activeGenerationId) {
+    if (generationId <= this.canceledThrough || generationId < this.activeGenerationId) {
       return;
     }
     if (generationId > this.activeGenerationId) {
-      this.cancel(generationId);
+      this.resetStream();
+      this.activeGenerationId = generationId;
+    }
+
+    if (!this.writeResampled(pcm, srcSampleRate, eos, generationId, sentenceId)) {
+      return;
     }
 
     let span = this.findOpenSentence(generationId, sentenceId);
@@ -154,15 +173,11 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
       span = {
         generationId,
         sentenceId,
-        startSample: this.writePos,
+        startSample: this.chunkStart,
         endSample: null,
         started: false,
       };
       this.sentences.push(span);
-    }
-
-    if (pcm.length > 0) {
-      this.writeResampled(pcm, srcSampleRate);
     }
 
     if (eos) {
@@ -188,7 +203,7 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
     let sumSquares = 0;
     let framesRead = 0;
 
-    this.flushZeroLengthSentences();
+    this.emitCompletedSentencesAt(this.readPos);
 
     for (let i = 0; i < blockSize; i++) {
       this.emitSentenceStartsAt(this.readPos);
@@ -245,41 +260,59 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
     return true;
   }
 
-  private writeResampled(pcm: Int16Array, srcSampleRate: number): void {
-    const validSrcRate =
-      srcSampleRate > 0 ? srcSampleRate : this.targetSampleRate;
-    if (validSrcRate === this.targetSampleRate) {
-      for (let i = 0; i < pcm.length; i++) {
-        this.writeSample((pcm[i] ?? 0) * INT16_SCALE);
-      }
-      return;
+  private writeResampled(
+    pcm: Int16Array,
+    srcSampleRate: number,
+    eos: boolean,
+    generationId: number,
+    sentenceId: number,
+  ): boolean {
+    const rate = Number.isFinite(srcSampleRate) && srcSampleRate > 0
+      ? srcSampleRate : this.targetSampleRate;
+    const key = `${generationId}:${sentenceId}`;
+    const continuing = this.resampleKey === key && this.sourceRate === rate;
+    const offset = continuing ? this.sourceFrames : 0;
+    let position = continuing ? this.nextSourcePosition : 0;
+    const end = offset + pcm.length;
+    const ratio = rate / this.targetSampleRate;
+    // Without EOS, defer interpolation that needs the next chunk's first sample.
+    const limit = eos || rate === this.targetSampleRate
+      ? end : Math.max(0, end - 1);
+    const count = Math.max(0, Math.ceil((limit - position) / ratio));
+    const availableFrames = this.capacity - this.bufferedFrames;
+    if (count > availableFrames) {
+      // Reject atomically: the producer can retry after the consumer drains.
+      this.emit({
+        type: "overflow",
+        generationId,
+        sentenceId,
+        requiredFrames: count,
+        availableFrames,
+      });
+      return false;
     }
-
-    const outLength = Math.max(
-      1,
-      Math.round((pcm.length * this.targetSampleRate) / validSrcRate),
-    );
-    const ratio = validSrcRate / this.targetSampleRate;
-    const lastIndex = pcm.length - 1;
-
-    for (let i = 0; i < outLength; i++) {
-      const srcPos = i * ratio;
-      const index0 = Math.min(lastIndex, Math.floor(srcPos));
-      const index1 = Math.min(lastIndex, index0 + 1);
-      const frac = srcPos - index0;
-      const s0 = (pcm[index0] ?? 0) * INT16_SCALE;
-      const s1 = (pcm[index1] ?? 0) * INT16_SCALE;
-      this.writeSample(s0 + (s1 - s0) * frac);
+    this.chunkStart = this.writePos;
+    const sampleAt = (index: number): number => index < offset
+      ? this.boundarySample
+      : (pcm[Math.min(pcm.length - 1, index - offset)] ?? this.boundarySample);
+    for (let i = 0; i < count; i++) {
+      const index = Math.floor(position);
+      const fraction = position - index;
+      const first = sampleAt(index);
+      const second = sampleAt(Math.min(end - 1, index + 1));
+      this.writeSample((first + (second - first) * fraction) * INT16_SCALE);
+      position += ratio;
     }
+    this.resampleKey = eos ? "" : key;
+    this.sourceRate = rate;
+    this.sourceFrames = end;
+    this.nextSourcePosition = position;
+    if (pcm.length > 0) this.boundarySample = pcm[pcm.length - 1] ?? 0;
+    return true;
   }
 
   private writeSample(sample: number): void {
     const clamped = Math.max(-1, Math.min(1, sample));
-    if (this.writePos - this.readPos >= this.capacity) {
-      // Bounded ring buffer: advance readPos if producer outruns consumer.
-      this.readPos = this.writePos - this.capacity + 1;
-      this.emitCompletedSentencesAt(this.readPos);
-    }
     this.ring[this.writePos % this.capacity] = clamped;
     this.writePos += 1;
   }
@@ -304,34 +337,6 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
 
   private hasOpenSentence(): boolean {
     return this.sentences.some((span) => span.endSample === null);
-  }
-
-  private flushZeroLengthSentences(): void {
-    while (this.sentences.length > 0) {
-      const first = this.sentences[0];
-      if (
-        first &&
-        first.endSample !== null &&
-        first.startSample === first.endSample &&
-        this.readPos >= first.endSample
-      ) {
-        this.sentences.shift();
-        if (!first.started) {
-          this.emit({
-            type: "sentence-start",
-            generationId: first.generationId,
-            sentenceId: first.sentenceId,
-          });
-        }
-        this.emit({
-          type: "sentence-end",
-          generationId: first.generationId,
-          sentenceId: first.sentenceId,
-        });
-      } else {
-        break;
-      }
-    }
   }
 
   private emitSentenceStartsAt(sampleIndex: number): void {

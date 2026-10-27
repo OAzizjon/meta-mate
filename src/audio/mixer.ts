@@ -110,6 +110,12 @@ export class AudioMixer {
   private voiceSpeed = 1.0;
   private reduceMotion = false;
   private speechActive = false;
+  private readonly modeListeners = new Set<() => void>();
+
+  onModeChange(listener: () => void): () => void {
+    this.modeListeners.add(listener);
+    return () => { this.modeListeners.delete(listener); };
+  }
 
   constructor(ctx: AudioContext) {
     this.ctx = ctx;
@@ -229,8 +235,9 @@ export class AudioMixer {
     ) {
       this.voiceSpeed = Math.max(0.5, Math.min(2.0, opts.voiceSpeed));
     }
-    if (opts.mode === "calm" || opts.mode === "fun") {
+    if ((opts.mode === "calm" || opts.mode === "fun") && opts.mode !== this.mode) {
       this.mode = opts.mode;
+      for (const listener of this.modeListeners) listener();
     }
     if (typeof opts.reduceMotion === "boolean") {
       this.reduceMotion = opts.reduceMotion;
