@@ -3,9 +3,10 @@ Modal service, on 127.0.0.1 only.
 
     MMS_TTS_SECRET=... C:/mmw/py-tts/Scripts/python.exe tts/serve_dev.py [--port 8788]
 
-Request: header `X-MMS-Secret`, JSON `{"lang": "en" | "ru", "text": "..."}` (at most
+Request: header `X-MMS-Secret`, JSON `{"lang": "en" | "ru", "text": "...", "speed": 1.0}` (at most
 300 characters: one sentence). Response: `audio/wav`, mono 16-bit, 16 kHz. The proxy is
 the only client (server/metamate_proxy/app.py); text is never logged.
+Speed is optional (default 1.0), a number from 0.8 to 1.3.
 """
 
 import argparse
@@ -56,9 +57,13 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError
         except (ValueError, KeyError, TypeError, RecursionError):
             return self.reply(400, b'{}')
+        try:
+            speed = mms.validate_speed(request.get('speed', 1.0))
+        except ValueError:
+            return self.reply(422, b'{}')
         started = time.perf_counter()
         try:
-            samples, rate = mms.synthesize(lang, text)
+            samples, rate = mms.synthesize(lang, text, speed)
         except Exception:  # e.g. "...": nothing the VITS tokenizer can speak
             return self.reply(422, b'{}')
         wav = mms.to_wav(samples, rate)

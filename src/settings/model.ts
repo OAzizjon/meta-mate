@@ -17,6 +17,7 @@ export const MIN_VOICE_SPEED = 0.8;
 export const MAX_VOICE_SPEED = 1.3;
 export const VOICE_SPEED_STEP = 0.05;
 export const DEFAULT_VOICE_SPEED = 1;
+export const SETTINGS_CHANGED_EVENT = "settings-changed" as const;
 
 export interface Settings {
   model: "quick" | "thorough";
@@ -78,6 +79,19 @@ export function isValidVoiceSpeed(value: unknown): value is number {
   );
 }
 
+/**
+ * Validates `value` against `MIN_VOICE_SPEED..MAX_VOICE_SPEED` and snaps it to the nearest
+ * `VOICE_SPEED_STEP` (0.05), rounded to 2 decimal places; out-of-range or non-finite values
+ * fall back to `DEFAULT_SETTINGS.voiceSpeed`.
+ */
+export function snapVoiceSpeed(value: unknown): number {
+  if (!isValidVoiceSpeed(value)) {
+    return DEFAULT_SETTINGS.voiceSpeed;
+  }
+  const stepped = Math.round(value / VOICE_SPEED_STEP) * VOICE_SPEED_STEP;
+  return Math.round(stepped * 100) / 100;
+}
+
 function isPlainObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -94,6 +108,7 @@ function readOwnField(obj: Readonly<Record<string, unknown>>, key: string): unkn
  * Strictly validates an untrusted settings payload:
  * - Drops unknown fields (returns only the 7 `Settings` keys).
  * - Replaces missing, wrong-type, or out-of-range fields with their defaults.
+ * - Snaps `voiceSpeed` to `VOICE_SPEED_STEP` (0.05), rounded to 2 decimals.
  * - Never throws (even on throwing getters or proxies).
  */
 export function parseSettings(raw: unknown): Settings {
@@ -114,7 +129,7 @@ export function parseSettings(raw: unknown): Settings {
       model: isModelChoice(model) ? model : DEFAULT_SETTINGS.model,
       ptt: isPttMode(ptt) ? ptt : DEFAULT_SETTINGS.ptt,
       sound: isSoundMode(sound) ? sound : DEFAULT_SETTINGS.sound,
-      voiceSpeed: isValidVoiceSpeed(voiceSpeed) ? voiceSpeed : DEFAULT_SETTINGS.voiceSpeed,
+      voiceSpeed: snapVoiceSpeed(voiceSpeed),
       robotSize: isRobotSize(robotSize) ? robotSize : DEFAULT_SETTINGS.robotSize,
       reduceMotion:
         typeof reduceMotion === "boolean" ? reduceMotion : DEFAULT_SETTINGS.reduceMotion,
@@ -139,8 +154,7 @@ export function updateSettings(current: Settings, patch: Partial<Settings>): Set
  * Formats `voiceSpeed` as digits and `×` only (`"1.0×"`, `"0.85×"`), with no words (invariant 7).
  */
 export function formatVoiceSpeed(speed: number): string {
-  const valid = isValidVoiceSpeed(speed) ? speed : DEFAULT_SETTINGS.voiceSpeed;
-  const rounded = Math.round(valid * 100) / 100;
+  const rounded = snapVoiceSpeed(speed);
   const text = Number.isInteger(rounded * 10) ? rounded.toFixed(1) : rounded.toFixed(2);
   return `${text}\u00d7`;
 }
@@ -151,6 +165,11 @@ export type SettingsInvoke = (
   args?: Readonly<Record<string, unknown>>,
 ) => Promise<unknown>;
 
+/** Subscribes to external `settings-changed` payloads and resolves to an unlisten callback. */
+export type SettingsSubscribe = (
+  onChanged: (raw: unknown) => void,
+) => Promise<() => void>;
+
 export interface SettingsStore {
   /** Current in-memory snapshot (always a fresh copy). */
   get(): Settings;
@@ -160,6 +179,8 @@ export interface SettingsStore {
   save(next: unknown): Promise<Settings>;
   /** Applies a partial change and saves immediately. */
   update(patch: Partial<Settings>): Promise<Settings>;
+  /** Replaces in-memory state from an external `settings-changed` event without invoking `save_settings`. */
+  replace(next: unknown): Settings;
 }
 
 /**
@@ -204,5 +225,49 @@ export function createSettingsStore(invokeFn: SettingsInvoke | null = null): Set
     async update(patch: Partial<Settings>): Promise<Settings> {
       return this.save({ ...state, ...patch });
     },
+    replace(next: unknown): Settings {
+      modifiedBeforeLoad = true;
+      state = parseSettings(next);
+      return { ...state };
+    },
+  };
+}
+
+/**
+ * Listens for external `settings-changed` events via `subscribeFn`, updates `store` in memory
+ * without echoing `save_settings`, and invokes `onRefresh` with the validated settings.
+ * Returns an unsubscribe function that stops forwarding events.
+ */
+export function subscribeSettingsChanged(
+  store: SettingsStore,
+  subscribeFn: SettingsSubscribe | null,
+  onRefresh?: (settings: Settings) => void,
+): () => void {
+  if (!subscribeFn) {
+    return () => {};
+  }
+  let active = true;
+  let unlisten: (() => void) | null = null;
+
+  void subscribeFn((raw) => {
+    if (!active) return;
+    const updated = store.replace(raw);
+    onRefresh?.(updated);
+  })
+    .then((stop) => {
+      if (!active) {
+        stop();
+      } else {
+        unlisten = stop;
+      }
+    })
+    .catch(() => {
+      // Outside Tauri or when event listening is unavailable: keep local state.
+    });
+
+  return () => {
+    active = false;
+    unlisten?.();
+    unlisten = null;
   };
 }

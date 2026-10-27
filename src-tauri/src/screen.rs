@@ -10,7 +10,10 @@
 use mm_core::api::request::{ElementLine, ElementList, must_hide, render_element_list};
 use mm_core::geom::{PhysRect, ShotPoint};
 use mm_core::matescript::{Mode, Point, Settings};
-use mm_core::redaction::{Field, Redacted, RedactionError, RedactionInput, redact};
+use mm_core::redaction::{
+    Field, Redacted, RedactionError, RedactionInput, overlaps_any, painted_areas, point_in_any,
+    redact,
+};
 use mm_core::shot::Bgra;
 use mm_platform::{CapturedImage, UiSnapshot};
 
@@ -27,6 +30,10 @@ pub struct Look {
     /// The target window's own frame when it was captured: pointing later checks the
     /// window is still there, unmoved (`take_look` sets it; `prepare` uses the region).
     pub window_frame: PhysRect,
+    /// What was painted over besides password fields: the parts of the region that are
+    /// not the target app (gaps beside its popups, other apps' windows above it). Nothing
+    /// there is listed or pointed at.
+    pub painted: Vec<PhysRect>,
 }
 
 impl std::fmt::Debug for Look {
@@ -63,16 +70,24 @@ impl std::fmt::Display for LookError {
 impl std::error::Error for LookError {}
 
 /// Redacts `capture` (taken of `snapshot.frame`) and lists the elements the model may
-/// point at. Every element UIA reports as a password, or that looks like one (D37), is
-/// painted over and its name never reaches the prompt.
-pub fn prepare(snapshot: UiSnapshot, capture: &CapturedImage) -> Result<Look, LookError> {
+/// point at. Every element UIA reports as a password, that looks like one (D37) or sits
+/// beside a password's reveal toggle (`hidden_ids`) is painted over and its name never
+/// reaches the prompt; so is every area in `painted` (not the target app).
+pub fn prepare(
+    snapshot: UiSnapshot,
+    capture: &CapturedImage,
+    painted: &[PhysRect],
+) -> Result<Look, LookError> {
+    let hidden = snapshot.hidden_ids();
+    let must_paint = |element: &mm_platform::UiElement| {
+        hidden.contains(&element.id) || must_hide(element.is_password, element.password_like, false)
+    };
     // UIA reports an unrendered element without bounds (and offscreen); one it calls on
     // screen without bounds could be anywhere in the picture.
-    let unlocated = snapshot.elements.iter().any(|element| {
-        element.rect.is_none()
-            && !element.offscreen
-            && must_hide(element.is_password, element.password_like, false)
-    });
+    let unlocated = snapshot
+        .elements
+        .iter()
+        .any(|element| element.rect.is_none() && !element.offscreen && must_paint(element));
     if unlocated {
         return Err(LookError::UnlocatedSensitive);
     }
@@ -82,11 +97,17 @@ pub fn prepare(snapshot: UiSnapshot, capture: &CapturedImage) -> Result<Look, Lo
         .filter_map(|element| {
             Some(Field {
                 rect: element.rect?,
-                is_password: element.is_password,
+                is_password: element.is_password || hidden.contains(&element.id),
                 password_like: element.password_like,
                 was_password_this_session: false,
             })
         })
+        .chain(painted.iter().map(|&rect| Field {
+            rect,
+            is_password: true,
+            password_like: false,
+            was_password_this_session: false,
+        }))
         .collect();
     let bgra = Bgra::new(capture.width(), capture.height(), capture.pixels())
         .map_err(|_| LookError::Capture)?;
@@ -105,14 +126,19 @@ pub fn prepare(snapshot: UiSnapshot, capture: &CapturedImage) -> Result<Look, Lo
         .iter()
         .filter(|element| !element.offscreen)
         .filter_map(|element| {
+            let rect = element.rect?;
+            // Under another app's window: the model cannot see it, so it cannot be meant.
+            if overlaps_any(rect, painted) {
+                return None;
+            }
             ElementLine::new(
                 &element.id,
                 &element.control_type,
                 &element.name,
-                element.rect?,
+                rect,
                 redacted.frame,
                 element.interactive,
-                must_hide(element.is_password, element.password_like, false),
+                must_paint(element),
             )
         })
         .collect();
@@ -123,6 +149,7 @@ pub fn prepare(snapshot: UiSnapshot, capture: &CapturedImage) -> Result<Look, Lo
         redacted,
         list,
         window_frame,
+        painted: painted.to_vec(),
     })
 }
 
@@ -162,9 +189,16 @@ impl Look {
             Point::Pixel(x, y) => {
                 let shot = ShotPoint::new(f64::from(*x) + 0.5, f64::from(*y) + 0.5).ok()?;
                 let phys = self.redacted.frame.shot_to_phys_checked(shot)?;
+                if point_in_any(phys, &self.painted) {
+                    return None;
+                }
                 self.snapshot.target_at(phys)?.rect?
             }
         };
+        // Partly under a painted area: what the model saw there was black.
+        if overlaps_any(rect, &self.painted) {
+            return None;
+        }
         clip(rect, self.snapshot.frame)
     }
 }
@@ -271,7 +305,8 @@ pub fn take_look(own: &[isize], wanted: &dyn Fn() -> bool) -> Result<Look, LookF
 }
 
 fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, LookFailure> {
-    use mm_win32::{capture, uia, window};
+    use mm_platform::same_hidden;
+    use mm_win32::{capture, overlay, uia, window};
 
     let target = window::foreground_target(own).ok_or(LookFailure::NoWindow)?;
     let walker = uia::UiaWalker::new().map_err(|_| LookFailure::Uia)?;
@@ -283,25 +318,48 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
             uia::WalkLimits::default(),
         )
         .map_err(|_| LookFailure::Uia)?;
+    let occluders = window::occluders(&target, own);
     if !wanted() {
         return Err(LookFailure::Cancelled);
     }
     let copied = {
-        let _hidden = Hidden::new(own);
+        let hidden = Hidden::new(own);
+        // A hide that did not take would put Mate or the ring in the picture.
+        if !hidden.0.iter().all(|&hwnd| overlay::is_hidden(hwnd)) {
+            return Err(LookFailure::OwnWindows);
+        }
         std::thread::sleep(HIDDEN_FRAME);
+        // And the compositor has presented a frame without them.
+        overlay::wait_for_composition();
         capture::capture_region(target.region)
     };
     let capture = copied.map_err(LookFailure::Capture)?;
-    // The masks come from the walk: the window must be exactly where it was then.
+    // The masks come from the walk: the window must be exactly where it was then, under
+    // the same windows of other apps.
     let after = window::foreground_target(own).ok_or(LookFailure::Changed)?;
     if after.hwnd != target.hwnd
         || after.frame != target.frame
         || after.popups != target.popups
         || after.region != target.region
+        || window::occluders(&after, own) != occluders
     {
         return Err(LookFailure::Changed);
     }
-    let mut look = prepare(snapshot, &capture).map_err(LookFailure::Prepare)?;
+    // A password field that appeared or moved while the screen was copied is not in the
+    // first walk's masks (invariant 3): walk again and compare what must be hidden.
+    let again = walker
+        .snapshot_with_popups(
+            target.hwnd,
+            &target.popup_hwnds,
+            target.region,
+            uia::WalkLimits::default(),
+        )
+        .map_err(|_| LookFailure::Uia)?;
+    if !same_hidden(&snapshot, &again) {
+        return Err(LookFailure::Changed);
+    }
+    let painted = painted_areas(target.region, target.frame, &target.popups, &occluders);
+    let mut look = prepare(snapshot, &capture, &painted).map_err(LookFailure::Prepare)?;
     look.window_frame = target.frame;
     Ok(look)
 }
@@ -443,7 +501,7 @@ mod tests {
 
     #[test]
     fn the_password_is_painted_and_never_named() {
-        let look = prepare(snapshot(), &capture()).unwrap();
+        let look = prepare(snapshot(), &capture(), &[]).unwrap();
         assert_eq!(look.redacted.painted, 1);
         assert!(look.list.text.contains("Save"));
         assert!(!look.list.text.contains("Password"));
@@ -456,12 +514,12 @@ mod tests {
         let mut truncated = snapshot();
         truncated.truncated = true;
         assert!(matches!(
-            prepare(truncated, &capture()),
+            prepare(truncated, &capture(), &[]),
             Err(LookError::Redaction(RedactionError::SnapshotTruncated))
         ));
         let small = CapturedImage::new(10, 10, vec![0; 400]).unwrap();
         assert!(matches!(
-            prepare(snapshot(), &small),
+            prepare(snapshot(), &small, &[]),
             Err(LookError::Redaction(RedactionError::CaptureMismatch))
         ));
     }
@@ -474,19 +532,19 @@ mod tests {
         field.password_like = true;
         unlocated.elements.push(field.clone());
         assert!(matches!(
-            prepare(unlocated, &capture()),
+            prepare(unlocated, &capture(), &[]),
             Err(LookError::UnlocatedSensitive)
         ));
         // Offscreen without bounds: not in the picture, nothing to paint.
         let mut offscreen = snapshot();
         field.offscreen = true;
         offscreen.elements.push(field);
-        assert!(prepare(offscreen, &capture()).is_ok());
+        assert!(prepare(offscreen, &capture(), &[]).is_ok());
     }
 
     #[test]
     fn only_pointable_elements_resolve_by_id() {
-        let look = prepare(snapshot(), &capture()).unwrap();
+        let look = prepare(snapshot(), &capture(), &[]).unwrap();
         // The window itself and static text are listed, but never targets.
         assert_eq!(look.resolve(&Point::Id("e0".into())), None);
         assert_eq!(look.resolve(&Point::Id("e2".into())), None);
@@ -494,7 +552,7 @@ mod tests {
 
     #[test]
     fn points_resolve_to_listed_elements_or_to_nothing() {
-        let look = prepare(snapshot(), &capture()).unwrap();
+        let look = prepare(snapshot(), &capture(), &[]).unwrap();
         assert_eq!(
             look.resolve(&Point::Id("e1".into())),
             Some(PhysRect::new(400, 300, 480, 330).unwrap())
@@ -511,5 +569,17 @@ mod tests {
         let settings = look.parser_settings("en", Mode::Calm);
         assert_eq!(settings.screenshot, Some((400, 300)));
         assert_eq!(settings.point_ids, look.list.ids);
+    }
+
+    #[test]
+    fn nothing_under_another_window_is_named_or_pointed_at() {
+        // Another app's window covers the Save button's corner.
+        let other = PhysRect::new(380, 280, 500, 350).unwrap();
+        let look = prepare(snapshot(), &capture(), &[other]).unwrap();
+        assert_eq!(look.redacted.painted, 2);
+        assert!(!look.list.text.contains("Save"));
+        assert_eq!(look.resolve(&Point::Id("e1".into())), None);
+        assert_eq!(look.resolve(&Point::Pixel(320, 260)), None);
+        assert_eq!(look.resolve(&Point::Pixel(390, 290)), None);
     }
 }

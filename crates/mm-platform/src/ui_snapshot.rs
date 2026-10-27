@@ -45,6 +45,11 @@ pub struct UiSnapshot {
     pub truncated: bool,
 }
 
+/// Control types a password's show/hide toggle comes as (a button, a check box, a link,
+/// an icon). A label or the field itself named "Password" is not a toggle: counting them
+/// would hide every text beside any password field.
+const TOGGLE_TYPES: [&str; 5] = ["Button", "CheckBox", "Hyperlink", "Custom", "Image"];
+
 impl UiSnapshot {
     /// Ids whose pixels and names must be hidden, including revealed password siblings
     /// and all descendants. Only links to existing parents establish a relationship.
@@ -66,7 +71,9 @@ impl UiSnapshot {
                     .entry(parent)
                     .or_default()
                     .push(element.id.as_str());
-                if mm_core::privacy::password_toggle(&element.name) {
+                if TOGGLE_TYPES.contains(&element.control_type.as_str())
+                    && mm_core::privacy::password_toggle(&element.name)
+                {
                     toggle_parents.insert(parent);
                 }
             }
@@ -77,7 +84,7 @@ impl UiSnapshot {
         for element in &self.elements {
             let toggle_sibling = matches!(
                 element.control_type.as_str(),
-                "Edit" | "Document" | "Custom"
+                "Edit" | "Document" | "Custom" | "Text"
             ) && element
                 .parent
                 .as_deref()
@@ -133,6 +140,32 @@ impl UiSnapshot {
         self.element_at(point)
             .filter(|element| element.interactive && element.parent.is_some())
     }
+}
+
+/// Whether both walks found the same hidden control types at identical bounds.
+/// `mm-win32/src/uia.rs` assigns `e{elements.len()}` during each walk, so ids are
+/// snapshot-local, not stable RuntimeIds. Compare (control_type, rect) instead,
+/// independent of walk order, retaining duplicates so new hidden fields count.
+/// Names are deliberately excluded: they may contain revealed password text.
+pub fn same_hidden(before: &UiSnapshot, after: &UiSnapshot) -> bool {
+    type Edges = (i32, i32, i32, i32);
+    fn signature(snapshot: &UiSnapshot) -> Vec<(&str, Option<Edges>)> {
+        let hidden = snapshot.hidden_ids();
+        let mut elements: Vec<_> = snapshot
+            .elements
+            .iter()
+            .filter(|element| hidden.contains(&element.id))
+            .map(|element| {
+                (
+                    element.control_type.as_str(),
+                    element.rect.map(|r| (r.left, r.top, r.right, r.bottom)),
+                )
+            })
+            .collect();
+        elements.sort_unstable();
+        elements
+    }
+    signature(before) == signature(after)
 }
 
 fn area(rect: &PhysRect) -> i64 {
@@ -240,6 +273,77 @@ mod tests {
         expected.iter().map(|id| (*id).to_owned()).collect()
     }
 
+    fn snapshot(elements: Vec<UiElement>) -> UiSnapshot {
+        UiSnapshot {
+            target: TargetWindow {
+                handle: 1,
+                process_id: 1,
+            },
+            frame: rect(0, 0, 100, 100),
+            elements,
+            truncated: false,
+        }
+    }
+
+    #[test]
+    fn same_hidden_ignores_walk_ids_order_names_and_unhidden_elements() {
+        let mut password = element("e1", "Edit", rect(1, 2, 10, 20));
+        password.is_password = true;
+        let mut text = child("e2", "e1", "Text");
+        let before = snapshot(vec![password.clone(), text.clone()]);
+        password.id = "e8".to_owned();
+        password.name = "Different private text".to_owned();
+        text.id = "e9".to_owned();
+        text.parent = Some("e8".to_owned());
+        let after = snapshot(vec![
+            element("e0", "Button", rect(0, 0, 1, 1)),
+            text,
+            password,
+        ]);
+        assert!(same_hidden(&before, &after));
+        assert!(same_hidden(&snapshot(vec![]), &snapshot(vec![])));
+    }
+
+    #[test]
+    fn same_hidden_detects_appearance_removal_motion_resize_and_type_changes() {
+        let mut password = element("e1", "Edit", rect(1, 2, 10, 20));
+        password.is_password = true;
+        let before = snapshot(vec![password.clone()]);
+        let empty = snapshot(vec![]);
+        assert!(!same_hidden(&before, &empty));
+        assert!(!same_hidden(&empty, &before));
+        for bounds in [Some(rect(2, 2, 11, 20)), Some(rect(1, 2, 11, 20)), None] {
+            let mut changed = password.clone();
+            changed.rect = bounds;
+            assert!(!same_hidden(&before, &snapshot(vec![changed])));
+        }
+        let mut changed = password.clone();
+        changed.control_type = "Text".to_owned();
+        assert!(!same_hidden(&before, &snapshot(vec![changed])));
+        let mut duplicate = password.clone();
+        duplicate.id = "e2".to_owned();
+        assert!(!same_hidden(&before, &snapshot(vec![password, duplicate])));
+    }
+
+    #[test]
+    fn same_hidden_detects_new_revealed_text_siblings_and_moved_descendants() {
+        let root = element("root", "Pane", rect(0, 0, 100, 100));
+        let text = child("text", "root", "Text");
+        let before = snapshot(vec![root.clone(), text.clone()]);
+        let mut toggle = child("toggle", "root", "Button");
+        toggle.name = "Show password".to_owned();
+        let after = snapshot(vec![root, text, toggle]);
+        assert!(!same_hidden(&before, &after));
+
+        let mut password = element("password", "Edit", rect(0, 0, 20, 20));
+        password.is_password = true;
+        let text = child("text", "password", "Text");
+        let before = snapshot(vec![password, text]);
+        let mut after = before.clone();
+        after.elements[1].rect = Some(rect(1, 1, 11, 11));
+        assert!(!same_hidden(&before, &after));
+    }
+
     #[test]
     fn hidden_ids_respects_each_password_flag() {
         let mut password = element("password", "Edit", rect(0, 0, 10, 10));
@@ -274,13 +378,32 @@ mod tests {
                     child("unrelated", "other", "Edit"),
                     element("other", "Pane", rect(0, 0, 100, 100)),
                 ]),
-                ids(&["edit", "document", "custom"])
+                ids(&["edit", "document", "custom", "text"])
             );
         }
     }
 
     #[test]
-    fn hidden_ids_toggle_without_editable_siblings_hides_nothing_more() {
+    fn a_password_field_or_its_label_is_no_toggle() {
+        let mut field = child("field", "root", "Edit");
+        field.name = "Password".to_owned();
+        field.is_password = true;
+        let mut label = child("label", "root", "Text");
+        label.name = "Password".to_owned();
+        assert_eq!(
+            hidden(vec![
+                element("root", "Window", rect(0, 0, 100, 100)),
+                field,
+                label,
+                child("username", "root", "Edit"),
+                child("hint", "root", "Text"),
+            ]),
+            ids(&["field"])
+        );
+    }
+
+    #[test]
+    fn hidden_ids_toggle_hides_text_siblings_but_not_buttons() {
         let mut toggle = child("toggle", "root", "Button");
         toggle.name = "Hide password".to_owned();
         toggle.password_like = true;
@@ -291,7 +414,7 @@ mod tests {
                 child("text", "root", "Text"),
                 child("button", "root", "Button"),
             ]),
-            ids(&["toggle"])
+            ids(&["toggle", "text"])
         );
     }
 

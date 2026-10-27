@@ -5,8 +5,48 @@
 use std::fmt;
 
 use crate::api::request::must_hide;
-use crate::geom::{FrameTransform, PhysRect};
+use crate::geom::{FrameTransform, PhysPoint, PhysRect, uncovered};
 use crate::shot::{self, Bgra, ShotError, ShotRectPx};
+
+/// Parts of the capture outside the target and its popups, plus other apps above it.
+/// Empty/inverted rectangles are ignored; occluders are clipped to the capture.
+/// Rectangles may overlap, since painting the same pixel twice is harmless.
+pub fn painted_areas(
+    region: PhysRect,
+    window: PhysRect,
+    popups: &[PhysRect],
+    occluders: &[PhysRect],
+) -> Vec<PhysRect> {
+    let mut covers = Vec::with_capacity(popups.len() + 1);
+    covers.push(window);
+    covers.extend_from_slice(popups);
+    let mut painted = uncovered(region, &covers);
+    for occluder in occluders {
+        let clipped = PhysRect {
+            left: region.left.max(occluder.left),
+            top: region.top.max(occluder.top),
+            right: region.right.min(occluder.right),
+            bottom: region.bottom.min(occluder.bottom),
+        };
+        if clipped.left < clipped.right && clipped.top < clipped.bottom {
+            painted.push(clipped);
+        }
+    }
+    painted
+}
+
+/// Whether any pixel of a valid half-open rectangle lies in a painted area.
+pub fn overlaps_any(rect: PhysRect, painted: &[PhysRect]) -> bool {
+    painted.iter().any(|area| {
+        rect.left.max(area.left) < rect.right.min(area.right)
+            && rect.top.max(area.top) < rect.bottom.min(area.bottom)
+    })
+}
+
+/// Includes left/top and excludes right/bottom, just like `PhysRect::contains`.
+pub fn point_in_any(point: PhysPoint, painted: &[PhysRect]) -> bool {
+    painted.iter().any(|area| area.contains(point))
+}
 
 /// A screenshot whose password fields were painted over, as a data URL (convention 4).
 /// Only [`redact`] can make one (its constructor is private to this module), so the

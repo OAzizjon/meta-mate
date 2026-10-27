@@ -68,9 +68,9 @@ impl InputInjector for Win32Injector {
 }
 
 /// Refuses unless the element under `at` belongs to the target's process (no other window
-/// over the point, Mate included) and neither it nor the controls around it are a password
-/// field or on the blocklist (`forbidden`, invariant 4). A provider that does not answer
-/// means no click.
+/// over the point, Mate included), something on the way up names what the click does, and
+/// neither it nor the controls around it are a password field or on the blocklist
+/// (`forbidden`, invariant 4). A provider that does not answer means no click.
 fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformError> {
     let unanswered = |_| PlatformError::UiaTimeout;
     let automation = UIAutomation::new().map_err(unanswered)?;
@@ -81,23 +81,39 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
     if element.get_process_id().map_err(unanswered)? != target.process_id {
         return Err(PlatformError::WindowNotFound);
     }
-    // Unknown fails closed, like the snapshot walker.
-    if element.is_password().unwrap_or(true) {
-        return Err(PlatformError::SafetyBlocked);
-    }
+    let mut named = false;
     for level in 0..=MAX_ANCESTORS {
-        let control_type = format!("{:?}", element.get_control_type().map_err(unanswered)?);
-        if level > 0 && CONTAINERS.contains(&control_type.as_str()) {
-            break;
-        }
-        let name = element.get_name().map_err(unanswered)?;
-        let automation_id = element.get_automation_id().map_err(unanswered)?;
-        if forbidden(&name, &control_type) || forbidden(&automation_id, &control_type) {
+        // Unknown fails closed, like the snapshot walker; a password box's inner text or
+        // reveal icon counts as the box.
+        if element.is_password().unwrap_or(true) {
             return Err(PlatformError::SafetyBlocked);
         }
+        let control_type = format!("{:?}", element.get_control_type().map_err(unanswered)?);
+        let name = element.get_name().map_err(unanswered)?;
+        let labels = [
+            name.clone(),
+            element.get_automation_id().map_err(unanswered)?,
+            element.get_classname().unwrap_or_default(),
+            element.get_help_text().unwrap_or_default(),
+        ];
+        // A container's own title counts too ("Checkout - Shop"): on such a page Mate
+        // presses nothing, the person does.
+        if labels.iter().any(|label| forbidden(label, &control_type)) {
+            return Err(PlatformError::SafetyBlocked);
+        }
+        let container = CONTAINERS.contains(&control_type.as_str());
+        if level > 0 && container {
+            break;
+        }
+        named |= !name.trim().is_empty();
         if level < MAX_ANCESTORS {
             element = walker.get_parent(&element).map_err(unanswered)?;
         }
+    }
+    // An icon with no name anywhere below its container: what it does is unknown (a bin
+    // icon deletes), so Mate does not press it.
+    if !named {
+        return Err(PlatformError::SafetyBlocked);
     }
     Ok(())
 }

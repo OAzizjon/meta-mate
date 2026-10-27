@@ -8,9 +8,9 @@
 //! `--ptt-probe` prints the events for 60 s without any window, to try Right Ctrl in
 //! Chrome, Telegram and Notepad.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::{Arc, Mutex, Weak};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -25,6 +25,65 @@ const PROBE: Duration = Duration::from_secs(60);
 /// `REINSTALL_EVERY`.
 const HOOK_SILENT: Duration = Duration::from_millis(500);
 const REINSTALL_EVERY: Duration = Duration::from_secs(5);
+
+// Published only by a running driver; subscribers never keep the driver alive.
+static KEY_TAP: Mutex<Weak<KeyTap>> = Mutex::new(Weak::new());
+
+#[derive(Default)]
+struct KeyTap {
+    subscriber: Mutex<Option<(Weak<()>, Sender<KeyEvent>)>>,
+}
+
+/// Dropping a lesson disconnects its event queue without affecting a newer lesson.
+pub(crate) struct KeyTapGuard {
+    tap: Weak<KeyTap>,
+    identity: Arc<()>,
+}
+
+impl Drop for KeyTapGuard {
+    fn drop(&mut self) {
+        if let Some(tap) = self.tap.upgrade()
+            && let Ok(mut subscriber) = tap.subscriber.lock()
+            && subscriber
+                .as_ref()
+                .is_some_and(|(identity, _)| identity.ptr_eq(&Arc::downgrade(&self.identity)))
+        {
+            *subscriber = None;
+        }
+    }
+}
+
+impl KeyTap {
+    fn subscribe(self: &Arc<Self>) -> Option<(KeyTapGuard, Receiver<KeyEvent>)> {
+        let mut subscriber = self.subscriber.lock().ok()?;
+        let (events, received) = mpsc::channel();
+        let identity = Arc::new(());
+        *subscriber = Some((Arc::downgrade(&identity), events));
+        Some((
+            KeyTapGuard {
+                tap: Arc::downgrade(self),
+                identity,
+            },
+            received,
+        ))
+    }
+
+    // Runs on mm-ptt, never inside the low-level hook. An unbounded send cannot
+    // wait for the teacher to consume an event; no character conversion or logging.
+    fn send(&self, event: KeyEvent) {
+        if let Ok(mut subscriber) = self.subscriber.lock()
+            && let Some((_, events)) = subscriber.as_ref()
+            && events.send(event).is_err()
+        {
+            *subscriber = None;
+        }
+    }
+}
+
+/// Subscribe to the existing PTT hook; fail closed if no driver is running.
+pub(crate) fn subscribe_keys() -> Option<(KeyTapGuard, Receiver<KeyEvent>)> {
+    KEY_TAP.lock().ok()?.upgrade()?.subscribe()
+}
 
 /// The running driver. Dropping it stops the thread within one wake-up and unhooks.
 pub struct PttDriver {
@@ -50,6 +109,8 @@ pub fn spawn(
     let started = Instant::now();
     let (events, keys) = mpsc::channel();
     let hook = keyboard::start(events.clone())?;
+    let tap = Arc::new(KeyTap::default());
+    let published = Arc::downgrade(&tap);
     let stop = Arc::new(AtomicBool::new(false));
     let thread = std::thread::Builder::new()
         .name("mm-ptt".into())
@@ -61,12 +122,16 @@ pub fn spawn(
                     keys,
                     events,
                     hook,
+                    tap,
                     &stop,
                     &mut on_event,
                 )
             }
         })
         .map_err(HookError::Thread)?;
+    if let Ok(mut current) = KEY_TAP.lock() {
+        *current = published;
+    }
     Ok(PttDriver {
         stop,
         thread: Some(thread),
@@ -78,6 +143,7 @@ fn run(
     keys: Receiver<KeyEvent>,
     events: Sender<KeyEvent>,
     mut hook: KeyboardHook, // unhooks when the loop ends
+    tap: Arc<KeyTap>,
     stop: &AtomicBool,
     on_event: &mut impl FnMut(PttEvent),
 ) {
@@ -90,6 +156,7 @@ fn run(
     while !stop.load(Ordering::Relaxed) {
         match keys.recv_timeout(WAKE) {
             Ok(event) => {
+                tap.send(event);
                 if event.vk == RIGHT_CTRL {
                     last_ctrl = event.at;
                 }
@@ -112,6 +179,7 @@ fn run(
             // An event queued meanwhile goes first; the next wake polls again.
             match keys.try_recv() {
                 Ok(event) => {
+                    tap.send(event);
                     if event.vk == RIGHT_CTRL {
                         last_ctrl = event.at;
                     }
@@ -265,6 +333,56 @@ mod tests {
 
     fn nothing() -> Vec<PttEvent> {
         Vec::new()
+    }
+
+    #[test]
+    fn tap_preserves_injected_flags_and_drop_disconnects() {
+        let tap = Arc::new(KeyTap::default());
+        let (guard, received) = tap.subscribe().unwrap();
+        let event = injected(A, true, Instant::now());
+        tap.send(event);
+        assert_eq!(received.try_recv(), Ok(event));
+        drop(guard);
+        assert_eq!(received.try_recv(), Err(mpsc::TryRecvError::Disconnected));
+    }
+
+    #[test]
+    fn old_guard_does_not_cancel_replacement_subscription() {
+        let tap = Arc::new(KeyTap::default());
+        let (old, old_received) = tap.subscribe().unwrap();
+        let (_new, received) = tap.subscribe().unwrap();
+        assert_eq!(
+            old_received.try_recv(),
+            Err(mpsc::TryRecvError::Disconnected)
+        );
+        drop(old);
+        let event = key(A, true, Instant::now());
+        tap.send(event);
+        assert_eq!(received.try_recv(), Ok(event));
+    }
+
+    #[test]
+    fn subscription_does_not_keep_driver_alive() {
+        let tap = Arc::new(KeyTap::default());
+        let published = Arc::downgrade(&tap);
+        let (_guard, received) = tap.subscribe().unwrap();
+        drop(tap);
+        assert!(published.upgrade().is_none());
+        assert_eq!(received.try_recv(), Err(mpsc::TryRecvError::Disconnected));
+    }
+
+    #[test]
+    fn closed_receiver_is_discarded_without_affecting_ptt() {
+        let tap = Arc::new(KeyTap::default());
+        let (_guard, received) = tap.subscribe().unwrap();
+        drop(received);
+        let t0 = Instant::now();
+        let mut feed = Feed::new(PttSettings::default(), t0);
+        let event = key(RIGHT_CTRL, true, t0);
+        tap.send(event);
+        assert!(tap.subscriber.lock().unwrap().is_none());
+        assert_eq!(feed.key(event), nothing());
+        assert_eq!(feed.tick(at(t0, 250)), start(1));
     }
 
     fn start(generation: u64) -> Vec<PttEvent> {

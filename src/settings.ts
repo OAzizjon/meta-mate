@@ -12,6 +12,7 @@ import {
   MODEL_CHOICES,
   PTT_MODES,
   ROBOT_SIZES,
+  SETTINGS_CHANGED_EVENT,
   SETTINGS_KEYS,
   SOUND_MODES,
   VOICE_SPEED_STEP,
@@ -24,6 +25,8 @@ import {
   isSoundMode,
   isValidVoiceSpeed,
   parseSettings,
+  snapVoiceSpeed,
+  subscribeSettingsChanged,
   updateSettings,
 } from "./settings/model.ts";
 import type {
@@ -33,6 +36,7 @@ import type {
   Settings,
   SettingsInvoke,
   SettingsStore,
+  SettingsSubscribe,
   SoundMode,
 } from "./settings/model.ts";
 
@@ -43,6 +47,7 @@ export {
   MODEL_CHOICES,
   PTT_MODES,
   ROBOT_SIZES,
+  SETTINGS_CHANGED_EVENT,
   SETTINGS_KEYS,
   SOUND_MODES,
   VOICE_SPEED_STEP,
@@ -55,6 +60,8 @@ export {
   isSoundMode,
   isValidVoiceSpeed,
   parseSettings,
+  snapVoiceSpeed,
+  subscribeSettingsChanged,
   updateSettings,
 };
 export type {
@@ -64,6 +71,7 @@ export type {
   Settings,
   SettingsInvoke,
   SettingsStore,
+  SettingsSubscribe,
   SoundMode,
 };
 
@@ -76,6 +84,13 @@ function isTauri(): boolean {
 const tauriInvoke: SettingsInvoke = async (cmd, args) => {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke(cmd, args);
+};
+
+const tauriSubscribe: SettingsSubscribe = async (onChanged) => {
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<unknown>(SETTINGS_CHANGED_EVENT, (event) => {
+    onChanged(event.payload);
+  });
 };
 
 const defaultStore = createSettingsStore(isTauri() ? tauriInvoke : null);
@@ -92,6 +107,7 @@ export async function saveSettings(settings: Settings): Promise<Settings> {
 
 export interface MountSettingsOptions {
   readonly store?: SettingsStore;
+  readonly subscribe?: SettingsSubscribe | null;
 }
 
 export interface SettingsController {
@@ -243,6 +259,13 @@ export function mountSettings(
 ): SettingsController {
   const store =
     options.store ?? createSettingsStore(isTauri() ? tauriInvoke : null);
+  const subscribe =
+    options.subscribe === undefined
+      ? isTauri()
+        ? tauriSubscribe
+        : null
+      : options.subscribe;
+  let destroyed = false;
 
   const header = document.createElement("header");
   header.className = "settings-header";
@@ -362,10 +385,8 @@ export function mountSettings(
   speedInput.step = String(VOICE_SPEED_STEP);
 
   const onSpeedUpdate = (): void => {
-    const parsed = Number(speedInput.value);
-    const voiceSpeed = isValidVoiceSpeed(parsed)
-      ? Math.round(parsed * 100) / 100
-      : DEFAULT_SETTINGS.voiceSpeed;
+    const voiceSpeed = snapVoiceSpeed(Number(speedInput.value));
+    speedInput.value = String(voiceSpeed);
     speedOutput.textContent = formatVoiceSpeed(voiceSpeed);
     if (voiceSpeed !== store.get().voiceSpeed) {
       void applyPatch({ voiceSpeed });
@@ -504,8 +525,20 @@ export function mountSettings(
   syncText();
   syncControls(store.get());
 
+  const unsubscribeChanged = subscribeSettingsChanged(
+    store,
+    subscribe,
+    (updated) => {
+      if (!destroyed) {
+        syncControls(updated);
+      }
+    },
+  );
+
   void store.load().then((loaded) => {
-    syncControls(loaded);
+    if (!destroyed) {
+      syncControls(loaded);
+    }
   });
 
   return {
@@ -517,7 +550,9 @@ export function mountSettings(
     },
     reload(): Promise<Settings> {
       return store.load().then((loaded) => {
-        syncControls(loaded);
+        if (!destroyed) {
+          syncControls(loaded);
+        }
         return loaded;
       });
     },
@@ -526,6 +561,8 @@ export function mountSettings(
       syncText();
     },
     destroy(): void {
+      destroyed = true;
+      unsubscribeChanged();
       motionQuery?.removeEventListener("change", onMotionMediaChange);
       container.replaceChildren();
     },

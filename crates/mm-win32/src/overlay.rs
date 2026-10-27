@@ -6,10 +6,11 @@
 use mm_core::geom::PhysRect;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetWindowLongPtrW, HWND_TOPMOST, SET_WINDOW_POS_FLAGS, SW_HIDE, SW_SHOWNOACTIVATE,
-    SWP_FRAMECHANGED, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
-    SWP_NOZORDER, SWP_SHOWWINDOW, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE,
-    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
+    GWL_EXSTYLE, GetWindowLongPtrW, HWND_TOPMOST, IsWindowVisible, SET_WINDOW_POS_FLAGS, SW_HIDE,
+    SW_SHOWNOACTIVATE, SWP_FRAMECHANGED, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE,
+    SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SWP_SHOWWINDOW, SetWindowLongPtrW, SetWindowPos,
+    ShowWindow, WINDOW_EX_STYLE, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    WS_EX_TRANSPARENT,
 };
 
 /// Which of our windows: Mate himself takes the mouse (drag, right click) but never
@@ -101,6 +102,21 @@ pub fn place(hwnd: HWND, rect: PhysRect) -> windows::core::Result<()> {
 /// no activation, no move, no z-order change.
 pub fn hide_for_capture(hwnd: HWND) {
     set_shown_quietly(hwnd, SWP_HIDEWINDOW);
+}
+
+/// True while the window is hidden: a hide that did not take (a handle from another
+/// thread's window being destroyed, a shell refusing) would put Mate in the picture.
+pub fn is_hidden(hwnd: HWND) -> bool {
+    // SAFETY: a plain handle query; a stale handle reads as not visible.
+    !unsafe { IsWindowVisible(hwnd).as_bool() }
+}
+
+/// Waits until the desktop compositor has presented a frame: a window hidden before the
+/// call is gone from the screen a copy reads after it. False when composition is off or
+/// the call failed (the caller then waits a fixed frame instead).
+pub fn wait_for_composition() -> bool {
+    // SAFETY: no arguments; blocks until the next DWM present.
+    unsafe { windows::Win32::Graphics::Dwm::DwmFlush() }.is_ok()
 }
 
 /// Shows the window again after the capture, still without activating it (invariant 1).

@@ -12,6 +12,7 @@ import argparse
 import io
 import os
 import sys
+import threading
 import time
 import wave
 
@@ -31,19 +32,29 @@ CHECKPOINTS = {'en': 'facebook/mms-tts-eng', 'ru': 'facebook/mms-tts-rus'}
 # A GPU when there is one (Modal, tts/modal_app.py), else this machine's CPU.
 DEVICE = 'cuda' if getattr(getattr(torch, 'cuda', None), 'is_available', lambda: False)() else 'cpu'
 _loaded: dict[str, tuple[VitsModel, AutoTokenizer]] = {}
+_model_lock = threading.RLock()
+
+
+def validate_speed(speed: object) -> float:
+    """Accept JSON numbers only; chained bounds also reject NaN and infinity."""
+    if type(speed) not in (int, float) or not 0.8 <= speed <= 1.3:
+        raise ValueError('speed must be a number between 0.8 and 1.3')
+    return float(speed)
 
 
 def load(lang: str) -> tuple[VitsModel, AutoTokenizer]:
     if lang not in CHECKPOINTS:
         raise ValueError(f'no MMS-TTS checkpoint for {lang!r}')
-    if lang not in _loaded:
-        name = CHECKPOINTS[lang]
-        _loaded[lang] = (VitsModel.from_pretrained(name).to(DEVICE).eval(), AutoTokenizer.from_pretrained(name))
-    return _loaded[lang]
+    with _model_lock:
+        if lang not in _loaded:
+            name = CHECKPOINTS[lang]
+            _loaded[lang] = (VitsModel.from_pretrained(name).to(DEVICE).eval(), AutoTokenizer.from_pretrained(name))
+        return _loaded[lang]
 
 
-def synthesize(lang: str, text: str) -> tuple[np.ndarray, int]:
+def synthesize(lang: str, text: str, speed: float = 1.0) -> tuple[np.ndarray, int]:
     """Mono float32 samples in [-1, 1] and the sample rate (16 kHz for MMS)."""
+    speed = validate_speed(speed)
     text = normalize(lang, text)
     if not text:
         raise ValueError('nothing to say')
@@ -51,8 +62,16 @@ def synthesize(lang: str, text: str) -> tuple[np.ndarray, int]:
     inputs = tokenizer(text, return_tensors='pt')
     if DEVICE != 'cpu':
         inputs = inputs.to(DEVICE)
-    with torch.no_grad():
-        waveform = model(**inputs).waveform[0]
+    # VITS reads this shared attribute during forward; threaded HTTP callers must
+    # hold the lock through generation and restore it even if inference fails.
+    with _model_lock:
+        default_rate = model.speaking_rate
+        try:
+            model.speaking_rate = speed
+            with torch.no_grad():
+                waveform = model(**inputs).waveform[0]
+        finally:
+            model.speaking_rate = default_rate
     if DEVICE != 'cpu':
         waveform = waveform.float().cpu()
     waveform = waveform.numpy()

@@ -267,7 +267,7 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(spoken.headers['x-synth-ms'], '120')
         sent = fake.requests[-1]
         self.assertEqual(sent.headers['x-mms-secret'], TTS_SECRET)
-        self.assertEqual(json.loads(sent.content), {'lang': 'ru', 'text': 'Привет'})
+        self.assertEqual(json.loads(sent.content), {'lang': 'ru', 'text': 'Привет', 'speed': 1.0})
         self.assertEqual(client.post('/v1/tts', json={'lang': 'en', 'text': 'x'}).status_code, 401)
         for body in ({'lang': 'de', 'text': 'Hallo'}, {'lang': 'en', 'text': ' '},
                      {'lang': 'en', 'text': 'a' * 301}, {'lang': ['en'], 'text': 'x'}, ['en']):
@@ -280,6 +280,37 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(statuses[33], 429)
         off = client_for(FakeMeta(), {k: v for k, v in ENV.items() if not k.startswith('MMS_')})
         self.assertEqual(off.post('/v1/tts', json=sentence, headers=headers).status_code, 503)
+
+    def test_tts_forwards_numeric_speed_including_bounds(self):
+        fake = FakeMeta()
+        client = client_for(fake)
+        for speed in (0.8, 1, 1.05, 1.3):
+            with self.subTest(speed=speed):
+                spoken = client.post('/v1/tts', json={'lang': 'en', 'text': 'Hi', 'speed': speed},
+                                     headers={'Authorization': f'Bearer {JUDGE_CODE}'})
+                self.assertEqual(spoken.status_code, 200)
+                self.assertEqual(json.loads(fake.requests[-1].content),
+                                 {'lang': 'en', 'text': 'Hi', 'speed': speed})
+
+    def test_invalid_tts_speed_does_not_consume_character_quota(self):
+        fake = FakeMeta()
+        client = client_for(fake)
+        headers = {'Authorization': 'Bearer tester-code-001'}
+        for speed in (True, False, None, '1.0', [], {}, 0.799, 1.301,
+                      float('nan'), float('inf'), -float('inf')):
+            with self.subTest(speed=speed):
+                # Raw JSON also exercises Python's permissive NaN/Infinity decoder.
+                body = json.dumps({'lang': 'en', 'text': 'a' * 300, 'speed': speed})
+                self.assertEqual(client.post('/v1/tts', content=body, headers=headers).status_code, 422)
+        self.assertEqual(fake.requests, [])
+        # The entire unchanged tester allowance (10,000 characters) is still usable.
+        for _ in range(33):
+            self.assertEqual(client.post('/v1/tts', json={'lang': 'en', 'text': 'a' * 300},
+                                         headers=headers).status_code, 200)
+        self.assertEqual(client.post('/v1/tts', json={'lang': 'en', 'text': 'a' * 100},
+                                     headers=headers).status_code, 200)
+        self.assertEqual(client.post('/v1/tts', json={'lang': 'en', 'text': 'a'},
+                                     headers=headers).status_code, 429)
 
     def test_asr_forwards_only_checked_handshake_fields_and_scrubs_replies(self):
         asr = FakeAsr()

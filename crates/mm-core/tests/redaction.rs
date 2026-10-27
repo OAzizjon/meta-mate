@@ -1,9 +1,98 @@
-use mm_core::geom::PhysRect;
-use mm_core::redaction::{Field, RedactionError, RedactionInput, redact};
+use mm_core::geom::{PhysPoint, PhysRect};
+use mm_core::redaction::{
+    Field, RedactionError, RedactionInput, overlaps_any, painted_areas, point_in_any, redact,
+};
 use mm_core::shot::Bgra;
 
 const W: u32 = 40;
 const H: u32 = 20;
+
+fn rect(left: i32, top: i32, right: i32, bottom: i32) -> PhysRect {
+    PhysRect {
+        left,
+        top,
+        right,
+        bottom,
+    }
+}
+
+#[test]
+fn painted_areas_leaves_a_fully_covered_region_clear() {
+    let region = rect(-10, -10, 10, 10);
+    assert!(painted_areas(region, region, &[], &[]).is_empty());
+    assert!(painted_areas(region, rect(-10, -10, 0, 10), &[rect(0, -10, 10, 10)], &[]).is_empty());
+}
+
+#[test]
+fn painted_areas_covers_every_gap_around_a_popup_sticking_out() {
+    let region = rect(-5, -5, 15, 15);
+    let window = rect(-5, -5, 5, 5);
+    let popup = rect(2, 2, 15, 10);
+    let painted = painted_areas(region, window, &[popup], &[]);
+    for y in region.top..region.bottom {
+        for x in region.left..region.right {
+            let point = PhysPoint { x, y };
+            assert_eq!(
+                point_in_any(point, &painted),
+                !window.contains(point) && !popup.contains(point),
+                "pixel ({x}, {y})"
+            );
+        }
+    }
+    assert!(painted.iter().all(|r| r.left < r.right && r.top < r.bottom));
+}
+
+#[test]
+fn painted_areas_clips_occluders_and_skips_those_outside() {
+    let region = rect(0, 0, 10, 10);
+    assert_eq!(
+        painted_areas(
+            region,
+            region,
+            &[],
+            &[rect(-5, 2, 5, 8), rect(10, 0, 20, 10)]
+        ),
+        vec![rect(0, 2, 5, 8)]
+    );
+    assert!(painted_areas(region, region, &[], &[rect(20, 20, 30, 30)]).is_empty());
+}
+
+#[test]
+fn painted_areas_skips_empty_and_inverted_rectangles() {
+    let region = rect(0, 0, 10, 10);
+    let invalid = [rect(8, 0, 2, 10), rect(0, 8, 10, 2), rect(0, 0, 0, 10)];
+    for bad in invalid {
+        assert!(painted_areas(bad, region, &[region], &[region]).is_empty());
+        assert_eq!(painted_areas(region, bad, &invalid, &invalid), vec![region]);
+    }
+}
+
+#[test]
+fn painted_hits_use_half_open_bounds_and_ignore_invalid_rectangles() {
+    let painted = [rect(0, 0, 10, 10), rect(30, 30, 20, 20)];
+    assert!(overlaps_any(rect(-1, -1, 1, 1), &painted));
+    assert!(overlaps_any(rect(2, 2, 8, 8), &painted));
+    for clear in [
+        rect(10, 0, 20, 10),
+        rect(0, 10, 10, 20),
+        rect(5, 5, 5, 8),
+        rect(8, 8, 2, 2),
+    ] {
+        assert!(!overlaps_any(clear, &painted));
+    }
+    assert!(point_in_any(PhysPoint { x: 0, y: 0 }, &painted));
+    assert!(point_in_any(PhysPoint { x: 9, y: 9 }, &painted));
+    for point in [
+        PhysPoint { x: 10, y: 5 },
+        PhysPoint { x: 5, y: 10 },
+        PhysPoint { x: -1, y: 0 },
+        PhysPoint { x: 25, y: 25 },
+    ] {
+        assert!(!point_in_any(point, &painted));
+    }
+    assert!(!overlaps_any(rect(0, 0, 10, 10), &[]));
+    assert!(!point_in_any(PhysPoint { x: 0, y: 0 }, &[]));
+}
 
 fn white() -> Vec<u8> {
     vec![255; (W * H * 4) as usize]

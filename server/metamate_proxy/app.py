@@ -380,6 +380,9 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
             body = None
         lang = body.get('lang') if isinstance(body, dict) else None
         text = body.get('text') if isinstance(body, dict) else None
+        speed = body.get('speed', 1.0) if isinstance(body, dict) else 1.0
+        if type(speed) not in (int, float) or not 0.8 <= speed <= 1.3:
+            return error(422, 'speed must be a number between 0.8 and 1.3')
         if (not isinstance(lang, str) or lang not in policy.TTS_LANGUAGES or not isinstance(text, str)
                 or not text.strip() or len(text) > policy.TTS_MAX_CHARS):
             return error(400, f'lang is en or ru; text is 1 to {policy.TTS_MAX_CHARS} characters')
@@ -390,7 +393,8 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         policy.charge_tts(state.ledger, invite, len(text), today())
         state.tts_in_flight[invite] = state.tts_in_flight.get(invite, 0) + 1
         try:
-            upstream = await http.post(settings.tts_url + '/synthesize', json={'lang': lang, 'text': text},
+            upstream = await http.post(settings.tts_url + '/synthesize',
+                                       json={'lang': lang, 'text': text, 'speed': speed},
                                        headers={'X-MMS-Secret': settings.tts_secret}, timeout=TTS_SECONDS)
         except httpx.HTTPError:
             return error(502, 'speech synthesis failed')

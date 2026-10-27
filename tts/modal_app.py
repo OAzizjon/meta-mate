@@ -105,10 +105,14 @@ class Tts:
                     raise ValueError
             except (ValueError, KeyError, TypeError, RecursionError):
                 return empty(400)
+            try:
+                speed = mms.validate_speed(payload.get('speed', 1.0))
+            except ValueError:
+                return empty(422)
             started = time.perf_counter()
             try:
                 # The GPU call off the event loop: other requests keep flowing meanwhile.
-                samples, rate = await asyncio.to_thread(mms.synthesize, lang, text)
+                samples, rate = await asyncio.to_thread(mms.synthesize, lang, text, speed)
             except Exception:  # nothing speakable after normalization ("..."), or a model error
                 return empty(422)
             wav = mms.to_wav(samples, rate)

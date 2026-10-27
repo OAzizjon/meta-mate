@@ -42,6 +42,10 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - `--debug-window` mirrors the answer stream in a debug window.
 - The robot's mouth follows the voice level while listening.
 - `mm_core::geom::uncovered` computes the areas of a region not covered by other rectangles.
+- Keyboard chords for teacher steps (`crates/mm-core/src/teacher/keys.rs`), with key aliases such as `Return` and `Enter`; drag steps complete near the drag's end point.
+- The settings store (`src-tauri/src/settings.rs`): `settings.json` written atomically, defaults when the file is broken.
+- "Do it for me" input (`crates/mm-win32/src/input.rs`): one confirmed left click, with an English and Russian blocklist of payment, delete and password actions (`privacy::forbidden`) and foreground-window and target-point checks.
+- Three more praise lines that rotate.
 
 ### Changed
 
@@ -55,6 +59,8 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Spoken answers may use up to 1000 output tokens, since reasoning alone took up to 398 (D45).
 - Every window starts WebView2 with autoplay allowed, so Mate can speak after push-to-talk (spike S7, passed: D46).
 - Review fixes in the voice path: the push-to-talk watchdog keeps polling while a press is pending and reinstalls a hook Windows removed; microphone sends never block a cancel; speech socket writes time out; proxy addresses are parsed and replies capped.
+- The teacher driver retries a failed model turn and refuses after a second failure, retries a first-turn miss once at low reasoning effort, speaks refusal and completion lines before the lesson ends, stops after three idle minutes or ten minutes in all with a sleepy line, ignores clicks made before a step was shown, re-checks the window before each pointing step, and enforces the turn budget before asking for another screenshot.
+- Barge-in cancels the old answer before clearing the ring; onboarding no longer re-enters; the architecture document describes per-monitor highlights and the teacher driver.
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)
 

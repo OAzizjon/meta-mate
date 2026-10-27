@@ -14,6 +14,9 @@ robot.network_error
 robot.done
 robot.too_many_turns
 robot.wont_press
+robot.pressing
+robot.press_cancelled
+robot.press_failed
 robot.sleep
 robot.wake
 robot.calm_mode

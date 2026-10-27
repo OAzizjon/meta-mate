@@ -11,12 +11,15 @@ import {
   MODEL_CHOICES,
   PTT_MODES,
   ROBOT_SIZES,
+  SETTINGS_CHANGED_EVENT,
   SETTINGS_KEYS,
   SOUND_MODES,
   createSettingsStore,
   defaultSettings,
   formatVoiceSpeed,
   parseSettings,
+  snapVoiceSpeed,
+  subscribeSettingsChanged,
   updateSettings,
 } from "./model.ts";
 import type { Settings } from "./model.ts";
@@ -196,6 +199,26 @@ test("updateSettings and formatVoiceSpeed stay within invariants", () => {
   assert.doesNotMatch(formatVoiceSpeed(1.05), /[A-Za-z\u0400-\u04FF]/);
 });
 
+test("parseSettings snaps voiceSpeed to the 0.05 step (rounded to 2 decimals) and resets out-of-range values", () => {
+  const cases: ReadonlyArray<readonly [unknown, number, string]> = [
+    [1.03, 1.05, "1.05\u00d7"],
+    [0.82, 0.8, "0.8\u00d7"],
+    [1.299, 1.3, "1.3\u00d7"],
+    [0.875, 0.9, "0.9\u00d7"],
+    [0.79, DEFAULT_SETTINGS.voiceSpeed, "1.0\u00d7"],
+    [1.31, DEFAULT_SETTINGS.voiceSpeed, "1.0\u00d7"],
+    [-0.5, DEFAULT_SETTINGS.voiceSpeed, "1.0\u00d7"],
+    [Number.NaN, DEFAULT_SETTINGS.voiceSpeed, "1.0\u00d7"],
+  ];
+
+  for (const [input, expectedSpeed, expectedLabel] of cases) {
+    const parsed = parseSettings({ voiceSpeed: input });
+    assert.equal(parsed.voiceSpeed, expectedSpeed, inspect(input));
+    assert.equal(snapVoiceSpeed(input), expectedSpeed, inspect(input));
+    assert.equal(formatVoiceSpeed(parsed.voiceSpeed), expectedLabel, inspect(input));
+  }
+});
+
 test("createSettingsStore loads and saves through invoke and falls back to memory outside Tauri", async () => {
   const memoryStore = createSettingsStore(null);
   assert.deepEqual(await memoryStore.load(), DEFAULT_SETTINGS);
@@ -240,4 +263,64 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
   assert.deepEqual(calls[1].args, { settings: saved });
   assert.equal(saved.voiceSpeed, 1.2);
   assert.equal(saved.startWithWindows, true);
+});
+
+test("subscribeSettingsChanged refreshes store state without echoing save_settings", async () => {
+  assert.equal(SETTINGS_CHANGED_EVENT, "settings-changed");
+
+  const calls: Array<{ cmd: string; args?: Readonly<Record<string, unknown>> }> = [];
+  const store = createSettingsStore(async (cmd, args) => {
+    calls.push({ cmd, args });
+    return DEFAULT_SETTINGS;
+  });
+
+  let emitChanged: ((raw: unknown) => void) | null = null;
+  let unsubscribed = false;
+  const refreshed: Settings[] = [];
+
+  const stop = subscribeSettingsChanged(
+    store,
+    async (onChanged) => {
+      emitChanged = onChanged;
+      return () => {
+        unsubscribed = true;
+      };
+    },
+    (updated) => {
+      refreshed.push(updated);
+    },
+  );
+
+  await Promise.resolve();
+  assert.notEqual(emitChanged, null);
+
+  emitChanged!({
+    model: "thorough",
+    ptt: "toggle",
+    sound: "fun",
+    voiceSpeed: 1.03,
+    robotSize: "XL",
+    reduceMotion: true,
+    startWithWindows: true,
+  });
+
+  assert.equal(calls.length, 0);
+  assert.equal(refreshed.length, 1);
+  assert.deepEqual(refreshed[0], {
+    model: "thorough",
+    ptt: "toggle",
+    sound: "fun",
+    voiceSpeed: 1.05,
+    robotSize: "XL",
+    reduceMotion: true,
+    startWithWindows: true,
+  });
+  assert.deepEqual(store.get(), refreshed[0]);
+
+  stop();
+  assert.equal(unsubscribed, true);
+
+  emitChanged!(DEFAULT_SETTINGS);
+  assert.equal(refreshed.length, 1);
+  assert.equal(store.get().model, "thorough");
 });

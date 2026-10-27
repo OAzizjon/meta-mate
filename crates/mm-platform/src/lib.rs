@@ -23,5 +23,5 @@ pub use overlay::{Overlay, RobotPose, RobotState};
 pub use replay::{REPLAY_TARGET, ReplayBackend};
 pub use screen_capture::ScreenCapture;
 pub use target::TargetWindow;
-pub use ui_snapshot::{UiElement, UiSnapshot, is_interactive_type};
+pub use ui_snapshot::{UiElement, UiSnapshot, is_interactive_type, same_hidden};
 pub use ui_tree::UiTree;

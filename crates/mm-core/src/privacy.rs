@@ -97,7 +97,7 @@ pub fn password_like(
 /// buying, ordering, deleting, moving money. ASCII stems match at the start of a word
 /// ("Pay now", "btnDelete", never "Voice Recorder"); Cyrillic stems match anywhere,
 /// because Russian puts prefixes in front of them ("предоплата", "покупка").
-const FORBIDDEN_STEMS: [&str; 31] = [
+const FORBIDDEN_STEMS: [&str; 52] = [
     "pay",
     "prepay",
     "repay",
@@ -116,6 +116,17 @@ const FORBIDDEN_STEMS: [&str; 31] = [
     "donate",
     "donation",
     "withdraw",
+    "subscribe",
+    "deposit",
+    "top up",
+    "topup",
+    "remit",
+    "erase",
+    "wipe",
+    "trash",
+    "reset",
+    "clear data",
+    "clear history",
     "оплат",
     "заплат",
     "платёж",
@@ -129,6 +140,16 @@ const FORBIDDEN_STEMS: [&str; 31] = [
     "перевести деньги",
     "отправить деньги",
     "пожертв",
+    "оформит",
+    "списа",
+    "перевест",
+    "вывест",
+    "пополн",
+    "подпис",
+    "стереть",
+    "уничтож",
+    "очист",
+    "сброс",
 ];
 
 /// Whether clicking a control labelled `name` could pay, buy, order, delete, move money or
@@ -227,6 +248,24 @@ mod tests {
             "Пожертвовать",
             "Show password",
             "Показать пароль",
+            "Subscribe",
+            "Top up",
+            "Deposit funds",
+            "Empty Trash",
+            "Erase all content",
+            "Wipe device",
+            "Reset this PC",
+            "Clear history",
+            "Оформить",
+            "Списать",
+            "Перевести 500 ₽",
+            "Вывести",
+            "Пополнить",
+            "Оформить подписку",
+            "Стереть всё",
+            "Уничтожить",
+            "Очистить историю",
+            "Сбросить",
         ] {
             assert!(forbidden(name, "Button"), "expected forbidden: {name}");
         }
@@ -255,6 +294,10 @@ mod tests {
             "Настройки",
             "Громкость",
             "Печать",
+            "Wireless display",
+            "Оформление",
+            "Список",
+            "Дополнительно",
         ] {
             assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
         }

@@ -19,7 +19,8 @@ use mm_core::api::response::{Action, ParsedResponse};
 use mm_core::geom::{PhysRect, ShotPoint};
 use mm_core::matescript::{Item, Say};
 use mm_core::teacher::{
-    ClickRecognizer, LineKey, RefusalReason, Teacher, TeacherCommand, TeacherConfig, TeacherInput,
+    ChordRecognizer, ClickRecognizer, LineKey, RefusalReason, Teacher, TeacherCommand,
+    TeacherConfig, TeacherInput,
 };
 use tauri::{AppHandle, Manager};
 use tokio::sync::mpsc;
@@ -40,10 +41,22 @@ const LESSON_LIMIT: Duration = Duration::from_secs(600);
 
 /// The locale key of a teacher line; None for a line that needs words the model gives
 /// (the step's own commentary says it).
-fn line_key(line: LineKey) -> Option<&'static str> {
+/// Praise for a step done, in turn: the same words after every click would sound canned.
+const PRAISE: [&str; 4] = [
+    "robot.right_click",
+    "robot.right_click_2",
+    "robot.right_click_3",
+    "robot.right_click_4",
+];
+
+fn line_key(line: LineKey, steps_done: &mut usize) -> Option<&'static str> {
     match line {
         LineKey::WrongPlace => Some("robot.wrong_place"),
-        LineKey::RightClick => Some("robot.right_click"),
+        LineKey::RightClick => {
+            let key = PRAISE[*steps_done % PRAISE.len()];
+            *steps_done += 1;
+            Some(key)
+        }
         LineKey::CantFind => Some("robot.cant_find"),
         LineKey::StepN => None,
         LineKey::Done => Some("robot.done"),
@@ -78,7 +91,10 @@ fn targets_for(look: &Look, response: &ParsedResponse) -> Vec<Option<PhysRect>> 
                 let &(x, y) = path.first()?;
                 look.snapshot.target_at(at(x, y)?)?.rect
             }
-            Action::Type { .. } | Action::Keypress { .. } | Action::Wait | Action::Screenshot => {
+            // No privacy-safe ValueChanged source exists yet. Refuse type steps
+            // even when the live keyboard subscription enables keypress steps.
+            Action::Type { .. } => None,
+            Action::Keypress { .. } | Action::Wait | Action::Screenshot => {
                 Some(look.snapshot.frame)
             }
             Action::Unknown { .. } => None,
@@ -122,6 +138,36 @@ fn listen_for_clicks(
     Some(Clicks { _hook: hook })
 }
 
+/// The lesson owns the subscription, so aborting its future disconnects the worker.
+struct Keys {
+    _subscription: crate::ptt::KeyTapGuard,
+}
+
+fn listen_for_keys(started: Instant, inputs: mpsc::UnboundedSender<TeacherInput>) -> Option<Keys> {
+    let (subscription, received) = crate::ptt::subscribe_keys()?;
+    std::thread::Builder::new()
+        .name("mm-keys".into())
+        .spawn(move || {
+            let mut recognizer = ChordRecognizer::new();
+            while let Ok(event) = received.recv() {
+                if event.at < started {
+                    continue;
+                }
+                let now_ms =
+                    u64::try_from(event.at.duration_since(started).as_millis()).unwrap_or(u64::MAX);
+                if let Some(input) = recognizer.key(event.vk, event.down, event.injected, now_ms)
+                    && inputs.send(input).is_err()
+                {
+                    return;
+                }
+            }
+        })
+        .ok()?;
+    Some(Keys {
+        _subscription: subscription,
+    })
+}
+
 /// Takes a look on a blocking thread (the same rules as a "where" question).
 async fn look(app: &AppHandle, generation: u64, own: Vec<isize>) -> Result<Look, LookFailure> {
     let looker = app.clone();
@@ -155,12 +201,12 @@ pub async fn teach(
     let mut current = match look(&app, generation, own.clone()).await {
         Ok(look) => Arc::new(look),
         Err(failure) => {
+            if stream.is_cancelled(generation) {
+                return;
+            }
             eprintln!("teacher: look: {failure}");
             say_line(&stream, &phrases, &locale, generation, failure.line());
-            stream.send(AnswerMsg::State {
-                generation,
-                state: "idle",
-            });
+            finish(&app, &stream, generation);
             return;
         }
     };
@@ -171,8 +217,13 @@ pub async fn teach(
         sent_width,
         sent_height,
     };
-    let mut teacher = Teacher::new(TeacherConfig::default());
     let (inputs, mut received) = mpsc::unbounded_channel();
+    let keys = listen_for_keys(started, inputs.clone());
+    let config = TeacherConfig {
+        keyboard_steps: keys.is_some(),
+        ..TeacherConfig::default()
+    };
+    let mut teacher = Teacher::new(config.clone());
     let Some(_clicks) = listen_for_clicks(started, inputs) else {
         // Without the hook no step could ever complete.
         say_line(&stream, &phrases, &locale, generation, "robot.cant_look");
@@ -187,6 +238,7 @@ pub async fn teach(
         &current.redacted.image,
     );
     let mut sentence = 0u64;
+    let mut steps_done = 0usize;
     // The model's first point is sometimes off its target (live: a slider drag that
     // started 80 px to its left). Instead of guessing, the first turn is asked once more
     // with a little more reasoning; a second miss is "I can't find it" (invariant 5).
@@ -253,7 +305,7 @@ pub async fn teach(
         });
         if first_turn && missed && !retried {
             retried = true;
-            teacher = Teacher::new(TeacherConfig::default());
+            teacher = Teacher::new(config.clone());
             session.effort = ReasoningEffort::Low;
             body = computer_request(
                 session.model,
@@ -269,8 +321,8 @@ pub async fn teach(
             pointing.set_shared(generation, Arc::clone(&current));
         }
         let mut progress = Instant::now();
-        // Clicks made before the current step was shown never complete it (invariant 4:
-        // an impatient second click must not confirm a step the person never saw).
+        // Clicks and chords from before the current step was shown never complete it
+        // (invariant 4: input must not confirm a step the person never saw).
         let mut pointed_ms = now();
         loop {
             #[cfg(debug_assertions)]
@@ -278,6 +330,8 @@ pub async fn teach(
                 eprintln!("teacher: commands {pending:?}");
             }
             let mut ended = false;
+            // The model's own last words ("All done!") make the cached "done" line a repeat.
+            let mut spoke = false;
             for command in std::mem::take(&mut pending) {
                 if cancelled() {
                     return;
@@ -286,6 +340,7 @@ pub async fn teach(
                     TeacherCommand::SpeakCommentary(text) => {
                         sentence += 1;
                         speak(&stream, &proxy, &locale, generation, sentence, text).await;
+                        spoke = true;
                     }
                     TeacherCommand::PointAt { rect, step, total } => {
                         progress = Instant::now();
@@ -303,6 +358,10 @@ pub async fn teach(
                             )
                             .is_some();
                         pointed_ms = now();
+                        if !shown {
+                            // The last step's ring would stay over whatever is there now.
+                            let _ = crate::highlight::clear(&app);
+                        }
                         if !true_picture {
                             pending.extend(
                                 teacher.input(TeacherInput::ScreenChangedUnexpectedly {
@@ -314,8 +373,9 @@ pub async fn teach(
                             ended = true;
                         }
                     }
+                    TeacherCommand::Say(LineKey::Done) if spoke => {}
                     TeacherCommand::Say(line) => {
-                        if let Some(key) = line_key(line) {
+                        if let Some(key) = line_key(line, &mut steps_done) {
                             say_line(&stream, &phrases, &locale, generation, key);
                         }
                     }
@@ -374,7 +434,9 @@ pub async fn teach(
                         return;
                     };
                     let stale = match &input {
-                        TeacherInput::Click { now_ms, .. } | TeacherInput::DoubleClick { now_ms, .. } => {
+                        TeacherInput::Click { now_ms, .. }
+                        | TeacherInput::DoubleClick { now_ms, .. }
+                        | TeacherInput::KeyChord { now_ms, .. } => {
                             *now_ms < pointed_ms
                         }
                         _ => false,
@@ -443,11 +505,32 @@ mod tests {
             LineKey::TooManyTurns,
             LineKey::WontPress,
         ] {
-            let key = line_key(line).unwrap();
+            let key = line_key(line, &mut 0).unwrap();
             let en: serde_json::Value =
                 serde_json::from_str(include_str!("../../locales/en.json")).unwrap();
             assert!(en.get(key).is_some(), "{key} missing");
         }
-        assert_eq!(line_key(LineKey::StepN), None);
+        assert_eq!(line_key(LineKey::StepN, &mut 0), None);
+    }
+
+    #[test]
+    fn praise_rotates_through_every_line_in_both_languages() {
+        let en: serde_json::Value =
+            serde_json::from_str(include_str!("../../locales/en.json")).unwrap();
+        let ru: serde_json::Value =
+            serde_json::from_str(include_str!("../../locales/ru.json")).unwrap();
+        let mut done = 0;
+        let said: Vec<_> = (0..5)
+            .map(|_| line_key(LineKey::RightClick, &mut done).unwrap())
+            .collect();
+        assert_eq!(said[0], "robot.right_click");
+        assert_eq!(said[4], "robot.right_click");
+        for key in &said[..4] {
+            assert!(
+                en.get(key).is_some() && ru.get(key).is_some(),
+                "{key} missing"
+            );
+        }
+        assert_eq!(done, 5);
     }
 }
