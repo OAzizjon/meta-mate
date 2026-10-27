@@ -43,7 +43,7 @@ pub struct Step {
 }
 
 /// An action that starts with the next sentence, or plays alone at answer end.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Bound {
     /// Play a sound alongside speech.
     Sfx(Sound),
@@ -55,6 +55,21 @@ pub enum Bound {
     Step(Step),
     /// Present a short text bubble.
     Show(String),
+}
+
+impl fmt::Debug for Bound {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Sfx(sound) => f.debug_tuple("Sfx").field(sound).finish(),
+            Self::Mood(mood) => f.debug_tuple("Mood").field(mood).finish(),
+            Self::Point(point) => f.debug_tuple("Point").field(point).finish(),
+            Self::Step(step) => f.debug_tuple("Step").field(step).finish(),
+            Self::Show(text) => f
+                .debug_struct("Show")
+                .field("chars", &text.chars().count())
+                .finish(),
+        }
+    }
 }
 
 /// One sentence and the actions that start with it.
@@ -95,6 +110,8 @@ pub enum Item {
     Pause(u32),
     /// Wait for a click on the current target or a spoken next command.
     Wait,
+    /// Clear the highlight and speak the localized "can't find" refusal here.
+    PointRejected,
     /// Finish playback of the answer.
     End,
     /// A rejected tag; debug metadata only, never sent to speech.

@@ -57,10 +57,15 @@ impl Parser {
         std::mem::take(&mut self.output)
     }
 
-    /// Flush remaining speech and unbound actions, dropping any partial tag.
+    /// Flush remaining speech and unbound actions, rejecting partial pointing tags.
     /// Repeated calls return no further items; EOF does not invent an end tag.
     pub fn finish(&mut self) -> Vec<Item> {
         if !self.finished {
+            if let State::Tag(raw, _) = std::mem::take(&mut self.state)
+                && (raw.starts_with("point") || raw.starts_with("step"))
+            {
+                self.rejected(&raw);
+            }
             self.flush();
             self.orphans();
             self.language();
@@ -104,7 +109,7 @@ impl Parser {
                 if ch == '>' {
                     self.tag(&raw);
                 } else if ch == '\n' || ch == '\r' || count + 1 >= 64 {
-                    self.diagnostic();
+                    self.rejected(&raw);
                     if ch == '\n' || ch == '\r' {
                         self.flush();
                     }
@@ -170,12 +175,7 @@ impl Parser {
                 }
                 self.output.push(item);
             }
-            None => {
-                if matches!(raw.split(' ').next(), Some("point" | "step")) {
-                    self.point_rejected = true;
-                }
-                self.diagnostic();
-            }
+            None => self.rejected(raw),
         }
     }
 
@@ -186,7 +186,15 @@ impl Parser {
         }
     }
 
-    fn diagnostic(&mut self) {
+    fn rejected(&mut self, raw: &str) {
+        if raw.starts_with("point") || raw.starts_with("step") {
+            self.point_rejected = true;
+            self.flush();
+            self.orphans();
+            self.language();
+            self.output.push(Item::PointRejected);
+            return;
+        }
         self.language();
         self.output.push(Item::BadTag);
     }

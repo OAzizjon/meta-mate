@@ -1,4 +1,4 @@
-use mm_core::matescript::{Bound, Item, Level, Mode, Parser, Point, Settings};
+use mm_core::matescript::{Bound, Item, Level, Mode, Parser, Point, Say, Settings};
 use proptest::prelude::*;
 
 fn settings(calm: bool) -> Settings {
@@ -91,12 +91,29 @@ fn speech(timeline: &[Item]) -> Vec<&str> {
         .collect()
 }
 
-// Render speech explicitly: production Say::Debug intentionally hides transcripts.
+fn golden_bound(bound: &Bound) -> String {
+    match bound {
+        Bound::Show(text) => format!("Show({text:?})"),
+        other => format!("{other:?}"),
+    }
+}
+
+// Render private text explicitly: production Debug intentionally hides it.
 fn golden(timeline: &[Item]) -> String {
     timeline
         .iter()
         .map(|item| match item {
-            Item::Say(say) => format!("Say#{} {:?} {:?}", say.id, say.text, say.bound),
+            Item::Say(say) => format!(
+                "Say#{} {:?} [{}]",
+                say.id,
+                say.text,
+                say.bound
+                    .iter()
+                    .map(golden_bound)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+            Item::Bound(bound) => format!("Bound({})", golden_bound(bound)),
             other => format!("{other:?}"),
         })
         .collect::<Vec<_>>()
@@ -331,7 +348,7 @@ fn validation_and_binding() {
     );
     assert_eq!(
         speech(&parse("hel<invented tag>lo <point e99>there<", false)),
-        ["hello there"]
+        ["hello", "there"]
     );
 }
 
@@ -378,8 +395,6 @@ fn refusal_and_numeric_failure_rules() {
     for input in [
         "<sfx zzzzzzz><mood zzzzzzz>Hi.",
         "<sfx ping solo extra>Hi.",
-        "<point 0,720>Hi.",
-        "<step 0/3 e4>Hi.",
         "<amb ocean>Hi.",
     ] {
         let timeline = parse(input, false);
@@ -391,5 +406,97 @@ fn refusal_and_numeric_failure_rules() {
         fuzzy_mood.iter().any(
             |item| matches!(item, Item::Say(say) if say.bound == [Bound::Mood("happy".into())])
         )
+    );
+}
+
+#[test]
+fn rejected_points_preserve_timeline_order_across_chunks() {
+    let mut rejected = vec![
+        "<point e99>".to_string(),
+        "<point 9999,10>".to_string(),
+        "<point 0,720>".to_string(),
+        "<point\te12>".to_string(),
+        "<point>".to_string(),
+        "<pointless e12>".to_string(),
+        "<step 0/3 e4>".to_string(),
+        "<step 1/3 e99>".to_string(),
+        "<step\t1/3 e12>".to_string(),
+        "<point e12\nignored>".to_string(),
+        "<step 1/3\rignored>".to_string(),
+    ];
+    rejected.push(format!("<point {}>", "x".repeat(64)));
+    rejected.push(format!("<step {}>", "x".repeat(64)));
+    for tag in rejected {
+        // Rejection is a barrier even when the preceding speech has no punctuation.
+        for before in ["Save is here.", "Save is here"] {
+            let input = format!("<point e12>{before} {tag}And Print is here.");
+            let expected = vec![
+                Item::Lang("en".into()),
+                Item::Say(Say {
+                    id: 1,
+                    text: before.into(),
+                    bound: vec![Bound::Point(Point::Id("e12".into()))],
+                }),
+                Item::PointRejected,
+                Item::Say(Say {
+                    id: 2,
+                    text: "And Print is here.".into(),
+                    bound: vec![],
+                }),
+            ];
+            assert_eq!(parse(&input, false), expected, "{input:?}");
+            // Exercise every possible single split, including inside the rejected tag.
+            for split in 0..=input.len() {
+                let mut parser = Parser::new(settings(false));
+                let mut actual = parser.push(&input[..split]);
+                actual.extend(parser.push(&input[split..]));
+                actual.extend(parser.finish());
+                assert_eq!(actual, expected, "{input:?} split at {split}");
+                assert!(!parser.needs_point_refusal());
+            }
+        }
+        let input = format!("<point e12><mood happy>{tag}Next.");
+        let timeline = parse(&input, false);
+        assert_eq!(
+            timeline[..4],
+            [
+                Item::Lang("en".into()),
+                Item::Bound(Bound::Point(Point::Id("e12".into()))),
+                Item::Bound(Bound::Mood("happy".into())),
+                Item::PointRejected,
+            ]
+        );
+        assert!(matches!(&timeline[4], Item::Say(say) if say.bound.is_empty()));
+        assert_eq!(chunked(&input, &[1], false), timeline);
+
+        let mut parser = Parser::new(settings(false));
+        assert_eq!(
+            parser.push(&tag),
+            [Item::Lang("en".into()), Item::PointRejected]
+        );
+        parser.finish();
+        assert!(parser.needs_point_refusal(), "{tag:?}");
+    }
+    for tag in ["<point e12", "<step 1/3 e12"] {
+        let input = format!("<point e12>Save.{tag}");
+        let timeline = parse(&input, false);
+        assert_eq!(timeline.last(), Some(&Item::PointRejected));
+        assert_eq!(chunked(&input, &[1], false), timeline);
+    }
+}
+
+#[test]
+fn show_debug_hides_text_but_golden_preserves_it() {
+    let text = "私密🔒é";
+    let bound = Bound::Show(text.into());
+    assert_eq!(format!("{bound:?}"), "Show { chars: 4 }");
+    let timeline = parse(&format!("<show {text}>Hello.<show {text}>"), false);
+    let debug = format!("{timeline:?}");
+    assert!(!debug.contains(text));
+    assert!(!debug.contains("Hello."));
+    assert_eq!(debug.matches("Show { chars: 4 }").count(), 2);
+    assert_eq!(
+        golden(&timeline),
+        format!("Lang(\"en\")\nSay#1 \"Hello.\" [Show({text:?})]\nBound(Show({text:?}))")
     );
 }
