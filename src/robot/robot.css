@@ -1,0 +1,226 @@
+/* Mate's looks in motion (src/robot). Only transform and opacity animate. states.ts sets
+   data-state, data-mood and data-cheeks on .mate-svg; one-shot moves are Web Animations. */
+
+/* Positioned like the fixed beam layer before it, so Mate paints over his beam. */
+.mate-box {
+  position: relative;
+}
+
+.mate-svg {
+  display: block;
+}
+
+/* The beam's own layer covers the page; its user units are client CSS pixels. */
+.mate-beam-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* SVG groups turn around viewBox points (1px = 1 viewBox unit). Never put transform-origin on
+   the groups that use transform attributes (.mate-arms, .mate-aim, .mate-eyes). */
+.mate-body,
+.mate-layer-shadow,
+.mate-layer-aura,
+.mate-layer-arm-l,
+.mate-layer-arm-r {
+  transform-box: view-box;
+}
+
+.mate-body {
+  --mate-bob: -4px;
+  transform-origin: 110px 200px;
+  transition: transform 0.25s ease-out;
+}
+
+.mate-layer-shadow {
+  transform-origin: 112px 226px;
+}
+
+.mate-layer-aura {
+  opacity: 0.45;
+  transform-origin: 110px 96px;
+  transition:
+    opacity 0.3s ease-out,
+    transform 0.3s ease-out;
+}
+
+.mate-layer-arm-l {
+  transform-origin: 48px 120px;
+}
+
+.mate-layer-arm-r {
+  transform-origin: 172px 120px;
+}
+
+.mate-layer-cheeks {
+  transition: opacity 0.3s ease-out;
+}
+
+.mate-layer-cheeks ellipse {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.3s ease-out;
+}
+
+.mate-layer-z {
+  display: none;
+}
+
+/* Fun mode: a brighter glow and a bigger hover. */
+.mate-svg.is-fun .mate-body {
+  --mate-bob: -7px;
+}
+
+.mate-svg.is-fun .mate-layer-aura {
+  opacity: 0.6;
+}
+
+/* Cheeks follow the face (geometry.ts MOOD_FACES). */
+.mate-svg[data-cheeks="faded"] .mate-layer-cheeks {
+  opacity: 0.45;
+}
+
+.mate-svg[data-cheeks="puffed"] .mate-layer-cheeks ellipse {
+  transform: scale(1.15);
+}
+
+/* States (docs/robot.md). */
+.mate-svg[data-state="idle"] .mate-body {
+  animation: mate-bob 2.8s ease-in-out infinite;
+}
+
+.mate-svg[data-state="idle"] .mate-layer-shadow {
+  animation: mate-shadow 2.8s ease-in-out infinite;
+}
+
+.mate-svg[data-state="listening"] .mate-body {
+  transform: rotate(-4deg) scale(1.03);
+}
+
+.mate-svg[data-state="listening"] .mate-layer-aura {
+  opacity: 0.8;
+  transform: scale(1.12);
+}
+
+.mate-svg[data-state="thinking"] .mate-layer-aura {
+  animation: mate-pulse 1.6s ease-in-out infinite;
+}
+
+/* The voice sets the aura's opacity inline every frame. */
+.mate-svg[data-state="speaking"] .mate-layer-aura {
+  transition: opacity 0.08s linear;
+}
+
+.mate-svg[data-state="speaking"] .mate-layer-arm-l {
+  animation: mate-arm 0.9s ease-in-out infinite alternate;
+}
+
+.mate-svg[data-state="speaking"] .mate-layer-arm-r {
+  animation: mate-arm 0.9s ease-in-out infinite alternate-reverse;
+}
+
+.mate-svg[data-state="sleeping"] .mate-layer-aura {
+  opacity: 0;
+  transition-duration: 1.2s;
+}
+
+.mate-svg[data-state="sleeping"] .mate-layer-z {
+  display: inline;
+}
+
+.mate-svg[data-state="sleeping"] .mate-layer-z text {
+  animation: mate-z 2.4s ease-in-out infinite;
+}
+
+/* The beam (beam.ts). */
+.mate-beam {
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.mate-beam.is-on {
+  opacity: 0.95;
+}
+
+.mate-beam.is-on.is-waiting {
+  animation: mate-beam-wait 2s ease-in-out infinite;
+}
+
+/* Reduce motion (the setting or the OS; styles.css also stops everything for the OS one):
+   no loops and nothing moves, only fades remain. */
+.mate-svg.reduce-motion,
+.mate-svg.reduce-motion * {
+  animation: none !important;
+  transition-property: opacity !important;
+}
+
+.mate-svg.reduce-motion .mate-body {
+  transform: none;
+}
+
+@keyframes mate-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(var(--mate-bob));
+  }
+}
+
+@keyframes mate-shadow {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.92);
+  }
+}
+
+@keyframes mate-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes mate-arm {
+  from {
+    transform: rotate(-4deg);
+  }
+  to {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes mate-z {
+  0% {
+    opacity: 0;
+    transform: translate(0, 6px);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(6px, -12px);
+  }
+}
+
+@keyframes mate-beam-wait {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
