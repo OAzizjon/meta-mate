@@ -1,0 +1,30 @@
+[package]
+name = "metamate"
+description = "MetaMate desktop app: the Tauri shell that wires mm-core, mm-platform and mm-win32 together."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lib]
+# The `_lib` suffix keeps the lib name apart from the bin (cargo issue 8519 on Windows).
+name = "metamate_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4", features = [] }
+
+[dependencies]
+mm-core.workspace = true
+# D34: Tauri 2 only, never the 3.0 alpha.
+tauri = { version = "2.12.5", features = [] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+
+[target.'cfg(windows)'.dependencies]
+mm-win32 = { path = "../crates/mm-win32" }
+
+[features]
+# `tauri build` enables it; `cargo run --features custom-protocol` serves ../dist instead
+# of the Vite dev server.
+custom-protocol = ["tauri/custom-protocol"]

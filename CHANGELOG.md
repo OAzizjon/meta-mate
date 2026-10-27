@@ -15,9 +15,14 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - English and Russian locale files in `locales/en.json` and `locales/ru.json`, based on `docs/copy.md`, with a model-choice setting, plus `tools/tests/test_locales.py`.
 - `mm probe --reasoning EFFORT` for Muse Spark reasoning before answering; `minimal` reduces first-token latency from about 10 seconds to about 2 seconds, and `META_KEY` aliases the Meta API key.
 - Spike S4 Meta API replays in `fixtures/replay/`.
+- Responses API request builders and response parser in `crates/mm-core/src/api/`.
+- Teacher state machine in `crates/mm-core/src/teacher/`.
+- Proxy pure model and spending policy in `server/metamate_proxy/policy.py`.
+- Golden tests for the MateScript specification examples.
 
 ### Changed
 
+- Safety fixes from a deep review: model points are checked against the screenshot and the target, only the person's own left click confirms a step, screenshots enter requests only as `RedactedImage`, rejected points clear the highlight.
 - README status now says the hackathon build is in progress and Windows-only; Muse Wonder is an optional choice in settings.
 - Linux X11 support was cut, and the JustLog3 shutdown checklist in `docs/server.md` was extended (decisions D39-D42 in `docs/decisions.md`).
 - `mm test` now also runs Rust doctests; agent Rust builds run without sccache and incremental compilation.

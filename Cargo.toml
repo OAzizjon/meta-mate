@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/mm-core", "crates/mm-platform"]
+members = ["crates/mm-core", "crates/mm-platform", "crates/mm-win32", "src-tauri"]
+# Agents test the pure crates offline; the Windows layer and the app build on the lead's machine.
+default-members = ["crates/mm-core", "crates/mm-platform"]
 
 [workspace.package]
 version = "0.1.0"

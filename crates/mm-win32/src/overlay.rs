@@ -1,0 +1,90 @@
+//! Our windows on top of the user's app without ever taking focus (invariant 1):
+//! `WS_EX_NOACTIVATE` and `SWP_NOACTIVATE` everywhere, `SW_SHOWNOACTIVATE` to show.
+//! Never `WDA_EXCLUDEFROMCAPTURE` (Zoom and OBS must still show Mate): hiding for our own
+//! capture is a short `hide`.
+
+use mm_core::geom::PhysRect;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::{
+    GWL_EXSTYLE, GetWindowLongPtrW, HWND_TOPMOST, SW_HIDE, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos, ShowWindow,
+    WINDOW_EX_STYLE, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    WS_EX_TRANSPARENT,
+};
+
+/// Which of our windows: Mate himself takes the mouse (drag, right click) but never
+/// focus; the highlight lets every click through to the app underneath.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OverlayKind {
+    Robot,
+    Highlight,
+}
+
+impl OverlayKind {
+    /// The extended styles this kind adds to whatever the window already has.
+    pub fn ex_style(self) -> WINDOW_EX_STYLE {
+        let base = WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST;
+        match self {
+            Self::Robot => base,
+            Self::Highlight => base | WS_EX_LAYERED | WS_EX_TRANSPARENT,
+        }
+    }
+}
+
+/// The window's current extended style bits.
+pub fn ex_style(hwnd: HWND) -> WINDOW_EX_STYLE {
+    // SAFETY: reads a window long; an invalid handle returns 0.
+    WINDOW_EX_STYLE(unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32)
+}
+
+/// Adds the no-activate styles (keeping every bit already set: WebView2 and tao set
+/// their own) and makes the window topmost without activating it. Call it while the
+/// window is still hidden, before the first show.
+pub fn prepare(hwnd: HWND, kind: OverlayKind) -> windows::core::Result<()> {
+    let style = ex_style(hwnd) | kind.ex_style();
+    // SAFETY: writes the extended style of a window this process owns; the value only
+    // adds documented WS_EX bits to the existing ones.
+    unsafe { SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style.0 as isize) };
+    // SAFETY: plain handle and flags; SWP_FRAMECHANGED applies the new style and
+    // SWP_NOACTIVATE keeps the user's window in front of the keyboard.
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        )
+    }
+}
+
+/// Shows the window without activating it (never Tauri's `show`, which activates).
+pub fn show(hwnd: HWND) {
+    // SAFETY: plain handle and command; the return value is the previous visibility.
+    let _ = unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
+}
+
+/// Hides the window (for one capture frame, or to sleep in the tray).
+pub fn hide(hwnd: HWND) {
+    // SAFETY: plain handle and command.
+    let _ = unsafe { ShowWindow(hwnd, SW_HIDE) };
+}
+
+/// Moves and resizes the window to `rect` (physical pixels), topmost, without
+/// activating it: an open dropdown in the user's app stays open.
+pub fn place(hwnd: HWND, rect: PhysRect) -> windows::core::Result<()> {
+    // SAFETY: plain handle, coordinates and flags.
+    unsafe {
+        SetWindowPos(
+            hwnd,
+            Some(HWND_TOPMOST),
+            rect.left,
+            rect.top,
+            rect.right - rect.left,
+            rect.bottom - rect.top,
+            SWP_NOACTIVATE,
+        )
+    }
+}
