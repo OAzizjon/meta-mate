@@ -14,6 +14,8 @@ MODAL_TOKEN_SECRET
 # URL of the deployed TTS endpoint and the shared secret the proxy sends to it
 MMS_TTS_URL
 MMS_TTS_SECRET
+# Deploy time only: 1 keeps one Modal container warm (demo and judging days)
+MMS_TTS_WARM
 
 # MetaMate proxy (server side)
 PROXY_PUBLIC_URL

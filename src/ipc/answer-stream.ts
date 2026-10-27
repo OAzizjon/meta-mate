@@ -181,6 +181,36 @@ export type PlaybackReport =
   | "failed"
   | "trace";
 
+/** The target in Mate's window, CSS pixels, as `point_at` answers (null: not shown). */
+export interface MateRect {
+  readonly left: number;
+  readonly top: number;
+  readonly right: number;
+  readonly bottom: number;
+}
+
+/**
+ * Asks Rust to show `point` of answer `generation`: the highlight shines on it and Mate
+ * flies beside it. Null when it can't be shown, or outside Tauri.
+ */
+export async function pointAt(
+  generation: number,
+  point: unknown,
+  step: { readonly number: number; readonly total: number } | null,
+): Promise<MateRect | null> {
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const rect = await invoke<MateRect | null>("point_at", { generation, point, step });
+    const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+    if (rect && finite(rect.left) && finite(rect.top) && finite(rect.right) && finite(rect.bottom)) {
+      return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** Best effort: a report that cannot be delivered is dropped. */
 export async function reportPlayback(
   event: PlaybackReport,

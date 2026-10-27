@@ -6,11 +6,13 @@
 
 #![cfg(windows)]
 
+pub mod capture;
 pub mod dpi;
 pub mod focus;
 pub mod keyboard;
 pub mod monitors;
 pub mod overlay;
 pub mod uia;
+pub mod window;
 
 pub use windows::Win32::Foundation::HWND;

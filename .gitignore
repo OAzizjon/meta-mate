@@ -26,6 +26,7 @@ __pycache__/
 
 # The local proxy's per-run invite code (server/run_dev.py)
 /server/.dev-invite
+/server/.dev-tts.json
 
 # Drafting agents
 /.draft-input/

@@ -11,6 +11,47 @@ from text_norm import normalize
 
 
 class NormalizeTests(unittest.TestCase):
+    def test_russian_genitive_after_the_preposition(self):
+        cases = {
+            'Шаг 2 из 3': 'Шаг два из трёх',
+            'из 5': 'из пяти', 'из 21': 'из двадцати одного',
+            'ИЗ 4': 'ИЗ четырёх', 'из\n12': 'из двенадцати',
+            'из 0': 'из нуля', 'из 40': 'из сорока',
+            'из 100': 'из ста', 'из 125': 'из ста двадцати пяти',
+            'из 1000': 'из одной тысячи', 'из 2000': 'из двух тысяч',
+            'из 21000': 'из двадцати одной тысячи',
+            'из 0003': 'из трёх',
+            '3 из 5, 100': 'три из пяти, сто',
+            'эскиз 3': 'эскиз три', 'из, 3': 'из, три',
+            'из 3.50': 'из три запятая пять ноль',
+            'из 3%': 'из три процента',
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(normalize('ru', text), expected)
+
+    def test_abbreviations(self):
+        cases = [
+            ('ru', 'т.е.', 'то есть'), ('ru', 'т. е.', 'то есть'),
+            ('ru', 'т.к.', 'так как'), ('ru', 'т. к.', 'так как'),
+            ('ru', 'и т.д.', 'и так далее'), ('ru', 'и т. д.', 'и так далее'),
+            ('ru', 'и т.п.', 'и тому подобное'),
+            ('ru', 'и т. п.', 'и тому подобное'), ('ru', 'см.', 'смотрите'),
+            ('ru', 'Т. Е. из 3', 'то есть из трёх'),
+            ('ru', 'см. Settings: 100', 'смотрите Сеттингс, сто'),
+            ('ru', 'рит.е.', 'рит.е.'), ('ru', 'т.е.слово', 'т.е.слово'),
+            ('en', 'e.g.', 'for example'), ('en', 'e. g.', 'for example'),
+            ('en', 'i.e.', 'that is'), ('en', 'i. e.', 'that is'),
+            ('en', 'etc.', 'et cetera'), ('en', 'vs.', 'versus'),
+            ('en', 'E.G. 100 vs. 125, etc.',
+             'for example one hundred versus one hundred twenty-five, et cetera'),
+            ('en', '(i.e., 2)', 'that is, two'),
+            ('en', 'some.g.', 'some.g.'), ('en', 'e.g.example', 'e.g.example'),
+        ]
+        for lang, text, expected in cases:
+            with self.subTest(lang=lang, text=text):
+                self.assertEqual(normalize(lang, text), expected)
+
     def test_integers(self):
         cases = [
             (0, 'zero', 'ноль'), (7, 'seven', 'семь'), (11, 'eleven', 'одиннадцать'),

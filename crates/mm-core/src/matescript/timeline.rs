@@ -1,6 +1,6 @@
 use std::fmt;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Playback volume for a sound or ambience bed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -25,8 +25,9 @@ pub struct Sound {
     pub solo: bool,
 }
 
-/// A validated target in the current screenshot.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+/// A validated target in the current screenshot. Deserialized when the WebView hands it
+/// back to be shown (`point_at`): Rust resolves it again against its own look.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum Point {
     /// An element from the supplied candidate list.

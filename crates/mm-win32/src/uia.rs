@@ -70,10 +70,59 @@ impl UiaWalker {
     /// A snapshot of `hwnd`'s control view, pre-order, ids `e0`, `e1`, ... in walk
     /// order. Never reads control values (passwords stay where they are).
     pub fn snapshot(&self, hwnd: HWND, limits: WalkLimits) -> uiautomation::Result<UiSnapshot> {
+        let mut elements = Vec::new();
+        let truncated = self.walk(hwnd, &mut elements, limits)?;
+        let frame = elements
+            .first()
+            .and_then(|root: &UiElement| root.rect)
+            .unwrap_or(PhysRect {
+                left: 0,
+                top: 0,
+                right: 1,
+                bottom: 1,
+            });
+        Ok(UiSnapshot {
+            target: target_window(hwnd),
+            frame,
+            elements,
+            truncated,
+        })
+    }
+
+    /// The window and its owned popups (menus, dropdowns) as one snapshot of `region`, the
+    /// area that is captured: ids run on across the roots and the node budget is shared. A
+    /// popup that cannot be walked marks the snapshot truncated, so redaction fails closed.
+    pub fn snapshot_with_popups(
+        &self,
+        hwnd: HWND,
+        popups: &[HWND],
+        region: PhysRect,
+        limits: WalkLimits,
+    ) -> uiautomation::Result<UiSnapshot> {
+        let mut elements = Vec::new();
+        let mut truncated = self.walk(hwnd, &mut elements, limits)?;
+        for &popup in popups {
+            truncated |= self.walk(popup, &mut elements, limits).unwrap_or(true);
+        }
+        Ok(UiSnapshot {
+            target: target_window(hwnd),
+            frame: region,
+            elements,
+            truncated,
+        })
+    }
+
+    /// Walks `hwnd`'s control view onto `elements` (ids continue from its length); true when
+    /// the walk was cut short.
+    fn walk(
+        &self,
+        hwnd: HWND,
+        elements: &mut Vec<UiElement>,
+        limits: WalkLimits,
+    ) -> uiautomation::Result<bool> {
         let root = self
             .automation
             .element_from_handle_build_cache(Handle::from(hwnd), &self.cache)?;
-        let mut elements = Vec::new();
         let mut truncated = false;
         // (element, parent id, depth)
         let mut stack: Vec<(UIElement, Option<String>, usize)> = vec![(root, None, 0)];
@@ -121,21 +170,7 @@ impl UiaWalker {
                 stack.push((child, Some(id.clone()), depth + 1));
             }
         }
-        let frame = elements
-            .first()
-            .and_then(|root: &UiElement| root.rect)
-            .unwrap_or(PhysRect {
-                left: 0,
-                top: 0,
-                right: 1,
-                bottom: 1,
-            });
-        Ok(UiSnapshot {
-            target: target_window(hwnd),
-            frame,
-            elements,
-            truncated,
-        })
+        Ok(truncated)
     }
 }
 

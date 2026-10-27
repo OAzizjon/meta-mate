@@ -1,0 +1,236 @@
+{
+  "en": {
+    "robot.calm_mode": {
+      "file": "en/robot.calm_mode.wav",
+      "ms": 3888,
+      "text_sha256": "ca0d93ab79b72f473c5e8e7d9c9c99e95115666c585b7a17946bbe893d26c4a0"
+    },
+    "robot.cant_find": {
+      "file": "en/robot.cant_find.wav",
+      "ms": 3792,
+      "text_sha256": "f8083e7b060ba459b89519859247b4f9b2fa74dffe8b84cfb9cc8ec0d26b06c6"
+    },
+    "robot.do_it_for_me": {
+      "file": "en/robot.do_it_for_me.wav",
+      "ms": 2560,
+      "text_sha256": "80e7f36fb41000894270455645744c14627732dae5e48a53a595bfcc9a3658a6"
+    },
+    "robot.done": {
+      "file": "en/robot.done.wav",
+      "ms": 2048,
+      "text_sha256": "69959736ded0d85eedad53357b38dc8ce339171d887bd636a1df66445acda056"
+    },
+    "robot.found_it": {
+      "file": "en/robot.found_it.wav",
+      "ms": 2464,
+      "text_sha256": "a90ab43699e804ee4e07e4af8b8eab96c4bc0544b93c868d14f8ee2097302542"
+    },
+    "robot.fun_mode": {
+      "file": "en/robot.fun_mode.wav",
+      "ms": 2768,
+      "text_sha256": "65c54ee8f63a4fcd473016caf300e4adb2e67c8fbeb6f3b7942d28040c65c81f"
+    },
+    "robot.listening": {
+      "file": "en/robot.listening.wav",
+      "ms": 1744,
+      "text_sha256": "df033aa56e248523a133a35557fc815f64f8beb9af04188522a9f03f4623188f"
+    },
+    "robot.login_page": {
+      "file": "en/robot.login_page.wav",
+      "ms": 4096,
+      "text_sha256": "f59ba9e91fb1845d410fbb66bcbf9c72ed5443a79f9d40f1a99ec70af52848ac"
+    },
+    "robot.looking": {
+      "file": "en/robot.looking.wav",
+      "ms": 2928,
+      "text_sha256": "ee7e19bb72c73194271b6f003e81bb5c183e2ff8f2c1de067b5377ac776cddef"
+    },
+    "robot.network_error": {
+      "file": "en/robot.network_error.wav",
+      "ms": 3440,
+      "text_sha256": "bdb4f4e302ece810d0a4005014ad7fbbddbf92e10410c8f92b9d882e3d0d0877"
+    },
+    "robot.password_covered": {
+      "file": "en/robot.password_covered.wav",
+      "ms": 2928,
+      "text_sha256": "31846235c70110eae4d5c3087d78021c7a112570c282e2a3f6989be20b63ba2d"
+    },
+    "robot.private_window": {
+      "file": "en/robot.private_window.wav",
+      "ms": 4512,
+      "text_sha256": "9f268a4254716aa5811aba669de5685287a39dd2e34b79b3dba443e6895b2f0c"
+    },
+    "robot.protected_window": {
+      "file": "en/robot.protected_window.wav",
+      "ms": 3936,
+      "text_sha256": "f0af8da526315fca6ad660603d78a13751a9030b87021df26f8712a4f05a435e"
+    },
+    "robot.right_click": {
+      "file": "en/robot.right_click.wav",
+      "ms": 2176,
+      "text_sha256": "19c2948fc77c84ef00908cd12cb2becfb6961b15a90c1c72b6b1779dbcf505fd"
+    },
+    "robot.security_prompt": {
+      "file": "en/robot.security_prompt.wav",
+      "ms": 3184,
+      "text_sha256": "744e01d12ac2c5a118fcd697bce209659edb0888d9e454b057d254f28ac6f7d0"
+    },
+    "robot.sleep": {
+      "file": "en/robot.sleep.wav",
+      "ms": 2560,
+      "text_sha256": "41b7f6d4897492a68b8cc8b023aaddb2ad5b8740f79073e083a19fe6fa494f36"
+    },
+    "robot.thinking": {
+      "file": "en/robot.thinking.wav",
+      "ms": 1408,
+      "text_sha256": "a0e90b3995069d8a3d3391fc04ca18be14292b46d4261b83471d8af012e1690f"
+    },
+    "robot.thinking_2": {
+      "file": "en/robot.thinking_2.wav",
+      "ms": 928,
+      "text_sha256": "11607271291861e2ace182fc9caa96a7d2fc74e72a83b5d1c36a25c0874b4dd8"
+    },
+    "robot.thinking_3": {
+      "file": "en/robot.thinking_3.wav",
+      "ms": 1456,
+      "text_sha256": "1e59f968e4cf921181be104348303357db3637f2c1a80cf6b1bc6e84bb958941"
+    },
+    "robot.too_many_turns": {
+      "file": "en/robot.too_many_turns.wav",
+      "ms": 3472,
+      "text_sha256": "53c34dc7787eee786589bbe00de32fbbf21194d8bcb76bd7d0c71f34a8c5835b"
+    },
+    "robot.wake": {
+      "file": "en/robot.wake.wav",
+      "ms": 2048,
+      "text_sha256": "e05143a274fb7a7d487aa9b66e8b4430b0ae14d28ef26926d8de800c5a111735"
+    },
+    "robot.wont_press": {
+      "file": "en/robot.wont_press.wav",
+      "ms": 4304,
+      "text_sha256": "3d41aebc000540f31aeebfb6bddda424313b3752df3562cfe3ef01213ea94bed"
+    },
+    "robot.wrong_place": {
+      "file": "en/robot.wrong_place.wav",
+      "ms": 3056,
+      "text_sha256": "943441d80e09b96f318d853ced4ddee244d6abfbc08b158395e2ad5be10ef83d"
+    }
+  },
+  "ru": {
+    "robot.calm_mode": {
+      "file": "ru/robot.calm_mode.wav",
+      "ms": 2896,
+      "text_sha256": "ce488d5821fc00beaeb5552c0faea0a1d863700c3503b14ca0bbfdcff797bc1d"
+    },
+    "robot.cant_find": {
+      "file": "ru/robot.cant_find.wav",
+      "ms": 5264,
+      "text_sha256": "aeb36ac3f397e3823170540c54e36fcead2e025a7246822f60d40a927b85cc85"
+    },
+    "robot.do_it_for_me": {
+      "file": "ru/robot.do_it_for_me.wav",
+      "ms": 2752,
+      "text_sha256": "0c3f30eb3f8a09751b94fca589c5eac8745e726c4329ddd0c3fd6686364f1faa"
+    },
+    "robot.done": {
+      "file": "ru/robot.done.wav",
+      "ms": 1936,
+      "text_sha256": "721b992927e43ada92b1c6e832132c82b6e35f9524a171107e7ff35dc7899603"
+    },
+    "robot.found_it": {
+      "file": "ru/robot.found_it.wav",
+      "ms": 3296,
+      "text_sha256": "93de8cd52ae0dff19e447bb252606b9e809ae8a26b2edf3588f6cc651f8e8d42"
+    },
+    "robot.fun_mode": {
+      "file": "ru/robot.fun_mode.wav",
+      "ms": 2480,
+      "text_sha256": "e66a62f9cb067839ff1246cdb60154995e9e991e02124232fe513a30f1bb834c"
+    },
+    "robot.listening": {
+      "file": "ru/robot.listening.wav",
+      "ms": 1280,
+      "text_sha256": "d968d54523ef0b27464d4b32b862485077faa8e64b09bbe287c3734ee3d0e40a"
+    },
+    "robot.login_page": {
+      "file": "ru/robot.login_page.wav",
+      "ms": 4848,
+      "text_sha256": "94625c17430e6b35ba525e575061ee5bae1f131d08bda2e2f4a488ea0cac8b10"
+    },
+    "robot.looking": {
+      "file": "ru/robot.looking.wav",
+      "ms": 3440,
+      "text_sha256": "41fad39b3912a44d0d9c208b5f9b850f39a6fbd0cf148853463ab78ddc252932"
+    },
+    "robot.network_error": {
+      "file": "ru/robot.network_error.wav",
+      "ms": 3888,
+      "text_sha256": "80714454a91831de83823f7f3e112a8383e4c8d14dc721c14f480d9931c74163"
+    },
+    "robot.password_covered": {
+      "file": "ru/robot.password_covered.wav",
+      "ms": 3184,
+      "text_sha256": "31c0ee95ac627d757f55ebe24c40ea34e3f8fccdc18de2f369da41dd2a88d5c8"
+    },
+    "robot.private_window": {
+      "file": "ru/robot.private_window.wav",
+      "ms": 4224,
+      "text_sha256": "c4daead352eca854b91f110d524ab6c3e7617043eda2ba4a2283ce710cfef2c1"
+    },
+    "robot.protected_window": {
+      "file": "ru/robot.protected_window.wav",
+      "ms": 2752,
+      "text_sha256": "8f8079f52648bc4fe94843be49154b5e149d4af881b5e17fc0daf3de3ecec781"
+    },
+    "robot.right_click": {
+      "file": "ru/robot.right_click.wav",
+      "ms": 1968,
+      "text_sha256": "7db11b55be37e3933db773a2cba89eabdd0d673867a769863743509dd85ffa9f"
+    },
+    "robot.security_prompt": {
+      "file": "ru/robot.security_prompt.wav",
+      "ms": 3824,
+      "text_sha256": "db5ecf163242a55c90789fa676d114bea235c1a8b3666b6fd72c154af46b63f4"
+    },
+    "robot.sleep": {
+      "file": "ru/robot.sleep.wav",
+      "ms": 3552,
+      "text_sha256": "1737208205a6b6dd6936efe74e183cc4d6812f1e5e7c1ef28bd05fb6b4184911"
+    },
+    "robot.thinking": {
+      "file": "ru/robot.thinking.wav",
+      "ms": 1984,
+      "text_sha256": "7a431ae153775bb35b3d7386e8f259ffc4ed1466f6e9d549c1cbd60d050fc223"
+    },
+    "robot.thinking_2": {
+      "file": "ru/robot.thinking_2.wav",
+      "ms": 1312,
+      "text_sha256": "7f0add59ebc4e15f49ac82df14d1e7d150dec4efcd382ee8b903363aae7e3485"
+    },
+    "robot.thinking_3": {
+      "file": "ru/robot.thinking_3.wav",
+      "ms": 1120,
+      "text_sha256": "f8ba8d50d94b669596429ee8c45d9aec6b1144daac5d79df6cea4d02a38f55bb"
+    },
+    "robot.too_many_turns": {
+      "file": "ru/robot.too_many_turns.wav",
+      "ms": 3584,
+      "text_sha256": "6e8345479b9dffb97dd88ce8eec3457879e6acb029d9f81538dc608ffb6980e7"
+    },
+    "robot.wake": {
+      "file": "ru/robot.wake.wav",
+      "ms": 2320,
+      "text_sha256": "d91b7714e4518a88a63f0a0be70dbacf40ae1c41a0b73a2a5c612087255e4df8"
+    },
+    "robot.wont_press": {
+      "file": "ru/robot.wont_press.wav",
+      "ms": 4160,
+      "text_sha256": "4cf118e1de8c1aebac3dc3067fca9abe078e20f7ff2c364b580ecaa66b8aa628"
+    },
+    "robot.wrong_place": {
+      "file": "ru/robot.wrong_place.wav",
+      "ms": 2880,
+      "text_sha256": "d44910c0ba6f6e074932aff6aa75638ec31bb97bae825885a3f14794af3512f8"
+    }
+  }
+}

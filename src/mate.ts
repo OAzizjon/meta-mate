@@ -6,7 +6,7 @@
 import { createAudioEngine } from "./audio";
 import { getLocale, setLocale, t } from "./i18n";
 import type { LocaleCode } from "./i18n";
-import { decodePcm, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
+import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerMsg } from "./ipc/answer-stream";
 import { createTimelinePlayer } from "./player";
 import { isRobotMood, isRobotState, mountRobot } from "./robot";
@@ -141,7 +141,7 @@ async function createRouter(
   const player = createTimelinePlayer({
     robot,
     audio,
-    resolveTarget: () => null,
+    resolveTarget: (point, generation, step) => pointAt(generation, point, step),
     showBubble: (text) => bubble.show(text),
     onLine(line) {
       // The only line a timeline raises today; nothing speaks it here.

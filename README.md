@@ -88,6 +88,33 @@ Self-tests of the Windows layer: `metamate --s1-selftest` (overlay windows never
 
 Checks and tests: `./mm check` and `./mm test`.
 
+## Run it as a developer
+
+Start the development proxy and MMS-TTS server in one terminal:
+
+```powershell
+C:/mmw/py-proxy/Scripts/python.exe server/run_dev.py --tts        # or --tts-modal: MMS-TTS on a Modal GPU, after tts/deploy_modal.py
+```
+
+The proxy reads the configured Meta provider credentials, creates a development invite for the app, and listens on `127.0.0.1:8787`; with `--tts`, the MMS-TTS server listens on `127.0.0.1:8788`.
+
+In another terminal, build the WebView and run the app:
+
+```powershell
+npm run build
+cargo run -p metamate --features custom-protocol
+```
+
+Hold **Right Ctrl** and speak. To test the same answer path without the microphone, run `cargo run -p metamate --features custom-protocol -- --ask "question"`; it plays the answer and prints a JSON report with subscription, audio, answer, and playback details.
+
+The voice self-test streams a WAV file through speech recognition, the answer path, and speech synthesis:
+
+```powershell
+cargo run -p metamate --features custom-protocol -- --voice-selftest FILE.wav
+```
+
+It prints a JSON report with timings and sentence results, and writes each spoken sentence next to the input as `NAME.answer-N.wav` (NAME is the WAV without `.wav`). To inspect push-to-talk events without opening a window, run `cargo run -p metamate --features custom-protocol -- --ptt-probe`; it prints a prompt and each event with its elapsed time, then exits after 60 seconds.
+
 ## Status, roadmap, and privacy
 
 The hackathon build started at kickoff on October 26, 2026 and ends November 4, 2026. See the [day-by-day roadmap](docs/plan.md).

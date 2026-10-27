@@ -22,8 +22,16 @@ export interface TimelinePlayerOptions {
   readonly audio: PlayerAudio;
   /** `setLocale` from src/i18n; called only for an English or Russian answer. */
   readonly setLocale: (locale: LocaleCode) => unknown;
-  /** A validated target in client CSS pixels, or null when it can't be shown (then no beam). */
-  readonly resolveTarget: (point: Point) => CssRect | null | Promise<CssRect | null>;
+  /**
+   * Shows `point` of answer `generation` (with its guide step, if any) and returns it in this
+   * window's CSS pixels, or null when it can't be shown (then no beam). Rust resolves the
+   * point against its own look at the screen (src-tauri/src/pointing.rs).
+   */
+  readonly resolveTarget: (
+    point: Point,
+    generation: number,
+    step: { readonly number: number; readonly total: number } | null,
+  ) => CssRect | null | Promise<CssRect | null>;
   /** Shows a `<show>` bubble; null hides it. */
   readonly showBubble: (text: string | null) => void;
   /** A teacher line for the caller to speak; the timeline goes on once its promise settles. */
@@ -204,9 +212,12 @@ export class TimelinePlayer {
         if (isRobotMood(bound.value)) this.options.robot.setMood(bound.value);
         return false;
       case "point":
-        return this.aim(run, bound.value);
+        return this.aim(run, bound.value, null);
       case "step":
-        return this.aim(run, bound.value.target);
+        return this.aim(run, bound.value.target, {
+          number: bound.value.number,
+          total: bound.value.total,
+        });
       case "show":
         this.options.showBubble(bound.value);
         run.shown = true;
@@ -214,8 +225,12 @@ export class TimelinePlayer {
     }
   }
 
-  private async aim(run: Run, point: Point): Promise<boolean> {
-    const rect = await this.options.resolveTarget(point);
+  private async aim(
+    run: Run,
+    point: Point,
+    step: { readonly number: number; readonly total: number } | null,
+  ): Promise<boolean> {
+    const rect = await this.options.resolveTarget(point, run.generation, step);
     if (run.abort.signal.aborted) return false;
     this.options.robot.aimAt(rect);
     run.aimed = rect !== null;

@@ -4,6 +4,10 @@
 //! press cancels the answer still playing (barge-in). If the answer is slow to start, a
 //! cached "let me think" phrase covers the wait.
 //!
+//! A question about the screen ("where is", "how do I", "do it for me": D47) first gets
+//! one redacted look at the foreground window (screen.rs); the answer then points, and
+//! the WebView asks `point_at` (pointing.rs) when it reaches that sentence.
+//!
 //! For now it runs in development builds against `server/run_dev.py --tts`, whose
 //! per-run invite it reads; the installed app gets its proxy and invite with Day 6.
 
@@ -12,8 +16,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use mm_core::api::request::{ModelChoice, ReasoningEffort, chat_request};
-use mm_core::matescript::{Item, Parser, Settings};
+use mm_core::api::intent::{Intent, guess_intent};
+use mm_core::api::request::{ModelChoice, ReasoningEffort, chat_request, point_request};
+use mm_core::matescript::{Item, Mode, Parser, Settings};
 use mm_core::ptt::{PttEvent, PttSettings};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{Notify, mpsc};
@@ -21,6 +26,7 @@ use tokio::task::{AbortHandle, JoinHandle};
 
 use crate::answer_stream::{AnswerMsg, AnswerStream};
 use crate::mic::Microphone;
+use crate::pointing::{Pointing, stop_pointing};
 use crate::proxy::{CallKind, Proxy, ProxyError, Transcript};
 use crate::ptt::{self, PttDriver};
 
@@ -33,11 +39,18 @@ const ACK_AFTER: Duration = Duration::from_millis(700);
 const FRAME_QUEUE: usize = 800;
 /// MMS-TTS voices; another `<lang>` is spoken with the UI locale's voice.
 const VOICES: [&str; 2] = ["en", "ru"];
-/// The cached phrases (locales/*.json), taken in turn so Mate does not repeat himself.
-const ACK_KEYS: [&str; 3] = ["robot.thinking", "robot.thinking_2", "robot.thinking_3"];
+/// Phrases that cover the wait (locales/*.json): one of the first three in turn for a
+/// chat answer, so Mate does not repeat himself; the look line for the screen.
+const THINKING: [&str; 3] = ["robot.thinking", "robot.thinking_2", "robot.thinking_3"];
+const LOOKING: &str = "robot.looking";
+/// How long the beam stays after the answer played out.
+const POINT_LINGER: Duration = Duration::from_secs(3);
+/// The longest an answer may take to play out before its pointing is cleared anyway.
+const PLAY_LIMIT: Duration = Duration::from_secs(90);
 
-/// Cached phrase WAVs by voice and index into `ACK_KEYS`.
-type Phrases = Arc<Mutex<HashMap<(&'static str, usize), Vec<u8>>>>;
+/// Cached phrase WAVs by voice and locale key: the built ones (assets/phrases, `mm
+/// phrases build`) and, for a wait phrase missing there, one synthesized at startup.
+type Phrases = Arc<Mutex<HashMap<(&'static str, String), Vec<u8>>>>;
 
 /// Keeps the push-to-talk hook alive; dropping it stops the loop's input.
 pub struct VoiceLoop {
@@ -168,6 +181,12 @@ async fn run(app: AppHandle, proxy: Proxy, mut events: mpsc::UnboundedReceiver<P
     while let Some(event) = events.recv().await {
         match event {
             PttEvent::Start { generation } => {
+                if app
+                    .try_state::<Pointing>()
+                    .is_some_and(|pointing| pointing.generation().is_some())
+                {
+                    stop_pointing(&app);
+                }
                 if let Some(previous) = current.take() {
                     stream.send(AnswerMsg::Cancel {
                         generation: previous.generation,
@@ -273,6 +292,51 @@ async fn answer(
         return;
     }
     let locale = stream.locale();
+    // D47: the offline guess routes at once (a classifier call would cost ~2 s); a question
+    // about the screen gets one redacted look at the foreground window first.
+    let screen = !matches!(guess_intent(&question), Intent::Chat);
+    let (body, settings, wait_phrase) = if screen {
+        let own = own_windows(&app);
+        match tokio::task::spawn_blocking(move || crate::screen::take_look(&own)).await {
+            Ok(Ok(look)) => {
+                let body = point_request(
+                    ModelChoice::Quick,
+                    ReasoningEffort::Minimal,
+                    &question,
+                    &look.list,
+                    &look.redacted.image,
+                );
+                let settings = look.parser_settings(&locale, Mode::Calm);
+                if let Some(pointing) = app.try_state::<Pointing>() {
+                    pointing.set(generation, look);
+                }
+                (body, settings, LOOKING)
+            }
+            Ok(Err(failure)) => {
+                eprintln!("voice: look: {failure}");
+                say_line(&stream, &phrases, &locale, generation, failure.line());
+                stream.send(AnswerMsg::State {
+                    generation,
+                    state: "idle",
+                });
+                return;
+            }
+            Err(_) => return,
+        }
+    } else {
+        let body = chat_request(
+            ModelChoice::Quick,
+            ReasoningEffort::Minimal,
+            None,
+            &question,
+        );
+        let settings = Settings {
+            language: locale.clone(),
+            ..Settings::default()
+        };
+        let turn = usize::try_from(generation).unwrap_or(0) % THINKING.len();
+        (body, settings, THINKING[turn])
+    };
     // Plain references, so the three futures below can share them.
     let (stream, locale, phrases): (&AnswerStream, &str, &Phrases) = (&stream, &locale, &phrases);
     // Set by the first timeline item (or the answer's end): the cached phrase is too late then.
@@ -285,14 +349,7 @@ async fn answer(
             biased;
             () = first_item.notified() => {}
             () = tokio::time::sleep_until(ack_at) => {
-                let wav = phrases.lock().ok().and_then(|cached| {
-                    let voice = voice_of(locale);
-                    // This press's phrase, or any other one that is ready.
-                    let turn = usize::try_from(generation).unwrap_or(0);
-                    (0..ACK_KEYS.len())
-                        .find_map(|offset| cached.get(&(voice, (turn + offset) % ACK_KEYS.len())))
-                        .cloned()
-                });
+                let wav = phrase(phrases, locale, wait_phrase);
                 if let Some(wav) = wav.filter(|_| !started.load(Ordering::Acquire)) {
                     stream.send_wav(generation, 0, &wav);
                 }
@@ -311,10 +368,7 @@ async fn answer(
         }
     };
     let respond = async {
-        let mut parser = Parser::new(Settings {
-            language: locale.to_owned(),
-            ..Settings::default()
-        });
+        let mut parser = Parser::new(settings);
         let mut lang = locale.to_owned();
         let ended = &AtomicBool::new(false);
         let mut emit = move |items: Vec<Item>| {
@@ -340,12 +394,6 @@ async fn answer(
                 stream.send(AnswerMsg::Item { generation, item });
             }
         };
-        let body = chat_request(
-            ModelChoice::Quick,
-            ReasoningEffort::Minimal,
-            None,
-            &question,
-        );
         let result = proxy
             .respond(CallKind::Answer, &body, |delta| emit(parser.push(delta)))
             .await;
@@ -365,9 +413,55 @@ async fn answer(
         }
     };
     tokio::join!(ack, speak, respond);
+    if screen {
+        // The beam stays while the answer plays and a moment after, then Mate flies home.
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let stream = app.state::<AnswerStream>();
+            let asked = Instant::now();
+            while stream.reported("done", generation).is_none() && asked.elapsed() < PLAY_LIMIT {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+            tokio::time::sleep(POINT_LINGER).await;
+            let current = app.try_state::<Pointing>().and_then(|p| p.generation());
+            if current == Some(generation) {
+                stop_pointing(&app);
+            }
+        });
+    }
+}
+
+/// Our windows' handles (Mate, the highlight): never a target, hidden while capturing.
+fn own_windows(app: &AppHandle) -> Vec<isize> {
+    ["mate", "highlight"]
+        .into_iter()
+        .filter_map(|label| app.get_webview_window(label)?.hwnd().ok())
+        .map(|hwnd| hwnd.0 as isize)
+        .collect()
+}
+
+/// The cached phrase `key` in the UI locale's voice.
+fn phrase(phrases: &Phrases, locale: &str, key: &str) -> Option<Vec<u8>> {
+    let cached = phrases.lock().ok()?;
+    cached.get(&(voice_of(locale), key.to_owned())).cloned()
+}
+
+/// A line instead of an answer: shown in the bubble and, when it is cached, spoken.
+fn say_line(
+    stream: &AnswerStream,
+    phrases: &Phrases,
+    locale: &str,
+    generation: u64,
+    key: &'static str,
+) {
+    stream.send(AnswerMsg::Line { generation, key });
+    if let Some(wav) = phrase(phrases, locale, key) {
+        stream.send_wav(generation, 0, &wav);
+    }
 }
 
 fn failed(stream: &AnswerStream, generation: u64) {
+    // The phrases are not at hand here: the line shows in the bubble only.
     stream.send(AnswerMsg::Line {
         generation,
         key: "robot.network_error",
@@ -384,11 +478,19 @@ fn voice_of(locale: &str) -> &'static str {
 
 /// Synthesizes the cached phrase in both voices once, at startup.
 async fn cache_phrases(proxy: Proxy, phrases: Phrases) {
-    for (index, key) in ACK_KEYS.into_iter().enumerate() {
+    load_built_phrases(&phrases);
+    // Wait phrases the build does not have yet: synthesized once through the proxy.
+    for key in THINKING.into_iter().chain([LOOKING]) {
         for (voice, locale) in [
             ("en", include_str!("../../locales/en.json")),
             ("ru", include_str!("../../locales/ru.json")),
         ] {
+            let cached = phrases
+                .lock()
+                .is_ok_and(|cached| cached.contains_key(&(voice, key.to_owned())));
+            if cached {
+                continue;
+            }
             let text = serde_json::from_str::<serde_json::Value>(locale)
                 .ok()
                 .and_then(|strings| strings.get(key)?.as_str().map(str::to_owned));
@@ -396,10 +498,41 @@ async fn cache_phrases(proxy: Proxy, phrases: Phrases) {
             match proxy.speak(voice, &text).await {
                 Ok(speech) => {
                     if let Ok(mut cached) = phrases.lock() {
-                        cached.insert((voice, index), speech.wav);
+                        cached.insert((voice, key.to_owned()), speech.wav);
                     }
                 }
                 Err(error) => eprintln!("voice: cached phrase: {error}"),
+            }
+        }
+    }
+}
+
+/// The phrases `mm phrases build` made (assets/phrases/manifest.json). Development builds
+/// read them from the source tree; the installer bundles them with Day 6.
+fn load_built_phrases(phrases: &Phrases) {
+    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/phrases");
+    let Ok(raw) = std::fs::read_to_string(base.join("manifest.json")) else {
+        return;
+    };
+    let Ok(manifest) = serde_json::from_str::<serde_json::Value>(&raw) else {
+        return;
+    };
+    let Ok(mut cached) = phrases.lock() else {
+        return;
+    };
+    for voice in VOICES {
+        let Some(entries) = manifest.get(voice).and_then(|entries| entries.as_object()) else {
+            continue;
+        };
+        for (key, entry) in entries {
+            let file = entry.get("file").and_then(|file| file.as_str());
+            // Only plain relative names inside the phrases folder.
+            let Some(file) = file.filter(|f| !f.contains("..") && !f.starts_with(['/', '\\']))
+            else {
+                continue;
+            };
+            if let Ok(wav) = std::fs::read(base.join(file)) {
+                cached.insert((voice, key.clone()), wav);
             }
         }
     }

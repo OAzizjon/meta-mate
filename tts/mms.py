@@ -28,6 +28,8 @@ else:
 
 # Language codes as MateScript's <lang> sends them (ISO 639-1) -> MMS checkpoints.
 CHECKPOINTS = {'en': 'facebook/mms-tts-eng', 'ru': 'facebook/mms-tts-rus'}
+# A GPU when there is one (Modal, tts/modal_app.py), else this machine's CPU.
+DEVICE = 'cuda' if getattr(getattr(torch, 'cuda', None), 'is_available', lambda: False)() else 'cpu'
 _loaded: dict[str, tuple[VitsModel, AutoTokenizer]] = {}
 
 
@@ -36,7 +38,7 @@ def load(lang: str) -> tuple[VitsModel, AutoTokenizer]:
         raise ValueError(f'no MMS-TTS checkpoint for {lang!r}')
     if lang not in _loaded:
         name = CHECKPOINTS[lang]
-        _loaded[lang] = (VitsModel.from_pretrained(name).eval(), AutoTokenizer.from_pretrained(name))
+        _loaded[lang] = (VitsModel.from_pretrained(name).to(DEVICE).eval(), AutoTokenizer.from_pretrained(name))
     return _loaded[lang]
 
 
@@ -47,8 +49,13 @@ def synthesize(lang: str, text: str) -> tuple[np.ndarray, int]:
         raise ValueError('nothing to say')
     model, tokenizer = load(lang)
     inputs = tokenizer(text, return_tensors='pt')
+    if DEVICE != 'cpu':
+        inputs = inputs.to(DEVICE)
     with torch.no_grad():
-        waveform = model(**inputs).waveform[0].numpy()
+        waveform = model(**inputs).waveform[0]
+    if DEVICE != 'cpu':
+        waveform = waveform.float().cpu()
+    waveform = waveform.numpy()
     return waveform.astype(np.float32), int(model.config.sampling_rate)
 
 

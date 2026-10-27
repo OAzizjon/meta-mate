@@ -39,11 +39,12 @@ Agent mode is enforced in code: without `.git` (agent copies), inside a draft-ag
 | `tools/` | `mm.py` CLI, `mm_checks.py`, `uia_dump.ps1`, `synth_cues.py` (cue sounds), `sounds_commons.py` (CC0/PD sounds: `--dry-run`, `--pin`), `tools/tests/` |
 | `assets/sounds/` | `src/{cues,sfx,amb}` sources → `cues/`, `sfx/`, `amb/` OGG; `LICENSES.md` row per file; `sources.json` Commons pins |
 | `assets/art/` | robot art: `src/*.svg|html` sources → rendered PNG |
-| `crates/` | `mm-core` (pure: geom, matescript, api request/response, teacher, shot, redaction, privacy), `mm-platform` (traits, mock/replay), `mm-win32` (the only Win32 crate: dpi, focus, monitors, overlay, uia) — layout in `docs/project-structure.md` |
-| `src-tauri/` | the Tauri 2 shell; `metamate --s1-selftest`, `--s1-control`, `--s3-selftest` run spikes S1/S3 unattended (build: `npm run build`, then `cargo build -p metamate --features custom-protocol`) |
-| `src/`, `mate.html`, `highlight.html`, `s3.html` | the WebView: `robot` (Mate's B1 SVG), `audio`, `i18n`; Node tests with `npm test` |
+| `crates/` | `mm-core` (pure: geom, matescript, api request/response/sse/intent, teacher, shot, redaction, privacy, ptt, mic, wav, placement, flight), `mm-platform` (traits, mock/replay), `mm-win32` (the only Win32 crate: dpi, focus, monitors, overlay, uia, keyboard, window, capture) — layout in `docs/project-structure.md` |
+| `src-tauri/` | the Tauri 2 shell: the voice loop (`voice.rs`, `proxy.rs`, `mic.rs`, `ptt.rs`, `answer_stream.rs`) and pointing (`screen.rs`, `pointing.rs`, `flight.rs`, `highlight.rs`). Flags: `--ask "question"`, `--voice-selftest FILE.wav`, `--ptt-probe`, `--look-probe`, `--s1-selftest`, `--s3-selftest` (build: `npm run build`, then `cargo build -p metamate --features custom-protocol`; dev stack: `server/run_dev.py --tts`) |
+| `src/`, `mate.html`, `highlight.html`, `s3.html` | the WebView: `robot` (Mate's B1 SVG), `audio`, `i18n`, `player` (MateScript timeline), `ipc` (answer stream), `highlight`; Node tests with `npm test` |
+| `assets/phrases/` | Mate's cached lines as WAV (`mm phrases build|check`; MMS-TTS, CC-BY-NC) |
 | `locales/` | `en.json`, `ru.json`: every user-facing string (invariant 7), checked by `tools/tests/test_locales.py` |
-| `server/` (from 10-31), `tts/` (from 10-27) | proxy + landing page; MMS-TTS service for Modal |
+| `server/`, `tts/` | the proxy (`metamate_proxy/`, `run_dev.py`); MMS-TTS (`mms.py`, `text_norm.py`, `serve_dev.py` locally, `modal_app.py` + `deploy_modal.py` on Modal) |
 | `fixtures/` | replay fixtures (UIA JSON + screenshots) for tests without a live desktop |
 
 ## Git

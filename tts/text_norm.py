@@ -26,6 +26,21 @@ _LETTERS = dict(zip('abdefghijklmnopqr stuvwxz'.replace(' ', ''),
                     ('а', 'б', 'д', 'е', 'ф', 'г', 'х', 'и', 'дж', 'к', 'л', 'м',
                      'н', 'о', 'п', 'к', 'р', 'с', 'т', 'у', 'в', 'в', 'кс', 'з')))
 _NUMBER = re.compile(r'[0-9]+(?:[.,][0-9]+)?(?:\s*%)?')
+_ABBREVIATIONS = {
+    'en': {r'e\.\s*g\.': 'for example', r'i\.\s*e\.': 'that is',
+           r'etc\.': 'et cetera', r'vs\.': 'versus'},
+    'ru': {r'т\.\s*е\.': 'то есть', r'т\.\s*к\.': 'так как',
+           r'и\s+т\.\s*д\.': 'и так далее',
+           r'и\s+т\.\s*п\.': 'и тому подобное', r'см\.': 'смотрите'},
+}
+_RU_GENITIVE = dict(zip(
+    _RU_SMALL + _RU_TENS[2:] + _RU_HUNDREDS[1:] + ['одна', 'две', 'тысяча', 'тысячи', 'тысяч'],
+    ('нуля одного двух трёх четырёх пяти шести семи восьми девяти десяти одиннадцати '
+     'двенадцати тринадцати четырнадцати пятнадцати шестнадцати семнадцати '
+     'восемнадцати девятнадцати двадцати тридцати сорока пятидесяти шестидесяти '
+     'семидесяти восьмидесяти девяноста ста двухсот трёхсот четырёхсот пятисот '
+     'шестисот семисот восьмисот девятисот одной двух тысячи тысяч тысяч').split(),
+))
 
 
 def _form(n: int, one: str, few: str, many: str) -> str:
@@ -64,6 +79,9 @@ def _number(lang: str, match: re.Match) -> str:
     small = _EN_SMALL if lang == 'en' else _RU_SMALL
     result = (_integer(lang, int(whole)) if len(whole) <= 6
               else ' '.join(small[int(digit)] for digit in whole))
+    if (lang == 'ru' and len(parts) == 1 and not percent
+            and re.search(r'\bиз\s+$', match.string[:match.start()], re.IGNORECASE)):
+        result = ' '.join(_RU_GENITIVE[word] for word in result.split())
     if len(parts) == 2:
         result += (' point ' if lang == 'en' else ' запятая ')
         result += ' '.join(small[int(digit)] for digit in parts[1])
@@ -107,7 +125,7 @@ def _word(lang: str, word: str) -> str:
 
 
 def normalize(lang: str, text: str) -> str:
-    """Expand numbers/symbols, then keep only the selected voice's alphabet.
+    """Expand abbreviations/numbers/symbols, then keep the voice's alphabet.
 
     Decimal fractions are spoken digit by digit, including trailing zeros.
     Integers above 999999 fall back to digit spelling. Unsupported marks become
@@ -115,6 +133,9 @@ def normalize(lang: str, text: str) -> str:
     """
     if lang not in ('en', 'ru'):
         raise ValueError(f'no MMS-TTS checkpoint for {lang!r}')
+    # Match raw dotted forms before number spacing or Latin transliteration.
+    for pattern, expansion in _ABBREVIATIONS[lang].items():
+        text = re.sub(r'(?<!\w)' + pattern + r'(?!\w)', expansion, text, flags=re.IGNORECASE)
     text = _NUMBER.sub(lambda match: _number(lang, match), text)
     symbols = {'+': ('plus', 'плюс'), '&': ('and', 'и'), '@': ('at', 'собака')}
     text = re.sub(r'[+&@]', lambda match: ' ' + symbols[match.group()][lang == 'ru'] + ' ', text)

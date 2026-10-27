@@ -171,6 +171,11 @@ impl FrameTransform {
         self.region
     }
 
+    /// The size of the image sent to the model: its answers are pixels of this image.
+    pub fn sent_size(self) -> (u32, u32) {
+        (self.sent_width, self.sent_height)
+    }
+
     /// Like `shot_to_phys`, but a point outside the sent image (or not finite) is `None`
     /// instead of being clamped to the edge: a model's point off the screenshot is a
     /// guess, never a target (invariant 5).

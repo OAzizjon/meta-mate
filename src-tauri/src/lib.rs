@@ -11,13 +11,21 @@
 //! `server/run_dev.py --tts` is up.
 
 mod answer_stream;
+#[cfg(windows)]
+mod flight;
+#[cfg(windows)]
+mod highlight;
 mod mic;
 mod overlay;
+#[cfg(windows)]
+mod pointing;
 mod proxy;
 #[cfg(windows)]
 mod ptt;
 #[cfg(windows)]
 mod s3;
+#[cfg(windows)]
+mod screen;
 #[cfg(windows)]
 mod selftest;
 #[cfg(windows)]
@@ -29,6 +37,11 @@ pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     if let Some(code) = voice_selftest::run_if_requested(&args) {
         std::process::exit(code);
+    }
+    #[cfg(windows)]
+    if args.iter().any(|arg| arg == "--look-probe") {
+        println!("{}", screen::probe());
+        std::process::exit(0);
     }
     #[cfg(windows)]
     if let Some(code) = ptt::probe_if_requested(&args) {
@@ -47,9 +60,11 @@ pub fn run() {
 
     let result = tauri::Builder::default()
         .manage(answer_stream::AnswerStream::default())
+        .manage(pointing::Pointing::default())
         .invoke_handler(tauri::generate_handler![
             answer_stream::subscribe_answer_stream,
-            answer_stream::report_playback
+            answer_stream::report_playback,
+            pointing::point_at
         ])
         .setup(move |app| {
             #[cfg(windows)]
@@ -69,6 +84,19 @@ pub fn run() {
             if selftest {
                 selftest::spawn(app.handle().clone(), overlays, before, per_monitor_v2);
                 return Ok(());
+            }
+            #[cfg(windows)]
+            {
+                use tauri::Manager;
+                // Mate flies beside a target (pointing.rs); the highlight window is shown
+                // once, empty: transparent, click-through, never activated (invariant 1).
+                let home = overlay::home(&mm_win32::monitors::monitors());
+                if let (Ok(mate), Some(home)) = (overlays.mate.hwnd(), home) {
+                    app.manage(flight::Flight::new(mate, home));
+                }
+                if let Ok(highlight) = overlays.highlight.hwnd() {
+                    mm_win32::overlay::show(highlight);
+                }
             }
             #[cfg(windows)]
             if let Some(question) = ask {

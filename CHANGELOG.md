@@ -31,7 +31,12 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - The WebView timeline player and its IPC parser (`src/player/`, `src/ipc/`).
 - The live voice loop (`src-tauri/src/voice.rs`): hold Right Ctrl, speak, release, and Mate answers aloud in his window, sentence by sentence, with a rotating "let me think" phrase while the answer starts; a new press interrupts him. Development builds run it against `server/run_dev.py --tts`.
 - `metamate --ask "question"` plays one answer in Mate's window and reports how it played, with no microphone (spike S7).
-- Text normalization for MMS-TTS (`tts/text_norm.py`): numbers, percent, key names and symbols become words; Latin words are transliterated for the Russian voice.
+- Text normalization for MMS-TTS (`tts/text_norm.py`): numbers, percent, key names and symbols become words; Latin words are transliterated for the Russian voice; Russian numbers after "из" take the genitive, and common abbreviations are spelled out.
+- "Where's the button?": a question about the screen gets one redacted look at the foreground window and its menus (`crates/mm-win32/src/window.rs`, `capture.rs`, `uia.rs`; `src-tauri/src/screen.rs`), and Mate flies beside the answer's target while the highlight window rings it, in time with his speech (`src-tauri/src/pointing.rs`, `flight.rs`, `highlight.rs`, `src/highlight.ts`).
+- Pure pieces for it in `crates/mm-core`: intent routing (`api/intent.rs`), Mate's placement beside a target (`placement.rs`) and his flight path (`flight.rs`).
+- Cached phrases: `mm phrases build|check` synthesizes Mate's short lines into `assets/phrases/` once; Mate speaks them at once (the wait phrase, "I can't see that here").
+- MMS-TTS on a Modal GPU (`tts/modal_app.py`) and its deploy script (`tts/deploy_modal.py`); `server/run_dev.py --tts-modal` uses it.
+- `metamate --look-probe` measures the foreground window's UI Automation tree.
 
 ### Changed
 

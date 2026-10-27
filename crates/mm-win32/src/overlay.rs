@@ -6,10 +6,10 @@
 use mm_core::geom::PhysRect;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{
-    GWL_EXSTYLE, GetWindowLongPtrW, HWND_TOPMOST, SW_HIDE, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    WINDOW_EX_STYLE, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
-    WS_EX_TRANSPARENT,
+    GWL_EXSTYLE, GetWindowLongPtrW, HWND_TOPMOST, SET_WINDOW_POS_FLAGS, SW_HIDE, SW_SHOWNOACTIVATE,
+    SWP_FRAMECHANGED, SWP_HIDEWINDOW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE,
+    SWP_NOZORDER, SWP_SHOWWINDOW, SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE,
+    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
 };
 
 /// Which of our windows: Mate himself takes the mouse (drag, right click) but never
@@ -95,4 +95,37 @@ pub fn place(hwnd: HWND, rect: PhysRect) -> windows::core::Result<()> {
             SWP_NOACTIVATE,
         )
     }
+}
+
+/// Hides the window for one capture frame (never `WDA_EXCLUDEFROMCAPTURE`, see above):
+/// no activation, no move, no z-order change.
+pub fn hide_for_capture(hwnd: HWND) {
+    set_shown_quietly(hwnd, SWP_HIDEWINDOW);
+}
+
+/// Shows the window again after the capture, still without activating it (invariant 1).
+pub fn show_after_capture(hwnd: HWND) {
+    set_shown_quietly(hwnd, SWP_SHOWWINDOW);
+}
+
+/// Hides or shows the window and changes nothing else.
+fn set_shown_quietly(hwnd: HWND, visibility: SET_WINDOW_POS_FLAGS) {
+    // SAFETY: plain handle and flags; SWP_NOZORDER ignores the missing insert-after
+    // handle and SWP_NOACTIVATE keeps the user's window in front of the keyboard.
+    let _ = unsafe {
+        SetWindowPos(
+            hwnd,
+            None,
+            0,
+            0,
+            0,
+            0,
+            visibility
+                | SWP_NOACTIVATE
+                | SWP_NOMOVE
+                | SWP_NOSIZE
+                | SWP_NOZORDER
+                | SWP_NOOWNERZORDER,
+        )
+    };
 }

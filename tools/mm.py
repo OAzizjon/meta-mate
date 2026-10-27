@@ -10,6 +10,7 @@
                                    fixtures/uia/NAME.json and NAME.png (record only the Demo user's windows)
     mm art [NAME ...]              render assets/art/src/*.html|*.svg to PNG with headless Edge
     mm sounds [check|normalize]    loudness-normalize assets/sounds/src with ffmpeg; every file needs a LICENSES.md line
+    mm phrases [build|check]       build or verify cached English and Russian MMS-TTS phrases
     mm agents [status|stats]       the drafting team's queue (team.py)
     mm keys SOURCE_DIR [--apply]   copy the keys named in env_keys_names.txt from another project's
                                    secrets file into this one; prints names only, never values
@@ -500,6 +501,17 @@ def cmd_sounds(args):
     return 1 if failed else 0
 
 
+def cmd_phrases(args):
+    sys.path.insert(0, str(TOOLS))
+    import phrases
+    argv = [args.action]
+    if args.action == 'build':
+        argv += ['--tts-python', args.tts_python]
+        if args.force:
+            argv.append('--force')
+    return phrases.main(argv)
+
+
 # --- agents ------------------------------------------------------------------
 
 def cmd_agents(args):
@@ -677,6 +689,10 @@ def build_parser():
     sp = sub.add_parser('sounds', help='check licences / normalize loudness')
     sp.add_argument('action', nargs='?', choices=('check', 'normalize'), default='check')
     sp.add_argument('--force', action='store_true', help='convert all sources even if outputs are up to date')
+    sp = sub.add_parser('phrases', help='build / check cached MMS-TTS phrases (lead only)')
+    sp.add_argument('action', nargs='?', choices=('build', 'check'), default='check')
+    sp.add_argument('--tts-python', default='C:/mmw/py-tts/Scripts/python.exe')
+    sp.add_argument('--force', action='store_true')
     sp = sub.add_parser('agents', help="the drafting team's queue")
     sp.add_argument('action', nargs='?', choices=('status', 'stats'), default='status')
     sp = sub.add_parser('keys', help='copy key values from another project (names printed only)')
@@ -702,7 +718,7 @@ def cmd_probe(args):
 COMMANDS = {
     'doctor': cmd_doctor, 'status': cmd_status, 'plan': cmd_plan, 'check': cmd_check, 'test': cmd_test,
     'uia': cmd_uia, 'art': cmd_art, 'sounds': cmd_sounds, 'agents': cmd_agents, 'keys': cmd_keys,
-    'agent': cmd_agent, 'probe': cmd_probe,
+    'agent': cmd_agent, 'probe': cmd_probe, 'phrases': cmd_phrases,
 }
 
 

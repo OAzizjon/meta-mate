@@ -13,6 +13,31 @@
 | Python 3.14 (`py`) | `mm` CLI and checks (standard library only) | already installed |
 | git, gh | Repository, releases | already installed |
 
+## Run the development stack
+
+From the repository root, start the proxy and MMS-TTS server in a terminal:
+
+```powershell
+C:/mmw/py-proxy/Scripts/python.exe server/run_dev.py --tts        # or --tts-modal: MMS-TTS on a Modal GPU, after tts/deploy_modal.py
+```
+
+The proxy reads the configured Meta provider credentials, generates an invite for this run, and listens on `127.0.0.1:8787`. With `--tts`, it also starts MMS-TTS on `127.0.0.1:8788`. Leave this terminal running.
+
+In a second terminal, build the WebView and launch MetaMate:
+
+```powershell
+npm run build
+cargo run -p metamate --features custom-protocol
+```
+
+Hold **Right Ctrl** and speak. Right Ctrl must be held alone; pressing another key during the hold cancels push-to-talk.
+
+For a microphone-free answer test, use `cargo run -p metamate --features custom-protocol -- --ask "question"`. It plays one answer and prints a JSON report with subscription, audio, answer, and playback details.
+
+To exercise the full voice path from a WAV file, run `cargo run -p metamate --features custom-protocol -- --voice-selftest FILE.wav`. It prints a JSON report with timings and sentence results and writes each spoken sentence next to the input as `NAME.answer-N.wav` (NAME is the WAV without `.wav`).
+
+To inspect push-to-talk without opening a window, run `cargo run -p metamate --features custom-protocol -- --ptt-probe`. It prints a prompt and each event with elapsed time, then exits after 60 seconds.
+
 ## Chosen helper tools (why each one earns its place)
 
 | Tool | What we use it for | Install |

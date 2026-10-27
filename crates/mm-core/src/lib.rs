@@ -3,9 +3,11 @@
 
 pub mod api;
 pub mod constants;
+pub mod flight;
 pub mod geom;
 pub mod matescript;
 pub mod mic;
+pub mod placement;
 pub mod privacy;
 pub mod ptt;
 pub mod redaction;

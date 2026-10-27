@@ -1,0 +1,94 @@
+/* Click-through highlight overlay (src/highlight.ts): a light beam from Mate, a soft glowing
+   ring around the target rectangle (1.5 s pulse), and a numeric step badge ("2 / 3"). Everything
+   fades out in 200 ms on `clear`. */
+
+#highlight {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+}
+
+.highlight-scene,
+#highlight-badge {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+  pointer-events: none;
+  user-select: none;
+}
+
+.highlight-scene.is-active,
+#highlight-badge.is-active {
+  opacity: 1;
+}
+
+.highlight-beam {
+  fill: #fff6c8;
+  fill-opacity: 0.38;
+}
+
+.highlight-ring {
+  animation: highlight-pulse 1.5s ease-in-out infinite;
+}
+
+.highlight-ring-glow {
+  fill: #fff6c8;
+  fill-opacity: 0.14;
+  stroke: #ffe08a;
+  stroke-width: 10px;
+  stroke-opacity: 0.45;
+}
+
+.highlight-ring-stroke {
+  fill: none;
+  stroke: #ffd23f;
+  stroke-width: 3px;
+}
+
+#highlight-badge {
+  position: fixed;
+  left: 0;
+  top: 0;
+  min-width: 48px;
+  height: 22px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  border: 2px solid #1f2a44;
+  background: #fffdf5;
+  color: #1f2a44;
+  font: 700 12px/1 "Segoe UI", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+#highlight-badge[hidden] {
+  display: none;
+}
+
+.reduce-motion .highlight-ring {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highlight-ring {
+    animation: none !important;
+  }
+}
+
+@keyframes highlight-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
