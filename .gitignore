@@ -24,6 +24,9 @@ __pycache__/
 /assets/sounds/raw/
 /assets/robot/concepts/raw/
 
+# The local proxy's per-run invite code (server/run_dev.py)
+/server/.dev-invite
+
 # Drafting agents
 /.draft-input/
 

@@ -21,6 +21,10 @@ PROXY_PUBLIC_URL
 PROXY_ADMIN_TOKEN
 # Daily spend cap in USD for all invite codes together
 PROXY_DAILY_BUDGET_USD
+# Invite codes and their tier: code:judge,code:tester (server only)
+PROXY_INVITE_CODES
+# USD per 1M tokens from the Billing page: spark_in,spark_out,wonder_in,wonder_out
+PROXY_PRICES
 
 # Fallbacks only (development, outages); the demo runs on Meta models
 OPENROUTER_KEY

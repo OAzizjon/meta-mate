@@ -4,7 +4,7 @@ Streams a WAV at real-time pace in 80 ms frames (as a microphone would), sends
 `endStream` when the "key is released", and measures what the user waits for: the time
 from `endStream` to the final transcript. Run with the proxy's venv (websockets):
 
-    C:/mmw/py-proxy/Scripts/python.exe server/asr_realtime_probe.py sample.wav
+    C:/mmw/py-proxy/Scripts/python.exe server/asr_realtime_probe.py sample.wav [--via http://127.0.0.1:8787]
 
 Protocol: dev.meta.ai/docs/speech-to-text (checked 2026-10-27). The key comes from the
 project's secrets file through tools/mm_probe.py and is sent only in the handshake frame.
@@ -28,12 +28,18 @@ MODEL = 'muse-voice-transcribe-1.0'
 FRAME_MS = 80
 
 
-async def run(path: Path) -> dict:
+async def run(path: Path, via: str | None = None) -> dict:
     with wave.open(str(path)) as w:
         if w.getnchannels() != 1 or w.getsampwidth() != 2 or w.getframerate() not in (16000, 24000):
             raise SystemExit('need mono 16-bit PCM at 16 or 24 kHz')
         rate, pcm = w.getframerate(), w.readframes(w.getnframes())
-    _, key, _ = mm_probe.provider_config('meta')
+    if via:
+        # Through the proxy: the invite code instead of the key (server/run_dev.py).
+        url = via.rstrip('/').replace('http', 'ws', 1) + '/v1/asr'
+        key = (ROOT / 'server' / '.dev-invite').read_text(encoding='utf-8').strip()
+    else:
+        url = URL
+        _, key, _ = mm_probe.provider_config('meta')
     frame_bytes = rate * 2 * FRAME_MS // 1000
     handshake = {
         'authorization': {'accessToken': 'Bearer ' + key},
@@ -46,7 +52,7 @@ async def run(path: Path) -> dict:
     events: list[dict] = []
     first_partial_ms = None
     started = time.perf_counter()
-    async with websockets.connect(URL, max_size=2 ** 20) as ws:
+    async with websockets.connect(url, max_size=2 ** 20) as ws:
         await ws.send(json.dumps(handshake))
         ack = json.loads(await asyncio.wait_for(ws.recv(), 10))
         connected_ms = (time.perf_counter() - started) * 1000
@@ -88,10 +94,14 @@ async def run(path: Path) -> dict:
 
 
 def main() -> int:
-    if len(sys.argv) != 2:
+    args = sys.argv[1:]
+    via = None
+    if len(args) == 3 and args[1] == '--via':
+        via = args[2]
+    elif len(args) != 1:
         print(__doc__)
         return 2
-    report = asyncio.run(run(Path(sys.argv[1])))
+    report = asyncio.run(run(Path(args[0]), via))
     print(json.dumps(report, ensure_ascii=False))
     return 0
 
