@@ -28,6 +28,18 @@ Mate is male: Russian lines use the masculine forms (нашёл, показал)
 | Protected window | This window is protected. I can't see inside it. | Это окно защищено, я не вижу, что в нём. |
 | Security prompt | Please answer the Windows security window first. | Сначала ответьте в окне безопасности Windows. |
 
+## Do it for me
+
+Mate presses at most one button per spoken yes, never Pay, Delete, money transfers or passwords.
+
+| Locale key | English | Русский |
+|---|---|---|
+| `robot.do_it_for_me` | Should I press this button for you? Say yes or no. | Нажать эту кнопку за вас? Скажите «да» или «нет». |
+| `robot.pressing` | All right, pressing it now. | Хорошо, сейчас нажму. |
+| `robot.press_cancelled` | Of course. I won't press it. Take your time. | Конечно, не буду нажимать. Не спешите. |
+| `robot.press_failed` | I couldn't press it safely. Please press it yourself. | Не получилось нажать безопасно. Нажмите, пожалуйста, сами. |
+| `robot.wont_press` | I don't press Pay or Delete. I'll show you where it is. | «Оплатить» и «Удалить» я не нажимаю. Но покажу, где это. |
+
 ## Landing page: for the adult child who installs Mate
 
 Drafts by DeepSeek (job #404), edited; picked over oss (#403). Pick one on Day 6 (`edge.md` §4, move 16).

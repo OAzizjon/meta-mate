@@ -7,12 +7,20 @@ from datetime import date
 from enum import Enum
 import json
 from math import isfinite
+import re
 from typing import Mapping
 
 
 SPARK = "muse-spark-1.3"
 WONDER = "muse-wonder-1.0"
 ALLOWED_MODELS = {SPARK, WONDER}
+# The outline of the thing under one pixel (apps without a UI Automation tree): only a
+# point prompt on one PNG passes. Its price is not published and its usage reports zero
+# tokens (mm probe sam, 2026-10-28), so every call reserves a fixed, generous cost that is
+# never refunded, under its own daily cap per invite.
+SAM = "sam-3.1"
+SAM_CALL_USD = 0.02
+SAM_POINT = re.compile(r"<0f>1<\|point;x=(\d{1,4});y=(\d{1,4});w=(\d{1,4});h=(\d{1,4})\|>")
 # Reasoning counts as output (D41: ~100 tokens even at minimal, 356-570 for a computer
 # turn), so a cap below that ends the turn before any text: keep these generous.
 INTENT_CAP = 200
@@ -51,6 +59,7 @@ class CallKind(Enum):
     SPEECH = "speech"
     ANSWER = "answer"
     COMPUTER = "computer"
+    SAM = "sam"
 
 
 OUTPUT_CAPS = {
@@ -58,6 +67,7 @@ OUTPUT_CAPS = {
     CallKind.SPEECH: SPEECH_CAP,
     CallKind.ANSWER: ANSWER_CAP,
     CallKind.COMPUTER: COMPUTER_CAP,
+    CallKind.SAM: 0,
 }
 REQUEST_KEYS = {
     "model", "input", "instructions", "tools", "stream", "max_output_tokens",
@@ -247,8 +257,49 @@ def input_token_bound(body: dict, chain_depth: int = 0, previous_tokens: int = 0
     return FRAMING_TOKENS + text_bytes + _image_count(body) * IMAGE_TOKENS + previous
 
 
+def _png_size(url: str) -> tuple[int, int]:
+    png = base64.b64decode(url[len(PNG_PREFIX):], validate=True)
+    return int.from_bytes(png[16:20], "big"), int.from_bytes(png[20:24], "big")
+
+
+def clamp_sam(body: dict) -> dict:
+    """SAM's only shape: one user message with a point prompt inside one PNG of exactly
+    the prompt's size, streamed. Nothing else (instructions, tools, reasoning, history)."""
+    if not _depth(body):
+        raise ValueError("request nests too deeply")
+    if len(json.dumps(body).encode("utf-8")) > MAX_BODY_BYTES:
+        raise ValueError("request body too large")
+    if not set(body) <= {"model", "input", "stream"}:
+        raise ValueError("unexpected field in a segmentation request")
+    if body.get("model", SAM) != SAM or body.get("stream", True) is not True:
+        raise ValueError("a segmentation request is sam-3.1, streamed")
+    items = body.get("input")
+    if not isinstance(items, list) or len(items) != 1 or not isinstance(items[0], dict):
+        raise ValueError("a segmentation request has one message")
+    _check_message(items[0])
+    if items[0].get("type") != "message":
+        raise ValueError("a segmentation request has one message")
+    parts = items[0].get("content")
+    if not isinstance(parts, list) or [p.get("type") for p in parts] != ["input_text", "input_image"]:
+        raise ValueError("a segmentation request is a point prompt and one image")
+    check_images(body)
+    point = SAM_POINT.fullmatch(parts[0]["text"])
+    if point is None:
+        raise ValueError("the prompt must be one point")
+    x, y, width, height = map(int, point.groups())
+    if (width, height) != _png_size(parts[1]["image_url"]) or not (x < width and y < height):
+        raise ValueError("the point must lie in the image, whose size the prompt names")
+    message = {"type": "message", "role": "user", "content": [
+        {"type": "input_text", "text": parts[0]["text"]},
+        {"type": "input_image", "image_url": parts[1]["image_url"]},
+    ]}
+    return {"model": SAM, "input": [message], "stream": True}
+
+
 def clamp_request(body: dict, kind: CallKind, model_choice: str) -> dict:
     """Return an allowlisted request without modifying the client's body."""
+    if kind == CallKind.SAM:
+        return clamp_sam(body)
     if not _depth(body):
         raise ValueError("request nests too deeply")
     if len(json.dumps(body).encode("utf-8")) > MAX_BODY_BYTES:
@@ -318,6 +369,7 @@ class InviteLimits:
     daily_calls: int = 300
     asr_seconds: int = 1200
     tts_chars: int = 20_000
+    sam_calls: int = 60
 
     def __post_init__(self) -> None:
         _nonnegative(self.daily_usd, "daily_usd")
@@ -326,13 +378,14 @@ class InviteLimits:
         _tokens(self.daily_calls)
         _tokens(self.asr_seconds)
         _tokens(self.tts_chars)
+        _tokens(self.sam_calls)
 
 
 # Initial policy defaults, not provider pricing or a promise of unlimited judging.
 TESTER = InviteLimits(daily_usd=1.0, wonder_calls=5, wonder_usd=0.25, daily_calls=150,
-                      asr_seconds=600, tts_chars=10_000)
+                      asr_seconds=600, tts_chars=10_000, sam_calls=20)
 JUDGE = InviteLimits(daily_usd=5.0, wonder_calls=25, wonder_usd=2.0, daily_calls=400,
-                     asr_seconds=1800, tts_chars=30_000)
+                     asr_seconds=1800, tts_chars=30_000, sam_calls=60)
 
 
 @dataclass(frozen=True)
@@ -359,6 +412,7 @@ class DayTotals:
     wonder: dict[str, Totals] = field(default_factory=dict)
     asr_seconds: dict[str, float] = field(default_factory=dict)
     tts_chars: dict[str, int] = field(default_factory=dict)
+    sam: dict[str, Totals] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -438,12 +492,15 @@ class Ledger:
 def decide(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
            requested_model: str, estimated_cost: float, today: date) -> Decision:
     """Check projected spend; fallback uses the same conservative cost ceiling."""
-    _model(requested_model)
+    if requested_model != SAM:
+        _model(requested_model)
     _nonnegative(estimated_cost, "estimated_cost")
     day = ledger.days.get(today, DayTotals())
     own = day.invites.get(invite, Totals())
     if own.calls >= limits.daily_calls:
         return Decision(None, "invite_calls")
+    if requested_model == SAM and day.sam.get(invite, Totals()).calls >= limits.sam_calls:
+        return Decision(None, "sam_allowance")
     spent = own.usd
     if spent >= limits.daily_usd or spent + estimated_cost > limits.daily_usd:
         return Decision(None, "invite_budget")
@@ -475,6 +532,8 @@ def reserve(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
     counters = [day.overall, day.invites.setdefault(invite, Totals())]
     if decision.model == WONDER:
         counters.append(day.wonder.setdefault(invite, Totals()))
+    if decision.model == SAM:
+        counters.append(day.sam.setdefault(invite, Totals()))
     for total in counters:
         total.calls += 1
         total.usd += estimated_cost
@@ -496,6 +555,10 @@ def reconcile(ledger: Ledger, reservation: Reservation,
     if upstream_model is not None and upstream_model != reservation.model:
         del ledger._pending[id(reservation)]
         return "model_mismatch"
+    if reservation.model == SAM:
+        # No price and no token usage to settle against: the reservation is the cost.
+        del ledger._pending[id(reservation)]
+        return None
     if usage is not None:
         try:
             cost = actual_cost(reservation.model, usage, prices)

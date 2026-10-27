@@ -83,6 +83,7 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
         return Err(PlatformError::WindowNotFound);
     }
     let mut named = false;
+    let mut reached_window = false;
     for level in 0..=MAX_ANCESTORS {
         // Unknown fails closed, like the snapshot walker; a password box's inner text or
         // reveal icon counts as the box.
@@ -105,6 +106,7 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
         // The walk goes on through panes and documents (a "Delete file?" dialog's "Yes"
         // sits in one) and ends with the first window, whose title was just checked.
         if level > 0 && control_type == "Window" {
+            reached_window = true;
             break;
         }
         // A container's title names the page, not what the click does.
@@ -116,8 +118,9 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
         }
     }
     // An icon with no name anywhere below its container: what it does is unknown (a bin
-    // icon deletes), so Mate does not press it.
-    if !named {
+    // icon deletes), so Mate does not press it. A walk that never reached its window did
+    // not read the dialog's title ("Delete account?"): no press either.
+    if !named || !reached_window {
         return Err(PlatformError::SafetyBlocked);
     }
     Ok(())

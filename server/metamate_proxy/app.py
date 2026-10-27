@@ -262,9 +262,13 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
                 release()
                 return error(429, 'conversation too long')
         bound = policy.input_token_bound(clamped, depth, history)
-        # Reserve for the dearer of the requested model and the Spark it may fall back to.
-        estimate = max(policy.estimate_cost(model, bound, clamped['max_output_tokens'], settings.prices)
-                       for model in {clamped['model'], policy.SPARK})
+        output_cap = clamped.get('max_output_tokens', 0)
+        if kind == policy.CallKind.SAM:
+            estimate = policy.SAM_CALL_USD
+        else:
+            # Reserve for the dearer of the requested model and the Spark it may fall back to.
+            estimate = max(policy.estimate_cost(model, bound, output_cap, settings.prices)
+                           for model in {clamped['model'], policy.SPARK})
         try:
             reservation = policy.reserve(state.ledger, invite, limits, settings.budget,
                                          clamped['model'], estimate, today())
@@ -290,7 +294,7 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         def finished(response: dict) -> None:
             if response.get('id'):
                 state.owners.record(str(response['id']), invite, depth + 1, response.get('usage'),
-                                    bound + clamped['max_output_tokens'])
+                                    bound + output_cap)
 
         if not forward.get('stream'):
             usage, model = None, None

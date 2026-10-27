@@ -1,0 +1,48 @@
+{
+ "provider": "meta",
+ "model": "sam-3.1",
+ "kind": "sam",
+ "total_ms": 82374,
+ "first_ms": 82276,
+ "request": {
+  "model": "sam-3.1",
+  "stream": true,
+  "input": [
+   {
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "<0f>1<|point;x=895;y=38;w=1280;h=800|>"
+     },
+     {
+      "type": "input_image",
+      "image_path": "fixtures/uia/synthetic-text-size.png",
+      "sent_size": [
+       1280,
+       800
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "answer_chars": 123,
+ "answer_head": "<0f>1<|box;x1=849;y1=20;x2=940;y2=56;w=1280;h=800|><|mask;x=0;y=0;data=37,92,!!!!!CLByL98=i-c6q[]{soN+_&U6e!DIOsJ5Whg%!!|>\n",
+ "status": "completed",
+ "usage": {
+  "images_processed": 1,
+  "input_tokens": 0,
+  "input_tokens_details": {
+   "cached_tokens": 0
+  },
+  "output_tokens": 0,
+  "output_tokens_details": {
+   "reasoning_tokens": 0
+  },
+  "total_tokens": 0
+ },
+ "boxes": [
+  "box (849, 20)-(940, 56) of 1280x800, 92x37 px, point inside: True; center on e3 Button \"Search\" (interactive)"
+ ]
+}

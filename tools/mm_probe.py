@@ -648,6 +648,83 @@ def cmd_click(args) -> int:
     return 0
 
 
+SAM_MODEL = 'sam-3.1'
+SAM_BOX = re.compile(r'<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>')
+
+
+def cmd_sam(args) -> int:
+    """SAM 3.1 on a fixture: a point prompt at (x, y) in the PNG's pixels, the boxes it
+    returns (masks are not printed), and the element under each box's center. The image
+    goes as it is (no downscale): SAM answers in the sent image's pixels."""
+    fx = mm_fixture.load_fixture(ROOT, args.fixture)
+    reason = mm_fixture.unsafe_reason(fx)
+    if reason:
+        raise ProbeError(f'refused: {reason} (fail closed, invariant 3)')
+    for path in (fx.json_path, fx.png_path):
+        if not is_plain_file(path) or path.resolve().parent != (ROOT / 'fixtures' / 'uia').resolve():
+            raise ProbeError(f'refused: {path.name} is a link or lies outside fixtures/uia')
+    size = png_size(fx.png_path)
+    if size is None or size != (int(fx.shot_frame[2]), int(fx.shot_frame[3])):
+        raise ProbeError(f'refused: {fx.png_path.name} does not match its shot_frame')
+    width, height = size
+    if not (0 <= args.x < width and 0 <= args.y < height):
+        raise ProbeError(f'the point must lie inside the {width}x{height} image')
+    prompt = args.text or f'<0f>1<|point;x={args.x};y={args.y};w={width};h={height}|>'
+    _, key, base = provider_config(args.provider)
+    guard_budget(args.provider, args.budget, args.max_unpriced)
+    image = base64.b64encode(fx.png_path.read_bytes()).decode('ascii')
+    payload = {'model': args.model or SAM_MODEL, 'stream': True, 'input': [{
+        'type': 'message', 'role': 'user', 'content': [
+            {'type': 'input_text', 'text': prompt},
+            {'type': 'input_image', 'image_url': 'data:image/png;base64,' + image}]}]}
+    started = time.perf_counter()
+    text, final, t_first = [], None, None
+    try:
+        with _request(base + '/responses', key, payload, args.timeout, stream=True) as resp:
+            for event, data in iter_sse(resp):
+                try:
+                    message = json.loads(data)
+                except ValueError:
+                    continue
+                kind = event or message.get('type')
+                if kind == 'response.output_text.delta':
+                    t_first = t_first or time.perf_counter() - started
+                    text.append(str(message.get('delta', '')))
+                elif kind in ('response.completed', 'response.incomplete', 'response.failed'):
+                    final = message.get('response') or message
+                    break
+    except (OSError, http.client.HTTPException) as error:
+        raise ProbeError(f'connection lost while reading the answer ({type(error).__name__})') from None
+    total = time.perf_counter() - started
+    tokens = usage_tokens(final) if isinstance(final, dict) else (0, 0)
+    usd = cost_usd(payload['model'], *tokens, args.price, ((final or {}).get('usage') or {}).get('cost'))
+    ledger_add({'ts': time.time(), 'provider': args.provider, 'model': payload['model'], 'kind': 'sam',
+                'in': tokens[0], 'out': tokens[1], 'usd': usd})
+    answer = ''.join(text)
+    boxes = [tuple(map(int, m.groups())) for m in SAM_BOX.finditer(answer)]
+    print(f'{fx.name}: {width}x{height}, prompt {prompt!r}, status {(final or {}).get("status")}, '
+          f'{len(answer)} characters, {len(boxes)} box(es)')
+    lines = []
+    for x1, y1, x2, y2, w, h in boxes:
+        fmap = mm_fixture.FrameMap(fx.shot_frame, size)
+        px, py = fmap.to_phys((x1 + x2) / 2, (y1 + y2) / 2)
+        hit = mm_fixture.hit_test(fx, px, py)
+        line = (f'box ({x1}, {y1})-({x2}, {y2}) of {w}x{h}, {x2 - x1 + 1}x{y2 - y1 + 1} px, '
+                f'point inside: {x1 <= args.x <= x2 and y1 <= args.y <= y2}; center on {mm_fixture.describe(hit)}')
+        print(line)
+        lines.append(line)
+    report(payload['model'], t_first, total, tokens, usd)
+    sent = {**payload, 'input': [{'role': 'user', 'content': [
+        {'type': 'input_text', 'text': prompt},
+        {'type': 'input_image', 'image_path': fx.png_path.relative_to(ROOT).as_posix(), 'sent_size': list(size)}]}]}
+    path = record(fx.name, {'provider': args.provider, 'model': payload['model'], 'kind': 'sam',
+                            'total_ms': round(total * 1000), 'first_ms': round((t_first or 0) * 1000),
+                            'request': sent, 'answer_chars': len(answer), 'answer_head': answer[:400],
+                            'status': (final or {}).get('status'), 'usage': (final or {}).get('usage'), 'boxes': lines}, key)
+    print(f'recorded: {path.relative_to(ROOT).as_posix()}')
+    return 0
+
+
 def cmd_ledger(args) -> int:
     rows = []
     try:
@@ -699,6 +776,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument('audio')
     sp.add_argument('--mode', default='PUSH_TO_TALK', choices=('PUSH_TO_TALK', 'ENDPOINTING'))
     sp.set_defaults(func=cmd_asr)
+    sp = sub.add_parser('sam', parents=[common], help='SAM 3.1: a point prompt on a fixture, the boxes it returns')
+    sp.add_argument('fixture')
+    sp.add_argument('x', type=int, help='pixels of the fixture PNG')
+    sp.add_argument('y', type=int)
+    sp.add_argument('--text', help='a concept prompt instead of the point (e.g. "send button")')
+    sp.set_defaults(func=cmd_sam)
     sp = sub.add_parser('ledger')
     sp.set_defaults(func=cmd_ledger)
     return parser

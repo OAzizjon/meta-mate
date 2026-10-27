@@ -124,17 +124,49 @@ pub fn parse_yes_no(text: &str) -> Option<bool> {
             "ладно",
         ],
     );
-    if has_no(&words) {
+    if has_no(&words) || (yes && negated(&words)) {
         Some(false)
+    } else if doubtful(&words) {
+        // "да вряд ли", "yes maybe later": not a yes Mate may press on; he asks again.
+        None
     } else if yes {
-        Some(
-            !words
-                .iter()
-                .any(|word| matches!(*word, "not" | "never" | "не")),
-        )
+        Some(true)
     } else {
         None
     }
+}
+
+/// A negation anywhere ("не", "ни", "not", "never"): a yes with one is no yes.
+fn negated(words: &[&str]) -> bool {
+    words
+        .iter()
+        .any(|word| matches!(*word, "not" | "never" | "не" | "ни" | "никогда"))
+}
+
+/// Hesitation or a "later": not consent to press now.
+fn doubtful(words: &[&str]) -> bool {
+    contains_spoken(
+        words,
+        &[
+            "maybe",
+            "perhaps",
+            "later",
+            "not now",
+            "i dont know",
+            "not sure",
+            "hardly",
+            "вряд ли",
+            "может быть",
+            "наверное",
+            "потом",
+            "позже",
+            "не знаю",
+            "не уверен",
+            "не уверена",
+            "брось",
+            "да ладно",
+        ],
+    )
 }
 
 /// Recognize explicit delegation, without confusing a how-to question with consent.
@@ -142,9 +174,7 @@ pub fn asks_do_it(text: &str) -> bool {
     let lower = spoken_words(text);
     let words: Vec<_> = words(&lower).collect();
     !has_no(&words)
-        && !words
-            .iter()
-            .any(|word| matches!(*word, "not" | "never" | "не"))
+        && !negated(&words)
         && contains_spoken(
             &words,
             &[

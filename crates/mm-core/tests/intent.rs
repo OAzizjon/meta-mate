@@ -192,6 +192,11 @@ fn spoken_yes_no_covers_both_languages_and_negation_wins() {
         "maybe",
         "what button?",
         "не знаю",
+        "да вряд ли",
+        "да ладно тебе",
+        "yes, maybe later",
+        "ок, но потом",
+        "да брось",
     ] {
         assert_eq!(parse_yes_no(text), None, "{text}");
     }
@@ -240,6 +245,8 @@ fn delegation_requires_explicit_phrases_with_word_boundaries() {
         "wait, can you press it",
         "not do it for me",
         "never click it for me",
+        "ни за что не нажимай сам",
+        "ни в коем случае, нажми сам",
     ] {
         assert!(!asks_do_it(text), "{text}");
     }

@@ -25,16 +25,19 @@ from metamate_proxy.policy import (
     ALLOWED_MODELS, ANSWER_CAP, COMPUTER_CAP, FRAMING_TOKENS, IMAGE_TOKENS, INTENT_CAP,
     MAX_BODY_BYTES, MAX_IMAGES, PREVIOUS_TURN_TOKENS, SPEECH_CAP,
     Budget, CallKind, Decision, InviteLimits, JUDGE, Ledger, Prices, ResponseOwners,
-    SPARK, TESTER, WONDER, actual_cost, body_for, clamp_request, decide,
+    SAM, SAM_CALL_USD, SPARK, TESTER, WONDER, actual_cost, body_for, clamp_request, decide,
     input_token_bound, reconcile, reserve,
 )
+
+# The model-answer kinds; SAM has its own fixed shape (SamTests).
+TEXT_KINDS = [kind for kind in CallKind if kind != CallKind.SAM]
 
 
 class RequestTests(unittest.TestCase):
     def test_caps_and_model_forcing_for_every_kind(self):
         caps = (INTENT_CAP, SPEECH_CAP, ANSWER_CAP, COMPUTER_CAP)
         self.assertEqual(caps, (200, 300, 1200, 1200))
-        for kind, cap in zip(CallKind, caps):
+        for kind, cap in zip(TEXT_KINDS, caps):
             with self.subTest(kind=kind):
                 for requested in (None, 10, 10000):
                     body = {"model": "untrusted", "stream": True}
@@ -67,7 +70,7 @@ class RequestTests(unittest.TestCase):
         self.assertEqual(body, original)
 
     def test_effort_rules(self):
-        for kind in CallKind:
+        for kind in TEXT_KINDS:
             for effort in ("minimal", "low", "medium", "high", "none", None, []):
                 with self.subTest(kind=kind, effort=effort):
                     result = clamp_request({"reasoning": {"effort": effort}}, kind, SPARK)
@@ -89,7 +92,7 @@ class RequestTests(unittest.TestCase):
 
 
     def test_tools_are_only_the_computer_tool(self):
-        for kind in CallKind:
+        for kind in TEXT_KINDS:
             for tools in (None, [], [{"type": "web_search"}, {"type": "computer",
                                                                   "extra": True}]):
                 body = {} if tools is None else {"tools": tools}
@@ -453,3 +456,57 @@ class HardeningTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def sam_body(text="<0f>1<|point;x=0;y=0;w=1;h=1|>", **extra):
+    body = {"model": SAM, "stream": True, "input": [{"type": "message", "role": "user", "content": [
+        {"type": "input_text", "text": text}, {"type": "input_image", "image_url": TINY_PNG}]}]}
+    body.update(extra)
+    return body
+
+
+class SamTests(unittest.TestCase):
+    def test_only_a_point_prompt_on_one_png_passes(self):
+        result = clamp_request(sam_body(), CallKind.SAM, SPARK)
+        self.assertEqual(result, sam_body())
+        self.assertEqual(clamp_request({k: v for k, v in sam_body().items() if k != "model"},
+                                       CallKind.SAM, WONDER)["model"], SAM)
+
+    def test_everything_else_is_refused(self):
+        bad = [
+            sam_body(instructions="be helpful"), sam_body(reasoning={"effort": "low"}),
+            sam_body(tools=[{"type": "computer"}]), sam_body(previous_response_id="resp_1"),
+            sam_body(max_output_tokens=10), sam_body(model=SPARK), sam_body(stream=False),
+            sam_body(text="glasses"), sam_body(text="<0f>1<|point;x=1;y=0;w=1;h=1|>"),
+            sam_body(text="<0f>1<|point;x=0;y=0;w=2;h=1|>"),
+            sam_body(text="<0f>1<|point;x=0;y=0;w=1;h=1|>,2<|point;x=0;y=0;w=1;h=1|>"),
+            sam_body(text="<0f>1<|box;x1=0;y1=0;x2=0;y2=0;w=1;h=1|>"),
+        ]
+        two = sam_body()
+        two["input"][0]["content"].append({"type": "input_image", "image_url": TINY_PNG})
+        jpeg = sam_body()
+        jpeg["input"][0]["content"][1]["image_url"] = "data:image/jpeg;base64,AAAA"
+        system = sam_body()
+        system["input"][0]["role"] = "system"
+        bad += [two, jpeg, system, sam_body(input=[]), sam_body(input="hi")]
+        for body in bad:
+            with self.subTest(body=json.dumps(body)[:120]), self.assertRaises(ValueError):
+                clamp_request(body, CallKind.SAM, SPARK)
+
+    def test_a_daily_cap_and_a_reservation_that_is_never_refunded(self):
+        ledger, day = Ledger(), date(2026, 10, 28)
+        limits = InviteLimits(daily_usd=1.0, wonder_calls=0, wonder_usd=0.0, sam_calls=2)
+        budget = Budget(daily_usd=100.0)
+        prices = Prices(spark_input=1.0, spark_output=1.0, wonder_input=1.0, wonder_output=1.0)
+        for _ in range(2):
+            reservation = reserve(ledger, "inv", limits, budget, SAM, SAM_CALL_USD, day)
+            self.assertEqual(reservation.model, SAM)
+            reconcile(ledger, reservation, {"input_tokens": 0, "output_tokens": 0}, prices)
+        totals = ledger.days[day]
+        self.assertEqual(totals.sam["inv"].calls, 2)
+        self.assertAlmostEqual(totals.invites["inv"].usd, 2 * SAM_CALL_USD)
+        self.assertEqual(decide(ledger, "inv", limits, budget, SAM, SAM_CALL_USD, day),
+                         Decision(None, "sam_allowance"))
+        # Another invite still has its own allowance.
+        self.assertEqual(decide(ledger, "other", limits, budget, SAM, SAM_CALL_USD, day).model, SAM)
+        self.assertGreater(JUDGE.sam_calls, TESTER.sam_calls)

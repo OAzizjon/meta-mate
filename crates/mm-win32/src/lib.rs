@@ -16,5 +16,6 @@ pub mod mouse;
 pub mod overlay;
 pub mod uia;
 pub mod window;
+pub mod winevent;
 
 pub use windows::Win32::Foundation::HWND;

@@ -37,6 +37,15 @@ Screen: active window → UI Automation (UIA) + computer use → SAM 3.1 fallbac
 
 UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 3.1 can refine a visual target when accessibility data is missing. Mate clicks for you only when you say "do it for me" and confirm, and never on payments, deletions or passwords.
 
+## Safety and privacy
+
+- Mate's windows never take focus away from your app.
+- A screenshot is taken only during a question and includes only the app you are asking about and its popups. Password fields, gaps, and every other app's window are painted black before it leaves your computer; if this cannot be guaranteed, Mate fails closed.
+- Mate never presses Pay, Buy, Delete, money-transfer, or password actions.
+- Mate presses any other button only after you say yes, one button per yes.
+- If Mate cannot find something, he says "I can't find it" rather than pointing at a guess.
+- Provider keys live only on the proxy server, never in the app.
+
 ## Built with Meta
 
 | Meta model | Role in MetaMate |

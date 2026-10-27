@@ -46,6 +46,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - The settings store (`src-tauri/src/settings.rs`): `settings.json` written atomically, defaults when the file is broken.
 - "Do it for me" input (`crates/mm-win32/src/input.rs`): one confirmed left click, with an English and Russian blocklist of payment, delete and password actions (`privacy::forbidden`) and foreground-window and target-point checks.
 - Three more praise lines that rotate.
+- Teacher core support for offering a gated spoken-confirmation "Do it for me" action after two misses or on request, with one left click completing the current step (`crates/mm-core/src/teacher/`).
+- A tray menu and settings window with live settings updates, language-aware labels, answer model, TTS speed, motion, sound mode, and robot size (`src-tauri/src/lib.rs`, `src-tauri/src/settings.rs`, `src/settings/`).
+- Teacher keypress steps driven by events from the push-to-talk hook (`src-tauri/src/teacher.rs`, `crates/mm-core/src/teacher/keys.rs`).
 
 ### Changed
 
@@ -61,6 +64,12 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Review fixes in the voice path: the push-to-talk watchdog keeps polling while a press is pending and reinstalls a hook Windows removed; microphone sends never block a cancel; speech socket writes time out; proxy addresses are parsed and replies capped.
 - The teacher driver retries a failed model turn and refuses after a second failure, retries a first-turn miss once at low reasoning effort, speaks refusal and completion lines before the lesson ends, stops after three idle minutes or ten minutes in all with a sleepy line, ignores clicks made before a step was shown, re-checks the window before each pointing step, and enforces the turn budget before asking for another screenshot.
 - Barge-in cancels the old answer before clearing the ring; onboarding no longer re-enters; the architecture document describes per-monitor highlights and the teacher driver.
+- Screen looks mask everything outside the target app and its popups, then verify hidden windows and fields remain unchanged before using the capture (`src-tauri/src/screen.rs`, `crates/mm-core/src/redaction.rs`).
+- "Do it for me" privacy checks now inspect control ancestors and metadata, reject unnamed controls, and cover more English and Russian password and action terms (`crates/mm-win32/src/input.rs`).
+- Teacher targets are refused when they touch painted areas; a failed first look ends idle so its line bubble stays visible (`src-tauri/src/teacher.rs`).
+- TTS speed is validated and passed through the proxy to MMS-TTS; the settings window snaps speed changes to 0.05 increments (`server/metamate_proxy/`, `src/settings/`).
+- Prompts put the answer first, avoid invented names, and treat black boxes as hidden content (`crates/mm-core/src/api/request.rs`).
+- Debug builds report the time spent in each part of a screen look (`src-tauri/src/screen.rs`).
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)
 

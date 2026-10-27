@@ -1,0 +1,48 @@
+{
+ "provider": "meta",
+ "model": "sam-3.1",
+ "kind": "sam",
+ "total_ms": 3302,
+ "first_ms": 1899,
+ "request": {
+  "model": "sam-3.1",
+  "stream": true,
+  "input": [
+   {
+    "role": "user",
+    "content": [
+     {
+      "type": "input_text",
+      "text": "<0f>1<|point;x=975;y=271;w=1280;h=800|>"
+     },
+     {
+      "type": "input_image",
+      "image_path": "fixtures/uia/synthetic-text-size.png",
+      "sent_size": [
+       1280,
+       800
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ "answer_chars": 118,
+ "answer_head": "<0f>1<|box;x1=960;y1=262;x2=979;y2=279;w=1280;h=800|><|mask;x=0;y=0;data=18,20,!!!!!=Ibc#]ML_U=MfppNL^#pBwK1yXpg$qj|>\n",
+ "status": "completed",
+ "usage": {
+  "images_processed": 1,
+  "input_tokens": 0,
+  "input_tokens_details": {
+   "cached_tokens": 0
+  },
+  "output_tokens": 0,
+  "output_tokens_details": {
+   "reasoning_tokens": 0
+  },
+  "total_tokens": 0
+ },
+ "boxes": [
+  "box (960, 262)-(979, 279) of 1280x800, 20x18 px, point inside: True; center on e11 RadioButton \"Large\" (interactive)"
+ ]
+}
