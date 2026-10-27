@@ -1,7 +1,10 @@
 use std::fmt;
 
+use serde::Serialize;
+
 /// Playback volume for a sound or ambience bed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Level {
     /// Quiet playback.
     Soft,
@@ -12,7 +15,7 @@ pub enum Level {
 }
 
 /// A validated sound effect.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Sound {
     /// Canonical sound library name.
     pub name: String,
@@ -23,7 +26,8 @@ pub struct Sound {
 }
 
 /// A validated target in the current screenshot.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum Point {
     /// An element from the supplied candidate list.
     Id(String),
@@ -32,7 +36,7 @@ pub enum Point {
 }
 
 /// One app-generated instruction in a guide.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Step {
     /// One-based step number.
     pub number: u32,
@@ -43,7 +47,8 @@ pub struct Step {
 }
 
 /// An action that starts with the next sentence, or plays alone at answer end.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum Bound {
     /// Play a sound alongside speech.
     Sfx(Sound),
@@ -73,7 +78,7 @@ impl fmt::Debug for Bound {
 }
 
 /// One sentence and the actions that start with it.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Serialize)]
 pub struct Say {
     /// Sequential sentence ID, starting at one.
     pub id: u64,
@@ -94,7 +99,10 @@ impl fmt::Debug for Say {
 }
 
 /// A single ordered playback timeline, including optional debug diagnostics.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Serialized for the WebView's timeline player as `{"kind": ..., "value": ...}`
+/// (`crates/mm-core/tests/snapshots/timeline_wire__wire_format.snap` is the reference).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum Item {
     /// Select the TTS language.
     Lang(String),

@@ -1,0 +1,16 @@
+---
+source: crates/mm-core/tests/timeline_wire.rs
+expression: "json.join(\"\\n\")"
+---
+{"kind":"lang","value":"en"}
+{"kind":"say","value":{"id":1,"text":"It's right here.","bound":[{"kind":"mood","value":"happy"},{"kind":"point","value":{"kind":"id","value":"e12"}},{"kind":"sfx","value":{"name":"ping","level":"soft","solo":false}}]}}
+{"kind":"say","value":{"id":2,"text":"Click it.","bound":[{"kind":"step","value":{"number":1,"total":2,"target":{"kind":"id","value":"e12"}}},{"kind":"show","value":"125%"}]}}
+{"kind":"wait"}
+{"kind":"pause","value":400}
+{"kind":"amb","value":{"name":"rain","level":"soft"}}
+{"kind":"sfx","value":{"name":"rimshot","level":"normal","solo":true}}
+{"kind":"point_rejected"}
+{"kind":"say","value":{"id":3,"text":"Then this.","bound":[]}}
+{"kind":"amb","value":{"name":null,"level":"soft"}}
+{"kind":"bound","value":{"kind":"mood","value":"proud"}}
+{"kind":"end"}
