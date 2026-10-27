@@ -1,17 +1,20 @@
 //! "How do I ...?" (docs/architecture.md section 3 B, docs/plan.md Day 5): computer use
 //! with the person as the hand. Muse Spark sees the redacted window and answers with a
-//! `computer_call`; we never execute it. `mm_core::teacher::Teacher` turns each turn into
+//! `computer_call`. `mm_core::teacher::Teacher` turns each turn into
 //! steps; Mate points at each step (pointing.rs) and waits for the person's own click
 //! (the mouse hook: injected clicks never count, invariant 4). After the last step a new
 //! look goes back to the model as the `computer_call_output`, with the safety checks the
 //! person's clicks confirmed, until the model says it is done (or the turn budget ends).
+//! An optional left click requires a separate spoken yes and verified injection.
 //!
 //! The lesson is one generation of the answer stream: commentary lines are sentences of
 //! its timeline, cached lines (wrong place, done) are spoken as sentence 0.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+use mm_core::api::intent::{asks_do_it, parse_yes_no};
 use mm_core::api::request::{
     ComputerSession, ModelChoice, ReasoningEffort, computer_followup, computer_request,
 };
@@ -23,8 +26,9 @@ use mm_core::teacher::{
     ChordRecognizer, ClickRecognizer, LineKey, RefusalReason, Teacher, TeacherCommand,
     TeacherConfig, TeacherInput,
 };
+use mm_platform::{HumanConfirmation, InputAction, InputInjector, MouseButton};
 use tauri::{AppHandle, Manager};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 use crate::answer_stream::{AnswerMsg, AnswerStream};
 use crate::pointing::{Pointing, show_target, stop_pointing};
@@ -39,6 +43,47 @@ const TICK: Duration = Duration::from_millis(100);
 const IDLE_LIMIT: Duration = Duration::from_secs(180);
 /// The longest a lesson may run at all: the mouse hook is system-wide.
 const LESSON_LIMIT: Duration = Duration::from_secs(600);
+const OFFER_LIMIT: Duration = Duration::from_secs(30);
+
+/// Recognized speech and a reply indicating whether the lesson consumed it.
+pub(crate) struct Words {
+    pub text: String,
+    pub taken: oneshot::Sender<bool>,
+}
+
+/// Check the whole snapshot ancestry, including the window's title, before offering.
+fn pressable(snapshot: &mm_platform::UiSnapshot, rect: PhysRect) -> bool {
+    if snapshot.truncated {
+        return false;
+    }
+    let Some(mut element) = snapshot.target_at(rect.center()) else {
+        return false;
+    };
+    let hidden = snapshot.hidden_ids();
+    let mut named = false;
+    for level in 0..snapshot.elements.len() {
+        if hidden.contains(&element.id)
+            || mm_core::privacy::forbidden(&element.name, &element.control_type)
+        {
+            return false;
+        }
+        if level == 0 || !["Window", "Pane", "Document"].contains(&element.control_type.as_str()) {
+            named |= !element.name.trim().is_empty();
+        }
+        if element.control_type == "Window" {
+            return named;
+        }
+        let Some(parent) = element
+            .parent
+            .as_deref()
+            .and_then(|id| snapshot.element(id))
+        else {
+            return false;
+        };
+        element = parent;
+    }
+    false // Missing windows and parent cycles fail closed.
+}
 
 /// The locale key of a teacher line; None for a line that needs words the model gives
 /// (the step's own commentary says it).
@@ -193,8 +238,12 @@ async fn look(app: &AppHandle, generation: u64, own: Vec<isize>) -> Result<Look,
 
 /// One lesson for `question`. Returns when the model says it is done, the teacher
 /// refuses or gives up, the person stays idle too long, or the task is aborted (a new
-/// press drops this future, its hook and its looks).
-pub async fn teach(
+/// unrelated question drops this future, its hook and its looks).
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the answer path's own state, handed over once"
+)]
+pub(crate) async fn teach(
     app: AppHandle,
     proxy: Proxy,
     phrases: Phrases,
@@ -202,6 +251,8 @@ pub async fn teach(
     question: String,
     locale: String,
     own: Vec<isize>,
+    mut words: mpsc::UnboundedReceiver<Words>,
+    speech_epoch: Arc<AtomicU64>,
 ) {
     let stream = app.state::<AnswerStream>();
     let started = Instant::now();
@@ -233,6 +284,7 @@ pub async fn teach(
     let (inputs, mut received) = mpsc::unbounded_channel();
     let keys = listen_for_keys(started, inputs.clone());
     let config = TeacherConfig {
+        do_it_for_me: true,
         keyboard_steps: keys.is_some(),
         ..TeacherConfig::default()
     };
@@ -259,6 +311,7 @@ pub async fn teach(
     let mut retried = false;
     let mut acknowledged: Vec<String> = Vec::new();
     let mut tick = tokio::time::interval(TICK);
+    let mut offered_at: Option<Instant> = None;
     'turns: loop {
         let cancelled = || stream.is_cancelled(generation);
         // One model turn on the current look. A failed turn (an error, a cut or unfinished
@@ -352,7 +405,16 @@ pub async fn teach(
                 match command {
                     TeacherCommand::SpeakCommentary(text) => {
                         sentence += 1;
-                        speak(&stream, &proxy, &locale, generation, sentence, text).await;
+                        speak(
+                            &stream,
+                            &proxy,
+                            &locale,
+                            generation,
+                            sentence,
+                            text,
+                            &speech_epoch,
+                        )
+                        .await;
                         spoke = true;
                     }
                     TeacherCommand::PointAt { rect, step, total } => {
@@ -392,12 +454,52 @@ pub async fn teach(
                             say_line(&stream, &phrases, &locale, generation, key);
                         }
                     }
-                    // "Do it for me" stays off (TeacherConfig::do_it_for_me is false) until
-                    // the spoken yes reaches the lesson: neither command is ever sent yet.
-                    TeacherCommand::OfferDoIt { .. } | TeacherCommand::PerformClick { .. } => {}
+                    TeacherCommand::OfferDoIt { rect } => {
+                        if pressable(&current.snapshot, rect) {
+                            say_line(&stream, &phrases, &locale, generation, "robot.do_it_for_me");
+                            offered_at = Some(Instant::now());
+                        } else {
+                            offered_at = None;
+                            pending.extend(
+                                teacher.input(TeacherInput::DoItUnavailable { now_ms: now() }),
+                            );
+                        }
+                    }
+                    TeacherCommand::PerformClick { at, rect } => {
+                        offered_at = None;
+                        let target = current.snapshot.target;
+                        let frame = current.window_frame;
+                        let allowed = pressable(&current.snapshot, rect);
+                        let ok = tokio::task::spawn_blocking(move || {
+                            if !allowed || !mm_win32::window::still_shown(target, frame) {
+                                eprintln!("teacher: confirmed click: target changed or blocked");
+                                return false;
+                            }
+                            let action = InputAction::Click {
+                                at,
+                                button: MouseButton::Left,
+                            };
+                            // This command can only follow the person's yes to the live offer.
+                            let confirmation =
+                                HumanConfirmation::given_by_user(target, action.clone());
+                            mm_win32::input::Win32Injector
+                                .execute_verified(target, &action, Some(confirmation))
+                                .map_err(|_| {
+                                    eprintln!("teacher: confirmed click: injection refused")
+                                })
+                                .is_ok()
+                        })
+                        .await
+                        .unwrap_or_else(|_| {
+                            eprintln!("teacher: confirmed click: worker failed");
+                            false
+                        });
+                        pending.extend(teacher.input(TeacherInput::DoItDone { ok, now_ms: now() }));
+                    }
                     TeacherCommand::AcknowledgeSafetyChecks(ids) => acknowledged = ids,
                     TeacherCommand::UseModel(model) => session.model = model,
                     TeacherCommand::RequestScreenshot => {
+                        offered_at = None;
                         let Some((response_id, Some(call_id))) = last_turn.clone() else {
                             finish(&app, &stream, generation);
                             return;
@@ -437,12 +539,43 @@ pub async fn teach(
                 finish(&app, &stream, generation);
                 return;
             }
+            // Process commands produced by an offer or injection before waiting again.
+            if !pending.is_empty() {
+                continue;
+            }
             if progress.elapsed() > IDLE_LIMIT || started.elapsed() > LESSON_LIMIT {
                 say_line(&stream, &phrases, &locale, generation, "robot.sleep");
                 finish(&app, &stream, generation);
                 return;
             }
             tokio::select! {
+                Some(words) = words.recv() => {
+                    if words.taken.is_closed() {
+                        continue;
+                    }
+                    expire_offer(&mut teacher, &mut offered_at, now());
+                    let input = if offered_at.is_some() {
+                        parse_yes_no(&words.text).map(|yes| TeacherInput::DoItAnswer {
+                            yes,
+                            now_ms: now(),
+                        })
+                    } else {
+                        None
+                    }.or_else(|| asks_do_it(&words.text).then(|| {
+                        TeacherInput::DoItRequested { now_ms: now() }
+                    }));
+                    let taken = input.is_some();
+                    // A superseded recognition task cannot authorize a click.
+                    if words.taken.send(taken).is_err() {
+                        continue;
+                    }
+                    if let Some(input) = input {
+                        if matches!(input, TeacherInput::DoItAnswer { .. }) {
+                            offered_at = None;
+                        }
+                        pending = teacher.input(input);
+                    }
+                }
                 input = received.recv() => {
                     let Some(input) = input else {
                         // The click thread is gone: no step can complete any more.
@@ -459,11 +592,34 @@ pub async fn teach(
                     };
                     if !stale {
                         pending = teacher.input(input);
+                        if pending.iter().any(|command| matches!(command,
+                            TeacherCommand::PointAt { .. }
+                            | TeacherCommand::RequestScreenshot
+                            | TeacherCommand::Say(LineKey::RightClick)
+                        )) {
+                            // A wrong click may re-point the same step while its offer is live.
+                            if !pending.iter().any(|command| {
+                                matches!(command, TeacherCommand::Say(LineKey::WrongPlace))
+                            }) {
+                                offered_at = None;
+                            }
+                        }
                     }
                 }
-                _ = tick.tick() => pending = teacher.input(TeacherInput::Tick { now_ms: now() }),
+                _ = tick.tick() => {
+                    expire_offer(&mut teacher, &mut offered_at, now());
+                    pending = teacher.input(TeacherInput::Tick { now_ms: now() });
+                }
             }
         }
+    }
+}
+
+fn expire_offer(teacher: &mut Teacher, offered_at: &mut Option<Instant>, now_ms: u64) {
+    if offered_at.is_some_and(|at| at.elapsed() >= OFFER_LIMIT) {
+        *offered_at = None;
+        // Reset Awaiting without speaking. A later explicit request can offer again.
+        let _ = teacher.input(TeacherInput::DoItUnavailable { now_ms });
     }
 }
 
@@ -475,7 +631,9 @@ async fn speak(
     generation: u64,
     id: u64,
     text: String,
+    speech_epoch: &AtomicU64,
 ) {
+    let epoch = speech_epoch.load(Ordering::Acquire);
     let say = Say {
         id,
         text: text.clone(),
@@ -486,7 +644,10 @@ async fn speak(
         item: Item::Say(say),
     });
     match proxy.speak(voice_of(locale), &text).await {
-        Ok(speech) => stream.send_wav(generation, id, &speech.wav),
+        Ok(speech) if speech_epoch.load(Ordering::Acquire) == epoch => {
+            stream.send_wav(generation, id, &speech.wav);
+        }
+        Ok(_) => stream.end_sentence(generation, id),
         Err(error) => {
             eprintln!("teacher: speech synthesis: {error}");
             stream.end_sentence(generation, id);
@@ -509,6 +670,74 @@ fn finish(app: &AppHandle, stream: &AnswerStream, generation: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn offer_snapshot() -> mm_platform::UiSnapshot {
+        let frame = PhysRect::new(0, 0, 100, 100).unwrap();
+        let element =
+            |id: &str, parent: Option<&str>, kind: &str, name: &str, rect| mm_platform::UiElement {
+                id: id.into(),
+                parent: parent.map(str::to_owned),
+                control_type: kind.into(),
+                name: name.into(),
+                rect: Some(rect),
+                interactive: kind == "Button",
+                enabled: true,
+                offscreen: false,
+                is_password: false,
+                password_like: false,
+            };
+        mm_platform::UiSnapshot {
+            target: mm_platform::TargetWindow {
+                handle: 1,
+                process_id: 1,
+            },
+            frame,
+            truncated: false,
+            elements: vec![
+                element("window", None, "Window", "Settings", frame),
+                element("pane", Some("window"), "Pane", "Options", frame),
+                element(
+                    "button",
+                    Some("pane"),
+                    "Button",
+                    "Open",
+                    PhysRect::new(10, 10, 30, 30).unwrap(),
+                ),
+            ],
+        }
+    }
+
+    #[test]
+    fn offers_check_forbidden_and_hidden_ancestors() {
+        let mut snapshot = offer_snapshot();
+        let rect = snapshot.elements[2].rect.unwrap();
+        assert!(pressable(&snapshot, rect));
+        snapshot.elements[0].name = "Delete file?".into();
+        assert!(!pressable(&snapshot, rect));
+        snapshot.elements[0].name = "Settings".into();
+        snapshot.elements[1].is_password = true;
+        assert!(!pressable(&snapshot, rect));
+    }
+
+    #[test]
+    fn container_names_do_not_identify_an_unnamed_button() {
+        let mut snapshot = offer_snapshot();
+        let rect = snapshot.elements[2].rect.unwrap();
+        snapshot.elements[2].name.clear();
+        assert!(!pressable(&snapshot, rect));
+        snapshot.elements[1].control_type = "Button".into();
+        assert!(pressable(&snapshot, rect));
+    }
+
+    #[test]
+    fn incomplete_and_cyclic_ancestry_fail_closed() {
+        let mut snapshot = offer_snapshot();
+        let rect = snapshot.elements[2].rect.unwrap();
+        snapshot.elements[1].parent = Some("missing".into());
+        assert!(!pressable(&snapshot, rect));
+        snapshot.elements[1].parent = Some("button".into());
+        assert!(!pressable(&snapshot, rect));
+    }
 
     #[test]
     fn every_line_the_teacher_says_has_a_locale_key_or_its_commentary() {

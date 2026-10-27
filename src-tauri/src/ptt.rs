@@ -14,7 +14,7 @@ use std::sync::{Arc, Mutex, Weak};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use mm_core::ptt::{Key, Ptt, PttEvent, PttInput, PttSettings};
+use mm_core::ptt::{Key, Mode, Ptt, PttEvent, PttInput, PttSettings, StopReason};
 use mm_win32::keyboard::{self, HookError, KeyEvent, KeyboardHook, RIGHT_CTRL};
 
 /// The longest wait between two wake-ups: the Tick and the ~30 Hz watchdog.
@@ -28,6 +28,18 @@ const REINSTALL_EVERY: Duration = Duration::from_secs(5);
 
 // Published only by a running driver; subscribers never keep the driver alive.
 static KEY_TAP: Mutex<Weak<KeyTap>> = Mutex::new(Weak::new());
+static TOGGLE_MODE: AtomicBool = AtomicBool::new(false);
+const TAP_MS: u64 = 400;
+const TOGGLE_MAX_MS: u64 = 30_000;
+
+/// The settings owner calls this after loading or saving settings. Each genuine
+/// press samples it; changing settings does not reinterpret a key already held.
+pub fn set_ptt_mode(mode: crate::settings::Ptt) {
+    TOGGLE_MODE.store(
+        matches!(mode, crate::settings::Ptt::Toggle),
+        Ordering::Relaxed,
+    );
+}
 
 #[derive(Default)]
 struct KeyTap {
@@ -88,7 +100,26 @@ pub(crate) fn subscribe_keys() -> Option<(KeyTapGuard, Receiver<KeyEvent>)> {
 /// The running driver. Dropping it stops the thread within one wake-up and unhooks.
 pub struct PttDriver {
     stop: Arc<AtomicBool>,
+    silence: Sender<u64>,
     thread: Option<JoinHandle<()>>,
+}
+
+impl PttDriver {
+    /// A handle the microphone's thread can keep: it ends only its own recording.
+    pub fn silencer(&self) -> Silencer {
+        Silencer(self.silence.clone())
+    }
+}
+
+/// Ends one hands-free recording ("press, talk, pause") after the speech ends.
+#[derive(Clone)]
+pub struct Silencer(Sender<u64>);
+
+impl Silencer {
+    /// End only this recording, so a delayed VAD result cannot stop a newer one.
+    pub fn silence(&self, generation: u64) {
+        let _ = self.0.send(generation);
+    }
 }
 
 impl Drop for PttDriver {
@@ -106,12 +137,16 @@ pub fn spawn(
     settings: PttSettings,
     mut on_event: impl FnMut(PttEvent) + Send + 'static,
 ) -> Result<PttDriver, HookError> {
+    // PttSettings already supplies the startup mode; preserve the spawn API used
+    // by voice.rs. Later changes arrive through set_ptt_mode.
+    TOGGLE_MODE.store(settings.mode == Mode::Toggle, Ordering::Relaxed);
     let started = Instant::now();
     let (events, keys) = mpsc::channel();
     let hook = keyboard::start(events.clone())?;
     let tap = Arc::new(KeyTap::default());
     let published = Arc::downgrade(&tap);
     let stop = Arc::new(AtomicBool::new(false));
+    let (silence, silences) = mpsc::channel();
     let thread = std::thread::Builder::new()
         .name("mm-ptt".into())
         .spawn({
@@ -119,7 +154,7 @@ pub fn spawn(
             move || {
                 run(
                     Feed::new(settings, started),
-                    keys,
+                    (keys, silences),
                     events,
                     hook,
                     tap,
@@ -134,19 +169,21 @@ pub fn spawn(
     }
     Ok(PttDriver {
         stop,
+        silence,
         thread: Some(thread),
     })
 }
 
 fn run(
     mut feed: Feed,
-    keys: Receiver<KeyEvent>,
+    inputs: (Receiver<KeyEvent>, Receiver<u64>),
     events: Sender<KeyEvent>,
     mut hook: KeyboardHook, // unhooks when the loop ends
     tap: Arc<KeyTap>,
     stop: &AtomicBool,
     on_event: &mut impl FnMut(PttEvent),
 ) {
+    let (keys, silences) = inputs;
     let mut emit = |events: Vec<PttEvent>| events.into_iter().for_each(&mut *on_event);
     // The last Right Ctrl event the hook delivered, and the last reinstall.
     let mut last_ctrl = Instant::now();
@@ -160,13 +197,16 @@ fn run(
                 if event.vk == RIGHT_CTRL {
                     last_ctrl = event.at;
                 }
-                emit(feed.key(event));
+                emit(feed.driver_key(event));
             }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
         }
         let now = Instant::now();
         emit(feed.tick(now));
+        for generation in silences.try_iter() {
+            emit(feed.silence(generation));
+        }
         // Windows updates the async key state only after the hook returns: polled right
         // after a Right Ctrl event it can still read the old state. One WAKE later it has
         // caught up; other keys' events do not matter.
@@ -183,7 +223,7 @@ fn run(
                     if event.vk == RIGHT_CTRL {
                         last_ctrl = event.at;
                     }
-                    emit(feed.key(event));
+                    emit(feed.driver_key(event));
                 }
                 Err(_) => emit(feed.poll(down, now)),
             }
@@ -205,17 +245,77 @@ fn run(
 /// (between Start and Stop or Cancel). Pure: the caller passes every `Instant`.
 struct Feed {
     ptt: Ptt,
+    settings: PttSettings,
     started: Instant,
     active: bool,
+    generation: u64,
+    active_since: u64,
+    now_ms: u64,
+    /// The core validates chords, injected events and repeats. In toggle mode
+    /// its zero-delay hold is a gesture, not permission to open the microphone.
+    gesture: Option<u64>,
 }
 
 impl Feed {
     fn new(settings: PttSettings, started: Instant) -> Self {
         Self {
-            ptt: Ptt::new(settings),
+            ptt: Ptt::new(Self::core_settings(settings)),
+            settings,
             started,
             active: false,
+            generation: 0,
+            active_since: 0,
+            now_ms: 0,
+            gesture: None,
         }
+    }
+
+    fn core_settings(mut settings: PttSettings) -> PttSettings {
+        if settings.mode == Mode::Toggle {
+            settings.mode = Mode::Hold;
+            settings.hold_ms = 0;
+            settings.max_ms = u64::MAX;
+        }
+        settings
+    }
+
+    fn driver_key(&mut self, event: KeyEvent) -> Vec<PttEvent> {
+        let mode = if TOGGLE_MODE.load(Ordering::Relaxed) {
+            Mode::Toggle
+        } else {
+            Mode::Hold
+        };
+        self.key_in_mode(event, mode)
+    }
+
+    fn key_in_mode(&mut self, event: KeyEvent, mode: Mode) -> Vec<PttEvent> {
+        let mut out = Vec::new();
+        if event.vk == RIGHT_CTRL
+            && event.down
+            && !event.injected
+            && !self.ptt.key_pressed()
+            && self.settings.mode != mode
+        {
+            self.end(StopReason::Cancelled, &mut out);
+            self.settings.mode = mode;
+            self.gesture = None;
+            let _ = self
+                .ptt
+                .input(PttInput::SettingsChanged(Self::core_settings(
+                    self.settings,
+                )));
+        }
+        out.extend(self.key(event));
+        out
+    }
+
+    fn silence(&mut self, generation: u64) -> Vec<PttEvent> {
+        let mut out = Vec::new();
+        if self.active && self.settings.mode == Mode::Toggle && generation == self.generation {
+            self.end(StopReason::Toggled, &mut out);
+            self.gesture = None;
+        }
+        out
     }
 
     #[cfg(test)]
@@ -265,11 +365,94 @@ impl Feed {
     }
 
     fn input(&mut self, input: PttInput) -> Vec<PttEvent> {
+        let time = match input {
+            PttInput::KeyDown { injected: true, .. } | PttInput::KeyUp { injected: true, .. } => {
+                return Vec::new();
+            }
+            PttInput::KeyDown { now_ms, .. }
+            | PttInput::KeyUp { now_ms, .. }
+            | PttInput::Tick { now_ms }
+            | PttInput::Poll { now_ms, .. } => now_ms,
+            PttInput::SettingsChanged(_) => self.now_ms,
+        };
+        self.now_ms = self.now_ms.max(time);
         let events = self.ptt.input(input);
-        for event in &events {
-            self.active = matches!(event, PttEvent::Start { .. });
+        let mut out = Vec::new();
+        if self.settings.mode == Mode::Hold {
+            for event in events {
+                match event {
+                    PttEvent::Start { .. } => self.begin(&mut out),
+                    PttEvent::Stop { reason, .. } => self.end(reason, &mut out),
+                    PttEvent::Cancel { .. } => self.cancel(&mut out),
+                }
+            }
+            return out;
         }
-        events
+        // The logical recording has its own deadline, including time with the
+        // key released. Expiration/silence also suppress the pending gesture.
+        if self.active
+            && self.now_ms.saturating_sub(self.active_since)
+                >= TOGGLE_MAX_MS.min(self.settings.max_ms)
+        {
+            self.end(StopReason::TooLong, &mut out);
+            self.gesture = None;
+        }
+        for event in events {
+            match event {
+                PttEvent::Start { .. } => self.gesture = Some(self.now_ms),
+                PttEvent::Cancel { .. } => {
+                    self.gesture = None;
+                    self.cancel(&mut out);
+                }
+                PttEvent::Stop { reason, .. } => {
+                    if let Some(pressed) = self.gesture.take() {
+                        let short = self.now_ms.saturating_sub(pressed) < TAP_MS;
+                        if self.active && (reason != StopReason::Watchdog || !short) {
+                            let reason = if short { StopReason::Toggled } else { reason };
+                            self.end(reason, &mut out);
+                        } else if reason == StopReason::Released && short {
+                            self.begin(&mut out);
+                        }
+                    }
+                }
+            }
+        }
+        if self
+            .gesture
+            .is_some_and(|pressed| self.now_ms.saturating_sub(pressed) >= TAP_MS)
+            && !self.active
+        {
+            self.begin(&mut out);
+        }
+        out
+    }
+
+    fn begin(&mut self, out: &mut Vec<PttEvent>) {
+        if let Some(generation) = self.generation.checked_add(1) {
+            self.generation = generation;
+            self.active = true;
+            self.active_since = self.now_ms;
+            out.push(PttEvent::Start { generation });
+        }
+    }
+
+    fn end(&mut self, reason: StopReason, out: &mut Vec<PttEvent>) {
+        if self.active {
+            self.active = false;
+            out.push(PttEvent::Stop {
+                generation: self.generation,
+                reason,
+            });
+        }
+    }
+
+    fn cancel(&mut self, out: &mut Vec<PttEvent>) {
+        if self.active {
+            self.active = false;
+            out.push(PttEvent::Cancel {
+                generation: self.generation,
+            });
+        }
     }
 
     /// Milliseconds since the driver started; an earlier `Instant` counts as 0.
@@ -304,8 +487,6 @@ pub fn probe_if_requested(args: &[String]) -> Option<i32> {
 
 #[cfg(test)]
 mod tests {
-    use mm_core::ptt::StopReason;
-
     use super::*;
 
     /// Any other key; only its code matters.
@@ -504,5 +685,165 @@ mod tests {
         let feed = Feed::new(PttSettings::default(), at(t0, 100));
         assert_eq!(feed.ms(t0), 0);
         assert_eq!(feed.ms(at(t0, 350)), 250);
+    }
+
+    fn toggle(t0: Instant) -> Feed {
+        Feed::new(
+            PttSettings {
+                mode: Mode::Toggle,
+                ..PttSettings::default()
+            },
+            t0,
+        )
+    }
+
+    fn tap(feed: &mut Feed, t0: Instant, ms: u64) -> Vec<PttEvent> {
+        assert_eq!(feed.key(key(RIGHT_CTRL, true, at(t0, ms))), nothing());
+        feed.key(key(RIGHT_CTRL, false, at(t0, ms + 100)))
+    }
+
+    #[test]
+    fn toggle_taps_start_and_stop_without_watchdog_stopping_the_pause() {
+        let t0 = Instant::now();
+        let mut feed = toggle(t0);
+        assert_eq!(tap(&mut feed, t0, 0), start(1));
+        assert_eq!(feed.poll(false, at(t0, 500)), nothing());
+        assert_eq!(feed.tick(at(t0, 1_000)), nothing());
+        assert_eq!(tap(&mut feed, t0, 1_100), stop(1, StopReason::Toggled));
+        assert_eq!(tap(&mut feed, t0, 1_500), start(2));
+    }
+
+    #[test]
+    fn lost_short_release_does_not_toggle_a_latched_recording() {
+        let t0 = Instant::now();
+        let mut feed = toggle(t0);
+        assert_eq!(tap(&mut feed, t0, 0), start(1));
+        feed.key(key(RIGHT_CTRL, true, at(t0, 200)));
+        assert_eq!(feed.poll(false, at(t0, 300)), nothing());
+        assert!(feed.active());
+        assert_eq!(tap(&mut feed, t0, 400), stop(1, StopReason::Toggled));
+        // An old silence message must not discard the next pending gesture.
+        feed.key(key(RIGHT_CTRL, true, at(t0, 600)));
+        assert_eq!(feed.silence(1), nothing());
+        assert_eq!(feed.key(key(RIGHT_CTRL, false, at(t0, 700))), start(2));
+    }
+
+    #[test]
+    fn toggle_long_hold_and_watchdog_release() {
+        for watchdog in [false, true] {
+            let t0 = Instant::now();
+            let mut feed = toggle(t0);
+            assert_eq!(feed.key(key(RIGHT_CTRL, true, t0)), nothing());
+            assert_eq!(feed.tick(at(t0, 399)), nothing());
+            assert_eq!(feed.tick(at(t0, 400)), start(1));
+            assert_eq!(feed.key(key(RIGHT_CTRL, true, at(t0, 500))), nothing());
+            let out = if watchdog {
+                feed.poll(false, at(t0, 600))
+            } else {
+                feed.key(key(RIGHT_CTRL, false, at(t0, 600)))
+            };
+            assert_eq!(
+                out,
+                stop(
+                    1,
+                    if watchdog {
+                        StopReason::Watchdog
+                    } else {
+                        StopReason::Released
+                    }
+                )
+            );
+            assert!(!feed.active());
+            assert_eq!(feed.tick(at(t0, 1_000)), nothing());
+        }
+    }
+
+    #[test]
+    fn toggle_tap_boundary_is_strict() {
+        let t0 = Instant::now();
+        let mut feed = toggle(t0);
+        feed.key(key(RIGHT_CTRL, true, t0));
+        assert_eq!(feed.key(key(RIGHT_CTRL, false, at(t0, 399))), start(1));
+        feed.silence(1);
+        feed.key(key(RIGHT_CTRL, true, at(t0, 500)));
+        // No tick before release: a 400 ms press still cannot latch recording.
+        assert_eq!(feed.key(key(RIGHT_CTRL, false, at(t0, 900))), nothing());
+        assert!(!feed.active());
+    }
+
+    #[test]
+    fn toggle_silence_is_generation_checked_and_does_not_reopen_held_key() {
+        let t0 = Instant::now();
+        let mut feed = toggle(t0);
+        assert_eq!(tap(&mut feed, t0, 0), start(1));
+        assert_eq!(feed.silence(1), stop(1, StopReason::Toggled));
+        assert_eq!(feed.silence(1), nothing());
+        assert_eq!(tap(&mut feed, t0, 200), start(2));
+        assert_eq!(feed.silence(1), nothing());
+        assert!(feed.active());
+        assert_eq!(feed.silence(2), stop(2, StopReason::Toggled));
+        feed.key(key(RIGHT_CTRL, true, at(t0, 400)));
+        assert_eq!(feed.tick(at(t0, 800)), start(3));
+        assert_eq!(feed.silence(3), stop(3, StopReason::Toggled));
+        assert_eq!(feed.tick(at(t0, 1_000)), nothing());
+        assert_eq!(feed.key(key(RIGHT_CTRL, false, at(t0, 1_100))), nothing());
+    }
+
+    #[test]
+    fn toggle_chords_injection_and_lost_taps_do_not_start() {
+        let t0 = Instant::now();
+        let mut feed = toggle(t0);
+        feed.key(injected(RIGHT_CTRL, true, t0));
+        assert_eq!(feed.tick(at(t0, 500)), nothing());
+        feed.key(key(RIGHT_CTRL, true, at(t0, 600)));
+        assert_eq!(feed.poll(false, at(t0, 700)), nothing());
+        assert_eq!(feed.tick(at(t0, 1_000)), nothing());
+        feed.key(key(A, true, at(t0, 1_100)));
+        assert_eq!(tap(&mut feed, t0, 1_200), nothing());
+        feed.key(key(A, false, at(t0, 1_400)));
+        assert_eq!(tap(&mut feed, t0, 1_500), start(1));
+        feed.key(key(RIGHT_CTRL, true, at(t0, 1_700)));
+        assert_eq!(
+            feed.key(key(A, true, at(t0, 1_750))),
+            vec![PttEvent::Cancel { generation: 1 }]
+        );
+        assert_eq!(feed.poll(false, at(t0, 1_800)), nothing());
+    }
+
+    #[test]
+    fn toggle_deadline_is_thirty_seconds_even_without_speech() {
+        let t0 = Instant::now();
+        let mut feed = toggle(t0);
+        assert_eq!(tap(&mut feed, t0, 0), start(1));
+        assert_eq!(feed.tick(at(t0, 30_099)), nothing());
+        assert_eq!(feed.tick(at(t0, 30_100)), stop(1, StopReason::TooLong));
+        assert_eq!(feed.tick(at(t0, 31_000)), nothing());
+        assert_eq!(tap(&mut feed, t0, 31_100), start(2));
+    }
+
+    #[test]
+    fn mode_is_sampled_on_a_fresh_press_and_generations_remain_unique() {
+        let t0 = Instant::now();
+        let mut feed = toggle(t0);
+        assert_eq!(tap(&mut feed, t0, 0), start(1));
+        assert_eq!(
+            feed.key_in_mode(key(RIGHT_CTRL, true, at(t0, 200)), Mode::Hold),
+            stop(1, StopReason::Cancelled)
+        );
+        assert_eq!(feed.tick(at(t0, 450)), start(2));
+        assert_eq!(
+            feed.key_in_mode(key(RIGHT_CTRL, true, at(t0, 500)), Mode::Toggle),
+            nothing()
+        );
+        assert_eq!(feed.silence(2), nothing());
+        assert_eq!(
+            feed.key(key(RIGHT_CTRL, false, at(t0, 600))),
+            stop(2, StopReason::Released)
+        );
+        assert_eq!(
+            feed.key_in_mode(key(RIGHT_CTRL, true, at(t0, 700)), Mode::Toggle),
+            nothing()
+        );
+        assert_eq!(feed.key(key(RIGHT_CTRL, false, at(t0, 800))), start(3));
     }
 }

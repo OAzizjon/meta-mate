@@ -44,6 +44,11 @@ pub enum AnswerMsg {
         generation: u64,
         key: &'static str,
     },
+    /// The microphone's RMS level (0..=1) while listening, ~12 Hz: Mate's ears move.
+    Level {
+        generation: u64,
+        level: f32,
+    },
 }
 
 /// The subscribed channel and the UI locale the WebView reported, and what it reported
@@ -128,7 +133,8 @@ impl AnswerStream {
             AnswerMsg::State { generation, .. }
             | AnswerMsg::Item { generation, .. }
             | AnswerMsg::Pcm { generation, .. }
-            | AnswerMsg::Line { generation, .. } => {
+            | AnswerMsg::Line { generation, .. }
+            | AnswerMsg::Level { generation, .. } => {
                 if cancelled.is_some_and(|through| *generation <= through) {
                     return;
                 }

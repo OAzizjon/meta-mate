@@ -68,6 +68,8 @@ impl fmt::Debug for Microphone {
 
 impl Microphone {
     /// Opens the default input device and starts capturing at once (called on PttEvent::Start).
+    /// `on_level` receives RMS in 0..=1 for each 80 ms PCM frame (12.5 Hz),
+    /// including the final padded frame. It runs on the capture worker.
     pub fn start(
         frames: mpsc::Sender<Vec<u8>>,
         on_level: impl FnMut(f32) + Send + 'static,

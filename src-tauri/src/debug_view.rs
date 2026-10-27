@@ -95,7 +95,8 @@ pub fn open(app: &AppHandle) {
 
 /// Mirrors one `AnswerMsg` to the `debug` window if it exists.
 pub fn answer(app: &AppHandle, message: &AnswerMsg) {
-    if app.get_webview_window(WINDOW).is_none() {
+    // Levels come 12 times a second and say nothing about the answer.
+    if matches!(message, AnswerMsg::Level { .. }) || app.get_webview_window(WINDOW).is_none() {
         return;
     }
     send(app, answer_msg(message));
@@ -169,6 +170,11 @@ fn answer_msg(message: &AnswerMsg) -> DebugMsg {
         AnswerMsg::Line { generation, key } => DebugAnswerMsg::Line {
             generation: *generation,
             key,
+        },
+        // Never mirrored (`answer` skips them); shown as a cancel-free no-op state.
+        AnswerMsg::Level { generation, .. } => DebugAnswerMsg::State {
+            generation: *generation,
+            state: "listening",
         },
     };
     DebugMsg::Answer { msg }

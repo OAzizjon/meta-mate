@@ -12,7 +12,7 @@
 //! per-run invite it reads; the installed app gets its proxy and invite with Day 6.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -20,8 +20,8 @@ use mm_core::api::intent::{Intent, guess_intent};
 use mm_core::api::request::{ModelChoice, ReasoningEffort, chat_request, point_request};
 use mm_core::matescript::{Bound, Item, Mode, Parser, Settings};
 use mm_core::ptt::{PttEvent, PttSettings};
-use tauri::{AppHandle, Manager};
-use tokio::sync::{Notify, mpsc};
+use tauri::{AppHandle, Emitter, Manager};
+use tokio::sync::{Notify, mpsc, oneshot};
 use tokio::task::{AbortHandle, JoinHandle};
 
 use crate::answer_stream::{AnswerMsg, AnswerStream};
@@ -53,6 +53,44 @@ const PLAY_LIMIT: Duration = Duration::from_secs(90);
 /// phrases build`) and, for a wait phrase missing there, one synthesized at startup.
 pub(crate) type Phrases = Arc<Mutex<HashMap<(&'static str, String), Vec<u8>>>>;
 
+type Lessons = Arc<Mutex<Option<Lesson>>>;
+
+#[derive(Clone)]
+struct Lesson {
+    generation: u64,
+    words: mpsc::UnboundedSender<crate::teacher::Words>,
+    abort: AbortHandle,
+    speech_epoch: Arc<AtomicU64>,
+}
+
+fn live_lesson(lessons: &Lessons) -> Option<Lesson> {
+    lessons
+        .lock()
+        .ok()?
+        .as_ref()
+        .filter(|lesson| !lesson.words.is_closed())
+        .cloned()
+}
+
+/// The answer owns the lesson task even though subsequent presses have new sessions.
+struct LessonGuard {
+    lessons: Lessons,
+    lesson: Lesson,
+}
+
+impl Drop for LessonGuard {
+    fn drop(&mut self) {
+        self.lesson.abort.abort();
+        if let Ok(mut lessons) = self.lessons.lock()
+            && lessons
+                .as_ref()
+                .is_some_and(|lesson| lesson.generation == self.lesson.generation)
+        {
+            *lessons = None;
+        }
+    }
+}
+
 /// Keeps the push-to-talk hook alive; dropping it stops the loop's input.
 pub struct VoiceLoop {
     _driver: PttDriver,
@@ -70,7 +108,8 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     })
     .map_err(|error| eprintln!("voice: push-to-talk: {error}"))
     .ok()?;
-    tauri::async_runtime::spawn(run(app.clone(), proxy, receiver));
+    let silencer = driver.silencer();
+    tauri::async_runtime::spawn(run(app.clone(), proxy, receiver, silencer));
     Some(VoiceLoop { _driver: driver })
 }
 
@@ -100,7 +139,16 @@ pub fn ask(app: &AppHandle, question: String) {
             })
         });
         let ack_at = tokio::time::Instant::now() + ACK_AFTER;
-        answer(app.clone(), proxy, Arc::default(), 1, ack_at, transcript).await;
+        answer(
+            app.clone(),
+            proxy,
+            Arc::default(),
+            1,
+            ack_at,
+            transcript,
+            Arc::default(),
+        )
+        .await;
         let sent = asked.elapsed();
         let mut played = None;
         while played.is_none() && asked.elapsed() < Duration::from_secs(60) {
@@ -174,31 +222,70 @@ impl Session {
     }
 }
 
-async fn run(app: AppHandle, proxy: Proxy, mut events: mpsc::UnboundedReceiver<PttEvent>) {
+async fn run(
+    app: AppHandle,
+    proxy: Proxy,
+    mut events: mpsc::UnboundedReceiver<PttEvent>,
+    silencer: ptt::Silencer,
+) {
     let phrases: Phrases = Arc::default();
     tauri::async_runtime::spawn(cache_phrases(proxy.clone(), phrases.clone()));
     let stream = app.state::<AnswerStream>();
     let mut current: Option<Session> = None;
+    let lessons: Lessons = Arc::default();
     while let Some(event) = events.recv().await {
         match event {
             PttEvent::Start { generation } => {
-                // Cancel and abort first, so the old answer can no longer light the ring
-                // or store its look; then clear whatever it showed (always: a late
-                // point_at may have lit the ring after its look was dropped).
-                if let Some(previous) = current.take() {
-                    stream.send(AnswerMsg::Cancel {
-                        generation: previous.generation,
-                    });
+                let lesson = live_lesson(&lessons);
+                // Ordinary answers are cancelled before their ring is cleared. A lesson
+                // keeps its task and generation until it has heard the new words.
+                if let Some(mut previous) = current.take() {
+                    if lesson
+                        .as_ref()
+                        .is_some_and(|lesson| lesson.generation == previous.generation)
+                    {
+                        // Detach the owner task: its guard keeps the lesson alive.
+                        previous.answer.take();
+                    } else if lesson.is_none() {
+                        stream.send(AnswerMsg::Cancel {
+                            generation: previous.generation,
+                        });
+                    }
                     previous.abort();
                 }
-                stop_pointing(&app);
+                if let Some(lesson) = lesson {
+                    // Playback needs a sentence-only interruption: Cancel permanently
+                    // rejects this generation, including all later lesson speech.
+                    lesson.speech_epoch.fetch_add(1, Ordering::AcqRel);
+                    if app.emit("lesson-interrupt", lesson.generation).is_err() {
+                        eprintln!("voice: lesson speech interruption: delivery failed");
+                    }
+                } else {
+                    stop_pointing(&app);
+                }
                 stream.send(AnswerMsg::State {
                     generation,
                     state: "listening",
                 });
                 let (frames, received) = mpsc::channel(FRAME_QUEUE);
+                // Each 80 ms frame's level moves Mate's ears and, in the hands-free mode,
+                // ends the recording after the speech (ptt.rs ignores it when held).
+                let heard = app.clone();
+                let silencer = silencer.clone();
+                let mut detector = mm_core::vad::SilenceDetector::new();
+                let mut frame_ms = 0u64;
+                let on_level = move |level: f32| {
+                    heard.state::<AnswerStream>().send(AnswerMsg::Level {
+                        generation,
+                        level: level.clamp(0.0, 1.0),
+                    });
+                    frame_ms += 80;
+                    if detector.input(level, frame_ms).is_some() {
+                        silencer.silence(generation);
+                    }
+                };
                 let opened =
-                    tokio::task::spawn_blocking(move || Microphone::start(frames, |_| {})).await;
+                    tokio::task::spawn_blocking(move || Microphone::start(frames, on_level)).await;
                 let microphone = match opened {
                     Ok(Ok(microphone)) => microphone,
                     Ok(Err(error)) => {
@@ -250,6 +337,7 @@ async fn run(app: AppHandle, proxy: Proxy, mut events: mpsc::UnboundedReceiver<P
                         generation,
                         ack_at,
                         transcript,
+                        Arc::clone(&lessons),
                     )));
                 }
             }
@@ -264,6 +352,9 @@ async fn run(app: AppHandle, proxy: Proxy, mut events: mpsc::UnboundedReceiver<P
             }
         }
     }
+    if let Some(lesson) = live_lesson(&lessons) {
+        lesson.abort.abort();
+    }
 }
 
 async fn answer(
@@ -273,6 +364,7 @@ async fn answer(
     generation: u64,
     ack_at: tokio::time::Instant,
     transcript: JoinHandle<Result<Transcript, ProxyError>>,
+    lessons: Lessons,
 ) {
     let stream = app.state::<AnswerStream>();
     let question = match transcript.await {
@@ -283,6 +375,34 @@ async fn answer(
         }
         Err(_) => return, // cancelled
     };
+    // The lesson decides first. Recognition belongs to this press; accepted words
+    // and all resulting speech still belong to the lesson's original generation.
+    if let Some(lesson) = live_lesson(&lessons) {
+        let (taken, reply) = oneshot::channel();
+        let sent = lesson.words.send(crate::teacher::Words {
+            text: question.clone(),
+            taken,
+        });
+        if sent.is_ok() && reply.await.unwrap_or(false) {
+            stream.send(AnswerMsg::State {
+                generation: lesson.generation,
+                state: "idle",
+            });
+            return;
+        }
+        lesson.abort.abort();
+        if let Ok(mut active) = lessons.lock()
+            && active
+                .as_ref()
+                .is_some_and(|active| active.generation == lesson.generation)
+        {
+            *active = None;
+        }
+        stream.send(AnswerMsg::Cancel {
+            generation: lesson.generation,
+        });
+        stop_pointing(&app);
+    }
     if question.is_empty() {
         stream.send(AnswerMsg::State {
             generation,
@@ -312,7 +432,9 @@ async fn answer(
     if matches!(intent, Intent::How | Intent::Do) {
         // Several steps: the teacher, with the person as the hand (D48).
         let own = own_windows(&app);
-        crate::teacher::teach(
+        let (words, received) = mpsc::unbounded_channel();
+        let speech_epoch = Arc::new(AtomicU64::new(0));
+        let task = tokio::spawn(crate::teacher::teach(
             app.clone(),
             proxy.clone(),
             Arc::clone(&phrases),
@@ -320,8 +442,23 @@ async fn answer(
             question,
             locale,
             own,
-        )
-        .await;
+            received,
+            Arc::clone(&speech_epoch),
+        ));
+        let lesson = Lesson {
+            generation,
+            words,
+            abort: task.abort_handle(),
+            speech_epoch,
+        };
+        let _guard = LessonGuard {
+            lessons: Arc::clone(&lessons),
+            lesson: lesson.clone(),
+        };
+        if let Ok(mut active) = lessons.lock() {
+            *active = Some(lesson);
+        }
+        let _ = task.await;
         return;
     }
     let screen = intent == Intent::Where;

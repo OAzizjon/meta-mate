@@ -130,6 +130,8 @@ impl SettingsStore {
     pub fn new(settings: Settings) -> Self {
         let settings = settings.sanitized();
         VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
+        #[cfg(windows)]
+        crate::ptt::set_ptt_mode(settings.ptt);
         Self(Mutex::new(settings))
     }
 
@@ -163,6 +165,8 @@ pub fn save_settings(
         let mut current = store.lock();
         *current = settings.clone();
         VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
+        #[cfg(windows)]
+        crate::ptt::set_ptt_mode(settings.ptt);
         // Written under the lock: two saves cannot interleave and the file ends as the last.
         persist(&app, &current)
     };
