@@ -1,0 +1,28 @@
+<!doctype html>
+<!-- Test fixture for spike S3 (`metamate --s3-selftest`), not product UI: a login-like
+     form whose UI Automation tree the Rust walker must read, with a hidden and a
+     revealed password (D37). Contains no real data. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>S3 fixture</title>
+    <style>
+      body { font: 16px system-ui; background: #fff; margin: 16px; }
+      label, button, select, a { display: block; margin: 6px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Settings</h1>
+    <button id="bigger">Make text bigger</button>
+    <button id="cancel">Cancel</button>
+    <label>Email <input type="email" id="email" /></label>
+    <label>Password <input type="password" id="pw" /></label>
+    <label>Password <input type="text" id="revealed" /></label>
+    <button id="reveal" aria-label="Show password">o</button>
+    <select id="size" aria-label="Text size">
+      <option>Small</option>
+      <option>Large</option>
+    </select>
+    <a href="#help">Help</a>
+  </body>
+</html>

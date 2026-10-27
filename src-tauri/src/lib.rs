@@ -7,6 +7,8 @@
 
 mod overlay;
 #[cfg(windows)]
+mod s3;
+#[cfg(windows)]
 mod selftest;
 
 /// Starts the app. Errors at startup are printed and end the process with code 1.
@@ -15,11 +17,17 @@ pub fn run() {
     let per_monitor_v2 = mm_win32::dpi::ensure_per_monitor_v2();
     let selftest = std::env::args().any(|arg| arg == "--s1-selftest");
     let control = std::env::args().any(|arg| arg == "--s1-control");
+    let s3 = std::env::args().any(|arg| arg == "--s3-selftest");
 
     let result = tauri::Builder::default()
         .setup(move |app| {
             #[cfg(windows)]
             let before = mm_win32::focus::foreground();
+            #[cfg(windows)]
+            if s3 {
+                s3::spawn(app.handle().clone(), before);
+                return Ok(());
+            }
             #[cfg(windows)]
             if control {
                 selftest::spawn_control(app.handle().clone(), before);
@@ -31,7 +39,7 @@ pub fn run() {
                 selftest::spawn(app.handle().clone(), overlays, before, per_monitor_v2);
             }
             #[cfg(not(windows))]
-            let _ = (overlays, selftest, control);
+            let _ = (overlays, selftest, control, s3);
             Ok(())
         })
         .run(tauri::generate_context!());

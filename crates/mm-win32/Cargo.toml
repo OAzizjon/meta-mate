@@ -8,8 +8,10 @@ publish.workspace = true
 
 [dependencies]
 mm-core.workspace = true
+mm-platform = { path = "../mm-platform" }
 
 [target.'cfg(windows)'.dependencies]
+uiautomation = "0.25.1"
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",

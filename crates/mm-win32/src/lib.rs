@@ -10,5 +10,6 @@ pub mod dpi;
 pub mod focus;
 pub mod monitors;
 pub mod overlay;
+pub mod uia;
 
 pub use windows::Win32::Foundation::HWND;
