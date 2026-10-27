@@ -36,9 +36,9 @@ The kickoff is at **12:00 PM GMT-5 = 17:00 UTC = 22:00 Tashkent** (the organiser
 - ✅ The owner's cuts (D39), the model choice (D40), S4 (D41): the key works, `minimal` reasoning for speech.
 - ✅ Cargo workspace with `mm-core` and `mm-platform` (no `.cargo/config.toml`: the project path is short enough; agents build without sccache). First commit locally, private GitHub repository (D42). The Tauri shell itself comes with S1 in the morning.
 - ✅ Night jobs started at 23:38: the MateScript parser (Codex, done: 25 golden cases + chunk fuzzing), the coordinate types (Codex, done), the locales (Copilot, done), the `mm-platform` traits (Claude worker); S1/S2/S3 checklists (Gemini #430–#432).
-- **Morning of 27.10:** spikes **S1** (overlay/DPI/focus) and **S3** (UIA from Rust), no credits needed; the night's patches reviewed first.
+- ✅ **Morning of 27.10 (D43):** spikes **S1** (overlay/DPI/focus) and **S3** (UIA from Rust) pass as unattended self-tests (`metamate --s1-selftest`, `--s3-selftest`); still to try by hand: a second monitor and an open Edge `<select>`. Also done: the Tauri shell, Mate's B1 SVG in the WebView, the audio engine, i18n, the redaction step; the night's patches reviewed first.
 - ✅ Spike **S4** (`mm probe`, D41): Spark reasons before it answers (first token 7–10 s by default, 1.9 s at `minimal`); computer use returns a commentary line + one click with a safety check; still to measure: the cost per request (Billing page) and the Settings / Edge fixtures once they are recorded.
-- **Checkpoint 27.10 at 15:00** (was 26.10 16:00, then 21:00; moved with the kickoff): if S1 or S3 doesn't work, use native-window highlighting (Direct2D) or a Windows layer in C# WPF.
+- ✅ **Checkpoint 27.10 at 15:00** (passed at 08:30, D43) (was 26.10 16:00, then 21:00; moved with the kickoff): if S1 or S3 doesn't work, use native-window highlighting (Direct2D) or a Windows layer in C# WPF.
 - Check whether code signing (Azure Trusted Signing) is available to you.
 
 ## Day 2 — 27.10 (Tue): voice loop

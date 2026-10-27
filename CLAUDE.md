@@ -39,7 +39,9 @@ Agent mode is enforced in code: without `.git` (agent copies), inside a draft-ag
 | `tools/` | `mm.py` CLI, `mm_checks.py`, `uia_dump.ps1`, `synth_cues.py` (cue sounds), `sounds_commons.py` (CC0/PD sounds: `--dry-run`, `--pin`), `tools/tests/` |
 | `assets/sounds/` | `src/{cues,sfx,amb}` sources → `cues/`, `sfx/`, `amb/` OGG; `LICENSES.md` row per file; `sources.json` Commons pins |
 | `assets/art/` | robot art: `src/*.svg|html` sources → rendered PNG |
-| `crates/`, `src-tauri/`, `src/` (from 10-26) | Rust core / Tauri shell / WebView — layout in `docs/project-structure.md`; `mm-core` has `geom` (coordinate types) and `matescript` (the parser) |
+| `crates/` | `mm-core` (pure: geom, matescript, api request/response, teacher, shot, redaction, privacy), `mm-platform` (traits, mock/replay), `mm-win32` (the only Win32 crate: dpi, focus, monitors, overlay, uia) — layout in `docs/project-structure.md` |
+| `src-tauri/` | the Tauri 2 shell; `metamate --s1-selftest`, `--s1-control`, `--s3-selftest` run spikes S1/S3 unattended (build: `npm run build`, then `cargo build -p metamate --features custom-protocol`) |
+| `src/`, `mate.html`, `highlight.html`, `s3.html` | the WebView: `robot` (Mate's B1 SVG), `audio`, `i18n`; Node tests with `npm test` |
 | `locales/` | `en.json`, `ru.json`: every user-facing string (invariant 7), checked by `tools/tests/test_locales.py` |
 | `server/` (from 10-31), `tts/` (from 10-27) | proxy + landing page; MMS-TTS service for Modal |
 | `fixtures/` | replay fixtures (UIA JSON + screenshots) for tests without a live desktop |
