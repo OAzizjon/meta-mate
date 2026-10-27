@@ -25,12 +25,13 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
 };
 
-/// How many levels above the element under the point the blocklist reads: an icon or a
-/// text inside a button has no label of its own.
-const MAX_ANCESTORS: usize = 6;
+/// How many levels above the element under the point the blocklist reads, up to the first
+/// window: an icon inside a button has no label of its own, and a dialog's title says what
+/// its "Yes" does.
+const MAX_ANCESTORS: usize = 12;
 
-/// Control types whose names are window or page titles, not what a click does: the walk up
-/// stops below them.
+/// Control types whose names are window or page titles, not what a click does: their names
+/// are checked against the blocklist but never count as the control's own name.
 const CONTAINERS: [&str; 3] = ["Window", "Pane", "Document"];
 
 /// Performs one confirmed left click with `SendInput`; every other action is refused.
@@ -101,11 +102,15 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
         if labels.iter().any(|label| forbidden(label, &control_type)) {
             return Err(PlatformError::SafetyBlocked);
         }
-        let container = CONTAINERS.contains(&control_type.as_str());
-        if level > 0 && container {
+        // The walk goes on through panes and documents (a "Delete file?" dialog's "Yes"
+        // sits in one) and ends with the first window, whose title was just checked.
+        if level > 0 && control_type == "Window" {
             break;
         }
-        named |= !name.trim().is_empty();
+        // A container's title names the page, not what the click does.
+        if level == 0 || !CONTAINERS.contains(&control_type.as_str()) {
+            named |= !name.trim().is_empty();
+        }
         if level < MAX_ANCESTORS {
             element = walker.get_parent(&element).map_err(unanswered)?;
         }

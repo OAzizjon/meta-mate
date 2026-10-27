@@ -12,11 +12,34 @@ import { mountOnboarding, setOnboardingTranslator, stopOnboarding } from "./onbo
 import { createTimelinePlayer } from "./player";
 import { isRobotMood, isRobotState, mountRobot } from "./robot";
 import type { CssRect, RobotController, RobotState } from "./robot";
+import {
+  SETTINGS_CHANGED_EVENT,
+  startMateSettings,
+  toAudioSettings,
+} from "./settings/apply";
+import type {
+  MateSettingsBinding,
+  SettingsInvoke,
+  SettingsSubscribe,
+} from "./settings/apply";
 
 /** How long the bubble shows a line from Rust, the "can't find" line, and stays after `End`. */
 const LINE_BUBBLE_MS = 4000;
 const CANT_FIND_BUBBLE_MS = 3000;
 const DONE_BUBBLE_MS = 1500;
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+const tauriInvoke: SettingsInvoke = async (cmd, args) => {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke(cmd, args);
+};
+
+const tauriSubscribe: SettingsSubscribe = async (onChanged) => {
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<unknown>(SETTINGS_CHANGED_EVENT, (event) => {
+    onChanged(event.payload);
+  });
+};
 
 interface MateDevHook {
   setState(state: string): void;
@@ -86,10 +109,14 @@ interface LiveAnswers {
  * Plays Rust's answers. The UI language is tracked here, apart from i18n's current locale,
  * which an answer's `<lang>` also moves.
  */
-function startLiveAnswers(robot: RobotController, bubble: Bubble): LiveAnswers {
+function startLiveAnswers(
+  robot: RobotController,
+  bubble: Bubble,
+  settings: MateSettingsBinding,
+): LiveAnswers {
   let uiLocale = getLocale();
   let unsubscribe: (() => void) | null = null;
-  const ready = createRouter(robot, bubble);
+  const ready = createRouter(robot, bubble, settings);
   // (Re)subscriptions run one at a time, in call order, once the engine is up.
   let queue: Promise<void> = Promise.resolve();
   const subscribe = (): void => {
@@ -119,8 +146,12 @@ function startLiveAnswers(robot: RobotController, bubble: Bubble): LiveAnswers {
 async function createRouter(
   robot: RobotController,
   bubble: Bubble,
+  settings: MateSettingsBinding,
 ): Promise<(msg: AnswerMsg) => void> {
-  const audio = await createAudioEngine();
+  const audio = await createAudioEngine({
+    settings: toAudioSettings(settings.get()),
+  });
+  settings.setAudio(audio);
   // The window runs with --autoplay-policy=no-user-gesture-required, so this should pass.
   const running = await audio.ensureResumed();
   if (!running) {
@@ -218,8 +249,31 @@ if (container) {
   const bubble = document.getElementById("mate-bubble");
   setOnboardingTranslator((key) => t(key));
   mountOnboarding();
+  const inTauri = "__TAURI_INTERNALS__" in window;
+  const motionQuery =
+    typeof window.matchMedia === "function" ? window.matchMedia(REDUCED_MOTION_QUERY) : null;
+  const settings = startMateSettings(
+    {
+      roots: [document.documentElement, container],
+      robot,
+      viewport: () => ({
+        width: container.clientWidth || window.innerWidth,
+        height: container.clientHeight || window.innerHeight,
+      }),
+      prefersReducedMotion: () => Boolean(motionQuery?.matches),
+    },
+    {
+      invoke: inTauri ? tauriInvoke : null,
+      subscribe: inTauri ? tauriSubscribe : null,
+    },
+  );
+  const onEnvironmentChange = (): void => {
+    settings.reapply();
+  };
+  motionQuery?.addEventListener("change", onEnvironmentChange);
+  window.addEventListener("resize", onEnvironmentChange);
   const live =
-    bubble && "__TAURI_INTERNALS__" in window ? startLiveAnswers(robot, mountBubble(bubble)) : null;
+    bubble && inTauri ? startLiveAnswers(robot, mountBubble(bubble), settings) : null;
   if (import.meta.env.DEV) {
     window.__mate = devHook(robot, (locale) => {
       if (live) live.setUiLocale(locale);

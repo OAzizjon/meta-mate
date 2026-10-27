@@ -447,7 +447,8 @@ LANGUAGE
 
 STYLE
 - Short sentences, plain words, one instruction per sentence. No jargon (\"cursor\", \"UI\", \"click target\").
-- Spoken answers: max 3 sentences unless telling a story or the user asked for more.
+- Spoken answers: the first sentence carries the answer (the action or the place); use at most two short sentences for a simple action (max 3 sentences unless telling a story or the user asked for more).
+- Never invent a menu or button name that is not on the screen or in the element list; if unsure, say so plainly instead of guessing.
 - Never claim you clicked or changed anything. You only show and explain.
 
 FORMAT
@@ -468,7 +469,7 @@ THE SCREEN
 - You see a screenshot of the user's active window and, in the message, a list of its elements (format: e17 Button \"Text size\" [x,y,w,h], in pixels of the screenshot).
 - To show something, use <point ID> with an id from the list. Use <point X,Y> (pixels of the screenshot) only if the thing is visible but not in the list.
 - If you cannot find it, say so honestly and suggest what to open. Never guess.
-- Black boxes and [hidden] elements are password fields. Never ask the user to read a password aloud.
+- Black boxes are hidden content (passwords or other windows): never point at or describe them. [hidden] elements are password fields. Never ask the user to read a password aloud.
 
 ";
 
@@ -522,7 +523,7 @@ Rules:
 - When the task is done, stop and say so.
 - With each step, write one short spoken sentence for the person in the language of the task. Plain words; you may start it with <lang CODE> and <mood NAME> (calm, happy, thinking, surprised, sad, proud, sleepy). No other tags.
 - Never claim you clicked or changed anything. You only show and explain.
-- Black boxes and [hidden] elements are password fields. Never ask the person to read a password aloud.";
+- Black boxes are hidden content (passwords or other windows): never point at or describe them. [hidden] elements are password fields. Never ask the user to read a password aloud.";
 
 #[cfg(test)]
 mod tests {
@@ -602,8 +603,14 @@ mod tests {
         assert_eq!(body["input"][0]["content"][0]["text"], "Tell me a joke");
         assert!(body.get("tools").is_none());
         let text = instructions(&body);
+        assert!(text.contains("Answer in the language the user spoke."));
         assert!(text.contains("heard \"ru\""));
         assert!(text.contains("Start every answer with <lang CODE>"));
+        assert!(text.contains("the first sentence carries the answer (the action or the place)"));
+        assert!(text.contains("at most two short sentences for a simple action"));
+        assert!(text.contains("Never invent a menu or button name that is not on the screen"));
+        assert!(text.contains("or in the element list; if unsure, say so plainly"));
+        assert!(text.contains("instead of guessing."));
         assert!(text.contains("Sound mode: calm"));
         assert!(!text.contains("<point e12>"));
     }
@@ -630,8 +637,14 @@ mod tests {
         assert_eq!(content[0]["text"], expected);
         assert_eq!(content[1]["type"], "input_image");
         assert_eq!(content[1]["image_url"], DATA_URL);
-        assert!(instructions(&body).contains("with an id from the list"));
-        assert!(instructions(&body).contains("<point e12>"));
+        let text = instructions(&body);
+        assert!(text.contains("with an id from the list"));
+        assert!(text.contains("the first sentence carries the answer (the action or the place)"));
+        assert!(text.contains("at most two short sentences for a simple action"));
+        assert!(text.contains("Never invent a menu or button name that is not on the screen"));
+        assert!(text.contains("if unsure, say so plainly instead of guessing."));
+        assert!(text.contains("Black boxes are hidden content (passwords or other windows)"));
+        assert!(text.contains("<point e12>"));
     }
 
     #[test]
@@ -646,6 +659,7 @@ mod tests {
         let text = instructions(&body);
         assert!(text.contains("You never act yourself"));
         assert!(text.contains("exactly one action per computer_call"));
+        assert!(text.contains("Black boxes are hidden content (passwords or other windows)"));
     }
 
     #[test]
@@ -776,6 +790,41 @@ mod tests {
             let text = instructions(body);
             assert!(text.contains(named.as_str()));
             assert!(!text.contains(['{', '}']));
+        }
+    }
+
+    #[test]
+    fn screen_prompts_explain_black_boxes_and_hidden_elements() {
+        let list = render_element_list(&[large_button()], 150);
+        let point = point_request(QUICK, SPOKEN, "Where?", &list, &image());
+        let computer = computer_request(QUICK, ACT, "Help", &list, &image());
+        let followup = computer_followup(session(), "resp_1", "call_1", &[], &image());
+        for prompt in [
+            SCREEN_PROMPT,
+            TEACHER_PROMPT,
+            instructions(&point),
+            instructions(&computer),
+            instructions(&followup),
+        ] {
+            assert!(!prompt.contains("Black boxes and [hidden] elements are password fields"));
+            assert!(prompt.contains("Black boxes are hidden content (passwords or other windows)"));
+            assert!(prompt.contains("never point at or describe them"));
+            assert!(prompt.contains("[hidden] elements are password fields"));
+            assert!(prompt.contains("Never ask the user to read a password aloud."));
+        }
+        for spoken in [
+            instructions(&chat_request(QUICK, SPOKEN, Some("en"), "How?")),
+            instructions(&point),
+        ] {
+            assert!(spoken.contains("Answer in the language the user spoke."));
+            assert!(spoken.contains("the first sentence carries the answer"));
+            assert!(spoken.contains("(the action or the place)"));
+            assert!(spoken.contains("at most two short sentences for a simple action"));
+            assert!(
+                spoken.contains("Never invent a menu or button name that is not on the screen")
+            );
+            assert!(spoken.contains("or in the element list; if unsure, say so plainly"));
+            assert!(spoken.contains("instead of guessing."));
         }
     }
 

@@ -97,7 +97,7 @@ pub fn password_like(
 /// buying, ordering, deleting, moving money. ASCII stems match at the start of a word
 /// ("Pay now", "btnDelete", never "Voice Recorder"); Cyrillic stems match anywhere,
 /// because Russian puts prefixes in front of them ("предоплата", "покупка").
-const FORBIDDEN_STEMS: [&str; 52] = [
+const FORBIDDEN_STEMS: [&str; 41] = [
     "pay",
     "prepay",
     "repay",
@@ -116,7 +116,6 @@ const FORBIDDEN_STEMS: [&str; 52] = [
     "donate",
     "donation",
     "withdraw",
-    "subscribe",
     "deposit",
     "top up",
     "topup",
@@ -140,12 +139,16 @@ const FORBIDDEN_STEMS: [&str; 52] = [
     "перевести деньги",
     "отправить деньги",
     "пожертв",
+];
+
+/// Cyrillic stems that must start a word: inside a word they mean something harmless
+/// ("расписание" holds "списа", "подсброс" is no reset).
+const FORBIDDEN_WORD_STARTS: [&str; 9] = [
     "оформит",
     "списа",
     "перевест",
     "вывест",
     "пополн",
-    "подпис",
     "стереть",
     "уничтож",
     "очист",
@@ -157,14 +160,19 @@ const FORBIDDEN_STEMS: [&str; 52] = [
 /// tokens such as "PIN" only count in an edit field, as in `password_like`. Callers check
 /// every label they have (name, automation id); a match means never click it for the user.
 pub fn forbidden(name: &str, control_type: &str) -> bool {
-    if password_toggle(name) || (control_type.eq_ignore_ascii_case("Edit") && password_words(name))
-    {
+    let field = ["Edit", "Custom", "Document"]
+        .iter()
+        .any(|kind| control_type.eq_ignore_ascii_case(kind));
+    if password_toggle(name) || (field && password_words(name)) {
         return true;
     }
     let text = separated(name);
     FORBIDDEN_STEMS
         .into_iter()
         .any(|stem| contains_stem(&text, stem))
+        || FORBIDDEN_WORD_STARTS
+            .into_iter()
+            .any(|stem| contains_word_start(&text, stem))
 }
 
 /// `name` with every run of whitespace, hyphens and underscores as one space ("Check-out",
@@ -197,6 +205,20 @@ fn contains_stem(text: &str, stem: &str) -> bool {
             .flat_map(char::to_lowercase)
             .eq(stem.chars())
             && (!stem.is_ascii() || word_start(text[..start].chars().next_back(), first))
+    })
+}
+
+/// Case-insensitive, at the start of a word only, whatever the script.
+fn contains_word_start(text: &str, stem: &str) -> bool {
+    text.char_indices().any(|(start, first)| {
+        text.get(start..start + stem.len())
+            .is_some_and(|candidate| {
+                candidate
+                    .chars()
+                    .flat_map(char::to_lowercase)
+                    .eq(stem.chars())
+            })
+            && word_start(text[..start].chars().next_back(), first)
     })
 }
 
@@ -248,7 +270,6 @@ mod tests {
             "Пожертвовать",
             "Show password",
             "Показать пароль",
-            "Subscribe",
             "Top up",
             "Deposit funds",
             "Empty Trash",
@@ -262,6 +283,7 @@ mod tests {
             "Вывести",
             "Пополнить",
             "Оформить подписку",
+            "Перевести по СБП",
             "Стереть всё",
             "Уничтожить",
             "Очистить историю",
@@ -298,6 +320,10 @@ mod tests {
             "Оформление",
             "Список",
             "Дополнительно",
+            "Отправить по расписанию",
+            "Подпись",
+            "Подписаться на канал",
+            "Subscribe",
         ] {
             assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
         }
@@ -307,6 +333,7 @@ mod tests {
     fn short_password_tokens_count_only_in_edit_fields() {
         for name in ["PIN", "otp_input", "CVV", "пин"] {
             assert!(forbidden(name, "Edit"), "expected forbidden: {name}");
+            assert!(forbidden(name, "Custom"), "expected forbidden: {name}");
             assert!(forbidden(name, "edit"), "expected forbidden: {name}");
             assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
         }

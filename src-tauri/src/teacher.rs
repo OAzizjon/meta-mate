@@ -18,6 +18,7 @@ use mm_core::api::request::{
 use mm_core::api::response::{Action, ParsedResponse};
 use mm_core::geom::{PhysRect, ShotPoint};
 use mm_core::matescript::{Item, Say};
+use mm_core::redaction::{overlaps_any, point_in_any};
 use mm_core::teacher::{
     ChordRecognizer, ClickRecognizer, LineKey, RefusalReason, Teacher, TeacherCommand,
     TeacherConfig, TeacherInput,
@@ -63,33 +64,40 @@ fn line_key(line: LineKey, steps_done: &mut usize) -> Option<&'static str> {
         LineKey::NetworkError => Some("robot.network_error"),
         LineKey::TooManyTurns => Some("robot.too_many_turns"),
         LineKey::WontPress => Some("robot.wont_press"),
+        LineKey::DoItForMe => Some("robot.do_it_for_me"),
+        LineKey::Pressing => Some("robot.pressing"),
+        LineKey::PressCancelled => Some("robot.press_cancelled"),
+        LineKey::PressFailed => Some("robot.press_failed"),
     }
 }
 
 /// The rectangle each action of a turn is about, in the order the teacher reads them: the
 /// pointable element under a click, the element under a scroll or move, the whole look
-/// for typing, keys and waiting; None for what cannot be placed (the teacher refuses).
+/// for typing, keys and waiting; None for what cannot be placed (the teacher refuses),
+/// including anything in or touching a painted area: the model saw black there.
 fn targets_for(look: &Look, response: &ParsedResponse) -> Vec<Option<PhysRect>> {
     let frame = look.redacted.frame;
     let at = |x: i64, y: i64| {
         let shot = ShotPoint::new(x as f64 + 0.5, y as f64 + 0.5).ok()?;
-        frame.shot_to_phys_checked(shot)
+        let phys = frame.shot_to_phys_checked(shot)?;
+        (!point_in_any(phys, &look.painted)).then_some(phys)
     };
+    let visible = |rect: PhysRect| (!overlaps_any(rect, &look.painted)).then_some(rect);
     response
         .computer_calls
         .iter()
         .flat_map(|call| call.actions.iter())
         .map(|action| match action {
             Action::Click { x, y, .. } | Action::DoubleClick { x, y } => {
-                look.snapshot.target_at(at(*x, *y)?)?.rect
+                visible(look.snapshot.target_at(at(*x, *y)?)?.rect?)
             }
             Action::Scroll { x, y, .. } | Action::Move { x, y } => {
-                look.snapshot.element_at(at(*x, *y)?)?.rect
+                visible(look.snapshot.element_at(at(*x, *y)?)?.rect?)
             }
             // A slider's thumb: the pointable element where the drag starts.
             Action::Drag { path } => {
                 let &(x, y) = path.first()?;
-                look.snapshot.target_at(at(x, y)?)?.rect
+                visible(look.snapshot.target_at(at(x, y)?)?.rect?)
             }
             // No privacy-safe ValueChanged source exists yet. Refuse type steps
             // even when the live keyboard subscription enables keypress steps.
@@ -205,8 +213,13 @@ pub async fn teach(
                 return;
             }
             eprintln!("teacher: look: {failure}");
+            // Like voice.rs: no timeline was started, so no End (it would cut the line's
+            // bubble short).
             say_line(&stream, &phrases, &locale, generation, failure.line());
-            finish(&app, &stream, generation);
+            stream.send(AnswerMsg::State {
+                generation,
+                state: "idle",
+            });
             return;
         }
     };
@@ -379,6 +392,9 @@ pub async fn teach(
                             say_line(&stream, &phrases, &locale, generation, key);
                         }
                     }
+                    // "Do it for me" stays off (TeacherConfig::do_it_for_me is false) until
+                    // the spoken yes reaches the lesson: neither command is ever sent yet.
+                    TeacherCommand::OfferDoIt { .. } | TeacherCommand::PerformClick { .. } => {}
                     TeacherCommand::AcknowledgeSafetyChecks(ids) => acknowledged = ids,
                     TeacherCommand::UseModel(model) => session.model = model,
                     TeacherCommand::RequestScreenshot => {
@@ -504,6 +520,10 @@ mod tests {
             LineKey::NetworkError,
             LineKey::TooManyTurns,
             LineKey::WontPress,
+            LineKey::DoItForMe,
+            LineKey::Pressing,
+            LineKey::PressCancelled,
+            LineKey::PressFailed,
         ] {
             let key = line_key(line, &mut 0).unwrap();
             let en: serde_json::Value =

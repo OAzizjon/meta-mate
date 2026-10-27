@@ -242,14 +242,16 @@ impl Proxy {
         ))
     }
 
-    /// One sentence in Mate's voice (`lang` is `en` or `ru`).
+    /// One sentence in Mate's voice (`lang` is `en` or `ru`) at the voice speed of the
+    /// settings (0.8..=1.3, already sanitized).
     pub async fn speak(&self, lang: &str, text: &str) -> Result<Speech, ProxyError> {
+        let speed = crate::settings::voice_speed();
         let response = self
             .http
             .post(format!("{}/v1/tts", self.base))
             .bearer_auth(&self.invite)
             .timeout(TTS_TIMEOUT)
-            .json(&json!({"lang": lang, "text": text}))
+            .json(&json!({"lang": lang, "text": text, "speed": speed}))
             .send()
             .await
             .map_err(network)?;

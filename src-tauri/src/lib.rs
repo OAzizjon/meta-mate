@@ -128,6 +128,10 @@ pub fn run() {
                 voice::ask(app.handle(), question);
                 return Ok(());
             }
+            // Without the tray Mate still works: no reason to stop.
+            if let Err(error) = tray(app.handle()) {
+                eprintln!("tray: {error}");
+            }
             #[cfg(windows)]
             if let Some(voice) = voice::start(app.handle()) {
                 use tauri::Manager;
@@ -141,5 +145,133 @@ pub fn run() {
     if let Err(error) = result {
         eprintln!("{}: could not start: {error}", mm_core::constants::APP_NAME);
         std::process::exit(1);
+    }
+}
+
+/// Tray menu ids.
+const MENU_SETTINGS: &str = "settings";
+const MENU_QUIT: &str = "quit";
+/// The settings window's label (capabilities/default.json) and page (src/settings.ts).
+const SETTINGS_WINDOW: &str = "settings";
+const SETTINGS_PAGE: &str = "settings.html";
+
+/// The tray icon (the app icon) with "Settings" and "Quit", in the UI locale Mate's window
+/// reports (its `navigator.language` follows the Windows display language): English until
+/// that window subscribes, then relabelled once.
+fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    use std::time::{Duration, Instant};
+    use tauri::Manager;
+    use tauri::menu::{Menu, MenuItem};
+    use tauri::tray::TrayIconBuilder;
+
+    let locale = app.state::<answer_stream::AnswerStream>().locale();
+    let settings_item = MenuItem::with_id(
+        app,
+        MENU_SETTINGS,
+        locale_text(&locale, "tray.settings"),
+        true,
+        None::<&str>,
+    )?;
+    let quit_item = MenuItem::with_id(
+        app,
+        MENU_QUIT,
+        locale_text(&locale, "tray.quit"),
+        true,
+        None::<&str>,
+    )?;
+    let menu = Menu::with_items(app, &[&settings_item, &quit_item])?;
+    let mut builder = TrayIconBuilder::new()
+        .menu(&menu)
+        .tooltip(mm_core::constants::APP_NAME)
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            MENU_SETTINGS => {
+                // Building a window inside an event handler deadlocks on Windows (WebView2):
+                // the async runtime builds it.
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move { open_settings(&app) });
+            }
+            MENU_QUIT => app.exit(0),
+            _ => {}
+        });
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+    // The app keeps the icon: the returned handle may go.
+    builder.build(app)?;
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let stream = app.state::<answer_stream::AnswerStream>();
+        let started = Instant::now();
+        while !stream.subscribed() && started.elapsed() < Duration::from_secs(15) {
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+        let locale = stream.locale();
+        let _ = settings_item.set_text(locale_text(&locale, "tray.settings"));
+        let _ = quit_item.set_text(locale_text(&locale, "tray.quit"));
+    });
+    Ok(())
+}
+
+/// Opens the settings window (560x720, centred), or brings it forward when it is open:
+/// one instance. A normal window the person asked for from the tray, so it takes focus;
+/// invariant 1 is about Mate's windows, which never do.
+fn open_settings(app: &tauri::AppHandle) {
+    use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+    if let Some(window) = app.get_webview_window(SETTINGS_WINDOW) {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+        return;
+    }
+    let locale = app.state::<answer_stream::AnswerStream>().locale();
+    let title = format!(
+        "{} {}",
+        mm_core::constants::APP_NAME,
+        locale_text(&locale, "tray.settings")
+    );
+    // Two quick clicks may both get here: the second build fails on the taken label.
+    let result =
+        WebviewWindowBuilder::new(app, SETTINGS_WINDOW, WebviewUrl::App(SETTINGS_PAGE.into()))
+            .title(title)
+            .inner_size(560.0, 720.0)
+            .center()
+            .additional_browser_args(overlay::BROWSER_ARGS)
+            .build();
+    if let Err(error) = result {
+        eprintln!("settings: window: {error}");
+    }
+}
+
+/// `key` from the locale files (invariant 7): Russian for the "ru" locale, else English;
+/// the key itself when it is missing.
+fn locale_text(locale: &str, key: &str) -> String {
+    let strings = if locale == "ru" {
+        include_str!("../../locales/ru.json")
+    } else {
+        include_str!("../../locales/en.json")
+    };
+    serde_json::from_str::<serde_json::Value>(strings)
+        .ok()
+        .and_then(|strings| strings.get(key)?.as_str().map(str::to_owned))
+        .unwrap_or_else(|| key.to_owned())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_tray_menu_has_both_languages() {
+        for locale in ["en", "ru"] {
+            for key in ["tray.settings", "tray.quit"] {
+                let text = locale_text(locale, key);
+                assert!(!text.is_empty() && text != key, "{locale} {key}");
+            }
+        }
+        assert_eq!(locale_text("en", "tray.quit"), "Quit");
+        assert_ne!(locale_text("ru", "tray.quit"), "Quit");
+        // Any other locale is English.
+        assert_eq!(locale_text("de", "tray.settings"), "Settings");
     }
 }

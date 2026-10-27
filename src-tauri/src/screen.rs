@@ -308,6 +308,7 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
     use mm_platform::same_hidden;
     use mm_win32::{capture, overlay, uia, window};
 
+    let started = std::time::Instant::now();
     let target = window::foreground_target(own).ok_or(LookFailure::NoWindow)?;
     let walker = uia::UiaWalker::new().map_err(|_| LookFailure::Uia)?;
     let snapshot = walker
@@ -334,6 +335,7 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
         capture::capture_region(target.region)
     };
     let capture = copied.map_err(LookFailure::Capture)?;
+    let copied_at = started.elapsed();
     // The masks come from the walk: the window must be exactly where it was then, under
     // the same windows of other apps.
     let after = window::foreground_target(own).ok_or(LookFailure::Changed)?;
@@ -359,6 +361,15 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
         return Err(LookFailure::Changed);
     }
     let painted = painted_areas(target.region, target.frame, &target.popups, &occluders);
+    // Development builds: where a look's time goes (sizes and times only, never names).
+    #[cfg(debug_assertions)]
+    eprintln!(
+        "look: {} elements, copy done at {} ms, second walk done at {} ms, {} painted areas",
+        snapshot.elements.len(),
+        copied_at.as_millis(),
+        started.elapsed().as_millis(),
+        painted.len()
+    );
     let mut look = prepare(snapshot, &capture, &painted).map_err(LookFailure::Prepare)?;
     look.window_frame = target.frame;
     Ok(look)

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Mate's window and the highlight windows (one per monitor): core events only for now.",
-  "windows": ["mate", "highlight-*", "debug"],
+  "description": "Mate's window, the highlight windows (one per monitor) and the settings window: core events only for now.",
+  "windows": ["mate", "highlight-*", "debug", "settings"],
   "permissions": ["core:default"]
 }

@@ -9,6 +9,20 @@ use crate::geom::{FrameTransform, PhysPoint, PhysRect};
 /// confirms a safety check (invariant 4).
 #[derive(Clone)]
 pub enum TeacherInput {
+    DoItRequested {
+        now_ms: u64,
+    },
+    DoItAnswer {
+        yes: bool,
+        now_ms: u64,
+    },
+    DoItUnavailable {
+        now_ms: u64,
+    },
+    DoItDone {
+        ok: bool,
+        now_ms: u64,
+    },
     ModelTurn {
         response: ParsedResponse,
         frame: FrameTransform,
@@ -56,6 +70,18 @@ pub enum TeacherInput {
 impl fmt::Debug for TeacherInput {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::DoItRequested { now_ms } => write!(f, "DoItRequested({now_ms})"),
+            Self::DoItAnswer { yes, now_ms } => f
+                .debug_struct("DoItAnswer")
+                .field("yes", yes)
+                .field("now_ms", now_ms)
+                .finish(),
+            Self::DoItUnavailable { now_ms } => write!(f, "DoItUnavailable({now_ms})"),
+            Self::DoItDone { ok, now_ms } => f
+                .debug_struct("DoItDone")
+                .field("ok", ok)
+                .field("now_ms", now_ms)
+                .finish(),
             Self::ModelTurn {
                 response,
                 frame,

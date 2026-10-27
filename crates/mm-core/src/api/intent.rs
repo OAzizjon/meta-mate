@@ -61,6 +61,114 @@ fn has_phrase(words: &[&str], phrase: &[&str]) -> bool {
     words.windows(phrase.len()).any(|window| window == phrase)
 }
 
+fn spoken_words(text: &str) -> String {
+    text.to_lowercase().replace(['\'', '’'], "")
+}
+
+fn contains_spoken(words: &[&str], phrases: &[&str]) -> bool {
+    phrases.iter().any(|phrase| {
+        let phrase: Vec<_> = phrase.split_whitespace().collect();
+        has_phrase(words, &phrase)
+    })
+}
+
+fn has_no(words: &[&str]) -> bool {
+    contains_spoken(
+        words,
+        &[
+            "no",
+            "nope",
+            "dont",
+            "do not",
+            "stop",
+            "cancel",
+            "wait",
+            "нет",
+            "не надо",
+            "не нажимай",
+            "не нажимайте",
+            "стоп",
+            "отмена",
+            "подожди",
+            "подождите",
+        ],
+    )
+}
+
+/// Spoken confirmation for the current offer only; a refusal always wins.
+pub fn parse_yes_no(text: &str) -> Option<bool> {
+    let lower = spoken_words(text);
+    let words: Vec<_> = words(&lower).collect();
+    let yes = contains_spoken(
+        &words,
+        &[
+            "yes",
+            "yeah",
+            "yep",
+            "sure",
+            "ok",
+            "okay",
+            "please do",
+            "go ahead",
+            "do it",
+            "press it",
+            "да",
+            "ага",
+            "угу",
+            "конечно",
+            "давай",
+            "давайте",
+            "нажми",
+            "нажмите",
+            "хорошо",
+            "ладно",
+        ],
+    );
+    if has_no(&words) {
+        Some(false)
+    } else if yes {
+        Some(
+            !words
+                .iter()
+                .any(|word| matches!(*word, "not" | "never" | "не")),
+        )
+    } else {
+        None
+    }
+}
+
+/// Recognize explicit delegation, without confusing a how-to question with consent.
+pub fn asks_do_it(text: &str) -> bool {
+    let lower = spoken_words(text);
+    let words: Vec<_> = words(&lower).collect();
+    !has_no(&words)
+        && !words
+            .iter()
+            .any(|word| matches!(*word, "not" | "never" | "не"))
+        && contains_spoken(
+            &words,
+            &[
+                "do it for me",
+                "press it for me",
+                "can you press it",
+                "click it for me",
+                "can you click it",
+                "could you press it",
+                "could you click it",
+                "сделай за меня",
+                "сделайте за меня",
+                "нажми за меня",
+                "нажмите за меня",
+                "нажмите сами",
+                "нажми сам",
+                "сделайте сами",
+                "сделай сам",
+                "можешь нажать",
+                "можете нажать",
+            ],
+        )
+}
+
 /// Conservative English/Russian fallback when the classifier is unavailable.
 /// Delegation wins over finding, which wins over teaching when cues overlap.
 pub fn guess_intent(question: &str) -> Intent {

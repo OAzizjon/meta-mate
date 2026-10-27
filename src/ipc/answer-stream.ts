@@ -32,6 +32,11 @@ export const ANSWER_LINE_KEYS = [
   "robot.done",
   "robot.too_many_turns",
   "robot.wont_press",
+  // "Do it for me" (teacher.rs line_key).
+  "robot.do_it_for_me",
+  "robot.pressing",
+  "robot.press_cancelled",
+  "robot.press_failed",
   "robot.sleep",
 ] as const satisfies readonly LocaleKey[];
 export type AnswerLineKey = (typeof ANSWER_LINE_KEYS)[number];

@@ -1,4 +1,6 @@
-use mm_core::api::intent::{Intent, guess_intent, intent_request, parse_intent};
+use mm_core::api::intent::{
+    Intent, asks_do_it, guess_intent, intent_request, parse_intent, parse_yes_no,
+};
 use serde_json::json;
 
 #[test]
@@ -117,4 +119,128 @@ fn request_matches_the_classifier_contract() {
             ]}]
         })
     );
+}
+
+#[test]
+fn spoken_yes_no_covers_both_languages_and_negation_wins() {
+    for text in [
+        "yes",
+        "YEAH!",
+        "Yep.",
+        "sure",
+        "ok",
+        "okay",
+        "please do",
+        "Go ahead!",
+        "do it",
+        "press it",
+        "ДА!",
+        "ага",
+        "угу",
+        "конечно",
+        "давай",
+        "давайте",
+        "нажми",
+        "нажмите",
+        "хорошо",
+        "ладно",
+        "Yes, please.",
+        "Хорошо, нажмите!",
+    ] {
+        assert_eq!(parse_yes_no(text), Some(true), "{text}");
+    }
+    for text in [
+        "no",
+        "nope",
+        "don't",
+        "DON’T!",
+        "do not",
+        "stop",
+        "cancel",
+        "wait",
+        "нет",
+        "не надо",
+        "не нажимай",
+        "не нажимайте",
+        "стоп",
+        "отмена",
+        "подожди",
+        "подождите",
+        "нет, не надо",
+        "да нет",
+        "yes, wait",
+        "sure, don't",
+        "да, не нажимайте",
+        "okay, do not press it",
+        "not sure",
+        "not okay",
+        "не нажми",
+        "never press it",
+    ] {
+        assert_eq!(parse_yes_no(text), Some(false), "{text}");
+    }
+    for text in [
+        "",
+        "...",
+        "yesterday",
+        "surely",
+        "nobody",
+        "notebook",
+        "остановка",
+        "нажмите_кнопку",
+        "да2",
+        "maybe",
+        "what button?",
+        "не знаю",
+    ] {
+        assert_eq!(parse_yes_no(text), None, "{text}");
+    }
+}
+
+#[test]
+fn delegation_requires_explicit_phrases_with_word_boundaries() {
+    for text in [
+        "do it for me",
+        "Please, PRESS it for me!",
+        "can you press it",
+        "click it for me",
+        "could you click it?",
+        "can you click it",
+        "could you press it please",
+        "СДЕЛАЙ ЗА МЕНЯ!",
+        "нажми за меня",
+        "нажмите сами",
+        "сделайте сами",
+        "можешь нажать",
+        "можете нажать?",
+        "сделайте за меня",
+        "нажмите за меня",
+        "нажми сам",
+        "сделай сам",
+    ] {
+        assert!(asks_do_it(text), "{text}");
+    }
+    for text in [
+        "",
+        "how do I do it",
+        "how do I press it",
+        "press it",
+        "do it",
+        "for me",
+        "click it for memory",
+        "can you press item",
+        "undo it for me",
+        "нажмите сами2",
+        "как мне нажать",
+        "сделай за меня2",
+        "don't do it for me",
+        "do not click it for me",
+        "не нажмите сами",
+        "нет, сделай за меня",
+        "wait, can you press it",
+        "not do it for me",
+        "never click it for me",
+    ] {
+        assert!(!asks_do_it(text), "{text}");
+    }
 }

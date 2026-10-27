@@ -152,12 +152,15 @@
 
 /* Reduce motion (the setting or the OS; styles.css also stops everything for the OS one):
    no loops and nothing moves, only fades remain. */
+.mate-root.reduce-motion,
+.mate-root.reduce-motion *,
 .mate-svg.reduce-motion,
 .mate-svg.reduce-motion * {
   animation: none !important;
   transition-property: opacity !important;
 }
 
+.mate-root.reduce-motion .mate-body,
 .mate-svg.reduce-motion .mate-body {
   transform: none;
 }

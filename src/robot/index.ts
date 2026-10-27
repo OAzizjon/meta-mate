@@ -3,12 +3,12 @@
 // setting or the OS (prefers-reduced-motion) asks for it.
 
 import "./robot.css";
+import { fitRobotSize, robotSizeDimensions } from "../settings/apply";
 import { createBeamController } from "./beam";
 import { createFlightController } from "./flight";
-import { VIEW_H, VIEW_W } from "./geometry";
 import { createStateAnimator } from "./states";
 import { buildMateSvg, svgEl } from "./svg";
-import { DEFAULT_ROBOT_SIZE, ROBOT_SIZE_PX } from "./types";
+import { DEFAULT_ROBOT_SIZE } from "./types";
 import type { CssPoint, CssRect, RobotMood, RobotSizePreset, RobotState } from "./types";
 
 export type { CssPoint, CssRect, RobotMood, RobotSizePreset, RobotState } from "./types";
@@ -51,23 +51,39 @@ export function mountRobot(container: HTMLElement): RobotController {
   const flight = createFlightController(box);
   const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
   let reduceSetting = false;
+  let desiredSize: RobotSizePreset = DEFAULT_ROBOT_SIZE;
   let offset: CssPoint = { x: 0, y: 0 };
 
   const reduceMotion = (): boolean => reduceSetting || motionQuery.matches;
-  const applyMotion = (): void => animator.setReduceMotion(reduceMotion());
+  const applyMotion = (): void => {
+    const reduced = reduceMotion();
+    root.classList.toggle("reduce-motion", reduced);
+    animator.setReduceMotion(reduced);
+  };
   const relayout = (): void => animator.relayout();
 
-  function setSize(size: RobotSizePreset): void {
-    const width = ROBOT_SIZE_PX[size];
+  function applySize(): void {
+    const boxWidth = container.clientWidth || window.innerWidth;
+    const boxHeight = container.clientHeight || window.innerHeight;
+    const effective = fitRobotSize(
+      desiredSize,
+      boxWidth > 0 && boxHeight > 0 ? { width: boxWidth, height: boxHeight } : null,
+    );
+    const { width, height } = robotSizeDimensions(effective);
     refs.svg.setAttribute("width", String(width));
-    refs.svg.setAttribute("height", String(Math.round((width * VIEW_H) / VIEW_W)));
+    refs.svg.setAttribute("height", String(height));
     relayout();
+  }
+
+  function setSize(size: RobotSizePreset): void {
+    desiredSize = size;
+    applySize();
   }
 
   setSize(DEFAULT_ROBOT_SIZE);
   applyMotion();
   motionQuery.addEventListener("change", applyMotion);
-  window.addEventListener("resize", relayout);
+  window.addEventListener("resize", applySize);
 
   return {
     setState: (state) => animator.setState(state),
@@ -95,7 +111,7 @@ export function mountRobot(container: HTMLElement): RobotController {
     setFunMode: (fun) => animator.setFunMode(fun),
     destroy() {
       motionQuery.removeEventListener("change", applyMotion);
-      window.removeEventListener("resize", relayout);
+      window.removeEventListener("resize", applySize);
       flight.cancel();
       animator.destroy();
       root.remove();

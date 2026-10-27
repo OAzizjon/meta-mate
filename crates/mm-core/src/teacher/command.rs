@@ -1,12 +1,14 @@
 use std::fmt;
 
-use crate::geom::PhysRect;
+use crate::geom::{PhysPoint, PhysRect};
 
 use super::{LineKey, ModelChoice, RefusalReason};
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum TeacherCommand {
     PointAt { rect: PhysRect, step: u8, total: u8 },
+    OfferDoIt { rect: PhysRect },
+    PerformClick { at: PhysPoint, rect: PhysRect },
     Say(LineKey),
     SpeakCommentary(String),
     RequestScreenshot,
@@ -20,6 +22,12 @@ pub enum TeacherCommand {
 impl fmt::Debug for TeacherCommand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::OfferDoIt { rect } => f.debug_struct("OfferDoIt").field("rect", rect).finish(),
+            Self::PerformClick { at, rect } => f
+                .debug_struct("PerformClick")
+                .field("at", at)
+                .field("rect", rect)
+                .finish(),
             Self::PointAt { rect, step, total } => f
                 .debug_struct("PointAt")
                 .field("rect", rect)

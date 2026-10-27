@@ -68,6 +68,12 @@ body {
   pointer-events: none;
 }
 
+html.reduce-motion *,
+.reduce-motion * {
+  animation: none !important;
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

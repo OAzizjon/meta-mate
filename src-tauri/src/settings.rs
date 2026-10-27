@@ -2,30 +2,52 @@
 //! reads them with `load_settings` and saves them with `save_settings`. They live in
 //! memory (`SettingsStore`) and in `settings.json` in the app's config folder, written
 //! atomically. A missing or broken file gives the defaults, never an error the user sees.
+//! Every save reaches every window as a `settings-changed` event. `startWithWindows` is
+//! only stored: starting with Windows is the installer's concern.
 
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
+use mm_core::api::request::ModelChoice;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 const FILE_NAME: &str = "settings.json";
 /// Written first, then renamed over `FILE_NAME`: a crash mid-write leaves the old file.
 const TEMP_NAME: &str = "settings.json.tmp";
 /// What the window gets when saving fails: no path, so no user name.
 const SAVE_FAILED: &str = "could not save settings";
+/// Sent to every window after a save, with the saved settings as its payload.
+const CHANGED_EVENT: &str = "settings-changed";
 
 pub const MIN_VOICE_SPEED: f64 = 0.8;
 pub const MAX_VOICE_SPEED: f64 = 1.3;
 pub const DEFAULT_VOICE_SPEED: f64 = 1.0;
+/// The steps of the window's range input (`VOICE_SPEED_STEP` in src/settings/model.ts).
+pub const VOICE_SPEED_STEP: f64 = 0.05;
+
+/// The store's voice speed as `f64` bits, for the TTS call (proxy.rs), which holds no app
+/// handle. Kept in step with the store.
+static VOICE_SPEED: AtomicU64 = AtomicU64::new(DEFAULT_VOICE_SPEED.to_bits());
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Model {
     Quick,
     Thorough,
+}
+
+impl From<Model> for ModelChoice {
+    /// Quick is Muse Spark, Thorough is Muse Wonder (mm-core maps them to model ids).
+    fn from(model: Model) -> Self {
+        match model {
+            Model::Quick => Self::Quick,
+            Model::Thorough => Self::Thorough,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,11 +105,13 @@ impl Default for Settings {
 
 impl Settings {
     /// The rules of `parseSettings` (src/settings/model.ts): a voice speed outside
-    /// `MIN_VOICE_SPEED..=MAX_VOICE_SPEED` (NaN and infinities too) becomes the default.
-    /// The other fields cannot be out of range once deserialized.
+    /// `MIN_VOICE_SPEED..=MAX_VOICE_SPEED` (NaN and infinities too) becomes the default; one
+    /// inside snaps to the nearest `VOICE_SPEED_STEP`, rounded to 2 decimals. The other
+    /// fields cannot be out of range once deserialized.
     pub fn sanitized(self) -> Settings {
         let voice_speed = if (MIN_VOICE_SPEED..=MAX_VOICE_SPEED).contains(&self.voice_speed) {
-            self.voice_speed
+            let stepped = (self.voice_speed / VOICE_SPEED_STEP).round() * VOICE_SPEED_STEP;
+            (stepped * 100.0).round() / 100.0
         } else {
             DEFAULT_VOICE_SPEED
         };
@@ -104,7 +128,9 @@ pub struct SettingsStore(Mutex<Settings>);
 
 impl SettingsStore {
     pub fn new(settings: Settings) -> Self {
-        Self(Mutex::new(settings.sanitized()))
+        let settings = settings.sanitized();
+        VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
+        Self(Mutex::new(settings))
     }
 
     /// A copy of the current settings.
@@ -124,21 +150,42 @@ pub fn load_settings(store: State<'_, SettingsStore>) -> Settings {
     store.get()
 }
 
-/// Sanitizes, keeps and saves `settings`. They stay in memory even when the file cannot
-/// be written.
+/// Sanitizes, keeps and saves `settings`, then sends them to every window. They stay in
+/// memory, and in effect, even when the file cannot be written.
 #[tauri::command]
 pub fn save_settings(
     app: AppHandle,
     store: State<'_, SettingsStore>,
     settings: Settings,
 ) -> Result<(), String> {
-    let mut current = store.lock();
-    *current = settings.sanitized();
-    // Written under the lock: two saves cannot interleave and the file ends as the last.
-    persist(&app, &current).map_err(|error| {
+    let settings = settings.sanitized();
+    let saved = {
+        let mut current = store.lock();
+        *current = settings.clone();
+        VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
+        // Written under the lock: two saves cannot interleave and the file ends as the last.
+        persist(&app, &current)
+    };
+    // Sent after the lock is released: a listener may read the store.
+    if let Err(error) = app.emit(CHANGED_EVENT, settings) {
+        eprintln!("settings: could not tell the windows: {error}");
+    }
+    saved.map_err(|error| {
         eprintln!("settings: could not save: {error}");
         SAVE_FAILED.to_owned()
     })
+}
+
+/// The model the person chose, read from the store at this moment; Quick before the
+/// store exists.
+pub fn model(app: &AppHandle) -> Model {
+    app.try_state::<SettingsStore>()
+        .map_or(Model::Quick, |store| store.get().model)
+}
+
+/// The voice speed of the current settings (`DEFAULT_VOICE_SPEED` before the store exists).
+pub fn voice_speed() -> f64 {
+    f64::from_bits(VOICE_SPEED.load(Ordering::Relaxed))
 }
 
 /// The saved settings, at startup.
@@ -256,6 +303,32 @@ mod tests {
             };
             assert_eq!(settings.clone().sanitized(), settings);
         }
+    }
+
+    #[test]
+    fn a_voice_speed_snaps_to_the_step_like_the_window() {
+        // The cases of src/settings/model.test.ts.
+        for (speed, snapped) in [(1.03, 1.05), (0.82, 0.8), (1.299, 1.3), (0.875, 0.9)] {
+            let settings = Settings {
+                voice_speed: speed,
+                ..changed()
+            };
+            assert_eq!(
+                settings.sanitized(),
+                Settings {
+                    voice_speed: snapped,
+                    ..changed()
+                },
+                "{speed}"
+            );
+        }
+        assert_eq!(
+            parse(r#"{"voiceSpeed":1.12}"#),
+            Settings {
+                voice_speed: 1.1,
+                ..Settings::default()
+            }
+        );
     }
 
     #[test]

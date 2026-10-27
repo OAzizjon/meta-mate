@@ -8,4 +8,8 @@ pub enum LineKey {
     NetworkError,
     TooManyTurns,
     WontPress,
+    DoItForMe,
+    Pressing,
+    PressCancelled,
+    PressFailed,
 }

@@ -5,6 +5,14 @@ use super::confirmation::Confirmation;
 use super::step::{Step, immediate, same_chord, supported};
 use super::{LineKey, ModelChoice, RefusalReason, TeacherCommand, TeacherConfig, TeacherInput};
 
+#[derive(Default, PartialEq, Eq)]
+enum DoItState {
+    #[default]
+    Pointing,
+    Awaiting,
+    Pressing,
+}
+
 pub struct Teacher {
     config: TeacherConfig,
     steps: Vec<Step>,
@@ -18,6 +26,8 @@ pub struct Teacher {
     now_ms: u64,
     settled_from: Option<u64>,
     terminal: bool,
+    do_it: DoItState,
+    offered: bool,
 }
 
 impl Teacher {
@@ -35,6 +45,8 @@ impl Teacher {
             now_ms: 0,
             settled_from: None,
             terminal: false,
+            do_it: DoItState::Pointing,
+            offered: false,
         }
     }
 
@@ -46,7 +58,11 @@ impl Teacher {
             return out;
         }
         let timestamp = match &input {
-            TeacherInput::Click { now_ms, .. }
+            TeacherInput::DoItRequested { now_ms }
+            | TeacherInput::DoItAnswer { now_ms, .. }
+            | TeacherInput::DoItUnavailable { now_ms }
+            | TeacherInput::DoItDone { now_ms, .. }
+            | TeacherInput::Click { now_ms, .. }
             | TeacherInput::DoubleClick { now_ms, .. }
             | TeacherInput::KeyChord { now_ms, .. }
             | TeacherInput::ValueChanged { now_ms, .. }
@@ -60,6 +76,47 @@ impl Teacher {
             self.now_ms = self.now_ms.max(now_ms);
         }
         match input {
+            TeacherInput::DoItRequested { .. } => {
+                if self.steps.get(self.index).is_some() && !self.pressable() {
+                    out.push(TeacherCommand::Say(LineKey::PressFailed));
+                } else {
+                    self.offer_do_it(&mut out);
+                }
+            }
+            TeacherInput::DoItAnswer { yes, .. } => {
+                if self.do_it == DoItState::Awaiting {
+                    if yes {
+                        if let Some(step) = self.steps.get(self.index) {
+                            self.do_it = DoItState::Pressing;
+                            out.push(TeacherCommand::Say(LineKey::Pressing));
+                            out.push(TeacherCommand::PerformClick {
+                                at: step.rect.center(),
+                                rect: step.rect,
+                            });
+                        }
+                    } else {
+                        self.do_it = DoItState::Pointing;
+                        out.push(TeacherCommand::Say(LineKey::PressCancelled));
+                    }
+                }
+            }
+            TeacherInput::DoItUnavailable { .. } => {
+                self.do_it = DoItState::Pointing;
+                out.push(TeacherCommand::Say(LineKey::WontPress));
+            }
+            TeacherInput::DoItDone { ok, .. } => {
+                if self.do_it == DoItState::Pressing {
+                    self.do_it = DoItState::Pointing;
+                    if ok {
+                        // The explicit human yes authorizes this one driver result. No
+                        // praise: Mate pressed it, not the person.
+                        self.complete(true, &mut out);
+                        self.present(&mut out);
+                    } else {
+                        out.push(TeacherCommand::Say(LineKey::PressFailed));
+                    }
+                }
+            }
             TeacherInput::ModelTurn {
                 response,
                 frame,
@@ -78,6 +135,8 @@ impl Teacher {
                 self.confirmations.clear();
                 self.settled_from = None;
                 self.failures = 0;
+                self.do_it = DoItState::Pointing;
+                self.offered = false;
                 self.restore_quick(&mut out);
                 out.push(TeacherCommand::RequestScreenshot);
             }
@@ -105,6 +164,8 @@ impl Teacher {
         out: &mut Vec<TeacherCommand>,
     ) {
         self.turns += 1;
+        self.do_it = DoItState::Pointing;
+        self.offered = false;
         self.settled_from = None;
         if self.turns > u16::from(self.config.max_turns) {
             self.refuse(RefusalReason::TooManyTurns, LineKey::TooManyTurns, out);
@@ -314,6 +375,8 @@ impl Teacher {
     }
 
     fn complete(&mut self, human: bool, out: &mut Vec<TeacherCommand>) {
+        self.do_it = DoItState::Pointing;
+        self.offered = false;
         if let Some(step) = self.steps.get(self.index) {
             let check = &mut self.confirmations[step.call];
             if !immediate(&step.action) {
@@ -361,6 +424,9 @@ impl Teacher {
 
     fn failed_attempt(&mut self, out: &mut Vec<TeacherCommand>) {
         self.failures = self.failures.saturating_add(1);
+        if self.failures >= self.config.offer_after_failures.max(1) && !self.offered {
+            self.offer_do_it(out);
+        }
         if self.failures >= 2
             && self.config.auto_escalate
             && self.config.configured_model == ModelChoice::Quick
@@ -369,6 +435,24 @@ impl Teacher {
         {
             self.model = ModelChoice::Thorough;
             out.push(TeacherCommand::UseModel(ModelChoice::Thorough));
+        }
+    }
+
+    fn pressable(&self) -> bool {
+        self.steps.get(self.index).is_some_and(
+            |step| matches!(&step.action, Action::Click { button, .. } if button == "left"),
+        )
+    }
+
+    fn offer_do_it(&mut self, out: &mut Vec<TeacherCommand>) {
+        if self.config.do_it_for_me
+            && self.pressable()
+            && self.do_it == DoItState::Pointing
+            && let Some(step) = self.steps.get(self.index)
+        {
+            self.do_it = DoItState::Awaiting;
+            self.offered = true;
+            out.push(TeacherCommand::OfferDoIt { rect: step.rect });
         }
     }
 

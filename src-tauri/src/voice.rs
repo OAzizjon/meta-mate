@@ -348,7 +348,7 @@ async fn answer(
                     since_key_up(tokio::time::Instant::now()),
                 );
                 let body = point_request(
-                    ModelChoice::Quick,
+                    ModelChoice::from(crate::settings::model(&app)),
                     ReasoningEffort::Minimal,
                     &question,
                     &look.list,
@@ -373,7 +373,7 @@ async fn answer(
         }
     } else {
         let body = chat_request(
-            ModelChoice::Quick,
+            ModelChoice::from(crate::settings::model(&app)),
             ReasoningEffort::Minimal,
             None,
             &question,
