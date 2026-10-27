@@ -2,14 +2,16 @@
 
 The Meta key is read from the project's secrets file (the same reader as `mm probe`,
 values never printed); a fresh invite code is generated per run and written to
-`server/.dev-invite` (git-ignored) for the app to use.
+`server/.dev-invite` (git-ignored) for the app to use. `--tts` also starts the MMS-TTS
+dev server (tts/serve_dev.py, its own Python with torch) with a per-run shared secret.
 
-    C:/mmw/py-proxy/Scripts/python.exe server/run_dev.py [--port 8787]
+    C:/mmw/py-proxy/Scripts/python.exe server/run_dev.py [--port 8787] [--tts]
 """
 
 import argparse
 import os
 import secrets
+import subprocess
 import sys
 from pathlib import Path
 
@@ -22,19 +24,42 @@ import mm_probe  # noqa: E402
 from metamate_proxy.app import Settings, create_app  # noqa: E402
 
 INVITE_FILE = ROOT / 'server' / '.dev-invite'
+TTS_PYTHON = Path('C:/mmw/py-tts/Scripts/python.exe')
+TTS_PORT = 8788
+# An 80 ms PCM frame is under 4 KB: a socket never needs more (uvicorn's default is 16 MiB).
+WS_MAX_SIZE = 1 << 16
+WS_MAX_QUEUE = 4
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--port', type=int, default=8787)
+    parser.add_argument('--tts', action='store_true', help='also run MMS-TTS on 127.0.0.1:8788')
+    parser.add_argument('--tts-python', type=Path, default=TTS_PYTHON)
     args = parser.parse_args()
     _, key, base = mm_probe.provider_config('meta')
     invite = 'dev-' + secrets.token_urlsafe(18)
     INVITE_FILE.write_text(invite + '\n', encoding='utf-8')
     env = dict(os.environ, META_API_KEY=key, META_API_BASE=base, PROXY_INVITE_CODES=f'{invite}:judge')
-    app = create_app(Settings.from_env(env))
-    print(f'proxy on http://127.0.0.1:{args.port} (invite code in {INVITE_FILE.relative_to(ROOT).as_posix()})')
-    uvicorn.run(app, host='127.0.0.1', port=args.port, log_level='warning')
+    tts_secret = secrets.token_urlsafe(24)
+    if args.tts:
+        env.update(MMS_TTS_URL=f'http://127.0.0.1:{TTS_PORT}', MMS_TTS_SECRET=tts_secret)
+    app = create_app(Settings.from_env(env))  # a bad setting stops here, before any child starts
+    tts = None
+    if args.tts:
+        # The TTS process gets its secret, never the Meta key.
+        tts_env = {k: v for k, v in os.environ.items() if not k.startswith(('META_', 'PROXY_'))}
+        tts = subprocess.Popen([str(args.tts_python), str(ROOT / 'tts' / 'serve_dev.py'), '--port', str(TTS_PORT)],
+                               env=dict(tts_env, MMS_TTS_SECRET=tts_secret, HF_HUB_OFFLINE='1'))
+    print(f'proxy on http://127.0.0.1:{args.port} (invite code in {INVITE_FILE.relative_to(ROOT).as_posix()})',
+          flush=True)
+    try:
+        uvicorn.run(app, host='127.0.0.1', port=args.port, log_level='warning',
+                    ws_max_size=WS_MAX_SIZE, ws_max_queue=WS_MAX_QUEUE)
+    finally:
+        if tts is not None:
+            tts.terminate()
+            tts.wait(timeout=10)
     return 0
 
 

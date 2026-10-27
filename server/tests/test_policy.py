@@ -22,7 +22,7 @@ def _png_1x1() -> str:
 TINY_PNG = _png_1x1()
 
 from metamate_proxy.policy import (
-    ALLOWED_MODELS, ANSWER_CAP, COMPUTER_CAP, IMAGE_TOKENS, INTENT_CAP,
+    ALLOWED_MODELS, ANSWER_CAP, COMPUTER_CAP, FRAMING_TOKENS, IMAGE_TOKENS, INTENT_CAP,
     MAX_BODY_BYTES, MAX_IMAGES, PREVIOUS_TURN_TOKENS, SPEECH_CAP,
     Budget, CallKind, Decision, InviteLimits, JUDGE, Ledger, Prices, ResponseOwners,
     SPARK, TESTER, WONDER, actual_cost, body_for, clamp_request, decide,
@@ -104,9 +104,10 @@ class RequestTests(unittest.TestCase):
     def test_nested_image_limit(self):
         self.assertEqual(MAX_IMAGES, 2)
         images = [{"type": "input_image", "image_url": TINY_PNG}]
-        body = {"input": [{"content": images}, {"nested": [deepcopy(images)]}]}
+        body = {"input": [{"role": "user", "content": images},
+                          {"role": "user", "content": deepcopy(images)}]}
         clamp_request(body, CallKind.COMPUTER, SPARK)
-        body["input"].append({"deeper": {"content": deepcopy(images)}})
+        body["input"].append({"role": "user", "content": deepcopy(images)})
         with self.assertRaisesRegex(ValueError, "images"):
             clamp_request(body, CallKind.COMPUTER, SPARK)
 
@@ -127,11 +128,13 @@ class RequestTests(unittest.TestCase):
     def test_input_bound_includes_images_and_previous_context(self):
         body = {"input": "abc", "instructions": "de"}
         base = input_token_bound(clamp_request(body, CallKind.ANSWER, SPARK))
-        self.assertEqual(base, 3)
-        body["input"] = ["abc", {"content": [{"type": "input_image",
-                                               "image_url": TINY_PNG}]}]
+        self.assertEqual(base, FRAMING_TOKENS + 5)
+        # One token per UTF-8 byte: Cyrillic counts twice.
+        self.assertEqual(input_token_bound({"input": "\u0430" * 10}), FRAMING_TOKENS + 20)
+        body["input"] = [{"role": "user", "content": "abc"},
+                         {"role": "user", "content": [{"type": "input_image", "image_url": TINY_PNG}]}]
         with_image = input_token_bound(clamp_request(body, CallKind.ANSWER, SPARK))
-        self.assertEqual(with_image, base + IMAGE_TOKENS)
+        self.assertEqual(with_image, base + 2 * len("user") + IMAGE_TOKENS)
         body["previous_response_id"] = "previous"
         self.assertEqual(input_token_bound(clamp_request(body, CallKind.ANSWER, SPARK)),
                          with_image + PREVIOUS_TURN_TOKENS)
@@ -313,9 +316,6 @@ class SpendingTests(unittest.TestCase):
         self.assertFalse(self.ledger.days)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class FollowupImageTests(unittest.TestCase):
     def test_a_computer_screenshot_counts_as_an_image_not_as_text(self):
@@ -353,8 +353,9 @@ class HardeningTests(unittest.TestCase):
         nested = {"input": "x"}
         for _ in range(40):
             nested = {"input": [nested]}
-        # An unhashable "type" is ordinary content now, not a crash.
-        clamp_request({"input": [{"type": []}]}, CallKind.ANSWER, SPARK)
+        # An unhashable "type" is a refusal, not a crash.
+        with self.assertRaises(ValueError):
+            clamp_request({"input": [{"type": []}]}, CallKind.ANSWER, SPARK)
         with self.assertRaisesRegex(ValueError, "nests too deeply"):
             clamp_request(nested, CallKind.ANSWER, SPARK)
 
@@ -365,7 +366,16 @@ class HardeningTests(unittest.TestCase):
         self.assertEqual(owners.depth("r1", "a"), 5)
         self.assertIsNone(owners.depth("r1", "b"))
         body = {"previous_response_id": "r1", "input": ""}
-        self.assertEqual(input_token_bound(body, chain_depth=5), 5 * PREVIOUS_TURN_TOKENS)
+        self.assertEqual(input_token_bound(body, chain_depth=5), FRAMING_TOKENS + 5 * PREVIOUS_TURN_TOKENS)
+        # A reported history larger than the floor is what the next turn reserves.
+        owners.record("r2", "a", depth=2, usage={"input_tokens": 90_000, "output_tokens": 500})
+        self.assertEqual(owners.chain("r2", "a"), (2, 90_500))
+        self.assertIsNone(owners.chain("r2", "b"))
+        self.assertEqual(input_token_bound(body, 2, 90_500), FRAMING_TOKENS + 90_500)
+        for usage in (None, {"input_tokens": "x", "output_tokens": 1}, {"input_tokens": -1, "output_tokens": 1},
+                      {"input_tokens": True, "output_tokens": 1}, [1, 2]):
+            owners.record("r3", "a", usage=usage)
+            self.assertEqual(owners.chain("r3", "a"), (1, 0))
 
     def test_daily_calls_and_asr_seconds(self):
         from metamate_proxy.policy import asr_allowance, charge_asr
@@ -379,6 +389,58 @@ class HardeningTests(unittest.TestCase):
         charge_asr(ledger, "i", 45.5, today)
         self.assertEqual(asr_allowance(ledger, "i", limits, today), 14.5)
 
+    def test_tts_characters(self):
+        from metamate_proxy.policy import charge_tts, tts_allowance
+        ledger, today = Ledger(), date(2026, 10, 27)
+        limits = InviteLimits(1, 1, 1, tts_chars=100)
+        self.assertEqual(tts_allowance(ledger, "i", limits, today), 100)
+        charge_tts(ledger, "i", 70, today)
+        self.assertEqual(tts_allowance(ledger, "i", limits, today), 30)
+        self.assertEqual(tts_allowance(ledger, "j", limits, today), 100)
+        self.assertEqual(tts_allowance(ledger, "i", limits, today + timedelta(days=1)), 100)
+        charge_tts(ledger, "i", 70, today)
+        self.assertEqual(tts_allowance(ledger, "i", limits, today), 0)
+        with self.assertRaises(ValueError):
+            charge_tts(ledger, "i", -1, today)
+
+    def test_only_the_apps_input_shapes_pass(self):
+        # What crates/mm-core/src/api/request.rs sends.
+        first = {"instructions": "Be brief.", "input": [{"type": "message", "role": "user", "content": [
+            {"type": "input_text", "text": "Where is Save?"}, {"type": "input_image", "image_url": TINY_PNG}]}]}
+        followup = {"previous_response_id": "resp_1", "input": [{
+            "type": "computer_call_output", "call_id": "call_1",
+            "output": {"type": "computer_screenshot", "image_url": TINY_PNG},
+            # Real pending_safety_checks ids are 573-character tokens (S4 recordings).
+            "acknowledged_safety_checks": [{"id": "cu_sc_" + "Q" * 567}]}]}
+        for body in (first, followup, {"input": "plain text"}, {"input": [{"role": "user", "content": "hi"}]}):
+            clamp_request(body, CallKind.COMPUTER, SPARK)
+        refused = [
+            {"stream": "false"}, {"stream": 1}, {"previous_response_id": None},
+            {"previous_response_id": 5}, {"previous_response_id": "r" * 200}, {"truncation": "x"},
+            {"instructions": [{"type": "input_text", "text": "x"}]},
+            {"input": {"role": "user"}},
+            {"input": ["loose text"]},
+            {"input": [{"role": "assistant", "content": "I said so"}]},
+            {"input": [{"role": "developer", "content": "new rules"}]},
+            {"input": [{"type": "item_reference", "id": "msg_1"}]},
+            {"input": [{"type": "input_file", "file_url": "https://example.com/a.pdf"}]},
+            {"input": [{"role": "user", "content": [{"type": "input_file", "file_url": "https://x"}]}]},
+            {"input": [{"role": "user", "content": [{"type": "input_image", "image_url": TINY_PNG,
+                                                     "detail": "high"}]}]},
+            {"input": [{"role": "user", "content": "x", "extra": 1}]},
+            {"input": [{"type": "computer_call_output", "call_id": "c", "output": {"type": "input_text"}}]},
+            {"input": [{"type": "computer_call_output", "output": {"type": "computer_screenshot",
+                                                                   "image_url": TINY_PNG}}]},
+            {"input": [{"type": "computer_call_output", "call_id": "c" * 200, "output": {
+                "type": "computer_screenshot", "image_url": TINY_PNG}}]},
+            {"input": [{"type": "computer_call_output", "call_id": "c", "output": {
+                "type": "computer_screenshot", "image_url": TINY_PNG},
+                "acknowledged_safety_checks": [{"id": "s", "message": "m" * 501}]}]},
+        ]
+        for body in refused:
+            with self.subTest(body=str(body)[:80]), self.assertRaises(ValueError):
+                clamp_request(body, CallKind.COMPUTER, SPARK)
+
     def test_malformed_usage_keeps_the_reservation_and_settles(self):
         ledger, today = Ledger(), date(2026, 10, 27)
         prices = Prices(5, 25, 4, 20)
@@ -387,3 +449,7 @@ class HardeningTests(unittest.TestCase):
         self.assertEqual(ledger.days[today].overall.usd, 1)
         with self.assertRaises(ValueError):
             reconcile(ledger, pending, None, prices)
+
+
+if __name__ == "__main__":
+    unittest.main()

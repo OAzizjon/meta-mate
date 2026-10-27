@@ -23,7 +23,10 @@ MAX_BODY_BYTES = 2_500_000
 MAX_IMAGES = 2
 # S4 measured about 3.7k tokens for a 1280x800 screenshot with 15 elements.
 IMAGE_TOKENS = 4000
+# The floor for a continuation's billed history when the earlier turn reported no usage.
 PREVIOUS_TURN_TOKENS = 8000
+# Role markers and item framing around the text, per request (generous).
+FRAMING_TOKENS = 64
 # A first turn sends input_image; a computer_call_output sends computer_screenshot.
 IMAGE_TYPES = {"input_image", "computer_screenshot"}
 # Images arrive as PNG data URLs made by the app (crates/mm-core/src/shot.rs): no remote
@@ -35,6 +38,12 @@ PNG_PREFIX = "data:image/png;base64,"
 # continuation is billed for grows with the chain, so the chain is capped and priced.
 MAX_CHAIN_DEPTH = 12
 MAX_JSON_DEPTH = 32
+MAX_ID_CHARS = 128
+# pending_safety_checks ids are opaque tokens: 573 characters in the S4 recordings.
+MAX_SAFETY_ID_CHARS = 4096
+TTS_LANGUAGES = {"en", "ru"}
+# One spoken sentence (docs/prompts.md: Mate speaks short lines).
+TTS_MAX_CHARS = 300
 
 
 class CallKind(Enum):
@@ -118,6 +127,82 @@ def _depth(value, limit: int = MAX_JSON_DEPTH) -> bool:
     return True
 
 
+def _keys(item: dict, allowed: set[str]) -> None:
+    if not set(item) <= allowed:
+        raise ValueError("unexpected field in input")
+
+
+def _short_text(value) -> bool:
+    return isinstance(value, str) and 0 < len(value) <= MAX_ID_CHARS
+
+
+def _check_message(item: dict) -> None:
+    _keys(item, {"type", "role", "content"})
+    if item.get("role") != "user":
+        raise ValueError("only user messages are accepted")
+    content = item.get("content")
+    if isinstance(content, str):
+        return
+    if not isinstance(content, list):
+        raise ValueError("message content must be text or a list")
+    for part in content:
+        if not isinstance(part, dict):
+            raise ValueError("message parts must be objects")
+        if part.get("type") == "input_text":
+            _keys(part, {"type", "text"})
+            if not isinstance(part.get("text"), str):
+                raise ValueError("input_text needs text")
+        elif part.get("type") == "input_image":
+            _keys(part, {"type", "image_url"})
+        else:
+            raise ValueError("message part type not allowed")
+
+
+def _check_call_output(item: dict) -> None:
+    _keys(item, {"type", "call_id", "output", "acknowledged_safety_checks"})
+    if not _short_text(item.get("call_id")):
+        raise ValueError("computer_call_output needs a call_id")
+    output = item.get("output")
+    if not isinstance(output, dict) or output.get("type") != "computer_screenshot":
+        raise ValueError("computer_call_output needs a computer_screenshot")
+    _keys(output, {"type", "image_url"})
+    checks = item.get("acknowledged_safety_checks", [])
+    if not isinstance(checks, list) or len(checks) > 8:
+        raise ValueError("acknowledged_safety_checks must be a short list")
+    for check in checks:
+        check_id = check.get("id") if isinstance(check, dict) else None
+        if not isinstance(check_id, str) or not 0 < len(check_id) <= MAX_SAFETY_ID_CHARS:
+            raise ValueError("an acknowledged safety check needs an id")
+        _keys(check, {"id", "code", "message"})
+        if any(not isinstance(check[key], str) or len(check[key]) > 500
+               for key in ("code", "message") if key in check):
+            raise ValueError("safety check fields must be short text")
+
+
+def check_input(body: dict) -> None:
+    """Only the shapes the app sends (crates/mm-core/src/api/request.rs), so nothing else
+    reaches Meta unpriced: `instructions` is text; `input` is text or a list of user
+    messages (input_text, input_image) and computer_call_outputs (computer_screenshot)."""
+    instructions = body.get("instructions")
+    if instructions is not None and not isinstance(instructions, str):
+        raise ValueError("instructions must be text")
+    items = body.get("input")
+    if items is None or isinstance(items, str):
+        return
+    if not isinstance(items, list):
+        raise ValueError("input must be text or a list of items")
+    for item in items:
+        if not isinstance(item, dict):
+            raise ValueError("input items must be objects")
+        kind = item.get("type", "message")
+        if kind == "message":
+            _check_message(item)
+        elif kind == "computer_call_output":
+            _check_call_output(item)
+        else:
+            raise ValueError("input item type not allowed")
+
+
 def check_images(body: dict) -> None:
     """Every image is an embedded PNG within the size and edge limits (ValueError otherwise)."""
     for part in _input_parts(body.get("input")):
@@ -140,22 +225,26 @@ def check_images(body: dict) -> None:
             raise ValueError("image larger than 1280 px on an edge")
 
 
-def input_token_bound(body: dict, chain_depth: int = 0) -> int:
-    """Bound clamped input/instructions text, images and billed previous context: each
-    earlier turn of a `previous_response_id` chain is billed again."""
-    characters = 0
+def input_token_bound(body: dict, chain_depth: int = 0, previous_tokens: int = 0) -> int:
+    """Bound clamped input/instructions text, images and billed previous context: the
+    history of a `previous_response_id` chain is billed again. `previous_tokens` is the
+    earlier turn's reported input + output (ResponseOwners.chain); text counts one token
+    per UTF-8 byte, since a byte-level tokenizer never makes more tokens than bytes."""
+    text_bytes = 0
     pending = [body.get("input"), body.get("instructions")]
     while pending:
         part = pending.pop()
         if isinstance(part, str):
-            characters += len(part)
+            text_bytes += len(part.encode("utf-8"))
         elif isinstance(part, dict):
             if not _is_image(part):
                 pending.extend(part.values())
         elif isinstance(part, list):
             pending.extend(part)
-    previous = PREVIOUS_TURN_TOKENS * max(1, chain_depth) if "previous_response_id" in body else 0
-    return (characters + 1) // 2 + _image_count(body) * IMAGE_TOKENS + previous
+    previous = 0
+    if "previous_response_id" in body:
+        previous = max(PREVIOUS_TURN_TOKENS * max(1, chain_depth), previous_tokens)
+    return FRAMING_TOKENS + text_bytes + _image_count(body) * IMAGE_TOKENS + previous
 
 
 def clamp_request(body: dict, kind: CallKind, model_choice: str) -> dict:
@@ -166,7 +255,14 @@ def clamp_request(body: dict, kind: CallKind, model_choice: str) -> dict:
         raise ValueError("request body too large")
     if _image_count(body) > MAX_IMAGES:
         raise ValueError("too many input images")
+    check_input(body)
     check_images(body)
+    if "stream" in body and not isinstance(body["stream"], bool):
+        raise ValueError("stream must be true or false")
+    if "previous_response_id" in body and not _short_text(body["previous_response_id"]):
+        raise ValueError("previous_response_id must be a response id")
+    if "truncation" in body and body["truncation"] not in ("auto", "disabled"):
+        raise ValueError("truncation must be auto or disabled")
     pinned = kind in {CallKind.INTENT, CallKind.SPEECH}
     if not pinned:
         _model(model_choice)
@@ -221,6 +317,7 @@ class InviteLimits:
     wonder_usd: float
     daily_calls: int = 300
     asr_seconds: int = 1200
+    tts_chars: int = 20_000
 
     def __post_init__(self) -> None:
         _nonnegative(self.daily_usd, "daily_usd")
@@ -228,11 +325,14 @@ class InviteLimits:
         _nonnegative(self.wonder_usd, "wonder_usd")
         _tokens(self.daily_calls)
         _tokens(self.asr_seconds)
+        _tokens(self.tts_chars)
 
 
 # Initial policy defaults, not provider pricing or a promise of unlimited judging.
-TESTER = InviteLimits(daily_usd=1.0, wonder_calls=5, wonder_usd=0.25, daily_calls=150, asr_seconds=600)
-JUDGE = InviteLimits(daily_usd=5.0, wonder_calls=25, wonder_usd=2.0, daily_calls=400, asr_seconds=1800)
+TESTER = InviteLimits(daily_usd=1.0, wonder_calls=5, wonder_usd=0.25, daily_calls=150,
+                      asr_seconds=600, tts_chars=10_000)
+JUDGE = InviteLimits(daily_usd=5.0, wonder_calls=25, wonder_usd=2.0, daily_calls=400,
+                     asr_seconds=1800, tts_chars=30_000)
 
 
 @dataclass(frozen=True)
@@ -258,6 +358,7 @@ class DayTotals:
     invites: dict[str, Totals] = field(default_factory=dict)
     wonder: dict[str, Totals] = field(default_factory=dict)
     asr_seconds: dict[str, float] = field(default_factory=dict)
+    tts_chars: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -289,11 +390,16 @@ class ResponseOwners:
     In-memory ownership with the oldest recorded IDs dropped first; not thread-safe.
     """
 
-    _owners: dict[str, tuple[str, int]] = field(default_factory=dict, init=False, repr=False)
+    _owners: dict[str, tuple[str, int, int]] = field(default_factory=dict, init=False, repr=False)
 
-    def record(self, response_id: str, invite: str, depth: int = 1) -> None:
-        """`depth`: how many turns the chain ending in this response has."""
-        self._owners[response_id] = (invite, depth)
+    def record(self, response_id: str, invite: str, depth: int = 1,
+               usage: Mapping | None = None, bound_tokens: int = 0) -> None:
+        """`depth`: how many turns the chain ending in this response has; `usage`: the
+        response's reported usage, whose input + output a continuation is billed again;
+        `bound_tokens`: the request's input bound + output cap, the history to assume
+        when the usage is missing or malformed."""
+        tokens = context_tokens(usage)
+        self._owners[response_id] = (invite, depth, bound_tokens if tokens is None else tokens)
         if len(self._owners) > 10_000:
             del self._owners[next(iter(self._owners))]
 
@@ -302,8 +408,23 @@ class ResponseOwners:
 
     def depth(self, previous_response_id: str, invite: str) -> int | None:
         """The chain depth of an own, known response; None for unknown or foreign ids."""
+        chain = self.chain(previous_response_id, invite)
+        return chain[0] if chain is not None else None
+
+    def chain(self, previous_response_id: str, invite: str) -> tuple[int, int] | None:
+        """(depth, history tokens) of an own, known response; None otherwise."""
         owner = self._owners.get(previous_response_id)
-        return owner[1] if owner is not None and owner[0] == invite else None
+        return (owner[1], owner[2]) if owner is not None and owner[0] == invite else None
+
+
+def context_tokens(usage: Mapping | None) -> int | None:
+    """input + output tokens of a reported usage; None when it is missing or malformed."""
+    if not isinstance(usage, Mapping):
+        return None
+    counts = (usage.get("input_tokens"), usage.get("output_tokens"))
+    if any(type(count) is not int or count < 0 for count in counts):
+        return None
+    return counts[0] + counts[1]
 
 
 @dataclass
@@ -403,3 +524,35 @@ def charge_asr(ledger: Ledger, invite: str, seconds: float, today: date) -> None
     _nonnegative(seconds, "seconds")
     day = ledger.days.setdefault(today, DayTotals())
     day.asr_seconds[invite] = day.asr_seconds.get(invite, 0.0) + seconds
+
+
+def reserve_asr(ledger: Ledger, invite: str, limits: InviteLimits, wanted: float,
+                today: date) -> float:
+    """Charge up to `wanted` seconds now, before the session connects, so parallel sessions
+    cannot each see the same remainder; returns the seconds granted (0: refuse)."""
+    _nonnegative(wanted, "wanted")
+    granted = min(wanted, asr_allowance(ledger, invite, limits, today))
+    charge_asr(ledger, invite, granted, today)
+    return granted
+
+
+def settle_asr(ledger: Ledger, invite: str, reserved: float, used: float, day: date) -> None:
+    """Give back the reserved seconds a session did not send (on the day it reserved)."""
+    _nonnegative(reserved, "reserved")
+    _nonnegative(used, "used")
+    totals = ledger.days.setdefault(day, DayTotals())
+    unused = max(0.0, reserved - used)
+    totals.asr_seconds[invite] = max(0.0, totals.asr_seconds.get(invite, 0.0) - unused)
+
+
+def tts_allowance(ledger: Ledger, invite: str, limits: InviteLimits, today: date) -> int:
+    """Characters of speech synthesis this invite may still use today."""
+    used = ledger.days.get(today, DayTotals()).tts_chars.get(invite, 0)
+    return max(0, limits.tts_chars - used)
+
+
+def charge_tts(ledger: Ledger, invite: str, chars: int, today: date) -> None:
+    """Charge synthesized text before the call (callers serialize, like reserve)."""
+    _tokens(chars)
+    day = ledger.days.setdefault(today, DayTotals())
+    day.tts_chars[invite] = day.tts_chars.get(invite, 0) + chars

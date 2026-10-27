@@ -3,18 +3,24 @@
 `/v1/responses` applies the pure policy (policy.py: model allowlist, token caps, a
 worst-case reservation per invite, the Wonder allowance with a Spark reserve) and
 streams Meta's answer through; `/v1/asr` relays Muse Voice Transcribe's realtime
-WebSocket. No request or response body is stored or logged: only counters.
+WebSocket; `/v1/tts` speaks one sentence with MMS-TTS (tts/). No request or response
+body is stored or logged: only counters.
+
+Every ledger operation is synchronous, so on the one event loop they never interleave
+and need no lock, and a settlement in a `finally` cannot be cut by a cancellation.
 """
 
 import asyncio
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 import httpx
 import websockets
-from fastapi import FastAPI, Request, WebSocket
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from . import policy
@@ -29,20 +35,31 @@ ASR_MAX_STREAMS_PER_INVITE = 2
 ASR_SESSION_SECONDS = 90
 ASR_IDLE_SECONDS = 15
 ASR_END_STREAM = '{"type":"endStream"}'
+ASR_MODES = {'PUSH_TO_TALK', 'ENDPOINTING'}
 RESPONSES_IN_FLIGHT_PER_INVITE = 4
 BODY_READ_SECONDS = 15
 STREAM_SECONDS = 180
 SSE_EVENT_MAX_BYTES = 1_000_000
+# Both carry the whole response with its usage and id (a capped answer ends incomplete).
+FINAL_EVENTS = {'response.completed', 'response.incomplete'}
+# The usage that settles a call Meta refused with a 4xx: nothing was inferred.
+NOTHING_BILLED = {'input_tokens': 0, 'output_tokens': 0}
+TTS_MAX_BODY_BYTES = 4096
+TTS_IN_FLIGHT_PER_INVITE = 2
+TTS_SECONDS = 30
 CALL_KINDS = {kind.value: kind for kind in policy.CallKind}
 
 
 @dataclass(frozen=True)
 class Settings:
-    meta_key: str
+    meta_key: str = field(repr=False)
     meta_base: str
-    invites: dict[str, policy.InviteLimits]
+    invites: dict[str, policy.InviteLimits] = field(repr=False)
     budget: policy.Budget
     prices: policy.Prices
+    # MMS-TTS (tts/serve_dev.py locally, Modal in production); empty: /v1/tts answers 503.
+    tts_url: str = ''
+    tts_secret: str = field(default='', repr=False)
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> 'Settings':
@@ -69,16 +86,26 @@ class Settings:
             raise ValueError('PROXY_PRICES needs four numbers')
         prices = policy.Prices(*(float(value) for value in raw_prices))
         budget = policy.Budget(float(env.get('PROXY_DAILY_BUDGET_USD', '15')))
-        return Settings(key, base, invites, budget, prices)
+        tts_url = (env.get('MMS_TTS_URL') or '').rstrip('/')
+        tts_secret = env.get('MMS_TTS_SECRET') or ''
+        if tts_url:
+            parts = urlsplit(tts_url)
+            local = parts.scheme == 'http' and parts.hostname in ('127.0.0.1', 'localhost')
+            if (not (parts.scheme == 'https' or local) or not parts.hostname or parts.username is not None
+                    or parts.password is not None or parts.query or parts.fragment):
+                raise ValueError('MMS_TTS_URL must be https (http only on 127.0.0.1)')
+            if len(tts_secret) < 16:
+                raise ValueError('MMS_TTS_SECRET of 16+ characters is required with MMS_TTS_URL')
+        return Settings(key, base, invites, budget, prices, tts_url, tts_secret)
 
 
 @dataclass
 class State:
     ledger: policy.Ledger = field(default_factory=policy.Ledger)
     owners: policy.ResponseOwners = field(default_factory=policy.ResponseOwners)
-    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     asr_streams: dict[str, int] = field(default_factory=dict)
     in_flight: dict[str, int] = field(default_factory=dict)
+    tts_in_flight: dict[str, int] = field(default_factory=dict)
 
 
 def today() -> 'datetime.date':
@@ -97,6 +124,61 @@ def error(status: int, message: str) -> JSONResponse:
     return JSONResponse({'error': {'message': message}}, status_code=status)
 
 
+def scrub_key(text: str, key: str) -> str:
+    """The key, any 6+ character piece of it (a masked or cut echo), its head and tail."""
+    if not key:
+        return text
+    text = text.replace(key, '[key]')
+    text = re.sub(r'[\w.|~+/=-]{6,}',
+                  lambda found: '[key]' if found.group(0) in key else found.group(0), text)
+    if len(key) >= 12:
+        text = text.replace(key[:8], '[key]').replace(key[-6:], '[key]')
+    return text
+
+
+def scrub(text: str, key: str) -> str:
+    """Text from Meta goes back to an invite holder: never with the key or a piece of it,
+    or a bearer token (as tools/mm_probe.py `scrub`). JSON stays valid."""
+    return re.sub(r'(?i)\b(bearer\s+)[\w.~+/=-]+', r'\1[key]', scrub_key(text, key))
+
+
+def upstream_error(status: int, raw: bytes, key: str) -> JSONResponse:
+    """Meta's refusal reduced to its scrubbed message: nothing else of the body is relayed."""
+    message = 'upstream error'
+    try:
+        found = json.loads(raw)['error']['message']
+        if isinstance(found, str):
+            message = found
+    except (ValueError, RecursionError, KeyError, TypeError):
+        pass
+    return error(status if 400 <= status <= 599 else 502, scrub(message, key)[:500])
+
+
+def scrub_event(event: bytes, key: str) -> bytes:
+    """One SSE event as it goes to the client: no piece of the key passes; an error event
+    (Meta may echo the request) also loses bearer tokens. Model text is left alone
+    otherwise, so an answer about "Bearer" headers is not mangled."""
+    text = event.decode('utf-8', errors='replace')
+    if b'error' in event:
+        return scrub(text, key).encode('utf-8')
+    return scrub_key(text, key).encode('utf-8')
+
+
+class Relay(StreamingResponse):
+    """A streamed answer whose cleanup runs however the response ends, also when the
+    client is gone before the first byte (the generator's own `finally` never runs then)."""
+
+    def __init__(self, content, cleanup, **kwargs) -> None:
+        super().__init__(content, **kwargs)
+        self.cleanup = cleanup
+
+    async def __call__(self, scope, receive, send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            await self.cleanup()
+
+
 def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
                asr_connect=None) -> FastAPI:
     """`client` and `asr_connect` are injectable for tests (no network)."""
@@ -104,10 +186,6 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
     state = State()
     http = client or httpx.AsyncClient(timeout=httpx.Timeout(120, connect=10))
     connect = asr_connect or websockets.connect
-
-    async def settle(reservation: policy.Reservation, usage: dict | None, model: str | None) -> None:
-        async with state.lock:
-            policy.reconcile(state.ledger, reservation, usage, settings.prices, upstream_model=model)
 
     @app.get('/healthz')
     async def healthz() -> dict:
@@ -125,16 +203,21 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         if state.in_flight.get(invite, 0) >= RESPONSES_IN_FLIGHT_PER_INVITE:
             return error(429, 'too many requests at once')
         state.in_flight[invite] = state.in_flight.get(invite, 0) + 1
+        released = False
+
+        def release() -> None:
+            nonlocal released
+            if not released:
+                released = True
+                state.in_flight[invite] = max(0, state.in_flight.get(invite, 0) - 1)
+
         try:
-            return await handle(request, invite, limits, kind)
+            return await handle(request, invite, limits, kind, release)
         except BaseException:
-            release(invite)
+            release()
             raise
 
-    def release(invite: str) -> None:
-        state.in_flight[invite] = max(0, state.in_flight.get(invite, 0) - 1)
-
-    async def read_body(request: Request) -> bytes | None:
+    async def read_body(request: Request, limit: int = policy.MAX_BODY_BYTES) -> bytes | None:
         """The body, or None when it is over the limit or too slow (never fully buffered)."""
         chunks, size = [], 0
 
@@ -142,7 +225,7 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
             nonlocal size
             async for chunk in request.stream():
                 size += len(chunk)
-                if size > policy.MAX_BODY_BYTES:
+                if size > limit:
                     raise ValueError('too large')
                 chunks.append(chunk)
 
@@ -153,11 +236,11 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         return b''.join(chunks)
 
     async def handle(request: Request, invite: str, limits: policy.InviteLimits,
-                     kind: policy.CallKind) -> Response:
-        """Owns one in-flight slot of `invite`: every path releases it exactly once."""
+                     kind: policy.CallKind, release) -> Response:
+        """Owns one in-flight slot of `invite` (`release` is idempotent)."""
         raw = await read_body(request)
         if raw is None:
-            release(invite)
+            release()
             return error(413, 'request too large or too slow')
         try:
             body = json.loads(raw)
@@ -165,29 +248,29 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
                 raise ValueError('body must be an object')
             clamped = policy.clamp_request(body, kind, str(body.get('model', policy.SPARK)))
         except (ValueError, RecursionError) as problem:
-            release(invite)
+            release()
             return error(400, str(problem) if isinstance(problem, ValueError) else 'request nests too deeply')
-        depth = 0
+        depth, history = 0, 0
         previous = clamped.get('previous_response_id')
         if previous is not None:
-            depth = state.owners.depth(str(previous), invite) or 0
-            if depth == 0:
-                release(invite)
+            chain = state.owners.chain(str(previous), invite)
+            if chain is None:
+                release()
                 return error(403, 'unknown previous response')
+            depth, history = chain
             if depth >= policy.MAX_CHAIN_DEPTH:
-                release(invite)
+                release()
                 return error(429, 'conversation too long')
-        bound = policy.input_token_bound(clamped, depth)
+        bound = policy.input_token_bound(clamped, depth, history)
         # Reserve for the dearer of the requested model and the Spark it may fall back to.
         estimate = max(policy.estimate_cost(model, bound, clamped['max_output_tokens'], settings.prices)
                        for model in {clamped['model'], policy.SPARK})
-        async with state.lock:
-            try:
-                reservation = policy.reserve(state.ledger, invite, limits, settings.budget,
-                                             clamped['model'], estimate, today())
-            except ValueError as refused:
-                release(invite)
-                return error(429, str(refused))
+        try:
+            reservation = policy.reserve(state.ledger, invite, limits, settings.budget,
+                                         clamped['model'], estimate, today())
+        except ValueError as refused:
+            release()
+            return error(429, str(refused))
         forward = policy.body_for(reservation, body, kind)
         headers = {'Authorization': 'Bearer ' + settings.meta_key, 'Content-Type': 'application/json'}
         url = settings.meta_base + '/responses'
@@ -196,58 +279,127 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
             answered['X-MetaMate-Fallback-Reason'] = reservation.reason
         settled = False
 
-        async def settle_once(usage: dict | None, model: str | None) -> None:
+        def settle_once(usage: dict | None, model: str | None) -> None:
+            """Synchronous: also runs in full under a cancellation."""
             nonlocal settled
             if not settled:
                 settled = True
-                await settle(reservation, usage, model)
-                release(invite)
+                policy.reconcile(state.ledger, reservation, usage, settings.prices, upstream_model=model)
+                release()
+
+        def finished(response: dict) -> None:
+            if response.get('id'):
+                state.owners.record(str(response['id']), invite, depth + 1, response.get('usage'),
+                                    bound + clamped['max_output_tokens'])
 
         if not forward.get('stream'):
             usage, model = None, None
             try:
                 upstream = await http.post(url, json=forward, headers=headers)
+                if upstream.status_code != 200:
+                    if upstream.status_code < 500:
+                        usage = NOTHING_BILLED  # refused before any inference
+                    return upstream_error(upstream.status_code, upstream.content, settings.meta_key)
                 data = upstream.json()
-                ok = upstream.status_code == 200 and isinstance(data, dict)
-                if ok:
-                    usage, model = data.get('usage'), data.get('model')
-                    if data.get('id'):
-                        state.owners.record(str(data['id']), invite, depth + 1)
-                return JSONResponse(data, status_code=upstream.status_code, headers=answered)
-            except (httpx.HTTPError, ValueError):
+                if not isinstance(data, dict):
+                    return error(502, 'upstream failed')
+                usage, model = data.get('usage'), data.get('model')
+                finished(data)
+                return JSONResponse(data, headers=answered)
+            except (httpx.HTTPError, ValueError, RecursionError):
                 return error(502, 'upstream failed')
             finally:
                 # Also on cancellation: a cut request keeps its whole reservation.
-                await settle_once(usage, model)
+                settle_once(usage, model)
+
+        try:
+            upstream = await http.send(http.build_request('POST', url, json=forward, headers=headers),
+                                       stream=True)
+        except httpx.HTTPError:
+            settle_once(None, None)
+            return error(502, 'upstream failed')
+        except BaseException:
+            settle_once(None, None)
+            raise
+        if upstream.status_code != 200:
+            # Settled before any await, so a cancellation below cannot skip it.
+            settle_once(NOTHING_BILLED if upstream.status_code < 500 else None, None)
+            try:
+                raw = await upstream.aread()
+            except httpx.HTTPError:
+                raw = b''
+            finally:
+                await upstream.aclose()
+            return upstream_error(upstream.status_code, raw, settings.meta_key)
+        seen = {'usage': None, 'model': None, 'final': False}
 
         async def relay():
-            usage, model, completed = None, None, False
+            """Whole events only, each scrubbed: a key split across chunks never slips by."""
             deadline = asyncio.get_running_loop().time() + STREAM_SECONDS
-            try:
-                async with http.stream('POST', url, json=forward, headers=headers) as upstream:
-                    if upstream.status_code != 200:
-                        yield await upstream.aread()
-                        return
-                    buffer = b''
-                    async for chunk in upstream.aiter_bytes():
-                        if asyncio.get_running_loop().time() > deadline:
-                            return
-                        yield chunk
-                        buffer = (buffer + chunk).replace(b'\r\n', b'\n')
-                        # Only the final event is parsed (usage and id); nothing is kept.
-                        while b'\n\n' in buffer:
-                            event, buffer = buffer.split(b'\n\n', 1)
-                            final = completed_response(event)
-                            if final is not None:
-                                usage, model, completed = final.get('usage'), final.get('model'), True
-                                if final.get('id'):
-                                    state.owners.record(str(final['id']), invite, depth + 1)
-                        if len(buffer) > SSE_EVENT_MAX_BYTES:
-                            buffer = b''  # an event this large is not one we read
-            finally:
-                await settle_once(usage if completed else None, model if completed else None)
+            buffer = b''
+            async for chunk in upstream.aiter_bytes():
+                if asyncio.get_running_loop().time() > deadline:
+                    return
+                buffer = (buffer + chunk).replace(b'\r\n', b'\n')
+                while b'\n\n' in buffer:
+                    event, buffer = buffer.split(b'\n\n', 1)
+                    # Only the final event is parsed (usage and id); nothing is kept.
+                    final = final_response(event)
+                    if final is not None:
+                        seen.update(usage=final.get('usage'), model=final.get('model'), final=True)
+                        finished(final)
+                    yield scrub_event(event, settings.meta_key) + b'\n\n'
+                if len(buffer) > SSE_EVENT_MAX_BYTES:
+                    return  # an event this large is not an answer: the stream ends here
+            if buffer.strip():
+                yield scrub_event(buffer, settings.meta_key) + b'\n\n'
 
-        return StreamingResponse(relay(), media_type='text/event-stream', headers=answered)
+        async def cleanup() -> None:
+            # A stream cut before its final event keeps the whole reservation.
+            settle_once(seen['usage'] if seen['final'] else None, seen['model'] if seen['final'] else None)
+            await upstream.aclose()
+
+        return Relay(relay(), cleanup, media_type='text/event-stream', headers=answered)
+
+    @app.post('/v1/tts')
+    async def tts(request: Request) -> Response:
+        """One sentence in Mate's voice: MMS-TTS behind the invite and a daily character
+        allowance, charged before the call. The text is neither stored nor logged."""
+        who = invite_of(request.headers.get('authorization'), settings)
+        if who is None:
+            return error(401, 'unknown invite code')
+        if not settings.tts_url:
+            return error(503, 'speech synthesis is not configured')
+        invite, limits = who
+        raw = await read_body(request, TTS_MAX_BODY_BYTES)
+        if raw is None:
+            return error(413, 'request too large or too slow')
+        try:
+            body = json.loads(raw)
+        except (ValueError, RecursionError):
+            body = None
+        lang = body.get('lang') if isinstance(body, dict) else None
+        text = body.get('text') if isinstance(body, dict) else None
+        if (not isinstance(lang, str) or lang not in policy.TTS_LANGUAGES or not isinstance(text, str)
+                or not text.strip() or len(text) > policy.TTS_MAX_CHARS):
+            return error(400, f'lang is en or ru; text is 1 to {policy.TTS_MAX_CHARS} characters')
+        if state.tts_in_flight.get(invite, 0) >= TTS_IN_FLIGHT_PER_INVITE:
+            return error(429, 'too many requests at once')
+        if policy.tts_allowance(state.ledger, invite, limits, today()) < len(text):
+            return error(429, 'speech allowance used up for today')
+        policy.charge_tts(state.ledger, invite, len(text), today())
+        state.tts_in_flight[invite] = state.tts_in_flight.get(invite, 0) + 1
+        try:
+            upstream = await http.post(settings.tts_url + '/synthesize', json={'lang': lang, 'text': text},
+                                       headers={'X-MMS-Secret': settings.tts_secret}, timeout=TTS_SECONDS)
+        except httpx.HTTPError:
+            return error(502, 'speech synthesis failed')
+        finally:
+            state.tts_in_flight[invite] -= 1
+        if upstream.status_code != 200 or upstream.headers.get('content-type') != 'audio/wav':
+            return error(502, 'speech synthesis failed')
+        timing = {'X-Synth-Ms': upstream.headers['x-synth-ms']} if 'x-synth-ms' in upstream.headers else {}
+        return Response(upstream.content, media_type='audio/wav', headers=timing)
 
     @app.websocket('/v1/asr')
     async def asr(ws: WebSocket) -> None:
@@ -259,9 +411,17 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
             auth = handshake.get('authorization')
             token = auth.get('accessToken') if isinstance(auth, dict) else None
             encoding = handshake.get('audioEncoding')
-            if not isinstance(token, str) or not isinstance(encoding, str):
+            mode = handshake.get('mode', 'PUSH_TO_TALK')
+            partial = handshake.get('partialMode', 'CUMULATIVE')
+            progress = handshake.get('emitAudioProgress', False)
+            if (not isinstance(token, str) or not isinstance(encoding, str) or mode not in ASR_MODES
+                    or not isinstance(partial, str) or not re.fullmatch(r'[A-Z_]{1,32}', partial)
+                    or not isinstance(progress, bool)):
                 raise ValueError('bad handshake')
-        except (asyncio.TimeoutError, ValueError, RecursionError):
+        except WebSocketDisconnect:
+            return
+        except (asyncio.TimeoutError, ValueError, TypeError, KeyError, RecursionError):
+            # KeyError: a binary first frame has no text.
             await ws.close(code=4400)
             return
         who = invite_of(token, settings)
@@ -273,81 +433,101 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         if rate is None:
             await ws.close(code=4400)
             return
-        async with state.lock:
-            allowance = policy.asr_allowance(state.ledger, invite, limits, today())
-        if allowance < 1 or state.asr_streams.get(invite, 0) >= ASR_MAX_STREAMS_PER_INVITE:
+        if state.asr_streams.get(invite, 0) >= ASR_MAX_STREAMS_PER_INVITE:
             await ws.close(code=4429)
             return
-        upstream_handshake = {key: value for key, value in handshake.items()
-                              if key in ('audioEncoding', 'mode', 'partialMode', 'emitAudioProgress',
-                                         'languageBias', 'keywords')}
-        upstream_handshake.update({'authorization': {'accessToken': 'Bearer ' + settings.meta_key},
-                                   'model': ASR_MODEL})
-        limit_bytes = int(min(ASR_MAX_SECONDS, allowance) * rate * 2)
+        day = today()
+        # Reserved before connecting: two sessions never share the same remainder.
+        reserved = policy.reserve_asr(state.ledger, invite, limits, ASR_MAX_SECONDS, day)
+        if reserved < 1:
+            policy.settle_asr(state.ledger, invite, reserved, 0, day)
+            await ws.close(code=4429)
+            return
+        # Only checked values go on: nothing the client sends reaches Meta unread.
+        upstream_handshake = {'authorization': {'accessToken': 'Bearer ' + settings.meta_key},
+                              'audioEncoding': encoding, 'model': ASR_MODEL, 'mode': mode,
+                              'partialMode': partial, 'emitAudioProgress': progress}
+        limit_bytes = int(reserved * rate * 2)
         sent = 0
         state.asr_streams[invite] = state.asr_streams.get(invite, 0) + 1
         tasks: list[asyncio.Task] = []
         try:
             async with connect(ASR_URL, max_size=2 ** 20) as upstream:
                 await upstream.send(json.dumps(upstream_handshake))
-                await ws.send_text(await asyncio.wait_for(upstream.recv(), 10))
+                reply = await asyncio.wait_for(upstream.recv(), 10)
+                await ws.send_text(scrub(reply if isinstance(reply, str) else '{}', settings.meta_key))
 
-                async def up_from_client() -> None:
+                async def up_from_client() -> bool:
+                    """True when the stream was ended (the final transcript is due), False
+                    when the client left or broke the protocol."""
                     nonlocal sent
                     while True:
                         message = await asyncio.wait_for(ws.receive(), ASR_IDLE_SECONDS)
                         if message.get('type') == 'websocket.disconnect':
-                            return
+                            return False
                         if message.get('bytes') is not None:
-                            sent += len(message['bytes'])
-                            if sent > limit_bytes:
+                            if sent + len(message['bytes']) > limit_bytes:
                                 await upstream.send(ASR_END_STREAM)
-                                return
+                                return True
+                            sent += len(message['bytes'])
                             await upstream.send(message['bytes'])
                         elif message.get('text') is not None:
                             # The only control message is the end of the stream.
                             try:
                                 control = json.loads(message['text'])
-                            except ValueError:
+                            except (ValueError, RecursionError):
                                 control = None
-                            if control == {'type': 'endStream'}:
-                                await upstream.send(ASR_END_STREAM)
-                            return
+                            if control != {'type': 'endStream'}:
+                                return False
+                            await upstream.send(ASR_END_STREAM)
+                            return True
 
                 async def down_to_client() -> None:
+                    """Relays events until the final transcript, which ends the session."""
                     async for message in upstream:
-                        if isinstance(message, bytes):
-                            await ws.send_bytes(message)
-                        else:
-                            await ws.send_text(message)
+                        if not isinstance(message, str):
+                            continue
+                        await ws.send_text(scrub(message, settings.meta_key))
+                        try:
+                            event = json.loads(message)
+                        except (ValueError, RecursionError):
+                            continue
+                        if isinstance(event, dict) and event.get('type') == 'transcript' \
+                                and event.get('final') is True:
+                            return
 
                 tasks = [asyncio.create_task(up_from_client()), asyncio.create_task(down_to_client())]
                 done, pending = await asyncio.wait(tasks, timeout=ASR_SESSION_SECONDS,
                                                    return_when=asyncio.FIRST_COMPLETED)
-                if tasks[0] in done and tasks[1] in pending:
+                client = tasks[0]
+                ended = client in done and not client.cancelled() and client.exception() is None \
+                    and client.result()
+                if ended and tasks[1] in pending:
                     # The client finished: let the final transcript come back.
                     await asyncio.wait(pending, timeout=20)
-        except (OSError, websockets.WebSocketException, asyncio.TimeoutError):
+        except (OSError, RuntimeError, websockets.WebSocketException, WebSocketDisconnect,
+                asyncio.TimeoutError):
             pass
         finally:
+            # Synchronous first: a cancellation at the awaits below cannot skip it.
+            state.asr_streams[invite] -= 1
+            policy.settle_asr(state.ledger, invite, reserved, min(reserved, sent / (rate * 2)), day)
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
-            state.asr_streams[invite] -= 1
-            async with state.lock:
-                policy.charge_asr(state.ledger, invite, sent / (rate * 2), today())
             try:
                 await ws.close()
-            except RuntimeError:
+            except (RuntimeError, OSError, WebSocketDisconnect):
                 pass
 
     return app
 
 
-def completed_response(event: bytes) -> dict | None:
-    """The `response` object of a `response.completed` SSE event, else None."""
+def final_response(event: bytes) -> dict | None:
+    """The `response` object of a final SSE event (FINAL_EVENTS), else None."""
     kind, data = None, []
-    for line in event.decode('utf-8', errors='replace').splitlines():
+    # split, not splitlines: a JSON line may hold U+2028 or U+0085, which are not line ends.
+    for line in event.decode('utf-8', errors='replace').split('\n'):
         if line.startswith('event:'):
             kind = line[6:].strip()
         elif line.startswith('data:'):
@@ -360,7 +540,7 @@ def completed_response(event: bytes) -> dict | None:
         return None
     if not isinstance(payload, dict):
         return None
-    if (kind or payload.get('type')) != 'response.completed':
+    if (kind or payload.get('type')) not in FINAL_EVENTS:
         return None
     response = payload.get('response')
     return response if isinstance(response, dict) else None
