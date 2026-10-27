@@ -5,6 +5,11 @@
 use mm_core::constants::APP_NAME;
 use tauri::{AppHandle, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
+/// WebView2 arguments for every window of the app (they share one browser process, which
+/// refuses different arguments). wry's defaults, plus autoplay: push-to-talk is not a DOM
+/// gesture, yet Mate must speak (spike S7, docs/architecture.md section 7).
+pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection      --autoplay-policy=no-user-gesture-required";
+
 /// Mate's size in CSS pixels at 100 %; Windows scales it with the monitor.
 pub const MATE_SIZE: f64 = 220.0;
 
@@ -60,6 +65,7 @@ fn builder<'a>(
         .always_on_top(true)
         .skip_taskbar(true)
         .resizable(false)
+        .additional_browser_args(BROWSER_ARGS)
 }
 
 /// Mate's resting place: the bottom-right corner of the primary monitor's work area,

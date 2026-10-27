@@ -11,3 +11,4 @@ pub mod ptt;
 pub mod redaction;
 pub mod shot;
 pub mod teacher;
+pub mod wav;

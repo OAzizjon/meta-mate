@@ -1,0 +1,78 @@
+{
+ "provider": "meta",
+ "model": "muse-spark-1.1",
+ "kind": "stream",
+ "question": "How do I make the text bigger on my computer? Answer in two short sentences.",
+ "first_token_ms": 3997,
+ "total_ms": 3998,
+ "text": "On Windows, go to Settings > Accessibility > Text size and drag the slider to make it bigger. \n\nOn Mac, go to System Settings > Accessibility > Display and adjust the text size there.",
+ "event_types": [
+  "response.completed",
+  "response.content_part.added",
+  "response.content_part.done",
+  "response.created",
+  "response.in_progress",
+  "response.output_item.added",
+  "response.output_item.done",
+  "response.output_text.delta",
+  "response.output_text.done"
+ ],
+ "response": {
+  "background": false,
+  "completed_at": 1793105686.0,
+  "created_at": 1793105685.0,
+  "error": null,
+  "id": "resp_6ae09f15fc2b9521365b4ccf",
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 600,
+  "model": "muse-spark-1.1",
+  "object": "response",
+  "output": [
+   {
+    "id": "rs_6ae09f15fc2b9521365b4ccf:rs_01a17d6d6b71739b8a60fc01a6f50815",
+    "status": "completed",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [
+     {
+      "annotations": [],
+      "logprobs": [],
+      "text": "On Windows, go to Settings > Accessibility > Text size and drag the slider to make it bigger. \n\nOn Mac, go to System Settings > Accessibility > Display and adjust the text size there.",
+      "type": "output_text"
+     }
+    ],
+    "id": "msg_01a17d6d70037341b345161a767bdd7d",
+    "role": "assistant",
+    "status": "completed",
+    "type": "message"
+   }
+  ],
+  "parallel_tool_calls": true,
+  "reasoning": {
+   "effort": "minimal"
+  },
+  "service_tier": "auto",
+  "status": "completed",
+  "store": true,
+  "temperature": 1.0,
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+   "input_tokens": 25,
+   "input_tokens_details": {
+    "cached_tokens": 0
+   },
+   "output_tokens": 297,
+   "output_tokens_details": {
+    "reasoning_tokens": 249
+   },
+   "total_tokens": 322
+  }
+ }
+}

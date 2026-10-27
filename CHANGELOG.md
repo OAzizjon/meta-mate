@@ -24,6 +24,11 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - The redaction step and screenshot pixels in `crates/mm-core/src/redaction.rs` and `shot.rs`.
 - The multilingual password-word detector in `crates/mm-core/src/privacy.rs`.
 - The WebView audio engine and i18n in `src/audio/` and `src/i18n/`.
+- The proxy app (`server/metamate_proxy/app.py`): invite codes, `/v1/responses` with the policy, the speech recognition relay, and `/v1/tts` for MMS-TTS; `server/run_dev.py --tts` starts the local MMS-TTS service (`tts/serve_dev.py`).
+- The app's proxy client (`src-tauri/src/proxy.rs`) and `metamate --voice-selftest FILE.wav`, which runs speech recognition, the answer and speech synthesis end to end and reports every latency.
+- Push-to-talk: the keyboard hook (`crates/mm-win32/src/keyboard.rs`), its driver and `--ptt-probe` (`src-tauri/src/ptt.rs`), and microphone capture (`src-tauri/src/mic.rs`).
+- The microphone framer, a streaming SSE parser and a WAV reader in `crates/mm-core`.
+- The WebView timeline player and its IPC parser (`src/player/`, `src/ipc/`).
 
 ### Changed
 
@@ -31,6 +36,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - README status now says the hackathon build is in progress and Windows-only; Muse Wonder is an optional choice in settings.
 - Linux X11 support was cut, and the JustLog3 shutdown checklist in `docs/server.md` was extended (decisions D39-D42 in `docs/decisions.md`).
 - `mm test` now also runs Rust doctests; agent Rust builds run without sccache and incremental compilation.
+- Proxy hardening from security reviews (D45): only the app's request shapes are accepted, text is priced per UTF-8 byte and continuations by their reported history, Meta's errors and stream events never carry the key, a refused call costs nothing, and speech recognition time is reserved before connecting.
+- Spoken answers may use up to 1000 output tokens, since reasoning alone took up to 398 (D45).
+- Every window starts WebView2 with autoplay allowed, so Mate can speak after push-to-talk (spike S7).
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)
 

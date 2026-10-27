@@ -8,6 +8,7 @@
 
 pub mod dpi;
 pub mod focus;
+pub mod keyboard;
 pub mod monitors;
 pub mod overlay;
 pub mod uia;

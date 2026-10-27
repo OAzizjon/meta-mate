@@ -1,0 +1,78 @@
+{
+ "provider": "meta",
+ "model": "muse-spark-1.2",
+ "kind": "stream",
+ "question": "How do I make the text bigger on my computer? Answer in two short sentences.",
+ "first_token_ms": 5257,
+ "total_ms": 6931,
+ "text": "On Windows, go to Settings > Accessibility > Text size and drag the slider to make text bigger. On Mac, go to System Settings > Accessibility > Display or press Command and + to zoom text in most apps.",
+ "event_types": [
+  "response.completed",
+  "response.content_part.added",
+  "response.content_part.done",
+  "response.created",
+  "response.in_progress",
+  "response.output_item.added",
+  "response.output_item.done",
+  "response.output_text.delta",
+  "response.output_text.done"
+ ],
+ "response": {
+  "background": false,
+  "completed_at": 1793105681.0,
+  "created_at": 1793105681.0,
+  "error": null,
+  "id": "resp_6ae09f1112d0bf48786b4961",
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 600,
+  "model": "muse-spark-1.2",
+  "object": "response",
+  "output": [
+   {
+    "id": "rs_6ae09f1112d0bf48786b4961:rs_01a17d6d5ab877ea97422ec8535373f5",
+    "status": "completed",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [
+     {
+      "annotations": [],
+      "logprobs": [],
+      "text": "On Windows, go to Settings > Accessibility > Text size and drag the slider to make text bigger. On Mac, go to System Settings > Accessibility > Display or press Command and + to zoom text in most apps.",
+      "type": "output_text"
+     }
+    ],
+    "id": "msg_01a17d6d5cf674ada7ec9f0e216f1158",
+    "role": "assistant",
+    "status": "completed",
+    "type": "message"
+   }
+  ],
+  "parallel_tool_calls": true,
+  "reasoning": {
+   "effort": "minimal"
+  },
+  "service_tier": "auto",
+  "status": "completed",
+  "store": true,
+  "temperature": 1.0,
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+   "input_tokens": 25,
+   "input_tokens_details": {
+    "cached_tokens": 0
+   },
+   "output_tokens": 230,
+   "output_tokens_details": {
+    "reasoning_tokens": 178
+   },
+   "total_tokens": 255
+  }
+ }
+}

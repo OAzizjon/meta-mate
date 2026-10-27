@@ -50,8 +50,10 @@ impl ReasoningEffort {
     pub const RETRY: Self = Self::Low;
 }
 
-/// `max_output_tokens` of a chat answer; the proxy caps it again (D40).
-pub const SPOKEN_MAX_OUTPUT_TOKENS: u32 = 400;
+/// `max_output_tokens` of a chat answer; the proxy caps it again (D40). Reasoning counts
+/// as output and took 162-398 tokens even at `minimal` (D45): at 400 an answer once ended
+/// `incomplete` with no text at all.
+pub const SPOKEN_MAX_OUTPUT_TOKENS: u32 = 1000;
 
 /// Screen turns reason over the screenshot first and reasoning counts as output: the
 /// fixture's computer-use turns took 356 (`minimal`) and 570 (`low`) output tokens.
@@ -595,7 +597,7 @@ mod tests {
         assert_eq!(body["model"], "muse-spark-1.3");
         assert_eq!(body["reasoning"]["effort"], "minimal");
         assert_eq!(body["stream"], json!(true));
-        assert_eq!(body["max_output_tokens"], json!(400));
+        assert_eq!(body["max_output_tokens"], json!(SPOKEN_MAX_OUTPUT_TOKENS));
         assert_eq!(body["input"][0]["role"], "user");
         assert_eq!(body["input"][0]["content"][0]["text"], "Tell me a joke");
         assert!(body.get("tools").is_none());

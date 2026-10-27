@@ -154,6 +154,7 @@ pub fn spawn_control(app: AppHandle, before: HWND) {
         tauri::WebviewUrl::App("mate.html".into()),
     )
     .inner_size(200.0, 120.0)
+    .additional_browser_args(crate::overlay::BROWSER_ARGS)
     .build();
     // Stolen means the control window itself became the foreground window.
     let control = built

@@ -1,0 +1,78 @@
+{
+ "provider": "meta",
+ "model": "muse-spark-1.3",
+ "kind": "stream",
+ "question": "How do I make the text bigger on my computer? Answer in two short sentences.",
+ "first_token_ms": 2597,
+ "total_ms": 3212,
+ "text": "Go to your computer's Settings and open Display or Accessibility options.\n\nThen increase the Text Size slider until the text looks comfortable to read.",
+ "event_types": [
+  "response.completed",
+  "response.content_part.added",
+  "response.content_part.done",
+  "response.created",
+  "response.in_progress",
+  "response.output_item.added",
+  "response.output_item.done",
+  "response.output_text.delta",
+  "response.output_text.done"
+ ],
+ "response": {
+  "background": false,
+  "completed_at": 1793105690.0,
+  "created_at": 1793105690.0,
+  "error": null,
+  "id": "resp_6ae09f1a7368bc7296f14396",
+  "incomplete_details": null,
+  "instructions": null,
+  "max_output_tokens": 600,
+  "model": "muse-spark-1.3",
+  "object": "response",
+  "output": [
+   {
+    "id": "rs_6ae09f1a7368bc7296f14396:rs_01a17d6d7f8874a582e00284f387f24b",
+    "status": "completed",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [
+     {
+      "annotations": [],
+      "logprobs": [],
+      "text": "Go to your computer's Settings and open Display or Accessibility options.\n\nThen increase the Text Size slider until the text looks comfortable to read.",
+      "type": "output_text"
+     }
+    ],
+    "id": "msg_01a17d6d7fbb711da31a35196e24552c",
+    "role": "assistant",
+    "status": "completed",
+    "type": "message"
+   }
+  ],
+  "parallel_tool_calls": true,
+  "reasoning": {
+   "effort": "minimal"
+  },
+  "service_tier": "auto",
+  "status": "completed",
+  "store": true,
+  "temperature": 1.0,
+  "tool_choice": "auto",
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 1.0,
+  "truncation": "disabled",
+  "usage": {
+   "input_tokens": 25,
+   "input_tokens_details": {
+    "cached_tokens": 0
+   },
+   "output_tokens": 45,
+   "output_tokens_details": {
+    "reasoning_tokens": 9
+   },
+   "total_tokens": 70
+  }
+ }
+}

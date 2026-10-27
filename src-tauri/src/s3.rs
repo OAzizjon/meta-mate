@@ -40,6 +40,7 @@ pub fn spawn(app: AppHandle, before: HWND) {
         .focused(false)
         .focusable(false)
         .skip_taskbar(true)
+        .additional_browser_args(crate::overlay::BROWSER_ARGS)
         .build();
     let hwnd = built.as_ref().ok().and_then(|w| w.hwnd().ok());
     let Some(hwnd) = hwnd else {
