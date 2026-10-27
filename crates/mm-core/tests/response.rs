@@ -282,3 +282,17 @@ fn debug_hides_commentary_and_typed_text_through_containers() {
         .unwrap();
     assert_eq!(format!("{stream:?}"), "StreamText { chars: 6 }");
 }
+
+#[test]
+fn stream_text_is_bounded() {
+    let mut stream = StreamText::new();
+    let delta = serde_json::json!({"delta": "x".repeat(40 * 1024)}).to_string();
+    stream
+        .push(Some("response.output_text.delta"), &delta)
+        .unwrap();
+    assert_eq!(
+        stream.push(Some("response.output_text.delta"), &delta),
+        Err(ResponseError::TooLong)
+    );
+    assert_eq!(stream.text().len(), 40 * 1024);
+}

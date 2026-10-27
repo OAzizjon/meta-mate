@@ -1,5 +1,5 @@
 use crate::api::response::{Action, ParsedResponse};
-use crate::geom::PhysRect;
+use crate::geom::{FrameTransform, PhysRect, ShotPoint};
 
 use super::confirmation::Confirmation;
 use super::step::{Step, immediate, same_chord, supported};
@@ -62,26 +62,17 @@ impl Teacher {
         match input {
             TeacherInput::ModelTurn {
                 response,
-                frame: _,
+                frame,
                 targets,
             } => {
-                self.model_turn(response, targets, &mut out);
+                self.model_turn(response, frame, targets, &mut out);
             }
             TeacherInput::WonderUnavailable => {
                 self.wonder_unavailable = true;
                 self.model = ModelChoice::Quick;
                 out.push(TeacherCommand::UseModel(ModelChoice::Quick));
             }
-            TeacherInput::ModelFailed { .. } => {
-                self.model_failures = self.model_failures.saturating_add(1);
-                if self.model_failures >= 2 {
-                    self.refuse(
-                        RefusalReason::ModelUnavailable,
-                        LineKey::NetworkError,
-                        &mut out,
-                    );
-                }
-            }
+            TeacherInput::ModelFailed { .. } => self.model_failed(&mut out),
             TeacherInput::ScreenChangedUnexpectedly { .. } => {
                 self.steps.clear();
                 self.confirmations.clear();
@@ -105,24 +96,33 @@ impl Teacher {
     fn model_turn(
         &mut self,
         response: ParsedResponse,
+        frame: FrameTransform,
         targets: Vec<Option<PhysRect>>,
         out: &mut Vec<TeacherCommand>,
     ) {
         self.turns += 1;
-        self.model_failures = 0;
         self.settled_from = None;
-        out.extend(
-            response
-                .commentary
-                .into_iter()
-                .map(TeacherCommand::SpeakCommentary),
-        );
         if self.turns > u16::from(self.config.max_turns) {
             self.refuse(RefusalReason::TooManyTurns, LineKey::TooManyTurns, out);
             return;
         }
+        // A turn cut off by the token cap (or still reasoning) has no action yet: that
+        // is a failed call, never "done".
+        if response.status != "completed" || response.incomplete_reason.is_some() {
+            self.model_failed(out);
+            return;
+        }
+        self.model_failures = 0;
+        // The spoken line is played only once the turn is known to be usable: on a
+        // refused turn Mate must not first say "click here" (invariant 5).
+        let commentary: Vec<TeacherCommand> = response
+            .commentary
+            .into_iter()
+            .map(TeacherCommand::SpeakCommentary)
+            .collect();
         if response.computer_calls.is_empty() {
             self.terminal = true;
+            out.extend(commentary);
             out.extend([TeacherCommand::Finished, TeacherCommand::Say(LineKey::Done)]);
             return;
         }
@@ -149,14 +149,16 @@ impl Teacher {
             });
             for action in call.actions {
                 let rect = targets.next().flatten();
-                if matches!(action, Action::Unknown { .. })
-                    || rect.is_none_or(|rect| rect.left >= rect.right || rect.top >= rect.bottom)
-                {
+                if matches!(action, Action::Unknown { .. }) {
                     self.refuse(RefusalReason::TargetNotFound, LineKey::CantFind, out);
                     return;
                 }
                 if !supported(&action) {
                     self.refuse(RefusalReason::UnsupportedAction, LineKey::WontPress, out);
+                    return;
+                }
+                if rect.is_none_or(|rect| !self.plausible_target(&action, rect, frame)) {
+                    self.refuse(RefusalReason::TargetNotFound, LineKey::CantFind, out);
                     return;
                 }
                 if let Some(rect) = rect {
@@ -172,7 +174,40 @@ impl Teacher {
             self.refuse(RefusalReason::TooManyTurns, LineKey::TooManyTurns, out);
             return;
         }
+        out.extend(commentary);
         self.present(out);
+    }
+
+    /// The snapped element must be a real target for this action: non-empty, centred
+    /// inside the captured region, and (for a click) the model's own point must lie on
+    /// the screenshot and within the hit tolerance of the element. Otherwise the element
+    /// came from somewhere else than the model's click (invariant 5).
+    fn plausible_target(&self, action: &Action, rect: PhysRect, frame: FrameTransform) -> bool {
+        if rect.left >= rect.right
+            || rect.top >= rect.bottom
+            || !frame.region().contains(rect.center())
+        {
+            return false;
+        }
+        match action {
+            Action::Click { x, y, .. } | Action::DoubleClick { x, y } => {
+                let point = ShotPoint {
+                    x: *x as f64,
+                    y: *y as f64,
+                };
+                frame.shot_to_phys_checked(point).is_some_and(|phys| {
+                    rect.distance_to(phys) <= f64::from(self.config.hit_tolerance_px)
+                })
+            }
+            _ => true,
+        }
+    }
+
+    fn model_failed(&mut self, out: &mut Vec<TeacherCommand>) {
+        self.model_failures = self.model_failures.saturating_add(1);
+        if self.model_failures >= 2 {
+            self.refuse(RefusalReason::ModelUnavailable, LineKey::NetworkError, out);
+        }
     }
 
     fn human_event(&mut self, event: TeacherInput, out: &mut Vec<TeacherCommand>) {
@@ -184,6 +219,13 @@ impl Teacher {
             Action::Click { .. } | Action::DoubleClick { .. }
         );
         let (completed, human) = match (&step.action, &event) {
+            // Software input (ours included) and other buttons never complete a step:
+            // only the person's own left click confirms a safety check (invariant 4).
+            (_, TeacherInput::Click { injected: true, .. })
+            | (_, TeacherInput::DoubleClick { injected: true, .. })
+            | (_, TeacherInput::KeyChord { injected: true, .. })
+            | (_, TeacherInput::Click { left: false, .. })
+            | (_, TeacherInput::DoubleClick { left: false, .. }) => return,
             (Action::Click { .. }, TeacherInput::Click { at, .. })
             | (Action::DoubleClick { .. }, TeacherInput::DoubleClick { at, .. }) => {
                 let distance = step.rect.distance_to(*at);

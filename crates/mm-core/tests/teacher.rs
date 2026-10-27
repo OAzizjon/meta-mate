@@ -57,6 +57,8 @@ fn click_action() -> Action {
 fn click(x: i32, now_ms: u64) -> Input {
     Input::Click {
         at: PhysPoint { x, y: 110 },
+        left: true,
+        injected: false,
         now_ms,
     }
 }
@@ -84,7 +86,8 @@ fn recorded_happy_path_settles_then_finishes() {
     assert_eq!(
         teacher.input(Input::ModelTurn {
             response: parsed,
-            frame: frame(),
+            // The recorded turn was sent as an unscaled 1280x800 screenshot.
+            frame: FrameTransform::new(PhysRect::new(0, 0, 1280, 800).unwrap(), 1280, 800).unwrap(),
             targets: vec![Some(target)],
         }),
         vec![
@@ -100,6 +103,8 @@ fn recorded_happy_path_settles_then_finishes() {
     assert_eq!(
         teacher.input(Input::Click {
             at: target.center(),
+            left: true,
+            injected: false,
             now_ms: 100
         }),
         vec![
@@ -210,7 +215,7 @@ fn wonder_unavailable_falls_back_for_the_rest_of_task() {
 fn double_click_and_key_chord_complete_in_order() {
     let mut teacher = Teacher::new(TeacherConfig::default());
     teacher.input(turn(vec![
-        Action::DoubleClick { x: 0, y: 0 },
+        Action::DoubleClick { x: 150, y: 100 },
         Action::Keypress {
             keys: vec!["CTRL".into(), "S".into()],
         },
@@ -218,12 +223,15 @@ fn double_click_and_key_chord_complete_in_order() {
     assert!(teacher.input(click(110, 1)).is_empty());
     assert!(!ack(&teacher.input(Input::DoubleClick {
         at: rect().center(),
+        left: true,
+        injected: false,
         now_ms: 2
     })));
     assert!(
         teacher
             .input(Input::KeyChord {
                 keys: vec!["S".into()],
+                injected: false,
                 now_ms: 3
             })
             .is_empty()
@@ -231,6 +239,7 @@ fn double_click_and_key_chord_complete_in_order() {
     assert_eq!(
         teacher.input(Input::KeyChord {
             keys: vec!["s".into(), "ctrl".into()],
+            injected: false,
             now_ms: 4
         }),
         vec![Command::AcknowledgeSafetyChecks(vec!["confirm".into()])]
@@ -357,6 +366,7 @@ fn passive_steps_and_speech_never_acknowledge_safety_checks() {
         teacher
             .input(Input::KeyChord {
                 keys: vec!["Enter".into()],
+                injected: false,
                 now_ms: 602
             })
             .is_empty()
@@ -476,8 +486,8 @@ proptest! {
             let input = match kind {
                 0 => turn(vec![click_action()]),
                 1 => click(x, now_ms),
-                2 => Input::DoubleClick { at: PhysPoint { x, y: x }, now_ms },
-                3 => Input::KeyChord { keys: vec![x.to_string()], now_ms },
+                2 => Input::DoubleClick { at: PhysPoint { x, y: x }, left: x % 2 == 0, injected: x % 3 == 0, now_ms },
+                3 => Input::KeyChord { keys: vec![x.to_string()], injected: x % 5 == 0, now_ms },
                 4 => Input::ValueChanged { text: x.to_string(), now_ms },
                 5 => Input::UserSaidNext { now_ms },
                 6 => Input::ScreenChangedUnexpectedly { now_ms },
@@ -492,5 +502,125 @@ proptest! {
             };
             teacher.input(input);
         }
+    }
+}
+
+// Findings of the 2026-10-27 safety review (Claude worker #460).
+
+fn click_at(x: i64, y: i64) -> Action {
+    Action::Click {
+        x,
+        y,
+        button: "left".into(),
+    }
+}
+
+#[test]
+fn model_points_off_the_screenshot_or_far_from_the_target_are_refused() {
+    // frame(): 740x450 sent; the target rect maps from about (150, 100).
+    for action in [
+        click_at(-40, 100),
+        click_at(99_999, 100),
+        click_at(150, 450),
+        click_at(400, 300),
+    ] {
+        let mut teacher = Teacher::new(TeacherConfig::default());
+        let mut turn = turn(vec![action]);
+        if let Input::ModelTurn { response, .. } = &mut turn {
+            response.commentary = vec!["Click the button below".into()];
+        }
+        let out = teacher.input(turn);
+        assert_eq!(
+            out,
+            vec![
+                Command::Refused(RefusalReason::TargetNotFound),
+                Command::Say(LineKey::CantFind)
+            ],
+            "the spoken line must not play before a refusal"
+        );
+    }
+}
+
+#[test]
+fn a_target_outside_the_capture_is_refused() {
+    let mut teacher = Teacher::new(TeacherConfig::default());
+    let outside = PhysRect::new(5000, 5000, 5020, 5020).unwrap();
+    let out = teacher.input(Input::ModelTurn {
+        response: response(vec![click_action()]),
+        frame: frame(),
+        targets: vec![Some(outside)],
+    });
+    assert!(out.contains(&Command::Refused(RefusalReason::TargetNotFound)));
+}
+
+#[test]
+fn right_and_injected_clicks_and_keys_never_complete_a_step() {
+    let mut teacher = Teacher::new(TeacherConfig::default());
+    teacher.input(turn(vec![click_action()]));
+    let at = rect().center();
+    for (left, injected) in [(false, false), (true, true), (false, true)] {
+        let out = teacher.input(Input::Click {
+            at,
+            left,
+            injected,
+            now_ms: 1,
+        });
+        assert!(out.is_empty(), "left={left} injected={injected}");
+    }
+    let mut keys = Teacher::new(TeacherConfig::default());
+    keys.input(turn(vec![Action::Keypress {
+        keys: vec!["Enter".into()],
+    }]));
+    let injected = keys.input(Input::KeyChord {
+        keys: vec!["Enter".into()],
+        injected: true,
+        now_ms: 1,
+    });
+    assert!(injected.is_empty());
+    assert!(ack(&teacher.input(click(110, 2))));
+}
+
+#[test]
+fn a_cut_off_turn_is_a_model_failure_not_done() {
+    let mut teacher = Teacher::new(TeacherConfig::default());
+    let mut cut = response(vec![]);
+    cut.computer_calls.clear();
+    cut.status = "incomplete".into();
+    cut.incomplete_reason = Some("max_output_tokens".into());
+    let turn = |response: ParsedResponse| Input::ModelTurn {
+        response,
+        frame: frame(),
+        targets: vec![],
+    };
+    assert!(teacher.input(turn(cut.clone())).is_empty());
+    assert_eq!(
+        teacher.input(turn(cut)),
+        vec![
+            Command::Refused(RefusalReason::ModelUnavailable),
+            Command::Say(LineKey::NetworkError)
+        ]
+    );
+}
+
+#[test]
+fn debug_hides_typed_values_keys_and_spoken_lines() {
+    let typed = format!(
+        "{:?}",
+        Input::ValueChanged {
+            text: "hunter2".into(),
+            now_ms: 1
+        }
+    );
+    let keys = format!(
+        "{:?}",
+        Input::KeyChord {
+            keys: vec!["secret".into()],
+            injected: false,
+            now_ms: 1
+        }
+    );
+    let spoken = format!("{:?}", Command::SpeakCommentary("my bank pin".into()));
+    for text in [&typed, &keys, &spoken] {
+        assert!(!text.contains("hunter2") && !text.contains("secret") && !text.contains("pin"));
     }
 }

@@ -142,9 +142,18 @@ impl fmt::Debug for Action {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ResponseError {
-    InvalidJson { line: usize, column: usize },
-    InvalidShape { field: &'static str },
-    Api { message: String },
+    InvalidJson {
+        line: usize,
+        column: usize,
+    },
+    InvalidShape {
+        field: &'static str,
+    },
+    /// The streamed text grew past [`StreamText::MAX_BYTES`]: a misbehaving stream.
+    TooLong,
+    Api {
+        message: String,
+    },
 }
 
 impl fmt::Display for ResponseError {
@@ -154,6 +163,7 @@ impl fmt::Display for ResponseError {
                 write!(f, "invalid response JSON at {line}:{column}")
             }
             Self::InvalidShape { field } => write!(f, "invalid response field: {field}"),
+            Self::TooLong => f.write_str("streamed text too long"),
             Self::Api { message } => write!(f, "API error: {message}"),
         }
     }
@@ -320,6 +330,9 @@ impl fmt::Debug for StreamText {
 }
 
 impl StreamText {
+    /// A spoken answer is a few hundred bytes; 64 KiB means the stream misbehaves.
+    pub const MAX_BYTES: usize = 64 * 1024;
+
     pub fn new() -> Self {
         Self::default()
     }
@@ -345,7 +358,11 @@ impl StreamText {
             .or_else(|| value["type"].as_str());
         match kind {
             Some("response.output_text.delta") => {
-                self.text.push_str(&field::<String>(&value, "delta")?);
+                let delta = field::<String>(&value, "delta")?;
+                if self.text.len() + delta.len() > Self::MAX_BYTES {
+                    return Err(ResponseError::TooLong);
+                }
+                self.text.push_str(&delta);
             }
             Some("response.completed" | "response.incomplete" | "response.done") => {
                 return parse_response_value(&value["response"]).map(Some);

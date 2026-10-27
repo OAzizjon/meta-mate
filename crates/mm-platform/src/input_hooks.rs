@@ -15,9 +15,12 @@ pub enum InputEvent {
     /// The push-to-talk key went down (`pressed`) or up; auto-repeat is never reported.
     PushToTalk { pressed: bool, time_ms: u64 },
     /// A mouse button went down at a physical virtual-screen point (step checks).
+    /// `injected`: `LLMHF_INJECTED` was set, so software (ours included) made the click;
+    /// such a click never completes a step or confirms anything (invariant 4).
     MouseClick {
         button: MouseButton,
         at: PhysPoint,
+        injected: bool,
         time_ms: u64,
     },
 }

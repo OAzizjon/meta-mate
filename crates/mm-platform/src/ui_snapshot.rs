@@ -67,6 +67,15 @@ impl UiSnapshot {
             .min_by_key(|(element, size)| (!element.interactive, *size))
             .map(|(element, _)| element)
     }
+
+    /// What Mate may point at: like `element_at`, but only an interactive element below
+    /// a root (never the window or a popup root itself). Blank space is `None`, so a
+    /// point on nothing becomes "I can't find it" instead of the whole window
+    /// (invariant 5).
+    pub fn target_at(&self, point: PhysPoint) -> Option<&UiElement> {
+        self.element_at(point)
+            .filter(|element| element.interactive && element.parent.is_some())
+    }
 }
 
 fn area(rect: &PhysRect) -> i64 {
@@ -181,5 +190,35 @@ mod tests {
     fn debug_hides_the_name() {
         let text = format!("{:?}", element("e2", "Text", rect(0, 0, 1, 1)));
         assert!(text.contains("e2") && !text.contains("Secret"));
+    }
+
+    #[test]
+    fn targets_are_interactive_children_never_the_window_or_blank_space() {
+        let child = |id: &str, kind: &str, bounds: PhysRect| {
+            let mut e = element(id, kind, bounds);
+            e.parent = Some("e0".to_owned());
+            e
+        };
+        let snapshot = UiSnapshot {
+            target: TargetWindow {
+                handle: 1,
+                process_id: 1,
+            },
+            frame: rect(0, 0, 100, 100),
+            elements: vec![
+                element("e0", "Window", rect(0, 0, 100, 100)),
+                child("e1", "Button", rect(10, 10, 50, 30)),
+                child("e2", "Text", rect(60, 60, 80, 80)),
+            ],
+            truncated: false,
+        };
+        let target = |x, y| {
+            snapshot
+                .target_at(PhysPoint { x, y })
+                .map(|e| e.id.as_str())
+        };
+        assert_eq!(target(20, 20), Some("e1"));
+        assert_eq!(target(70, 70), None, "plain text is not a target");
+        assert_eq!(target(90, 5), None, "blank space is not the window");
     }
 }

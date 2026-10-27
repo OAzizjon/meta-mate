@@ -141,7 +141,7 @@ impl UiTree for ReplayBackend {
     }
 
     fn element_from_point(&self, point: PhysPoint) -> Result<Option<UiElement>, PlatformError> {
-        Ok(self.snapshot.element_at(point).cloned())
+        Ok(self.snapshot.target_at(point).cloned())
     }
 }
 
@@ -227,12 +227,16 @@ mod tests {
     }
 
     #[test]
-    fn empty_space_hits_the_window_and_outside_hits_nothing() {
+    fn blank_space_and_outside_are_not_targets() {
         let replay = text_size();
-        let window = hit(&replay, 900, 600).expect("a hit");
-        assert_eq!(window.id, "e0");
-        assert!(!window.interactive);
+        // Blank page area: the window itself is never a target (invariant 5).
+        assert!(hit(&replay, 900, 600).is_none());
         assert!(hit(&replay, -5, 10).is_none());
+        let snapshot = replay.snapshot(replay.target()).expect("snapshot");
+        let window = snapshot
+            .element_at(PhysPoint { x: 900, y: 600 })
+            .expect("the window is still found for scoring");
+        assert_eq!(window.id, "e0");
     }
 
     #[test]

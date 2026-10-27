@@ -4,9 +4,8 @@
 //! sends it. The prompts live here as `const`s (model input, not UI text, so invariant 7
 //! does not apply) and get `ROBOT_NAME` at build time (invariant 6).
 //!
-//! Every `image_data_url` must be a redacted screenshot (invariant 3, convention 4):
-//! password fields painted over before the data URL was made. A `RedactedImage` type
-//! replaces the `&str` later.
+//! Screenshots enter only as [`RedactedImage`] (invariant 3, convention 4): a raw capture
+//! cannot be put into a request by mistake.
 
 use std::fmt;
 
@@ -69,6 +68,55 @@ pub struct ComputerSession {
     pub sent_height: u32,
 }
 
+/// A screenshot whose password fields were painted over, as a data URL (convention 4).
+/// Only the redaction step creates it, and it refuses when redaction cannot be
+/// guaranteed (a truncated UIA snapshot: invariant 3, fail closed). The request builders
+/// accept nothing else.
+pub struct RedactedImage {
+    data_url: String,
+}
+
+impl RedactedImage {
+    /// For the redaction step only (crate-private on purpose): `data_url` must already
+    /// have every hidden element painted over.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "the redaction step (lead, Day 4) is its only caller"
+        )
+    )]
+    pub(crate) fn from_redacted_data_url(data_url: String) -> Self {
+        Self { data_url }
+    }
+
+    fn data_url(&self) -> &str {
+        &self.data_url
+    }
+}
+
+/// Metadata only (convention 3).
+impl fmt::Debug for RedactedImage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[RedactedImage {} bytes]", self.data_url.len())
+    }
+}
+
+/// The one rule for hiding an element, shared by the painter and the element list: a
+/// password field, a password-like field (D37: a revealed password is not `IsPassword`),
+/// or a field that was a password field earlier in this session.
+pub fn must_hide(is_password: bool, password_like: bool, was_password_this_session: bool) -> bool {
+    is_password || password_like || was_password_this_session
+}
+
+/// The rendered list and exactly the ids in it: the parser's `point_ids` must come from
+/// `ids`, so the model can only point at elements it was shown.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ElementList {
+    pub text: String,
+    pub ids: Vec<String>,
+}
+
 const NAME_MAX_CHARS: usize = 60;
 const HIDDEN_NAME: &str = "[hidden]";
 const ELEMENT_LIST_HEADER: &str =
@@ -90,7 +138,8 @@ impl ElementLine {
     /// `rect` is the element's physical rectangle; it is clipped to the capture and mapped
     /// to screenshot pixels with this frame's transform. `hidden` marks password fields,
     /// password-like fields (D37: `IsPassword` alone is not enough) and anything the
-    /// redaction painted over: their names are dropped here and never reach a prompt.
+    /// redaction painted over (use [`must_hide`]): their names are dropped here and never
+    /// reach a prompt. Callers leave out offscreen elements: they are not in the picture.
     /// `None` when `id` is not `e` + digits or the element lies outside the capture.
     pub fn new(
         id: &str,
@@ -157,17 +206,22 @@ impl fmt::Debug for ElementLine {
 /// interactive elements first, slice order kept within both groups, at most `max`
 /// element lines, then `… N more` when some were left out. Hidden elements show
 /// `[hidden]` instead of a name.
-pub fn render_element_list(elements: &[ElementLine], max: usize) -> String {
-    let ordered = elements
+pub fn render_element_list(elements: &[ElementLine], max: usize) -> ElementList {
+    let shown: Vec<&ElementLine> = elements
         .iter()
         .filter(|e| e.interactive)
-        .chain(elements.iter().filter(|e| !e.interactive));
-    let mut lines: Vec<String> = ordered.take(max).map(ElementLine::render).collect();
+        .chain(elements.iter().filter(|e| !e.interactive))
+        .take(max)
+        .collect();
+    let mut lines: Vec<String> = shown.iter().map(|e| e.render()).collect();
     let rest = elements.len().saturating_sub(lines.len());
     if rest > 0 {
         lines.push(format!("… {rest} more"));
     }
-    lines.join("\n")
+    ElementList {
+        text: lines.join("\n"),
+        ids: shown.iter().map(|e| e.id.clone()).collect(),
+    }
 }
 
 /// A spoken answer without the screen (docs/prompts.md §1), streamed. `language_hint` is
@@ -190,19 +244,19 @@ pub fn chat_request(
 
 /// "Where is X?" (mode A of docs/architecture.md §3): one streamed answer that points with
 /// `<point eNN>` or `<point X,Y>`, no computer tool. `element_list` comes from
-/// [`render_element_list`] for the frame of the image. Only a redacted screenshot may be
-/// passed as `image_data_url` (convention 4).
+/// [`render_element_list`] for the frame of the image.
 pub fn point_request(
     model: ModelChoice,
     effort: ReasoningEffort,
     question: &str,
-    element_list: &str,
-    image_data_url: &str,
+    element_list: &ElementList,
+    image: &RedactedImage,
 ) -> Value {
+    let text = screen_text(question, &element_list.text);
     json!({
         "model": model,
         "instructions": spoken_instructions(None, true),
-        "input": [user_message(&screen_text(question, element_list), Some(image_data_url))],
+        "input": [user_message(&text, Some(image.data_url()))],
         "stream": true,
         "max_output_tokens": SCREEN_MAX_OUTPUT_TOKENS,
         "reasoning": {"effort": effort}
@@ -211,18 +265,18 @@ pub fn point_request(
 
 /// The first teacher turn (docs/prompts.md §2): the computer tool, with the person as the
 /// hand. The image keeps its size for the whole task: the model answers in its pixels.
-/// Only a redacted screenshot may be passed as `image_data_url` (convention 4).
 pub fn computer_request(
     model: ModelChoice,
     effort: ReasoningEffort,
     question: &str,
-    element_list: &str,
-    image_data_url: &str,
+    element_list: &ElementList,
+    image: &RedactedImage,
 ) -> Value {
+    let text = screen_text(question, &element_list.text);
     json!({
         "model": model,
         "instructions": teacher_instructions(),
-        "input": [user_message(&screen_text(question, element_list), Some(image_data_url))],
+        "input": [user_message(&text, Some(image.data_url()))],
         "tools": [computer_tool()],
         "max_output_tokens": SCREEN_MAX_OUTPUT_TOKENS,
         "reasoning": {"effort": effort}
@@ -236,19 +290,18 @@ pub fn computer_request(
 /// confirmed (invariant 4): in the teacher, the person's own click on the pointed element
 /// (D41); for a payment, purchase, delete, money transfer or password step, an explicit
 /// yes. Code never copies the pending checks into this list: pass an empty slice when
-/// nobody confirmed. Only a redacted screenshot may be passed as `image_data_url`
-/// (convention 4).
+/// nobody confirmed.
 pub fn computer_followup(
     session: ComputerSession,
     previous_response_id: &str,
     call_id: &str,
     acknowledged_safety_check_ids: &[String],
-    image_data_url: &str,
+    image: &RedactedImage,
 ) -> Value {
     let mut output = json!({
         "type": "computer_call_output",
         "call_id": call_id,
-        "output": {"type": "computer_screenshot", "image_url": image_data_url}
+        "output": {"type": "computer_screenshot", "image_url": image.data_url()}
     });
     if !acknowledged_safety_check_ids.is_empty() {
         let checks = acknowledged_safety_check_ids
@@ -502,6 +555,10 @@ mod tests {
     use crate::matescript::{Item, Parser, Settings};
 
     const DATA_URL: &str = "data:image/png;base64,AAAA";
+
+    fn image() -> RedactedImage {
+        RedactedImage::from_redacted_data_url(DATA_URL.into())
+    }
     const LARGE_LINE: &str = "e11 Button \"Large\" [960,255,200,32]";
     const QUICK: ModelChoice = ModelChoice::Quick;
     const SPOKEN: ReasoningEffort = ReasoningEffort::SPOKEN;
@@ -587,7 +644,7 @@ mod tests {
     #[test]
     fn point_request_sends_the_list_and_the_image() {
         let list = render_element_list(&[large_button()], 150);
-        let body = point_request(ModelChoice::Thorough, SPOKEN, "Where?", &list, DATA_URL);
+        let body = point_request(ModelChoice::Thorough, SPOKEN, "Where?", &list, &image());
         assert_eq!(body["model"], "muse-wonder-1.0");
         assert_eq!(body["reasoning"]["effort"], "minimal");
         assert_eq!(body["stream"], json!(true));
@@ -604,7 +661,7 @@ mod tests {
     #[test]
     fn computer_request_carries_the_tool_and_the_teacher_rules() {
         let list = render_element_list(&[large_button()], 150);
-        let body = computer_request(QUICK, ACT, "Bigger text", &list, DATA_URL);
+        let body = computer_request(QUICK, ACT, "Bigger text", &list, &image());
         assert_eq!(body["tools"], json!([{"type": "computer"}]));
         assert_eq!(body["model"], "muse-spark-1.3");
         assert_eq!(body["reasoning"]["effort"], "minimal");
@@ -618,7 +675,7 @@ mod tests {
     #[test]
     fn followup_acknowledges_only_the_checks_it_is_given() {
         let confirmed = ["cu_sc_1".to_owned()];
-        let body = computer_followup(session(), "resp_1", "call_1", &confirmed, DATA_URL);
+        let body = computer_followup(session(), "resp_1", "call_1", &confirmed, &image());
         assert_eq!(body["model"], "muse-spark-1.3");
         assert_eq!(body["previous_response_id"], "resp_1");
         assert_eq!(body["tools"], json!([{"type": "computer"}]));
@@ -632,7 +689,7 @@ mod tests {
         let screenshot = json!({"type": "computer_screenshot", "image_url": DATA_URL});
         assert_eq!(output["output"], screenshot);
 
-        let body = computer_followup(session(), "resp_1", "call_1", &[], DATA_URL);
+        let body = computer_followup(session(), "resp_1", "call_1", &[], &image());
         let output = &body["input"][0];
         assert!(output.get("acknowledged_safety_checks").is_none());
     }
@@ -660,8 +717,11 @@ mod tests {
         assert_eq!(secret.render(), "e5 Edit [hidden] [960,255,200,32]");
         assert!(!format!("{secret:?}").contains("hunter2"));
         let list = render_element_list(&[secret, large_button()], 150);
-        assert!(list.contains("e5 Edit [hidden] "));
-        assert!(!list.contains("hunter2"));
+        assert!(list.text.contains("e5 Edit [hidden] "));
+        assert!(!list.text.contains("hunter2"));
+        assert!(!format!("{:?}", image()).contains("base64"));
+        assert!(must_hide(false, true, false) && must_hide(false, false, true));
+        assert!(!must_hide(false, false, false));
     }
 
     #[test]
@@ -693,21 +753,25 @@ mod tests {
         }
 
         let list = render_element_list(&elements, 3);
-        let lines: Vec<&str> = list.lines().collect();
+        let lines: Vec<&str> = list.text.lines().collect();
         assert_eq!(lines.len(), 4);
         assert!(lines[0].starts_with("e3 "));
         assert!(lines[1].starts_with("e4 "));
         assert!(lines[2].starts_with("e5 "));
         assert_eq!(lines[3], "… 4 more");
+        // Only what the model was shown can be pointed at.
+        assert_eq!(list.ids, ["e3", "e4", "e5"]);
 
         let all = render_element_list(&elements, 150);
-        let ids: Vec<&str> = all.lines().map(|l| &l[..2]).collect();
+        let ids: Vec<&str> = all.text.lines().map(|l| &l[..2]).collect();
         assert_eq!(ids, ["e3", "e4", "e5", "e6", "e7", "e1", "e2"]);
-        assert!(!all.contains("more"));
-        assert!(!all.chars().any(|c| c.is_control() && c != '\n'));
+        assert_eq!(all.ids, ids);
+        assert!(!all.text.contains("more"));
+        assert!(!all.text.chars().any(|c| c.is_control() && c != '\n'));
 
-        assert_eq!(render_element_list(&elements, 0), "… 7 more");
-        assert_eq!(render_element_list(&[], 10), "");
+        assert_eq!(render_element_list(&elements, 0).text, "… 7 more");
+        assert!(render_element_list(&elements, 0).ids.is_empty());
+        assert_eq!(render_element_list(&[], 10).text, "");
     }
 
     #[test]
@@ -727,9 +791,9 @@ mod tests {
         let list = render_element_list(&[large_button()], 150);
         let bodies = [
             chat_request(QUICK, SPOKEN, Some("en"), "Hi"),
-            point_request(QUICK, SPOKEN, "Hi", &list, DATA_URL),
-            computer_request(QUICK, ACT, "Hi", &list, DATA_URL),
-            computer_followup(session(), "resp_1", "call_1", &[], DATA_URL),
+            point_request(QUICK, SPOKEN, "Hi", &list, &image()),
+            computer_request(QUICK, ACT, "Hi", &list, &image()),
+            computer_followup(session(), "resp_1", "call_1", &[], &image()),
         ];
         let named = format!("You are {ROBOT_NAME}, ");
         for body in &bodies {

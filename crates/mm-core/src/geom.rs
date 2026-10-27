@@ -166,6 +166,20 @@ impl FrameTransform {
         })
     }
 
+    /// The captured region in physical pixels.
+    pub fn region(self) -> PhysRect {
+        self.region
+    }
+
+    /// Like `shot_to_phys`, but a point outside the sent image (or not finite) is `None`
+    /// instead of being clamped to the edge: a model's point off the screenshot is a
+    /// guess, never a target (invariant 5).
+    pub fn shot_to_phys_checked(self, point: ShotPoint) -> Option<PhysPoint> {
+        let inside = |v: f64, size: u32| v.is_finite() && v >= 0.0 && v < f64::from(size);
+        (inside(point.x, self.sent_width) && inside(point.y, self.sent_height))
+            .then(|| self.shot_to_phys(point))
+    }
+
     fn width(self) -> f64 {
         f64::from(self.region.right) - f64::from(self.region.left)
     }

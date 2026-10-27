@@ -12,7 +12,8 @@ pub trait UiTree {
     /// excluded.
     fn snapshot(&self, target: TargetWindow) -> Result<UiSnapshot, PlatformError>;
 
-    /// The element under a physical virtual-screen point, our own windows excluded.
-    /// `Ok(None)` means nothing usable is there: say "I can't find it" (invariant 5).
+    /// The interactive element under a physical virtual-screen point that Mate may point
+    /// at (`UiSnapshot::target_at`), our own windows excluded. Blank space or the window
+    /// itself is `Ok(None)`: say "I can't find it" (invariant 5).
     fn element_from_point(&self, point: PhysPoint) -> Result<Option<UiElement>, PlatformError>;
 }

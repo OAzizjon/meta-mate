@@ -61,7 +61,7 @@ impl UiTree for MockBackend {
     }
 
     fn element_from_point(&self, point: PhysPoint) -> Result<Option<UiElement>, PlatformError> {
-        Ok(self.snapshot.element_at(point).cloned())
+        Ok(self.snapshot.target_at(point).cloned())
     }
 }
 
@@ -105,7 +105,7 @@ impl InputInjector for MockBackend {
         action: &InputAction,
         confirmation: Option<HumanConfirmation>,
     ) -> Result<(), PlatformError> {
-        check_confirmation(action, confirmation)?;
+        check_confirmation(target, action, confirmation)?;
         self.check_target(target)?;
         self.executed.push((target, action.clone()));
         Ok(())
@@ -145,11 +145,21 @@ mod tests {
         };
         let refused = Err(PlatformError::ConfirmationRequired);
         assert_eq!(mock.execute_verified(target, &click, None), refused);
-        let other = HumanConfirmation::given_by_user(InputAction::DoubleClick { at });
+        let other = HumanConfirmation::given_by_user(target, InputAction::DoubleClick { at });
         assert_eq!(mock.execute_verified(target, &click, Some(other)), refused);
+        // A yes given in another window never carries over (invariant 4).
+        let elsewhere = TargetWindow {
+            handle: 8,
+            process_id: 42,
+        };
+        let wrong_window = HumanConfirmation::given_by_user(elsewhere, click.clone());
+        assert_eq!(
+            mock.execute_verified(target, &click, Some(wrong_window)),
+            refused
+        );
         assert!(mock.executed.is_empty());
 
-        let yes = HumanConfirmation::given_by_user(click.clone());
+        let yes = HumanConfirmation::given_by_user(target, click.clone());
         assert_eq!(mock.execute_verified(target, &click, Some(yes)), Ok(()));
         assert_eq!(mock.executed, vec![(target, click)]);
     }

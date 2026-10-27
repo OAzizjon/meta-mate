@@ -13,17 +13,26 @@ pub enum InputAction {
     DoubleClick { at: PhysPoint },
 }
 
-/// A human's yes for one exact action. Create it only in the handler of the user's own
-/// answer to our confirmation prompt, never from model output or `pending_safety_checks`.
-/// It is not `Clone`: one yes, one action.
+/// A human's yes for one exact action in one window. Create it only in the handler of the
+/// user's own answer to our confirmation prompt, never from model output or
+/// `pending_safety_checks`. It is not `Clone`: one yes, one action.
+///
+/// Still open for "do it for me" (Day 7, safety review #460): the constructor should move
+/// behind a platform `ask_confirmation(&action, target)` that shows the prompt itself, and
+/// the confirmed element (id and rect) should be re-checked right before injecting.
 #[derive(Debug)]
 pub struct HumanConfirmation {
+    target: TargetWindow,
     action: InputAction,
 }
 
 impl HumanConfirmation {
-    pub fn given_by_user(action: InputAction) -> Self {
-        Self { action }
+    pub fn given_by_user(target: TargetWindow, action: InputAction) -> Self {
+        Self { target, action }
+    }
+
+    pub fn target(&self) -> TargetWindow {
+        self.target
     }
 
     pub fn action(&self) -> &InputAction {
@@ -31,14 +40,16 @@ impl HumanConfirmation {
     }
 }
 
-/// Refuses unless `confirmation` is the human's yes for exactly `action`. Every
+/// Refuses unless `confirmation` is the human's yes for exactly `action` in exactly
+/// `target`: a yes in one window never carries over to another (invariant 4). Every
 /// `InputInjector` calls this before anything else.
 pub fn check_confirmation(
+    target: TargetWindow,
     action: &InputAction,
     confirmation: Option<HumanConfirmation>,
 ) -> Result<(), PlatformError> {
     match confirmation {
-        Some(yes) if yes.action == *action => Ok(()),
+        Some(yes) if yes.target == target && yes.action == *action => Ok(()),
         _ => Err(PlatformError::ConfirmationRequired),
     }
 }
