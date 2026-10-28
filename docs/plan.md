@@ -72,13 +72,17 @@ The kickoff is at **12:00 PM GMT-5 = 17:00 UTC = 22:00 Tashkent** (the organiser
 
 - Computer use loop: batches → substeps with completion rules, verify the click, take a new screenshot, replan.
 - Complete scenario 1: **increase text size in Windows** (with an incorrect click on step 2).
-- The model choice in Settings (Spark by default, Wonder optional, proxy caps: D40). Automatic escalation to Wonder after 2 failed steps only if Spark fails scenario 1 today.
+- The model choice in Settings (Spark by default, Wonder optional, proxy caps: D40). ✅ Automatic escalation to Wonder after 2 failed steps, completed 2026-10-28 (D56).
 
 ## Day 6 — 31.10 (Sat): server, installer, pilot
 
 - Snapshot the VPS, back up JustLog3 and shut it down (D39; checklist `server.md`, only after you say “yes” that day).
-- Proxy (keys, invite codes, limits) + landing page; keep Modal warm on demo days.
-- NSIS installer (per-user), icon, first launch with an invite code; SmartScreen instructions (or signing).
+- ✅ Judges' proxy live on Modal, completed 2026-10-28 (D57); keep it warm on demo days.
+- Proxy (keys, limits) + landing page.
+- ✅ Google sign-in, completed 2026-10-28 (D54).
+- ✅ Scam check and lesson keepsake card, completed 2026-10-28 (D52, D55).
+- ✅ Model chip in answers and tray "Try a question", completed 2026-10-28.
+- NSIS installer (per-user), icon, first launch with sign-in; SmartScreen instructions (or signing). ✅ Installer built 2026-10-29; owner tests it on a clean PC.
 - **In the evening: pilot with a tester** using the installed build (scenario 1): note what's unclear and what's annoying.
 
 ## Day 7 — 01.11 (Sun): fallbacks, scenario 2, freeze
