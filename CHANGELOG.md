@@ -10,6 +10,13 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- Sign-in hardening: a new sign-in replaces a forgotten one, links opened elsewhere are refused, and sessions are sealed with DPAPI in local app data.
+- Lessons escalate to Muse Wonder after two misses, with Mate explaining the escalation.
+- Keepsake card filenames use local time, and each card draws exactly one Mate.
+- Glimmer on Modal may use an A10G or L40S when no L4 is free.
+- `mm check` byte-compiles Python; `--card-selftest` checks keepsake card generation.
+- The proxy is prepared for Modal deployment (`server/deploy/modal_proxy.py`, `deploy_modal_proxy.py`).
+- `docs/architecture.md` maps the Meta models.
 - Mate shows the words he hears while you speak; "Is this safe?" asks Mate to check the window for scams; a successful lesson leaves a keepsake card drawn by Muse Image in `Pictures\MetaMate`.
 - App sign-in through the browser with a loopback callback and a saved session; proxy `/v1/image` (Muse Image) and `/v1/glimmer` endpoints; provider-side PKCE; sign-in floods are refused instead of evicting live sign-ins.
 - Proxy sign-in with Google and GitHub using PKCE between the app and proxy, HMAC session tokens, and judge tiers by e-mail; Muse Glimmer 30B (Meta open weights) served by llama.cpp on a Modal L4 GPU; MMS-TTS deployed on Modal; hackathon rules read (D52).
