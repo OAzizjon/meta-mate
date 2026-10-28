@@ -21,9 +21,9 @@ from urllib.parse import urlsplit
 import httpx
 import websockets
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 
-from . import policy
+from . import auth, policy
 
 ASR_URL = 'wss://api.meta.ai/v1/asr/realtime'
 ASR_MODEL = 'muse-voice-transcribe-1.0'
@@ -47,6 +47,7 @@ NOTHING_BILLED = {'input_tokens': 0, 'output_tokens': 0}
 TTS_MAX_BODY_BYTES = 4096
 TTS_IN_FLIGHT_PER_INVITE = 2
 TTS_SECONDS = 30
+AUTH_SECONDS = 15
 CALL_KINDS = {kind.value: kind for kind in policy.CallKind}
 
 
@@ -60,6 +61,13 @@ class Settings:
     # MMS-TTS (tts/serve_dev.py locally, Modal in production); empty: /v1/tts answers 503.
     tts_url: str = ''
     tts_secret: str = field(default='', repr=False)
+    # Sign-in (D54): OAuth clients by provider, the key that signs session tokens, this
+    # proxy's public origin (the providers' redirect URIs live under it) and the e-mails
+    # that get the judge tier. Without a session secret, sign-in answers 503.
+    oauth: dict[str, auth.Client] = field(default_factory=dict, repr=False)
+    session_secret: str = field(default='', repr=False)
+    public_url: str = 'http://127.0.0.1:8787'
+    judge_emails: frozenset[str] = frozenset()
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> 'Settings':
@@ -96,7 +104,23 @@ class Settings:
                 raise ValueError('MMS_TTS_URL must be https (http only on 127.0.0.1)')
             if len(tts_secret) < 16:
                 raise ValueError('MMS_TTS_SECRET of 16+ characters is required with MMS_TTS_URL')
-        return Settings(key, base, invites, budget, prices, tts_url, tts_secret)
+        oauth = {}
+        for provider in auth.PROVIDERS:
+            client_id = env.get(f'{provider.upper()}_CLIENT_ID') or ''
+            client_secret = env.get(f'{provider.upper()}_CLIENT_SECRET') or ''
+            if client_id and client_secret:
+                oauth[provider] = auth.Client(client_id, client_secret)
+        session_secret = env.get('PROXY_SESSION_SECRET') or ''
+        if session_secret and len(session_secret) < 32:
+            raise ValueError('PROXY_SESSION_SECRET needs 32+ characters')
+        public_url = (env.get('PROXY_PUBLIC_URL') or 'http://127.0.0.1:8787').rstrip('/')
+        parts = urlsplit(public_url)
+        if not (parts.scheme == 'https' or (parts.scheme == 'http' and parts.hostname in ('127.0.0.1', 'localhost'))):
+            raise ValueError('PROXY_PUBLIC_URL must be https (http only on 127.0.0.1)')
+        judges = frozenset(item.strip().lower() for item in env.get('PROXY_JUDGE_EMAILS', '').split(',')
+                           if '@' in item)
+        return Settings(key, base, invites, budget, prices, tts_url, tts_secret, oauth, session_secret,
+                        public_url, judges)
 
 
 @dataclass
@@ -106,6 +130,7 @@ class State:
     asr_streams: dict[str, int] = field(default_factory=dict)
     in_flight: dict[str, int] = field(default_factory=dict)
     tts_in_flight: dict[str, int] = field(default_factory=dict)
+    flows: auth.Flows = field(default_factory=auth.Flows)
 
 
 def today() -> 'datetime.date':
@@ -113,11 +138,24 @@ def today() -> 'datetime.date':
 
 
 def invite_of(header: str | None, settings: Settings) -> tuple[str, policy.InviteLimits] | None:
+    """An invite code, or a session token from signing in (D54): its account is the ledger
+    key, so each person has their own daily limits."""
     if not header or not header.startswith('Bearer '):
         return None
     code = header[len('Bearer '):].strip()
+    if code.startswith(auth.TOKEN_PREFIX):
+        claims = auth.read_session(code, settings.session_secret, datetime.now(timezone.utc).timestamp())
+        if claims is None:
+            return None
+        return f'user:{claims["p"]}:{claims["s"]}', policy.JUDGE if claims['t'] == 'judge' else policy.TESTER
     limits = settings.invites.get(code)
     return (code, limits) if limits else None
+
+
+def auth_page(title: str, status: int = 200) -> HTMLResponse:
+    """The browser tab's last page; the app shows the real result in its own language."""
+    return HTMLResponse(f'<!doctype html><meta charset="utf-8"><title>MetaMate</title>'
+                        f'<p style="font:20px system-ui;margin:3em">{title}</p>', status_code=status)
 
 
 def error(status: int, message: str) -> JSONResponse:
@@ -184,12 +222,88 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
     """`client` and `asr_connect` are injectable for tests (no network)."""
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     state = State()
+    # The sign-in endpoints take a `state` query parameter: this name keeps them apart.
+    state_flows = state.flows
     http = client or httpx.AsyncClient(timeout=httpx.Timeout(120, connect=10))
     connect = asr_connect or websockets.connect
 
     @app.get('/healthz')
     async def healthz() -> dict:
         return {'ok': True}
+
+    def redirect_uri(provider: str) -> str:
+        return f'{settings.public_url}/auth/{provider}/callback'
+
+    @app.get('/auth/{provider}/start')
+    async def auth_start(provider: str, port: int = 0, state: str = '', challenge: str = '') -> Response:
+        client = settings.oauth.get(provider)
+        if client is None or not settings.session_secret:
+            return auth_page('Sign-in is not available.', 503)
+        if not (auth.valid_port(port) and auth.valid_app_state(state) and auth.valid_challenge(challenge)):
+            return auth_page('This sign-in link is not valid.', 400)
+        flow_state = state_flows.start(provider, port, state, challenge, datetime.now(timezone.utc).timestamp())
+        details = auth.PROVIDERS[provider]
+        query = {'client_id': client.id, 'redirect_uri': redirect_uri(provider), 'response_type': 'code',
+                 'scope': details.scope, 'state': flow_state}
+        if provider == 'google':
+            query.update(access_type='online', prompt='select_account')
+        return RedirectResponse(str(httpx.URL(details.authorize, params=query)), status_code=302)
+
+    async def identity_from(provider: str, client: auth.Client, code: str) -> auth.Identity | None:
+        details = auth.PROVIDERS[provider]
+        form = {'client_id': client.id, 'client_secret': client.secret, 'code': code,
+                'redirect_uri': redirect_uri(provider), 'grant_type': 'authorization_code'}
+        try:
+            token = await http.post(details.token, data=form, headers={'Accept': 'application/json'},
+                                    timeout=AUTH_SECONDS)
+            access = token.json().get('access_token') if token.status_code == 200 else None
+            if not isinstance(access, str) or not access:
+                return None
+            bearer = {'Authorization': f'Bearer {access}', 'Accept': 'application/json'}
+            if provider == 'google':
+                info = await http.get(auth.GOOGLE_USERINFO, headers=bearer, timeout=AUTH_SECONDS)
+                return auth.google_identity(info.json()) if info.status_code == 200 else None
+            user = await http.get(auth.GITHUB_USER, headers=bearer, timeout=AUTH_SECONDS)
+            emails = await http.get(auth.GITHUB_EMAILS, headers=bearer, timeout=AUTH_SECONDS)
+            if user.status_code != 200:
+                return None
+            return auth.github_identity(user.json(), emails.json() if emails.status_code == 200 else [])
+        except (httpx.HTTPError, ValueError, AttributeError):
+            return None
+
+    @app.get('/auth/{provider}/callback')
+    async def auth_callback(provider: str, code: str = '', state: str = '') -> Response:
+        client = settings.oauth.get(provider)
+        flow = state_flows.finish(provider, state, datetime.now(timezone.utc).timestamp())
+        if client is None or flow is None or not code or len(code) > 2048:
+            return auth_page('This sign-in has expired. Please try again from MetaMate.', 400)
+        identity = await identity_from(provider, client, code)
+        if identity is None:
+            return auth_page('The sign-in did not work. Please try again from MetaMate.', 400)
+        login = state_flows.issue(flow, identity, datetime.now(timezone.utc).timestamp())
+        back = httpx.URL(f'http://127.0.0.1:{flow["port"]}/callback',
+                         params={'code': login, 'state': flow['app_state']})
+        return RedirectResponse(str(back), status_code=302)
+
+    @app.post('/auth/token')
+    async def auth_token(request: Request) -> Response:
+        if not settings.session_secret:
+            return error(503, 'sign-in is not available')
+        raw = await read_body(request, 4096)
+        try:
+            body = json.loads(raw) if raw is not None else None
+        except (ValueError, RecursionError):
+            body = None
+        if not isinstance(body, dict):
+            return error(400, 'send {"code", "verifier"}')
+        now = datetime.now(timezone.utc).timestamp()
+        identity = state_flows.redeem(body.get('code'), body.get('verifier'), now)
+        if identity is None:
+            return error(400, 'the login code is unknown, used or expired')
+        tier = 'judge' if identity.email and identity.email in settings.judge_emails else 'user'
+        token = auth.sign_session(identity, tier, settings.session_secret, now)
+        return JSONResponse({'token': token, 'name': identity.name[:auth.MAX_NAME],
+                             'provider': identity.provider, 'tier': tier})
 
     @app.post('/v1/responses')
     async def responses(request: Request) -> Response:

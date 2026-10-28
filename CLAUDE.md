@@ -8,7 +8,7 @@ Talk to the owner in **Russian**. Everything in the repository (code, comments, 
 
 ## Status
 
-The build started at the kickoff on 2026-10-26, 22:00 Tashkent (D38); submissions are due 2026-11-04 21:00 ET, live finals 09.11. The Meta API key works (`mm probe`, D41: use `reasoning.effort` `minimal` for spoken answers). The official rules are not read yet: the owner pastes them from the participants' page (D42). Plan: `docs/plan.md`. Decisions: `docs/decisions.md` (log new decisions there, never rewrite old entries). Where we can fall behind and how we stay ahead: `docs/edge.md`. Changes: `CHANGELOG.md`.
+The build started at the kickoff on 2026-10-26, 22:00 Tashkent (D38); submissions are due 2026-11-04 21:00 ET, live finals 09.11. The Meta API key works (`mm probe`, D41: use `reasoning.effort` `minimal` for spoken answers). The rules are read (D52): public repo and a 3-minute video at submission; judged on Impact 30 %, Use of Meta AI tooling 25 %, Technical depth 20 %, Demo 25 %. Plan: `docs/plan.md`. Decisions: `docs/decisions.md` (log new decisions there, never rewrite old entries). Where we can fall behind and how we stay ahead: `docs/edge.md`. Changes: `CHANGELOG.md`.
 
 ## Commands
 

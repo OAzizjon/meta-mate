@@ -23,6 +23,18 @@ PROXY_PUBLIC_URL
 PROXY_ADMIN_TOKEN
 # Daily spend cap in USD for all invite codes together
 PROXY_DAILY_BUDGET_USD
+# Sign-in (D54): Google and GitHub OAuth clients (from JustLog3), the key that signs
+# session tokens, and the e-mails that get the judge tier
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GITHUB_CLIENT_ID
+GITHUB_CLIENT_SECRET
+PROXY_SESSION_SECRET
+PROXY_JUDGE_EMAILS
+# Muse Glimmer on Modal (D53): the endpoint the proxy forwards to
+GLIMMER_URL
+# Deploy time only: 1 keeps one Glimmer container warm (demo and judging days)
+GLIMMER_WARM
 # Invite codes and their tier: code:judge,code:tester (server only)
 PROXY_INVITE_CODES
 # USD per 1M tokens from the Billing page: spark_in,spark_out,wonder_in,wonder_out
