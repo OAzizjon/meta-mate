@@ -184,7 +184,11 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let menu = Menu::with_items(app, &[&settings_item, &quit_item])?;
     let mut builder = TrayIconBuilder::new()
         .menu(&menu)
-        .tooltip(mm_core::constants::APP_NAME)
+        .tooltip(format!(
+            "{}: {}",
+            mm_core::constants::APP_NAME,
+            locale_text(&locale, "tray.tooltip")
+        ))
         .on_menu_event(|app, event| match event.id.as_ref() {
             MENU_SETTINGS => {
                 // Building a window inside an event handler deadlocks on Windows (WebView2):
@@ -198,8 +202,8 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     if let Some(icon) = app.default_window_icon() {
         builder = builder.icon(icon.clone());
     }
-    // The app keeps the icon: the returned handle may go.
-    builder.build(app)?;
+    // The app keeps the icon; this handle relabels its tooltip below.
+    let tray = builder.build(app)?;
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let stream = app.state::<answer_stream::AnswerStream>();
@@ -210,6 +214,11 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         let locale = stream.locale();
         let _ = settings_item.set_text(locale_text(&locale, "tray.settings"));
         let _ = quit_item.set_text(locale_text(&locale, "tray.quit"));
+        let _ = tray.set_tooltip(Some(format!(
+            "{}: {}",
+            mm_core::constants::APP_NAME,
+            locale_text(&locale, "tray.tooltip")
+        )));
     });
     Ok(())
 }

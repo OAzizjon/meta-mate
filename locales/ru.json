@@ -44,6 +44,7 @@
   "tray.settings": "Настройки",
   "tray.about": "О программе",
   "tray.quit": "Выйти",
+  "tray.tooltip": "Удерживайте правый Ctrl и спросите меня",
   "settings.robot_size": "Размер робота",
   "settings.voice_speed": "Скорость речи",
   "settings.sound_volume": "Громкость звуков",

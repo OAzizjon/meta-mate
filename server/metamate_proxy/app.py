@@ -531,6 +531,13 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
     return app
 
 
+def app_from_env():
+    """The production entry point (`uvicorn metamate_proxy.app:app_from_env --factory`,
+    server/deploy/): settings from the environment, which systemd fills from a root-owned
+    file. A bad or missing setting stops the start, before any request."""
+    return create_app(Settings.from_env())
+
+
 def final_response(event: bytes) -> dict | None:
     """The `response` object of a final SSE event (FINAL_EVENTS), else None."""
     kind, data = None, []

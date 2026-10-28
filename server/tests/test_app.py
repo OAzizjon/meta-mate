@@ -170,6 +170,14 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(refused.status_code, 429)
         self.assertEqual(len(fake.requests), 20)
 
+    def test_the_production_entry_point_reads_the_environment(self):
+        from unittest.mock import patch
+        from metamate_proxy.app import app_from_env
+        # Not cleared: Windows needs its own variables (SYSTEMROOT) to make a TLS context.
+        with patch.dict('os.environ', ENV):
+            client = TestClient(app_from_env())
+            self.assertEqual(client.get('/healthz').json(), {'ok': True})
+
     def test_a_stream_passes_through_untouched(self):
         fake = FakeMeta(stream=True)
         client = client_for(fake)

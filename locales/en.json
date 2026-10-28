@@ -44,6 +44,7 @@
   "tray.settings": "Settings",
   "tray.about": "About",
   "tray.quit": "Quit",
+  "tray.tooltip": "Hold Right Ctrl and ask me",
   "settings.robot_size": "Robot size",
   "settings.voice_speed": "Voice speed",
   "settings.sound_volume": "Sound volume",

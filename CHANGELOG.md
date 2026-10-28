@@ -54,6 +54,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Changed
 
+- Release builds use a built-in proxy URL and capped demo invite (`METAMATE_PROXY_URL`, `METAMATE_INVITE`); `mm release` refuses to build without them.
+- Provider search hides walked originals, treats links and images as reveal toggles, searches a toggle's grandparent, and searches inside found fields.
+- SAM is never asked about a painted pixel.
 - The robot's "looking" state is sent around every screen look (`src-tauri/src/voice.rs`).
 - SAM outlines no longer clear a newer answer's ring (`src-tauri/src/pointing.rs`).
 - The teacher asks SAM for all unlisted clicks in a turn at once (`src-tauri/src/teacher.rs`).

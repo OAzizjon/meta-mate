@@ -1,0 +1,25 @@
+# systemd unit for the MetaMate proxy (docs/server.md, server/deploy/README.md).
+# The secrets live in /etc/metamate/proxy.env (root:metamate, 0640), never in this file.
+[Unit]
+Description=MetaMate proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=metamate
+Group=metamate
+WorkingDirectory=/opt/metamate/server
+EnvironmentFile=/etc/metamate/proxy.env
+# Loopback only: nginx terminates TLS in front. An 80 ms audio frame is under 4 KB, so a
+# socket never needs more than 64 KiB per message (uvicorn's default is 16 MiB).
+ExecStart=/opt/metamate/venv/bin/uvicorn metamate_proxy.app:app_from_env --factory --host 127.0.0.1 --port 8787 --ws-max-size 65536 --ws-max-queue 4 --proxy-headers --forwarded-allow-ips 127.0.0.1 --log-level warning
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/opt/metamate
+
+[Install]
+WantedBy=multi-user.target
