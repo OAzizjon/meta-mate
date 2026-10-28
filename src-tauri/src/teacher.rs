@@ -754,9 +754,9 @@ fn input_staleness(
         TeacherInput::KeyChord {
             now_ms, foreground, ..
         } => {
-            let in_front = foreground.is_some_and(|front| {
-                front.handle == target.handle && front.process_id == target.process_id
-            });
+            // The app's own dialogs and popups have their own handles: the same process
+            // in front is the app in front.
+            let in_front = foreground.is_some_and(|front| front.process_id == target.process_id);
             (
                 *now_ms < pointed_ms || !in_front,
                 *now_ms >= pointed_ms && !in_front,
@@ -899,9 +899,10 @@ mod tests {
             input_staleness(&chord(12, 34, 20), 20, target),
             (false, false)
         );
+        // A dialog of the same app (another handle) is the app in front.
         assert_eq!(
             input_staleness(&chord(13, 34, 20), 20, target),
-            (true, true)
+            (false, false)
         );
         assert_eq!(
             input_staleness(&chord(12, 35, 20), 20, target),
@@ -912,7 +913,7 @@ mod tests {
             (true, false)
         );
         assert_eq!(
-            input_staleness(&chord(13, 34, 19), 20, target),
+            input_staleness(&chord(13, 35, 19), 20, target),
             (true, false)
         );
     }
