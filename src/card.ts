@@ -229,7 +229,10 @@ export function mountLessonCard(
   const layout = document.createElement("article");
   layout.className = "card-layout";
 
-  // Left panel: image
+  // Header: the picture beside the badge and title (card.html stacks them in a narrow window)
+  const header = document.createElement("header");
+  header.className = "card-header";
+
   const mediaPanel = document.createElement("div");
   mediaPanel.className = "card-media-panel";
 
@@ -264,12 +267,8 @@ export function mountLessonCard(
   imgWrapper.append(img, placeholderArt);
   mediaPanel.append(imgWrapper);
 
-  // Right panel: text and actions
-  const contentPanel = document.createElement("div");
-  contentPanel.className = "card-content-panel";
-
-  const header = document.createElement("header");
-  header.className = "card-header";
+  const heading = document.createElement("div");
+  heading.className = "card-heading";
 
   const badge = document.createElement("span");
   badge.className = "card-badge";
@@ -280,7 +279,8 @@ export function mountLessonCard(
   titleEl.className = "card-title";
   titleEl.textContent = currentCard.title;
 
-  header.append(badge, titleEl);
+  heading.append(badge, titleEl);
+  header.append(mediaPanel, heading);
 
   const stepsList = document.createElement("ol");
   stepsList.id = "card-steps";
@@ -316,7 +316,7 @@ export function mountLessonCard(
   credits.className = "card-credits";
   credits.hidden = true;
 
-  // Actions footer: Print and Close buttons
+  // Actions footer: Print and Close buttons (kept in view while the steps scroll, never printed)
   const actions = document.createElement("footer");
   actions.className = "card-actions";
 
@@ -339,8 +339,7 @@ export function mountLessonCard(
   });
 
   actions.append(printBtn, closeBtn);
-  contentPanel.append(header, stepsList, credits, actions);
-  layout.append(mediaPanel, contentPanel);
+  layout.append(header, stepsList, credits, actions);
   container.replaceChildren(layout);
 
   // Apply card state (updating image and text)
