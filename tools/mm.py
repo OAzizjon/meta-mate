@@ -5,6 +5,8 @@
     mm plan [today|N]              the plan for today (or day N) from docs/plan.md
     mm check [--full] [--only a,b] fast checks (tools/mm_checks.py)
     mm test                        unit tests (tools/tests; cargo and npm tests once they exist)
+    mm release [--allow-dirty] [--dry-run]
+                                   check and build the Windows NSIS installer; print size and SHA-256
     mm uia [--delay S] [--depth N] [--save NAME]
                                    UI Automation tree of the foreground window; --save writes
                                    fixtures/uia/NAME.json and NAME.png (record only the Demo user's windows)
@@ -27,6 +29,7 @@ outside `mm agent ...` is refused there. Standard library only. Exit code 1 when
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -375,6 +378,70 @@ def cmd_agent(args):
     return cmd_test(args, agent=True)
 
 
+# --- release -----------------------------------------------------------------
+
+def cmd_release(args):
+    target = 'x86_64-pc-windows-msvc'
+    npm = 'npm.cmd' if os.name == 'nt' else 'npm'
+    npx = 'npx.cmd' if os.name == 'nt' else 'npx'
+    metadata = ['cargo', 'metadata', '--offline', '--no-deps', '--format-version', '1']
+    builds = [
+        [npm, 'run', 'build'],
+        # The frontend was built above; override Tauri's duplicate beforeBuildCommand.
+        [npx, 'tauri', 'build', '--bundles', 'nsis', '--target', target,
+         '--config', json.dumps({'build': {'beforeBuildCommand': ''}})],
+    ]
+    if args.dry_run:
+        print('Dry run: no checks or commands are executed.')
+        print('mm check')
+        print('git status --porcelain --untracked-files=all'
+              + (' (dirty tree allowed)' if args.allow_dirty else ' (must be clean)'))
+        for cmd in [metadata, *builds]:
+            print(subprocess.list2cmdline(cmd))
+        print(f'Verify a new or updated <Cargo target directory>/{target}/release/bundle/nsis/*.exe;'
+              ' print installer path, size in bytes and SHA-256.')
+        return 0
+
+    if cmd_check(argparse.Namespace(full=False, only=None)) != 0:
+        print('Release refused: mm check failed.')
+        return 1
+    code, out = run(['git', 'status', '--porcelain', '--untracked-files=all'], cwd=ROOT)
+    if code != 0 or (out and not args.allow_dirty):
+        print('Release refused: cannot read git status or tree is dirty (use --allow-dirty).')
+        return 1
+    code, out = run(metadata, cwd=ROOT)
+    try:
+        if code != 0:
+            raise ValueError('cargo metadata failed')
+        bundle = Path(json.loads(out)['target_directory']) / target / 'release/bundle/nsis'
+        before = {p: (p.stat().st_mtime_ns, p.stat().st_size) for p in bundle.glob('*.exe')}
+    except (OSError, ValueError, KeyError, TypeError):
+        print('Release failed: cannot locate Cargo output directory.')
+        return 1
+    for cmd in builds:
+        print(subprocess.list2cmdline(cmd), flush=True)
+        code, out = run(cmd, cwd=ROOT, timeout=1800)
+        if out:
+            print(out)
+        if code != 0:
+            print('Release failed: build command failed.')
+            return 1
+    try:
+        installers = [p for p in sorted(bundle.glob('*.exe'))
+                      if p.is_file() and (p.stat().st_mtime_ns, p.stat().st_size) != before.get(p)]
+        if not installers:
+            print(f'Release failed: produced NSIS installer missing in {bundle}.')
+            return 1
+        for installer in installers:
+            with installer.open('rb') as stream:
+                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+            print(f'Installer: {installer}\nSize: {installer.stat().st_size} bytes\nSHA-256: {digest}')
+    except OSError:
+        print('Release failed: cannot read produced NSIS installer.')
+        return 1
+    return 0
+
+
 # --- uia ---------------------------------------------------------------------
 
 def cmd_uia(args):
@@ -680,6 +747,9 @@ def build_parser():
     sp.add_argument('--full', action='store_true')
     sp.add_argument('--only', help='comma-separated check names')
     sub.add_parser('test', help='unit tests')
+    sp = sub.add_parser('release', help='check and build the Windows NSIS installer')
+    sp.add_argument('--allow-dirty', action='store_true', help='allow uncommitted or untracked files')
+    sp.add_argument('--dry-run', action='store_true', help='print steps without executing them')
     sp = sub.add_parser('uia', help='UI Automation tree of the foreground window')
     sp.add_argument('--delay', type=int, default=3)
     sp.add_argument('--depth', type=int, default=12)
@@ -718,7 +788,7 @@ def cmd_probe(args):
 COMMANDS = {
     'doctor': cmd_doctor, 'status': cmd_status, 'plan': cmd_plan, 'check': cmd_check, 'test': cmd_test,
     'uia': cmd_uia, 'art': cmd_art, 'sounds': cmd_sounds, 'agents': cmd_agents, 'keys': cmd_keys,
-    'agent': cmd_agent, 'probe': cmd_probe, 'phrases': cmd_phrases,
+    'agent': cmd_agent, 'probe': cmd_probe, 'phrases': cmd_phrases, 'release': cmd_release,
 }
 
 

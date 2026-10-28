@@ -45,14 +45,30 @@ impl Pointing {
         ) else {
             return;
         };
+        let asked = self
+            .outlines
+            .lock()
+            .is_ok_and(|outlines| outlines.contains_key(&(generation, x, y)));
+        if asked {
+            return;
+        }
         let proxy = proxy.inner().clone();
         let task = tauri::async_runtime::spawn(async move {
             crate::sam::sam_outline(&proxy, &look, x, y).await
         });
         if let Ok(mut outlines) = self.outlines.lock() {
-            // Only this answer's outlines are worth keeping.
-            outlines.retain(|(owner, _, _), _| *owner == generation);
-            outlines.insert((generation, x, y), task);
+            // Only this answer's outlines are worth keeping (a dropped one is stopped: each
+            // costs a SAM call); the same pixel is asked once.
+            outlines.retain(|(owner, _, _), old| {
+                let keep = *owner == generation;
+                if !keep {
+                    old.abort();
+                }
+                keep
+            });
+            if let Some(duplicate) = outlines.insert((generation, x, y), task) {
+                duplicate.abort();
+            }
         }
     }
 
@@ -341,6 +357,11 @@ pub async fn point_at(
     // A newer press may have ended this answer while SAM worked: its ring is not ours to
     // clear, and nothing of ours may be shown.
     if pointing.generation() != Some(generation) {
+        return None;
+    }
+    // The window may have moved or closed during the wait: the picture must still be true.
+    if !mm_win32::window::still_shown(look.snapshot.target, look.window_frame) {
+        stop_pointing(&app);
         return None;
     }
     let Some(target) = resolved else {

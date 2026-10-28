@@ -1,6 +1,7 @@
 //! UI Automation snapshots from Rust (spike S3): one cached, bounded walk of a window's
-//! control view. Fail closed (invariant 3): any walk error or a hit limit marks the
-//! snapshot truncated, and a truncated snapshot blocks the screenshot (`redaction`).
+//! control view. Fail closed (invariant 3): any walk error, a hit limit or a skipped
+//! offscreen subtree marks the snapshot truncated, and a truncated snapshot blocks the
+//! screenshot (`redaction`) unless `sensitive` then finds every field to hide (D50).
 //!
 //! The walker runs on the calling thread, which `UiaWalker::new` puts into the COM
 //! multithreaded apartment; keep it off the UI thread (a hung provider must never
@@ -10,12 +11,15 @@ use mm_core::geom::PhysRect;
 use mm_core::privacy::password_like;
 use mm_platform::{TargetWindow, UiElement, UiSnapshot, is_interactive_type};
 use uiautomation::core::UICacheRequest;
-use uiautomation::types::{Handle, TreeScope, UIProperty};
+use uiautomation::types::{ControlType, Handle, TreeScope, UIProperty};
+use uiautomation::variants::Variant;
 use uiautomation::{UIAutomation, UIElement, UITreeWalker};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
-/// Limits of one walk (docs/architecture.md section 2: about 400 elements).
+/// Limits of one walk. A browser page has thousands of nodes at about 2 ms each, so the
+/// walk lists what is on screen (offscreen subtrees are skipped) and stops early; the
+/// privacy of a cut walk rests on `sensitive` (D50).
 #[derive(Debug, Clone, Copy)]
 pub struct WalkLimits {
     pub max_nodes: usize,
@@ -25,8 +29,8 @@ pub struct WalkLimits {
 impl Default for WalkLimits {
     fn default() -> Self {
         Self {
-            max_nodes: 400,
-            max_depth: 12,
+            max_nodes: 500,
+            max_depth: 32,
         }
     }
 }
@@ -42,6 +46,17 @@ const PROPERTIES: [UIProperty; 9] = [
     UIProperty::IsEnabled,
     UIProperty::IsOffscreen,
     UIProperty::IsPassword,
+];
+
+/// Control types a password field, a PIN box or a show/hide-password toggle comes as
+/// (what `password_like` and `UiSnapshot::hidden_ids` look at); `IsPassword` is asked for
+/// separately.
+const SENSITIVE_TYPES: [ControlType; 5] = [
+    ControlType::Edit,
+    ControlType::Document,
+    ControlType::Custom,
+    ControlType::Button,
+    ControlType::CheckBox,
 ];
 
 pub struct UiaWalker {
@@ -112,6 +127,87 @@ impl UiaWalker {
         })
     }
 
+    /// Every element under `hwnd` that could be a password, a PIN box or a reveal toggle,
+    /// found by the provider itself in one FindAll (no round trip per node, so it covers
+    /// pages far larger than a walk can), with the walk's cached properties. Ids `s0`,
+    /// `s1`, ...; parents unknown. None when the search or any element's properties fail:
+    /// a partial list cannot vouch for the picture (invariant 3).
+    pub fn sensitive(&self, hwnd: HWND) -> Option<Vec<UiElement>> {
+        let automation = &self.automation;
+        let root = automation
+            .element_from_handle_build_cache(Handle::from(hwnd), &self.cache)
+            .ok()?;
+        let mut condition = automation
+            .create_property_condition(UIProperty::IsPassword, Variant::from(true), None)
+            .ok()?;
+        for kind in SENSITIVE_TYPES {
+            let by_type = automation
+                .create_property_condition(
+                    UIProperty::ControlType,
+                    Variant::from(kind as i32),
+                    None,
+                )
+                .ok()?;
+            condition = automation.create_or_condition(condition, by_type).ok()?;
+        }
+        // Only what is on screen can be in the picture (Chromium marks everything scrolled
+        // out of view offscreen: thousands of links on a long page).
+        let on_screen = automation
+            .create_property_condition(UIProperty::IsOffscreen, Variant::from(false), None)
+            .ok()?;
+        let condition = automation.create_and_condition(on_screen, condition).ok()?;
+        let found = root
+            .find_all_build_cache(TreeScope::Subtree, &condition, &self.cache)
+            .ok()?;
+        let mut hide = Vec::new();
+        for element in &found {
+            let described = describe(element, &format!("s{}", hide.len()), None)?;
+            if !(described.is_password || described.password_like) {
+                continue;
+            }
+            // A show/hide-password toggle: the field beside it may hold the password in
+            // plain text (D37), whatever it is called.
+            let toggle = !matches!(described.control_type.as_str(), "Edit" | "Document")
+                && !described.is_password;
+            hide.push(described);
+            if toggle {
+                self.siblings_of(element, &mut hide)?;
+            }
+        }
+        Some(hide)
+    }
+
+    /// The fields beside `toggle` (Edit, Document, Custom and Text children of its parent),
+    /// marked password-like.
+    fn siblings_of(&self, toggle: &UIElement, hide: &mut Vec<UiElement>) -> Option<()> {
+        let parent = self
+            .walker
+            .get_parent_build_cache(toggle, &self.cache)
+            .ok()?;
+        let mut next = self
+            .walker
+            .get_first_child_build_cache(&parent, &self.cache);
+        loop {
+            let child = match next {
+                Ok(child) => child,
+                Err(error) if is_end(error.code()) => return Some(()),
+                Err(_) => return None,
+            };
+            next = self
+                .walker
+                .get_next_sibling_build_cache(&child, &self.cache);
+            let mut described = describe(&child, &format!("s{}", hide.len()), None)?;
+            if matches!(
+                described.control_type.as_str(),
+                "Edit" | "Document" | "Custom" | "Text"
+            ) && !described.offscreen
+            {
+                described.password_like = true;
+                hide.push(described);
+            }
+        }
+    }
+
     /// Walks `hwnd`'s control view onto `elements` (ids continue from its length); true when
     /// the walk was cut short.
     fn walk(
@@ -132,12 +228,22 @@ impl UiaWalker {
                 break;
             }
             let id = format!("e{}", elements.len());
-            match describe(&element, &id, parent) {
-                Some(described) => elements.push(described),
+            let offscreen = match describe(&element, &id, parent) {
+                Some(described) => {
+                    let offscreen = described.offscreen;
+                    elements.push(described);
+                    offscreen
+                }
                 None => {
                     truncated = true;
                     continue;
                 }
+            };
+            // Not on screen, so not in the picture: its subtree is skipped (a long page
+            // keeps thousands of nodes there). The walk then vouches for nothing.
+            if depth > 0 && offscreen {
+                truncated = true;
+                continue;
             }
             if depth + 1 > limits.max_depth {
                 truncated |= match self

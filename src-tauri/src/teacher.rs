@@ -503,9 +503,16 @@ pub(crate) async fn teach(
                         offered_at = None;
                         let target = current.snapshot.target;
                         let frame = current.window_frame;
+                        let region = current.snapshot.frame;
                         let allowed = pressable(&current.snapshot, rect);
                         let ok = tokio::task::spawn_blocking(move || {
-                            if !allowed || !mm_win32::window::still_shown(target, frame) {
+                            // The window unmoved and its popups (an offered menu item's menu)
+                            // still where they were: the region of the look is unchanged.
+                            let unchanged = mm_win32::window::still_shown(target, frame)
+                                && mm_win32::window::foreground_target(&[]).is_some_and(|front| {
+                                    front.window == target && front.region == region
+                                });
+                            if !allowed || !unchanged {
                                 eprintln!("teacher: confirmed click: target changed or blocked");
                                 return false;
                             }

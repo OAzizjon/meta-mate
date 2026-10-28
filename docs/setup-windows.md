@@ -44,10 +44,14 @@ On the Windows build machine, install the locked npm dependencies and build from
 
 ```powershell
 npm ci
-npm run tauri -- build --bundles nsis --target x86_64-pc-windows-msvc
+.\mm release
 ```
 
-The MetaMate setup executable is under `target/x86_64-pc-windows-msvc/release/bundle/nsis/` (or the equivalent under `CARGO_TARGET_DIR`). Product name and existing icons come from `src-tauri/tauri.conf.json`. NSIS installs for the current user without administrator rights and offers English and Russian. It does not register Start with Windows; that setting remains store only. Audio autoplay is already configured in `overlay.rs`.
+`mm release` runs `mm check` first and refuses a dirty git tree, including untracked files. Use `mm release --allow-dirty` for an intentional local build; checks must still pass. `mm release --dry-run` prints the steps without running checks or build commands. Release is a lead-only command and is refused in agent mode, including dry runs.
+
+After checks and git status, the command resolves Cargo's target directory with offline metadata, runs `npm run build`, then `npx tauri build --bundles nsis --target x86_64-pc-windows-msvc`. It overrides Tauri's `beforeBuildCommand` for this invocation because the frontend has already been built. It prints the produced installer's full path, size in bytes and SHA-256. A failed command or missing installer returns a non-zero exit code; an unchanged installer left by an earlier build does not count as a produced artifact.
+
+The MetaMate setup executable is under `target/x86_64-pc-windows-msvc/release/bundle/nsis/` (or the equivalent in Cargo's configured target directory, including `CARGO_TARGET_DIR`). Product name and existing icons come from `src-tauri/tauri.conf.json`. NSIS installs for the current user without administrator rights and offers English and Russian. It does not register Start with Windows; that setting remains store only. Audio autoplay is already configured in `overlay.rs`.
 
 `offlineInstaller` embeds the full WebView2 runtime installer, increasing the download size substantially. Both downloaded and embedded bootstrappers still fetch the runtime from the internet, so neither supports a judge installing offline. The build machine needs network access to fetch bundler tools and the runtime unless already cached; installation needs no network. MetaMate's cloud answers still require network access.
 

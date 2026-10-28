@@ -3,6 +3,7 @@
 import argparse
 import contextlib
 import io
+import json
 import os
 import shutil
 from pathlib import Path
@@ -144,7 +145,8 @@ class CliTests(unittest.TestCase):
 
     def test_all_lead_commands_are_refused(self):
         for argv in (['uia'], ['art'], ['keys', 'dummy'], ['sounds', 'normalize'], ['agents'], ['doctor'],
-                     ['probe'], ['probe', '--help'], ['probe', 'stream', 'hi']):
+                     ['probe'], ['probe', '--help'], ['probe', 'stream', 'hi'],
+                     ['release'], ['release', '--dry-run'], ['release', '--allow-dirty']):
             with self.subTest(argv=argv), patch.object(mm, 'agent_mode_reason', return_value='test'), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(mm.main(argv), 2)
 
@@ -318,6 +320,108 @@ class CliTests(unittest.TestCase):
                 run.reset_mock()
                 self.assertEqual(mm.cmd_sounds(argparse.Namespace(action='normalize')), 1)
                 run.assert_not_called()
+
+
+class ReleaseTests(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.target_dir = self.root / 'custom target'
+        self.installer = (self.target_dir / 'x86_64-pc-windows-msvc/release/bundle/nsis'
+                          / 'MetaMate_0.1.0_x64-setup.exe')
+        self.args = argparse.Namespace(allow_dirty=False, dry_run=False)
+        self.output = io.StringIO()
+        for patcher in (patch.object(mm, 'ROOT', self.root),
+                        patch.object(mm, 'cmd_check', return_value=0),
+                        patch.object(mm, 'run', side_effect=self.command),
+                        contextlib.redirect_stdout(self.output)):
+            result = patcher.__enter__()
+            self.addCleanup(patcher.__exit__, None, None, None)
+            if hasattr(result, 'assert_called_once'):
+                if patcher.attribute == 'run':
+                    self.run = result
+                else:
+                    self.check = result
+        self.git = (0, '')
+        self.build_code = 0
+        self.produce = True
+
+    def command(self, cmd, **kwargs):
+        self.assertEqual(kwargs['cwd'], self.root)
+        if cmd[0] == 'git':
+            return self.git
+        if cmd[0] == 'cargo':
+            return 0, json.dumps({'target_directory': str(self.target_dir)})
+        if 'tauri' in cmd and self.produce and self.build_code == 0:
+            self.installer.parent.mkdir(parents=True, exist_ok=True)
+            self.installer.write_bytes(b'abc')
+        return self.build_code, ''
+
+    def test_release_build_order_and_installer_report(self):
+        self.assertEqual(mm.cmd_release(self.args), 0)
+        self.check.assert_called_once()
+        commands = [call.args[0] for call in self.run.call_args_list]
+        self.assertEqual(commands[0], ['git', 'status', '--porcelain', '--untracked-files=all'])
+        self.assertEqual(commands[2][1:], ['run', 'build'])
+        self.assertEqual(commands[3][1:7], ['tauri', 'build', '--bundles', 'nsis', '--target',
+                                          'x86_64-pc-windows-msvc'])
+        self.assertEqual(json.loads(commands[3][-1]), {'build': {'beforeBuildCommand': ''}})
+        self.assertIn(str(self.installer), self.output.getvalue())
+        self.assertIn('Size: 3 bytes', self.output.getvalue())
+        self.assertIn('SHA-256: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+                      self.output.getvalue())
+
+    def test_failed_check_stops_before_commands_even_with_allow_dirty(self):
+        self.check.return_value = 1
+        self.args.allow_dirty = True
+        self.assertEqual(mm.cmd_release(self.args), 1)
+        self.run.assert_not_called()
+
+    def test_dirty_tree_refused_and_override_builds(self):
+        self.git = (0, '?? untracked.txt')
+        self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertEqual(self.run.call_count, 1)
+        self.args.allow_dirty = True
+        self.assertEqual(mm.cmd_release(self.args), 0)
+
+    def test_failed_git_status_refused_even_with_override(self):
+        self.git = (127, '')
+        self.args.allow_dirty = True
+        self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertEqual(self.run.call_count, 1)
+
+    def test_failed_build_stops_before_tauri(self):
+        self.build_code = 1
+        self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertEqual(self.run.call_count, 3)
+
+    def test_failed_tauri_does_not_report_existing_installer(self):
+        self.run.side_effect = [(0, ''), (0, json.dumps({'target_directory': str(self.target_dir)})),
+                                (0, ''), (1, 'bundling failed')]
+        self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertNotIn('SHA-256:', self.output.getvalue())
+
+    def test_missing_and_stale_installer_refused(self):
+        self.produce = False
+        self.assertEqual(mm.cmd_release(self.args), 1)
+        self.installer.parent.mkdir(parents=True)
+        self.installer.write_bytes(b'old installer')
+        self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertNotIn('SHA-256:', self.output.getvalue())
+
+    def test_invalid_metadata_stops_before_build(self):
+        self.run.side_effect = [(0, ''), (0, 'invalid json')]
+        self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertEqual(self.run.call_count, 2)
+
+    def test_dry_run_prints_steps_without_checks_or_commands(self):
+        self.args = mm.build_parser().parse_args(['release', '--dry-run', '--allow-dirty'])
+        self.assertEqual(mm.cmd_release(self.args), 0)
+        self.run.assert_not_called()
+        self.check.assert_not_called()
+        for text in ('mm check', 'git status', 'run build', 'tauri build', 'SHA-256'):
+            self.assertIn(text, self.output.getvalue())
 
 
 class HookTests(unittest.TestCase):

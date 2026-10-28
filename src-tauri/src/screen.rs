@@ -311,7 +311,7 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
     let started = std::time::Instant::now();
     let target = window::foreground_target(own).ok_or(LookFailure::NoWindow)?;
     let walker = uia::UiaWalker::new().map_err(|_| LookFailure::Uia)?;
-    let snapshot = walker
+    let mut snapshot = walker
         .snapshot_with_popups(
             target.hwnd,
             &target.popup_hwnds,
@@ -319,6 +319,15 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
             uia::WalkLimits::default(),
         )
         .map_err(|_| LookFailure::Uia)?;
+    // A cut walk (a browser page) lists what it saw; every field to hide comes from the
+    // provider's own search instead (D50). Without it the look fails closed.
+    let scanned = if snapshot.truncated {
+        let found = scan(&walker, &target).ok_or(LookFailure::Uia)?;
+        complete_with(&mut snapshot, &found);
+        Some(found)
+    } else {
+        None
+    };
     let occluders = window::occluders(&target, own);
     if !wanted() {
         return Err(LookFailure::Cancelled);
@@ -364,16 +373,25 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
         }
     }
     // A password field that appeared or moved while the screen was copied is not in the
-    // first walk's masks (invariant 3): walk again and compare what must be hidden.
-    let again = walker
-        .snapshot_with_popups(
-            target.hwnd,
-            &target.popup_hwnds,
-            target.region,
-            uia::WalkLimits::default(),
-        )
-        .map_err(|_| LookFailure::Uia)?;
-    if !same_hidden(&snapshot, &again) {
+    // first masks (invariant 3): look again and compare what must be hidden.
+    let unchanged = match &scanned {
+        Some(first) => {
+            let second = scan(&walker, &target).ok_or(LookFailure::Uia)?;
+            signature(first) == signature(&second)
+        }
+        None => {
+            let again = walker
+                .snapshot_with_popups(
+                    target.hwnd,
+                    &target.popup_hwnds,
+                    target.region,
+                    uia::WalkLimits::default(),
+                )
+                .map_err(|_| LookFailure::Uia)?;
+            same_hidden(&snapshot, &again)
+        }
+    };
+    if !unchanged {
         #[cfg(debug_assertions)]
         eprintln!("look: changed: hidden fields differ between the walks");
         return Err(LookFailure::Changed);
@@ -393,6 +411,50 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
     Ok(look)
 }
 
+/// Every field to hide in the target window and its popups (`UiaWalker::sensitive`);
+/// None when any part of the search failed.
+fn scan(
+    walker: &mm_win32::uia::UiaWalker,
+    target: &mm_win32::window::Target,
+) -> Option<Vec<mm_platform::UiElement>> {
+    let mut found = walker.sensitive(target.hwnd)?;
+    for &popup in &target.popup_hwnds {
+        found.extend(walker.sensitive(popup)?);
+    }
+    Some(found)
+}
+
+/// The search's fields join the walk's elements (new ids, no parent: never pointable,
+/// never named in the prompt), and the snapshot then vouches for the picture.
+fn complete_with(snapshot: &mut UiSnapshot, found: &[mm_platform::UiElement]) {
+    for field in found {
+        let mut field = field.clone();
+        field.id = format!("e{}", snapshot.elements.len());
+        field.parent = None;
+        field.password_like = true;
+        snapshot.elements.push(field);
+    }
+    snapshot.truncated = false;
+}
+
+/// A field to hide as two searches compare it: its control type and its edges.
+type FieldMark = (String, Option<(i32, i32, i32, i32)>);
+
+/// What two searches are compared by: control types and bounds, in any order.
+fn signature(found: &[mm_platform::UiElement]) -> Vec<FieldMark> {
+    let mut signature: Vec<_> = found
+        .iter()
+        .map(|field| {
+            (
+                field.control_type.clone(),
+                field.rect.map(|r| (r.left, r.top, r.right, r.bottom)),
+            )
+        })
+        .collect();
+    signature.sort();
+    signature
+}
+
 /// `--look-probe`: walks the foreground window (after 3 s to switch to it) with several
 /// limits and prints sizes and times, never names: how big real trees are.
 pub fn probe() -> serde_json::Value {
@@ -405,6 +467,19 @@ pub fn probe() -> serde_json::Value {
         return serde_json::json!({"error": "UI Automation unavailable"});
     };
     let mut runs = Vec::new();
+    for _ in 0..2 {
+        let started = std::time::Instant::now();
+        let sensitive = walker.sensitive(target.hwnd);
+        runs.push(match &sensitive {
+        Some(found) => serde_json::json!({
+            "scan": "sensitive", "ms": started.elapsed().as_millis(), "found": found.len(),
+            "password": found.iter().filter(|e| e.is_password).count(),
+            "password_like": found.iter().filter(|e| e.password_like).count(),
+            "offscreen": found.iter().filter(|e| e.offscreen).count(),
+        }),
+        None => serde_json::json!({"scan": "sensitive", "ms": started.elapsed().as_millis(), "error": true}),
+    });
+    }
     for (max_nodes, max_depth) in [(400, 12), (1500, 24), (5000, 60)] {
         let started = std::time::Instant::now();
         let walked = walker.snapshot_with_popups(

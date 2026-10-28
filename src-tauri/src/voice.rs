@@ -694,14 +694,15 @@ fn outline_pixels(look: &crate::screen::Look, say: &mm_core::matescript::Say) ->
 
 /// Overlay handles: never a target, hidden while capturing. Settings is a normal window.
 fn own_windows(app: &AppHandle) -> Vec<isize> {
-    // A window whose handle cannot be read makes the list short, and the
-    // look then refuses (screen.rs checks the count).
+    // All overlays or nothing: with one handle unreadable the others would still pass the
+    // count check (several monitors) and that overlay would be in the picture. An empty
+    // list makes the look refuse (screen.rs).
     app.webview_windows()
         .into_values()
         .filter(|window| is_overlay(window.label()))
-        .filter_map(|window| window.hwnd().ok())
-        .map(|hwnd| hwnd.0 as isize)
-        .collect()
+        .map(|window| window.hwnd().map(|hwnd| hwnd.0 as isize))
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap_or_default()
 }
 
 fn is_overlay(label: &str) -> bool {

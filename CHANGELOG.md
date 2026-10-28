@@ -54,6 +54,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Changed
 
+- The robot's "looking" state is sent around every screen look (`src-tauri/src/voice.rs`).
+- SAM outlines no longer clear a newer answer's ring (`src-tauri/src/pointing.rs`).
+- The teacher asks SAM for all unlisted clicks in a turn at once (`src-tauri/src/teacher.rs`).
 - Redaction now includes revealed-password neighbours and descendants of hidden UI Automation elements (`UiSnapshot::hidden_ids`).
 - `crates/mm-win32/src/window.rs` finds windows lying over the target (`occluders`).
 - Safety fixes from a deep review: model points are checked against the screenshot and the target, only the person's own left click confirms a step, screenshots enter requests only as `RedactedImage`, rejected points clear the highlight.
