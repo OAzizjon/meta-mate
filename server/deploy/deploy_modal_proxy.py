@@ -36,7 +36,11 @@ GLIMMER_URL = 'https://obdazizjon--metamate-glimmer-serve.us-east.modal.run'
 URL = re.compile(r'https://[A-Za-z0-9.-]+\.modal\.run')
 # Copied from the secrets file when present (the Meta key under either name).
 FROM_SECRETS = ('META_API_KEY', 'META_KEY', 'META_API_BASE', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
-                'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'PROXY_JUDGE_EMAILS', 'PROXY_PRICES')
+                'PROXY_JUDGE_EMAILS', 'PROXY_PRICES')
+# Only with --github: the GitHub OAuth app has one callback URL, still the development one
+# (owner, 2026-10-29: Google only in the judges' build for now). Without them the proxy
+# answers GitHub sign-in with 'not available' instead of a GitHub error page.
+GITHUB_SECRETS = ('GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET')
 
 
 def load(path: Path) -> dict:
@@ -86,10 +90,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--budget', default='15', help="the proxy's daily dollar cap (default 15)")
     parser.add_argument('--new-invite', action='store_true', help='replace the judge invite')
+    parser.add_argument('--github', action='store_true', help='also GitHub sign-in (its callback set to this proxy)')
     args = parser.parse_args()
     link = load(LINK_FILE)
     tts = load(TTS_LINK)
-    values = {name: value for name in FROM_SECRETS if (value := mm_probe.read_secret(name))}
+    names = FROM_SECRETS + (GITHUB_SECRETS if args.github else ())
+    values = {name: value for name in names if (value := mm_probe.read_secret(name))}
     if not (values.get('META_API_KEY') or values.get('META_KEY')):
         print('no Meta key in the secrets file: nothing deployed')
         return 2
@@ -141,7 +147,7 @@ def main() -> int:
     save_link(link)
     print(f'proxy: {url} (invite in {LINK_FILE.relative_to(ROOT).as_posix()})')
     print('OAuth redirect URIs to register:')
-    for provider in ('google', 'github'):
+    for provider in ('google', 'github') if args.github else ('google',):
         print(f'  {url}/auth/{provider}/callback')
     return 0
 

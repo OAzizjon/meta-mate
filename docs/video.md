@@ -23,12 +23,12 @@ Production rule: Show only what genuinely works in the codebase—never invent U
 | Time | Scene & Visuals | Audio & Dialogue | Meta Model in Action | System & UX Invariants | Recording Type |
 |---|---|---|---|---|---|
 | **0:00–0:10** | **Opening: "Is this safe?" Scam Alert**<br>Fake 'SYSTEM SECURITY WARNING' pop-up (made-up brand, `fixtures/demo/scam-popup.html`) with a 'Call now' number. Person holds Right Ctrl and asks *"Is this safe?"*. Mate turns, flies over, shines his beam on the phone number, sets mood to sad. | **User**: *"Is this safe?"*<br>**Mate (MMS-TTS)**: *"This looks like a scam. Do not call this number."*<br>Soft warning cue (`assets/sounds/cues/ping.ogg`). | **Muse Spark 1.3**: Safety check evaluation.<br>**Muse Voice Transcribe**: Real-time ASR from key-down.<br>**MMS-TTS**: Spoken safety verdict. | Invariant: Mate looks only at active window, gives mood verdict, points at worst red flag, never clicks or suggests calling/paying. | **Recorded Live** |
-| **0:10–0:40** | **Push-to-Talk & Live Speech Bubble**<br>Push-to-talk on Right Ctrl. What Mate hears appears live in his bubble while the person speaks. User asks: *"Where is the zoom slider?"* Mate flies across desktop (`whoosh.ogg`) and illuminates the slider with beam and highlight ring. Settings screen displays model option (Muse Wonder 1.0 thorough mode). | **User**: *"Where is the zoom slider?"*<br>**Mate (MMS-TTS)**: *"Here it is. Look where I'm pointing."* (`robot.found_it`)<br>Stereo target ping (`assets/sounds/cues/ping.ogg`). | **Muse Voice Transcribe**: Real-time ASR streaming into bubble.<br>**Muse Spark 1.3**: Direct WHERE intent & coordinate resolution.<br>**Muse Wonder 1.0**: Mentioned via thorough setting.<br>**MMS-TTS**: Meta open weights on Modal T4. | `WS_EX_NOACTIVATE`: Mate never steals window focus.<br>Offset placement: Mate stops 24 px away, never obscuring target control. | **Recorded Live** |
+| **0:10–0:40** | **Push-to-Talk & Live Speech Bubble**<br>Push-to-talk on Right Ctrl. What Mate hears appears live in his bubble while the person speaks. User asks: *"Where is the zoom slider?"* Mate flies across desktop (`whoosh.ogg`) and illuminates the slider with beam and highlight ring. Settings screen displays model option (Muse Wonder 1.0 thorough mode; lessons also escalate to Wonder after two misses on Quick). | **User**: *"Where is the zoom slider?"*<br>**Mate (MMS-TTS)**: *"Here it is. Look where I'm pointing."* (`robot.found_it`)<br>Stereo target ping (`assets/sounds/cues/ping.ogg`). | **Muse Voice Transcribe**: Real-time ASR streaming into bubble.<br>**Muse Spark 1.3**: Direct WHERE intent & coordinate resolution.<br>**Muse Wonder 1.0**: Mentioned via thorough setting; lessons escalate to Wonder after two misses on Quick.<br>**MMS-TTS**: Meta open weights on Modal T4. | `WS_EX_NOACTIVATE`: Mate never steals window focus.<br>Offset placement: Mate stops 24 px away, never obscuring target control. | **Recorded Live** |
 | **0:40–1:15** | **Teacher Mode in Settings (Human Clicks Every Step)**<br>Multi-step lesson in Windows Settings (Text size). Mate shines beam on Accessibility, then Text size slider. Mate **waits** without auto-clicking. User moves real mouse and clicks each step themselves. Mate spins happily on click (`success.ogg`). | **Mate (MMS-TTS)**: *"Step 1 of 2: Click Accessibility."*<br>[User clicks]<br>**Mate (MMS-TTS)**: *"Yes, that's it. Well done."* (`robot.right_click`)<br>**Mate (MMS-TTS)**: *"Step 2 of 2: Move the slider."* | **Muse Spark 1.3**: Computer-use teacher loop returning commentary and element coordinates.<br>**MMS-TTS**: Natural spoken guidance. | Invariant: Mate never clicks payment, delete, transfer, or password actions; Mate teaches, the person clicks. | **Recorded Live** |
 | **1:15–1:50** | **Keepsake Lesson Card & Printing**<br>Lesson finishes. Muse Glimmer 30B rewrites the steps in simple words and drafts a scene. Muse Image renders the scene in soft gouache with Mate in the corner and NO text. Card window (`card.html`) pops up with picture, simple steps, Print and Close buttons. PNG saved in `Pictures\MetaMate`. User clicks Print. | Narrator: *"When a lesson ends, Mate creates a keepsake card with simple steps to remember."*<br>**Mate (MMS-TTS)**: *"All done. Nice work! I made a card of what we did."*<br>Sound: `done.ogg`, printer hum. | **Muse Glimmer 30B**: Meta open weights on Modal L4 GPU (step simplification & scene description).<br>**Muse Image**: Gouache illustration generation without text. | Asynchronous card generation without blocking interaction. Clean PNG saved locally to `Pictures\MetaMate`. | **Recorded Live** |
 | **1:50–2:15** | **Zero-Accessibility Canvas & SAM 3.1**<br>Complex web app rendered on an HTML5 `<canvas>` element where Windows UI Automation tree is empty (`(none)`). Capture is passed to SAM 3.1. SAM finds the button from the pixels alone and the highlight ring settles on its box. | Narrator: *"When an application has no accessibility tree, Meta SAM 3.1 segments controls directly from pixels."*<br>Sound: ping when the ring settles. | **SAM 3.1**: Zero-shot pixel instance segmentation.<br>**Muse Spark 1.3**: Visual grounding and point coordinates. | Seamless fallback: transitions from UIA tree to SAM 3.1 visual segmentation when UIA is empty. | **Recorded Live** |
-| **2:15–2:40** | **Tech Map & System Architecture**<br>Single comprehensive architecture slide: Rust + Tauri v2 host, Google and GitHub sign-in, Meta model pipeline on Modal. Narrator walks through the system design. | Narrator: *"MetaMate pairs a lightweight native Windows client with Meta's model family running on Modal GPUs."* | **Meta AI Stack**:<br>• Muse Spark 1.3 & Muse Wonder 1.0<br>• Muse Voice Transcribe<br>• SAM 3.1<br>• Muse Glimmer 30B (Modal L4)<br>• Muse Image<br>• MMS-TTS (Modal T4) | Strict fail-closed local privacy: passwords and background windows painted black before cloud transit. | **Slide / Motion Graphic** |
-| **2:40–3:00** | **Tester Reaction & Call to Action**<br>Genuine older adult tester clip: smiling, empowered, using computer independently. Title card with open-source repository link and hackathon submission. | **Tester**: *"Mate shows me where to click without taking over. I feel confident doing it myself."*<br>Narrator: *"MetaMate: Mate lights the button. Your parent clicks it."*<br>Sound: closing chord (`done.ogg`). | — | Authentic user validation and call to action. | **Recorded Live (Tester) + Title Card** |
+| **2:15–2:40** | **Tech Map & System Architecture**<br>Single comprehensive architecture slide: Rust + Tauri v2 host, release installer with built-in capped judge invite (no account needed, Google sign-in optional; GitHub sign-in not in judges' build yet), Meta model pipeline on Modal. Narrator walks through the system design. | Narrator: *"MetaMate pairs a lightweight native Windows client with Meta's model family running on Modal GPUs."* | **Meta AI Stack**:<br>• Muse Spark 1.3 & Muse Wonder 1.0 (Thorough setting; lessons escalate after two misses on Quick)<br>• Muse Voice Transcribe<br>• SAM 3.1<br>• Muse Glimmer 30B (Modal L4)<br>• Muse Image<br>• MMS-TTS (Modal T4) | Strict fail-closed local privacy: passwords and background windows painted black before cloud transit. | **Slide / Motion Graphic** |
+| **2:40–3:00** | **Tester Reaction & Call to Action**<br>Genuine older adult tester clip: smiling, empowered, using computer independently. Title card with open-source repository link and Cerebral Valley portal submission. | **Tester**: *"Mate shows me where to click without taking over. I feel confident doing it myself."*<br>Narrator: *"MetaMate: Mate lights the button. Your parent clicks it."*<br>Sound: closing chord (`done.ogg`). | — | Authentic user validation and call to action. | **Recorded Live (Tester) + Title Card** |
 
 ---
 
@@ -70,7 +70,7 @@ Production rule: Show only what genuinely works in the codebase—never invent U
 * **Lower third**:
   - **Muse Voice Transcribe**: Real-time microphone PCM streaming.
   - **Muse Spark 1.3**: Intent routing and element coordinate resolution.
-  - **Muse Wonder 1.0**: Thorough thinking mode option.
+  - **Muse Wonder 1.0**: Thorough thinking mode option (lessons also escalate to Wonder after two misses on Quick).
   - **MMS-TTS**: Natural speech synthesis.
 * **UX Invariant**: `WS_EX_NOACTIVATE` window style ensures Mate never steals focus from the user's active window.
 
@@ -135,10 +135,10 @@ Production rule: Show only what genuinely works in the codebase—never invent U
 * **Visual**:
   A clean, high-resolution architecture diagram slide:
   - **Windows Client**: Rust + Tauri v2, Windows Graphics Capture, Win32 hooks (`WH_KEYBOARD_LL`, `WH_MOUSE_LL`), zero-activation overlay (`WS_EX_NOACTIVATE`), DPAPI secure credential storage.
-  - **Authentication**: Sign-in with Google or GitHub (no invite codes).
+  - **Authentication**: Release installer with built-in capped judge invite, no account needed; Google sign-in optional (GitHub sign-in is not in the judges' build yet).
   - **Meta AI Model Pipeline**:
     - **Muse Spark 1.3**: Fast answers, computer-use teacher, "Is this safe?" check.
-    - **Muse Wonder 1.0**: Thorough reasoning mode for complex multi-window workflows.
+    - **Muse Wonder 1.0**: Thorough reasoning mode (Thorough setting; lessons also escalate from Quick after two misses).
     - **Muse Voice Transcribe**: Real-time push-to-talk speech recognition from key-down.
     - **SAM 3.1**: Instance segmentation on canvas and non-standard interfaces.
     - **Muse Glimmer 30B**: Meta open weights on Modal L4 GPU via llama.cpp (lesson step simplification & scene drafting).
@@ -155,10 +155,10 @@ Production rule: Show only what genuinely works in the codebase—never invent U
   2. Final title card:
      - Project: **MetaMate**
      - Tagline: *"Mate lights the button. Your parent clicks it."*
-     - Links: GitHub repository & submission details.
+     - Links: GitHub repository & Cerebral Valley submission portal (https://cerebralvalley.ai/).
 * **Audio**:
   - Tester: *"It's like someone sitting beside me pointing with a little flashlight. I don't feel nervous anymore."*
-  - Narrator: *"MetaMate: He lights the button. Your parent clicks it."*
+  - Narrator: *"MetaMate: Mate lights the button. Your parent clicks it."*
   - Sound: gentle closing chord (`assets/sounds/cues/done.ogg`).
 
 ---
@@ -166,7 +166,7 @@ Production rule: Show only what genuinely works in the codebase—never invent U
 ## Recording over Zoom: how to make it reliable
 
 1. **In advance (1–2 days before):** Conduct a 10-minute test call. Verify microphone clarity, lighting, and Zoom local recording settings.
-2. **Installation (tester pilot):** Provide the NSIS installer (`mm release`). The tester signs in with Google or GitHub (no invite codes needed). If Windows SmartScreen appears ("Windows protected your PC"), guide the tester in advance: click *"More info" → "Run anyway"*. Have a family member assist locally if possible, or assist via Zoom Remote Control.
+2. **Installation (tester pilot):** Provide the release installer (`mm release`) with the built-in capped judge invite (no account needed, Google sign-in optional; GitHub sign-in is not in the judges' build yet). If Windows SmartScreen appears ("Windows protected your PC"), guide the tester in advance: click *"More info" → "Run anyway"*. Have a family member assist locally if possible, or assist via Zoom Remote Control.
 3. **Tester configuration:** Enable hands-free mode in settings: *"Press to start and stop"* (tap Right Ctrl or tap Mate, no need to hold key down continuously). This reduces motor fatigue for older adults.
 4. **During recording:**
    - Zoom → Settings → Recording:

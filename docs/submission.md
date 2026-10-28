@@ -22,7 +22,8 @@ Before final submission, the owner should open every submitted link from a signe
 Drafted by DeepSeek from the lead's list of facts; check it against the build before pasting.
 
 **Tagline**
-Hold Right Ctrl, ask, and Mate lights the way.
+Mate lights the button. Your parent clicks it.
+Alternative: Hold Right Ctrl, ask, and Mate lights the way.
 
 **Elevator pitch**
 MetaMate is a Windows desktop helper for older people and anyone who gets lost on a computer: hold Right Ctrl and ask out loud in English or Russian. Mate, a small glowing light-bulb, answers with his voice, flies to the right control in any app and shines a beam on it; for "how do I…" requests he teaches step by step while the user clicks each step themselves, and he never clicks payment, delete, transfer, or password actions. "Is this safe?" checks only the current window, names the red flags it actually sees, and never tells anyone to click, call, or pay; the app captures only that window during a request and paints password fields black before sending.
@@ -33,13 +34,13 @@ MetaMate is a Windows desktop helper for older people and anyone who gets lost o
 MetaMate is a Windows desktop helper for older people and anyone who gets lost on a computer. Hold Right Ctrl and ask out loud in English or Russian. Mate, a small glowing light-bulb character, answers with his voice, flies to the right button in any app, and shines a beam on it. For "how do I…" questions, he teaches step by step and the person clicks each step themselves; he never clicks payment, delete, transfer, or password actions. For "Is this safe?", Mate looks only at the current window, gives a verdict, names the red flags he actually sees, and points at the worst one. He never tells anyone to click, call, or pay. After a lesson, he leaves a keepsake card: Muse Glimmer rewrites the steps in simple words and Muse Image draws a picture, and it can be printed.
 
 **How we use Meta's models**
-Muse Spark 1.3 handles answers, computer-use teaching, and the scam check. Muse Wonder 1.0 provides a "thorough" setting and escalation after misses. Muse Voice Transcribe streams speech recognition from the moment the key goes down. SAM 3.1 finds controls where the accessibility tree is empty, such as canvas pages. Muse Image draws the card picture, while Muse Glimmer 30B open weights runs on our own GPU on Modal and writes the card wording. MMS-TTS open weights runs on a Modal GPU for Mate's voice.
+Muse Spark 1.3 handles answers, computer-use teaching, and the scam check. Muse Wonder 1.0 provides the "Thorough" setting and escalates lessons after two misses on Quick. Muse Voice Transcribe streams speech recognition from the moment the key goes down. SAM 3.1 finds controls where the accessibility tree is empty, such as canvas pages. Muse Image draws the card picture, while Muse Glimmer 30B open weights runs on our own GPU on Modal and writes the card wording. MMS-TTS open weights runs on a Modal GPU for Mate's voice.
 
 **How it's built**
-The app is built in Rust and Tauri 2 with a TypeScript WebView. A small FastAPI proxy holds the keys, per-account allowances, and sign-in with Google or GitHub. Privacy is narrow: only the target window is captured and only during a request; password fields are painted black before anything is sent, and it fails closed. It was built in 10 days by one indie developer with a team of AI coding agents.
+The app is built in Rust and Tauri 2 with a TypeScript WebView. For evaluation, the judges' path is the release installer with a built-in capped judge invite (no account needed; Google sign-in is optional, and GitHub sign-in is not in the judges' build yet). A small FastAPI proxy holds the keys and per-account allowances. Privacy is narrow: only the target window is captured and only during a request; password fields are painted black before anything is sent, and it fails closed. It was built in 10 days by one indie developer with a team of AI coding agents.
 
 **What's next**
-We want to learn from real sessions and reduce the cases where Mate has to escalate with Muse Wonder, while improving the safety check for less common window types.
+We want to learn from real sessions and reduce the cases where Mate has to escalate to Muse Wonder after two misses on Quick, while improving the safety check for less common window types.
 
 ## X post drafts (Most Viral, post by Nov 8 with the video)
 

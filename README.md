@@ -1,13 +1,13 @@
 # MetaMate
 
-Windows 10/11 x64 (the video shows it on any OS).
+Windows 10/11 x64 (the video can be watched anywhere).
 
 ## Try it in 60 seconds
 
 1. **Download:** Get the release installer (built for our hosted proxy with a capped judge invite — no account, invite codes, or API keys needed).
 2. **SmartScreen:** The installer is not code-signed yet. When Windows SmartScreen displays *"Windows protected your PC"*, click **More info**, then **Run anyway**.
 3. **Ask:** Hold **Right Ctrl**, ask aloud *"Where is the Start button?"*, and release. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
-4. **Sign-in (optional):** Right-click the tray icon to open **Settings**. Signing in with Google or GitHub is completely optional and gives you your own daily allowance.
+4. **Sign-in (optional):** Right-click the tray icon to open **Settings**. Google sign-in is completely optional (GitHub sign-in is not in the judges' build yet) and gives you your own daily allowance.
 
 MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl for push-to-talk voice, and he answers aloud, flies next to the right button, and teaches you step by step.
 
@@ -33,7 +33,7 @@ MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right C
 - SAM 3.1 outlines targets in apps without an accessibility tree, including Qt apps such as Telegram Desktop and games.
 - "Is this safe?" scam check: inspects the active window, delivers a verdict, highlights red flags, and shines a beam on the worst one—never telling anyone to click, call, or pay.
 - Keepsake lesson card: Muse Glimmer writes the steps in simple words (when its GPU answers) and Muse Image paints a soft gouache picture without text, ready to Print.
-- A tray icon opens Settings (optional Google or GitHub sign-in for individual allowances; model selection between Quick and Thorough).
+- A tray icon opens Settings (optional Google sign-in for individual allowances, with GitHub sign-in not in the judges' build yet; model selection between Quick and Thorough).
 - Hear helpful sound cues, or use calm mode designed for older users.
 
 ## Why it is different
