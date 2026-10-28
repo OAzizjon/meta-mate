@@ -8,6 +8,7 @@ import { inspect } from "node:util";
 import {
   LESSON_CARD_EVENT,
   PLACEHOLDER_MATE_SVG,
+  creditsKey,
   escapeHtml,
   getPlaceholderCard,
   parseLessonCard,
@@ -23,6 +24,7 @@ const VALID_CARD: LessonCard = {
     "3. Move the slider until comfortable",
   ],
   imagePath: "C:\\Users\\Senior\\Pictures\\MetaMate\\lesson-text-size.png",
+  wordsBy: "glimmer",
 };
 
 test("LESSON_CARD_EVENT constant matches the Tauri contract", () => {
@@ -50,6 +52,8 @@ test("parseLessonCard parses valid payload into a fresh copy with trimmed fields
       "3. Move the slider until comfortable",
     ],
     imagePath: "C:\\Users\\Senior\\Pictures\\MetaMate\\card.png",
+    // A payload from before WP71 has no wordsBy: the lesson's own words.
+    wordsBy: "lesson",
   });
 
   // Verify immutability: modifying the original steps array doesn't affect parsed card
@@ -62,9 +66,46 @@ test("parseLessonCard accepts valid single-step card", () => {
     title: "Print this page",
     steps: ["Press Ctrl and P together on your keyboard"],
     imagePath: "/pictures/metamate/print.png",
+    wordsBy: "glimmer",
   };
   const parsed = parseLessonCard(raw);
   assert.deepEqual(parsed, raw);
+});
+
+test("parseLessonCard keeps wordsBy glimmer or lesson", () => {
+  for (const wordsBy of ["glimmer", "lesson"]) {
+    const parsed = parseLessonCard({ ...VALID_CARD, wordsBy });
+    assert.equal(parsed?.wordsBy, wordsBy);
+  }
+});
+
+test("parseLessonCard reads a missing or unknown wordsBy as lesson, never as a bad card", () => {
+  const { wordsBy: _, ...withoutWordsBy } = VALID_CARD;
+  assert.equal(parseLessonCard(withoutWordsBy)?.wordsBy, "lesson");
+
+  const unknown = [
+    undefined,
+    null,
+    "",
+    "Glimmer",
+    " glimmer ",
+    "muse",
+    "image",
+    1,
+    true,
+    {},
+    ["glimmer"],
+  ];
+  for (const wordsBy of unknown) {
+    const parsed = parseLessonCard({ ...VALID_CARD, wordsBy });
+    assert.ok(parsed !== null, inspect(wordsBy));
+    assert.equal(parsed.wordsBy, "lesson", inspect(wordsBy));
+  }
+});
+
+test("creditsKey credits Muse Glimmer only for its own words", () => {
+  assert.equal(creditsKey("glimmer"), "card.credits_glimmer");
+  assert.equal(creditsKey("lesson"), "card.credits_image");
 });
 
 test("parseLessonCard rejects non-objects and primitives", () => {
@@ -193,6 +234,14 @@ test("parseLessonCard rejects hostile objects and throwing getters without throw
         return boom();
       },
     },
+    {
+      title: "Title",
+      steps: ["Step 1"],
+      imagePath: "path.png",
+      get wordsBy() {
+        return boom();
+      },
+    },
   ];
 
   for (const hostile of hostileList) {
@@ -208,6 +257,7 @@ test("getPlaceholderCard returns valid LessonCard with localized strings", () =>
     assert.ok(typeof step === "string" && step.length > 0);
   }
   assert.equal(typeof placeholder.imagePath, "string");
+  assert.equal(placeholder.wordsBy, "lesson");
 });
 
 test("resolveCardImageUrl handles web, data, asset, and empty URLs correctly", async () => {

@@ -405,14 +405,16 @@ def cmd_release(args):
 
     # D51: a release talks to the proxy and demo invite it is built with; without them
     # the installed app cannot answer. Only the names are ever printed. Unset, they come
-    # from server/.prod-proxy.json (server/deploy/deploy_modal_proxy.py, D57).
-    try:
-        link = json.loads((ROOT / 'server' / '.prod-proxy.json').read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        link = {}
-    if isinstance(link, dict) and isinstance(link.get('url'), str) and isinstance(link.get('invite'), str):
-        os.environ.setdefault('METAMATE_PROXY_URL', link['url'])
-        os.environ.setdefault('METAMATE_INVITE', link['invite'])
+    # from server/.prod-proxy.json (server/deploy/deploy_modal_proxy.py, D57), both
+    # together: a URL of one deployment never goes out with the invite of another.
+    if 'METAMATE_PROXY_URL' not in os.environ and 'METAMATE_INVITE' not in os.environ:
+        try:
+            link = json.loads((ROOT / 'server' / '.prod-proxy.json').read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            link = {}
+        if isinstance(link, dict) and isinstance(link.get('url'), str) and isinstance(link.get('invite'), str):
+            os.environ['METAMATE_PROXY_URL'] = link['url']
+            os.environ['METAMATE_INVITE'] = link['invite']
     proxy = os.environ.get('METAMATE_PROXY_URL', '')
     if not proxy.startswith('https://') or not os.environ.get('METAMATE_INVITE', '').strip():
         print('Release refused: set METAMATE_PROXY_URL (https://...) and METAMATE_INVITE for the build.')

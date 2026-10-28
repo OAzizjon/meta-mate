@@ -7,10 +7,11 @@
 //! words and a generic scene. It all runs beside the lesson, never in its way: a failure is
 //! logged (never with the person's words) and nothing is shown.
 //!
-//! The page gets `lesson-card` with `{ title, steps, imagePath }`, where `imagePath` is the
-//! picture as a `data:` URL: the WebView needs no asset protocol and no file scope. A new
-//! window's page does not listen yet, so the card is sent once the page emits `card-ready`
-//! (or after 3 s, in case that event was lost).
+//! The page gets `lesson-card` with `{ title, steps, imagePath, locale, wordsBy }`, where
+//! `imagePath` is the picture as a `data:` URL (the WebView needs no asset protocol and no
+//! file scope) and `wordsBy` (`glimmer` or `lesson`) tells whose words the steps are, for
+//! the card's credit line. A new window's page does not listen yet, so the card is sent
+//! once the page emits `card-ready` (or after 3 s, in case that event was lost).
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
@@ -54,9 +55,9 @@ const FILE_TITLE_CHARS: usize = 40;
 const SAME_NAME_LIMIT: u32 = 50;
 const READY_LIMIT: Duration = Duration::from_secs(3);
 
-/// What the page shows: the title and steps (Glimmer's, else the lesson's own) and the
-/// picture (a `data:` URL; the page takes a path or a URL there), in the app's language
-/// (`en` or `ru`).
+/// What the page shows: the title and steps (Glimmer's, else the lesson's own, as
+/// `words_by` says) and the picture (a `data:` URL; the page takes a path or a URL there),
+/// in the app's language (`en` or `ru`).
 #[derive(Serialize)]
 struct LessonCard {
     title: String,
@@ -64,6 +65,16 @@ struct LessonCard {
     #[serde(rename = "imagePath")]
     image: String,
     locale: String,
+    #[serde(rename = "wordsBy")]
+    words_by: WordsBy,
+}
+
+/// Whose words a card's title and steps are: the page credits Muse Glimmer for its own.
+#[derive(Serialize)]
+#[serde(rename_all = "lowercase")]
+enum WordsBy {
+    Glimmer,
+    Lesson,
 }
 
 /// Glimmer's wording of a card: the title and steps in the person's language, the
@@ -94,9 +105,14 @@ pub(crate) async fn make(app: AppHandle, question: String, steps: Vec<String>) {
         eprintln!("card: no proxy");
         return;
     };
-    let (title, steps, scene) = match ask_wording(&proxy, &title, &steps).await {
-        Some(wording) => (wording.title, wording.steps, wording.scene),
-        None => (title, steps, GENERIC_SCENE.to_owned()),
+    let (title, steps, scene, words_by) = match ask_wording(&proxy, &title, &steps).await {
+        Some(wording) => (
+            wording.title,
+            wording.steps,
+            wording.scene,
+            WordsBy::Glimmer,
+        ),
+        None => (title, steps, GENERIC_SCENE.to_owned(), WordsBy::Lesson),
     };
     let png = match proxy.image(&prompt(&scene)).await {
         Ok(png) => png,
@@ -136,6 +152,7 @@ pub(crate) async fn make(app: AppHandle, question: String, steps: Vec<String>) {
             steps,
             image,
             locale,
+            words_by,
         },
     )
     .await;
@@ -742,6 +759,7 @@ mod tests {
             steps: vec!["Open Settings.".into()],
             image: data_url(b"\x89PNG"),
             locale: "ru".into(),
+            words_by: WordsBy::Glimmer,
         };
         assert_eq!(
             serde_json::to_value(&card).ok(),
@@ -749,8 +767,13 @@ mod tests {
                 "title": "Bigger text",
                 "steps": ["Open Settings."],
                 "imagePath": "data:image/png;base64,iVBORw==",
-                "locale": "ru"
+                "locale": "ru",
+                "wordsBy": "glimmer"
             }))
+        );
+        assert_eq!(
+            serde_json::to_value(WordsBy::Lesson).ok(),
+            Some(json!("lesson"))
         );
     }
 }

@@ -360,6 +360,11 @@ class ReleaseTests(unittest.TestCase):
             self.installer.write_bytes(b'abc')
         return self.build_code, ''
 
+    def write_prod_proxy(self, contents):
+        server = self.root / 'server'
+        server.mkdir(exist_ok=True)
+        (server / '.prod-proxy.json').write_text(contents, encoding='utf-8')
+
     def test_release_needs_the_built_in_proxy_and_invite(self):
         for env in ({'METAMATE_PROXY_URL': '', 'METAMATE_INVITE': 'demo-code-123'},
                     {'METAMATE_PROXY_URL': 'http://proxy.example', 'METAMATE_INVITE': 'demo-code-123'},
@@ -368,6 +373,40 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(mm.cmd_release(self.args), 1)
         self.assertNotIn('demo-code-123', self.output.getvalue())
         self.run.assert_not_called()
+
+    def test_release_uses_proxy_file_when_environment_is_unset(self):
+        invite = 'file-only-invite'
+        self.write_prod_proxy(json.dumps({'url': 'https://file-proxy.example', 'invite': invite}))
+        with patch.dict(mm.os.environ, {}, clear=True):
+            self.assertEqual(mm.cmd_release(self.args), 0)
+            self.assertEqual(mm.os.environ['METAMATE_PROXY_URL'], 'https://file-proxy.example')
+            self.assertEqual(mm.os.environ['METAMATE_INVITE'], invite)
+        self.assertNotIn('Release refused: set METAMATE_PROXY_URL', self.output.getvalue())
+        self.assertNotIn(invite, self.output.getvalue())
+
+    def test_release_proxy_file_does_not_override_environment(self):
+        invite = 'file-only-invite'
+        self.write_prod_proxy(json.dumps({'url': 'https://file-proxy.example', 'invite': invite}))
+        with patch.dict(mm.os.environ, {'METAMATE_PROXY_URL': 'https://env-proxy.example',
+                                        'METAMATE_INVITE': 'environment-invite'}):
+            self.assertEqual(mm.cmd_release(self.args), 0)
+            self.assertEqual(mm.os.environ['METAMATE_PROXY_URL'], 'https://env-proxy.example')
+            self.assertEqual(mm.os.environ['METAMATE_INVITE'], 'environment-invite')
+        self.assertNotIn(invite, self.output.getvalue())
+
+    def test_release_refuses_invalid_proxy_file_without_printing_invite(self):
+        invite = 'file-only-invite'
+        invalid_files = ('{broken json', '[]',
+                         json.dumps({'url': 'https://file-proxy.example'}),
+                         json.dumps({'invite': invite}))
+        for contents in invalid_files:
+            with self.subTest(contents=contents), patch.dict(mm.os.environ, {}, clear=True):
+                self.write_prod_proxy(contents)
+                self.assertEqual(mm.cmd_release(self.args), 1)
+                self.assertIn('Release refused: set METAMATE_PROXY_URL', self.output.getvalue())
+                self.assertNotIn(invite, self.output.getvalue())
+                self.run.assert_not_called()
+                self.check.assert_not_called()
 
     def test_release_build_order_and_installer_report(self):
         self.assertEqual(mm.cmd_release(self.args), 0)

@@ -77,32 +77,44 @@ def main() -> int:
         print(f'no MMS-TTS link in {TTS_LINK.relative_to(ROOT).as_posix()}: run tts/deploy_modal.py first')
         return 2
     if args.new_invite or not link.get('invite'):
+        # Kept before the secret changes: the invite in Modal is never one we lost.
         link['invite'] = secrets.token_urlsafe(24)
-    # The public URL is Modal's name for this app's function; known before the deploy.
-    public = link.get('url') or 'https://obdazizjon--metamate-proxy-proxy.modal.run'
+        link.pop('url', None)
+        save_link(link)
+    # The public URL is Modal's name for this app's function, known before the deploy; when
+    # Modal names it otherwise, the secret gets the real one and the app is deployed again.
+    url = link.get('url') or 'https://obdazizjon--metamate-proxy-proxy.modal.run'
     values.update({
         'PROXY_INVITE_CODES': f"{link['invite']}:judge",
         'PROXY_DAILY_BUDGET_USD': args.budget,
         'PROXY_SESSION_SECRET': secrets.token_urlsafe(48),
-        'PROXY_PUBLIC_URL': public,
         'MMS_TTS_URL': tts['url'],
         'MMS_TTS_SECRET': tts['secret'],
         'GLIMMER_URL': GLIMMER_URL,
     })
-    store_secret(values)
-    deployed = subprocess.run(['modal', 'deploy', str(APP_FILE)], capture_output=True, text=True,
-                              encoding='utf-8', errors='replace')
-    if deployed.returncode != 0:
-        print(deployed.stderr[-2000:])
-        return deployed.returncode
-    found = URL.findall(deployed.stdout)
-    if found:
-        link['url'] = found[-1]
+    for _ in range(2):
+        values['PROXY_PUBLIC_URL'] = url
+        store_secret(values)
+        deployed = subprocess.run(['modal', 'deploy', str(APP_FILE)], capture_output=True, text=True,
+                                  encoding='utf-8', errors='replace')
+        if deployed.returncode != 0:
+            print('modal deploy failed; its last lines:')
+            print(deployed.stderr[-2000:])
+            return deployed.returncode
+        found = sorted(set(URL.findall(deployed.stdout)))
+        if len(found) != 1:
+            print('modal deploy printed no single URL: nothing linked for mm release')
+            return 1
+        if found[0] == url:
+            break
+        url = found[0]
+    else:
+        print('the deployed URL keeps changing: nothing linked for mm release')
+        return 1
+    # Only a deployment whose secret names its own URL is linked for `mm release`.
+    link['url'] = url
     save_link(link)
-    url = link.get('url', public)
     print(f'proxy: {url} (invite in {LINK_FILE.relative_to(ROOT).as_posix()})')
-    if url != public:
-        print('the URL differs from the one in the secret: run this once more')
     print('OAuth redirect URIs to register:')
     for provider in ('google', 'github'):
         print(f'  {url}/auth/{provider}/callback')

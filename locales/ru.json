@@ -85,6 +85,8 @@
   "card.placeholder_step_1": "Откройте «Параметры» Windows",
   "card.placeholder_step_2": "Выберите «Специальные возможности» и «Размер текста»",
   "card.placeholder_step_3": "Передвиньте ползунок до удобного размера",
+  "card.credits_glimmer": "Текст: Muse Glimmer (открытые веса Meta) · Рисунок: Muse Image",
+  "card.credits_image": "Рисунок: Muse Image",
   "auth.title": "Аккаунт",
   "auth.why": "Чтобы {name} мог отвечать: у каждого аккаунта своя дневная норма",
   "auth.google": "Войти через Google",

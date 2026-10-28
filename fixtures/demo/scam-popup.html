@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SYSTEM SECURITY WARNING - PCShield Pro Support</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #0b1120;
+        color: #f8fafc;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        padding: 24px 20px 12px;
+      }
+      .warning-container {
+        width: 100%;
+        max-width: 900px;
+        background: #1e293b;
+        border: 2px solid #dc2626;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(220, 38, 38, 0.4);
+        overflow: hidden;
+      }
+      .banner {
+        background: linear-gradient(90deg, #b91c1c 0%, #dc2626 100%);
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .banner-icon {
+        width: 38px;
+        height: 38px;
+        flex-shrink: 0;
+        fill: #ffffff;
+      }
+      .banner-title {
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #ffffff;
+      }
+      .content-body {
+        padding: 24px 28px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .source-badge {
+        display: inline-block;
+        background-color: #334155;
+        color: #94a3b8;
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        align-self: flex-start;
+      }
+      .source-name {
+        color: #f1f5f9;
+        font-weight: 700;
+      }
+      .alert-lead {
+        font-size: 20px;
+        font-weight: 700;
+        color: #f87171;
+        line-height: 1.3;
+      }
+      .virus-box {
+        background-color: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 14px 16px;
+      }
+      .virus-box-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #cbd5e1;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .virus-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .virus-item {
+        font-size: 13px;
+        font-family: Consolas, "Courier New", monospace;
+        color: #fca5a5;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .virus-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background-color: #ef4444;
+        color: #ffffff;
+        font-weight: bold;
+        font-size: 11px;
+        font-family: sans-serif;
+      }
+      .countdown-card {
+        background-color: #450a0a;
+        border: 2px dashed #ef4444;
+        border-radius: 8px;
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .countdown-text {
+        font-size: 16px;
+        font-weight: 700;
+        color: #fecaca;
+      }
+      .countdown-timer {
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 26px;
+        font-weight: 800;
+        color: #f87171;
+        background: #1e1b4b;
+        padding: 4px 12px;
+        border-radius: 6px;
+        border: 1px solid #ef4444;
+        letter-spacing: 1px;
+      }
+      .instruction-p {
+        font-size: 14px;
+        line-height: 1.5;
+        color: #e2e8f0;
+      }
+      .support-callout {
+        background: #0f172a;
+        border: 2px solid #dc2626;
+        border-radius: 10px;
+        padding: 16px;
+        text-align: center;
+      }
+      .support-label {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #94a3b8;
+        margin-bottom: 4px;
+      }
+      .support-phone {
+        font-size: 32px;
+        font-weight: 900;
+        color: #fbbf24;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+      }
+      .support-sub {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+      .actions {
+        display: flex;
+        gap: 14px;
+        justify-content: flex-end;
+        padding-top: 4px;
+      }
+      button {
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        padding: 10px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        border: none;
+      }
+      .btn-call {
+        background-color: #dc2626;
+        color: #ffffff;
+      }
+      .btn-ok {
+        background-color: #334155;
+        color: #f1f5f9;
+        border: 1px solid #475569;
+      }
+      .demo-footer {
+        font-size: 13px;
+        color: #64748b;
+        text-align: center;
+        padding: 12px 0 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="warning-container">
+      <div class="banner">
+        <svg class="banner-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z" />
+        </svg>
+        <div class="banner-title">SYSTEM SECURITY WARNING</div>
+      </div>
+
+      <div class="content-body">
+        <div class="source-badge">
+          Alert Source: <span class="source-name">PCShield Pro Support</span>
+        </div>
+
+        <div class="alert-lead">
+          Your computer is infected with 3 viruses
+        </div>
+
+        <div class="virus-box">
+          <div class="virus-box-title">Detected Threat Details</div>
+          <ul class="virus-list">
+            <li class="virus-item">
+              <span class="virus-badge">!</span>
+              Trojan:Win32/SpyStealer.E!cert (High Risk - Data Exfiltration)
+            </li>
+            <li class="virus-item">
+              <span class="virus-badge">!</span>
+              Ransom:Win32/FileCrypt.A (Critical Risk - Encrypting Personal Files)
+            </li>
+            <li class="virus-item">
+              <span class="virus-badge">!</span>
+              Adware:JS/BrowserHijack (Medium Risk - System Modification)
+            </li>
+          </ul>
+        </div>
+
+        <div class="countdown-card">
+          <div class="countdown-text">
+            CRITICAL THREAT: Your files will be deleted in 4:59
+          </div>
+          <div class="countdown-timer">04:59</div>
+        </div>
+
+        <p class="instruction-p">
+          Do not shut down or restart your computer. Immediate manual virus removal is required to avoid permanent data loss. Contact authorized technical support specialists immediately:
+        </p>
+
+        <div class="support-callout">
+          <div class="support-label">Toll-Free Helpline (Available 24/7)</div>
+          <div class="support-phone">+1 (888) 555-0142</div>
+          <div class="support-sub">Provide support case reference: #SEC-9842</div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn-ok">OK</button>
+          <button type="button" class="btn-call">Call now</button>
+        </div>
+      </div>
+    </div>
+
+    <footer class="demo-footer">
+      Demo page for MetaMate. Not a real message.
+    </footer>
+  </body>
+</html>

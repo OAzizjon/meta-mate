@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Urgent: your account will be closed today - MailBox</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .mail-header {
+        height: 52px;
+        background-color: #ffffff;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        flex-shrink: 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 20px;
+        font-weight: 800;
+        color: #2563eb;
+      }
+      .brand-icon {
+        width: 24px;
+        height: 24px;
+        fill: #2563eb;
+      }
+      .search-bar {
+        width: 420px;
+      }
+      .search-bar input {
+        width: 100%;
+        padding: 7px 14px;
+        font-size: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background-color: #f8fafc;
+        outline: none;
+      }
+      .user-info {
+        font-size: 13px;
+        color: #64748b;
+        font-weight: 500;
+      }
+      .mail-layout {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .sidebar {
+        width: 190px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .compose-btn {
+        width: 100%;
+        padding: 9px 16px;
+        background-color: #2563eb;
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+      .folder-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #94a3b8;
+        padding: 6px 10px 2px;
+        letter-spacing: 0.5px;
+      }
+      .folder-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 10px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #475569;
+        border-radius: 6px;
+        text-decoration: none;
+      }
+      .folder-item.active {
+        background-color: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 700;
+      }
+      .folder-badge {
+        background-color: #dbeafe;
+        color: #1e40af;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 7px;
+        border-radius: 10px;
+      }
+      .message-list {
+        width: 330px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        overflow-y: auto;
+      }
+      .message-row {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .message-row.selected {
+        background-color: #f8fafc;
+        border-left: 3px solid #dc2626;
+      }
+      .message-row-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .message-sender {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .message-date {
+        font-size: 11px;
+        color: #94a3b8;
+      }
+      .message-subject {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .message-preview {
+        font-size: 12px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .reading-pane {
+        flex: 1;
+        background-color: #ffffff;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .toolbar {
+        padding: 10px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        background-color: #f8fafc;
+      }
+      .btn-tool {
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: 1px solid #cbd5e1;
+        background-color: #ffffff;
+        color: #334155;
+        cursor: pointer;
+      }
+      .btn-tool:hover {
+        background-color: #f1f5f9;
+      }
+      .email-content {
+        flex: 1;
+        padding: 24px 32px;
+        overflow-y: auto;
+      }
+      .email-subject {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 14px;
+      }
+      .meta-box {
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 14px;
+        margin-bottom: 20px;
+        font-size: 13px;
+      }
+      .meta-left {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .meta-from {
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .meta-from span {
+        font-weight: 400;
+        color: #dc2626;
+      }
+      .meta-to {
+        color: #64748b;
+      }
+      .meta-date {
+        color: #64748b;
+      }
+      .security-card {
+        border: 1px solid #fca5a5;
+        background-color: #fff1f2;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .card-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #991b1b;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .email-text {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #334155;
+        margin-bottom: 14px;
+      }
+      .urgent-highlight {
+        color: #b91c1c;
+        font-weight: 700;
+      }
+      .action-section {
+        margin: 22px 0 16px;
+        padding: 16px;
+        background-color: #ffffff;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        text-align: center;
+      }
+      .btn-verify {
+        display: inline-block;
+        background-color: #dc2626;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 700;
+        padding: 12px 32px;
+        border-radius: 6px;
+        text-decoration: none;
+        margin-bottom: 10px;
+      }
+      .btn-verify:hover {
+        background-color: #b91c1c;
+      }
+      .url-box {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .visible-url {
+        font-family: Consolas, "Courier New", monospace;
+        color: #b91c1c;
+        font-weight: 700;
+        word-break: break-all;
+      }
+      .signoff {
+        font-size: 13px;
+        line-height: 1.5;
+        color: #475569;
+        margin-top: 18px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      }
+      .demo-footer {
+        height: 28px;
+        background-color: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        font-size: 12px;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="mail-header">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+        </svg>
+        <span>MailBox</span>
+      </div>
+      <div class="search-bar">
+        <input type="text" placeholder="Search mail..." value="" aria-label="Search mail" />
+      </div>
+      <div class="user-info">
+        demo.user@mailbox.lan
+      </div>
+    </header>
+
+    <div class="mail-layout">
+      <!-- Folder list -->
+      <aside class="sidebar">
+        <button type="button" class="compose-btn">+ Compose</button>
+        <div class="folder-title">Folders</div>
+        <a href="#" class="folder-item active">
+          <span>Inbox</span>
+          <span class="folder-badge">4</span>
+        </a>
+        <a href="#" class="folder-item">
+          <span>Starred</span>
+        </a>
+        <a href="#" class="folder-item">
+          <span>Sent</span>
+        </a>
+        <a href="#" class="folder-item">
+          <span>Drafts</span>
+        </a>
+        <a href="#" class="folder-item">
+          <span>Spam</span>
+        </a>
+        <a href="#" class="folder-item">
+          <span>Trash</span>
+        </a>
+      </aside>
+
+      <!-- 4 message rows -->
+      <section class="message-list">
+        <!-- Message 1 (Active scam email) -->
+        <div class="message-row selected">
+          <div class="message-row-top">
+            <span class="message-sender">Nordway Bank Security</span>
+            <span class="message-date">10:42 AM</span>
+          </div>
+          <div class="message-subject">Urgent: your account will be closed today</div>
+          <div class="message-preview">Security alert: unauthorisd access detected. Immediate verification required...</div>
+        </div>
+
+        <!-- Message 2 -->
+        <div class="message-row">
+          <div class="message-row-top">
+            <span class="message-sender">Northwoods Electric</span>
+            <span class="message-date">Yesterday</span>
+          </div>
+          <div class="message-subject">Your October utility statement is ready</div>
+          <div class="message-preview">Your monthly bill of $64.20 is now available for download in your online account.</div>
+        </div>
+
+        <!-- Message 3 -->
+        <div class="message-row">
+          <div class="message-row-top">
+            <span class="message-sender">ParcelPoint Logistics</span>
+            <span class="message-date">Oct 26</span>
+          </div>
+          <div class="message-subject">Delivery confirmation: Package #PP-90214</div>
+          <div class="message-preview">Your shipment has arrived at the local parcel locker. Use code 4820 to retrieve.</div>
+        </div>
+
+        <!-- Message 4 -->
+        <div class="message-row">
+          <div class="message-row-top">
+            <span class="message-sender">Cedar Lake Community</span>
+            <span class="message-date">Oct 24</span>
+          </div>
+          <div class="message-subject">Fall festival volunteer schedule & meeting</div>
+          <div class="message-preview">Thank you to everyone who signed up to help at this Saturday's festival booth.</div>
+        </div>
+      </section>
+
+      <!-- Open message -->
+      <main class="reading-pane">
+        <div class="toolbar">
+          <button type="button" class="btn-tool">Reply</button>
+          <button type="button" class="btn-tool">Forward</button>
+          <button type="button" class="btn-tool">Delete</button>
+        </div>
+
+        <div class="email-content">
+          <h1 class="email-subject">Urgent: your account will be closed today</h1>
+
+          <div class="meta-box">
+            <div class="meta-left">
+              <div class="meta-from">
+                From: Nordway Bank Security &lt;<span>security@nordway-bank-verify.co</span>&gt;
+              </div>
+              <div class="meta-to">To: demo.user@mailbox.lan</div>
+            </div>
+            <div class="meta-date">October 28, 2026 at 10:42 AM</div>
+          </div>
+
+          <div class="security-card">
+            <div class="card-title">Nordway Bank Customer Security Alert</div>
+
+            <p class="email-text">
+              Dear Valued Customer,
+            </p>
+
+            <p class="email-text">
+              Our automated fraud monitoring system has detected unauthorisd sign-in activity on your online banking profile from an unknown device. Due to suspicious attempts, your online privileges have been restricted to protect your assets.
+            </p>
+
+            <p class="email-text urgent-highlight">
+              Urgent: your account will be closed today unless identity verification is performed immediately. Final termination and closure in 24 hours will occur without prior notice if you do not act.
+            </p>
+
+            <p class="email-text">
+              To restore full access, click the verification button below and enter the 6-digit code we sent you on our secure server:
+            </p>
+
+            <div class="action-section">
+              <p>
+                <a href="#" class="btn-verify">Verify now</a>
+              </p>
+              <div class="url-box">
+                Direct verification link:
+                <br />
+                <span class="visible-url">http://nordway-bank.verify-login.co/secure</span>
+              </div>
+            </div>
+
+            <p class="email-text">
+              Please have the 6-digit code we sent you ready. For security purposes, never forward this message.
+            </p>
+
+            <div class="signoff">
+              Nordway Bank Security &amp; Risk Operations Team<br />
+              Account Verification Department
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <footer class="demo-footer">
+      Demo page for MetaMate. Not a real message.
+    </footer>
+  </body>
+</html>

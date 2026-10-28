@@ -37,8 +37,8 @@
               Mate is a small light-bulb helper for Windows who flies to the right button in any app, guides your parent step by step, and waits for them to click—never pressing Pay or Delete.
             </p>
             <div class="hero-actions">
-              <a class="button" href="#download">Download for Windows</a>
-              <span class="hero-note">Windows 10 &amp; 11 · Holds Right Ctrl or taps to talk</span>
+              <a class="button" href="https://github.com/OAzizjon/meta-mate/releases/latest">Download for Windows</a>
+              <span class="hero-note">Windows 10 &amp; 11 (x64) only · Hold Right Ctrl to talk</span>
             </div>
           </div>
           <figure class="hero-figure">
@@ -78,7 +78,7 @@
               <span class="step-number" aria-hidden="true">3</span>
               <h3 class="step-title">You click, he cheers</h3>
               <p class="step-body">
-                Your parent clicks the button themselves. Mate checks that it was the right spot, cheers them on, and moves to the next step.
+                Your parent clicks the button themselves. Mate checks that it was the right spot, cheers them on, and moves to the next step. If Mate misses twice on Quick, he escalates to Muse Wonder.
               </p>
             </li>
           </ol>
@@ -95,7 +95,7 @@
             <div class="feature-card">
               <h3 class="feature-title">Simple steps in your language</h3>
               <p class="feature-body">
-                After a lesson the model finished, Muse Glimmer 30B (Meta open weights on our own Modal L4 GPU) rewrites the steps in simple words in the person&rsquo;s language and writes a short scene to accompany it.
+                After a lesson the model finished, Muse Glimmer 30B (Meta open weights on our own Modal L4 GPU, ~15 tokens/s) rewrites the steps in simple words in the person&rsquo;s language and writes a short scene to accompany it when its GPU answers.
               </p>
             </div>
             <div class="feature-card">
@@ -188,19 +188,19 @@
             <div class="meta-card">
               <dt class="meta-name">Muse Spark 1.3</dt>
               <dd class="meta-role">
-                Provides answers, guides each step as the computer-use teacher, and powers the &ldquo;Is this safe?&rdquo; safety check.
+                First token in 1.4&ndash;2.6&nbsp;s at reasoning effort minimal. Provides answers, guides each step as the computer-use teacher, and powers the &ldquo;Is this safe?&rdquo; scam check.
               </dd>
             </div>
             <div class="meta-card">
               <dt class="meta-name">Muse Wonder 1.0</dt>
               <dd class="meta-role">
-                Powers the thorough setting for complex tasks that benefit from deeper reasoning.
+                Powers the thorough setting for complex tasks, and handles automatic escalation after two misses on Quick.
               </dd>
             </div>
             <div class="meta-card">
               <dt class="meta-name">Muse Voice Transcribe</dt>
               <dd class="meta-role">
-                Transcribes spoken questions in real time from key-down so words appear live in Mate&rsquo;s bubble.
+                Transcribes spoken questions in real time. The socket opens at key-down and the final transcript arrives 250&ndash;360&nbsp;ms after key-up, so words appear live in Mate&rsquo;s bubble.
               </dd>
             </div>
             <div class="meta-card">
@@ -212,7 +212,7 @@
             <div class="meta-card">
               <dt class="meta-name">Muse Glimmer 30B</dt>
               <dd class="meta-role">
-                Meta open weights running on our own Modal L4 GPU, rewriting completed lessons into clear steps and scenes.
+                Meta open weights running on our own Modal L4 GPU (~15&nbsp;tokens/s), rewriting completed lessons into clear steps and scenes when its GPU answers.
               </dd>
             </div>
             <div class="meta-card">
@@ -224,7 +224,7 @@
             <div class="meta-card">
               <dt class="meta-name">MMS-TTS</dt>
               <dd class="meta-role">
-                Gives Mate a warm spoken voice using Meta open weights on a Modal T4.
+                Gives Mate a warm spoken voice using Meta open weights on a Modal T4 (90&ndash;110&nbsp;ms GPU synthesis per sentence).
               </dd>
             </div>
           </dl>
@@ -236,9 +236,18 @@
           <div class="download-card">
             <h2 id="download-heading" class="section-title">Put Mate on your parent&rsquo;s computer in two minutes</h2>
             <p class="section-lead">
-              Install once on Windows 10 or 11. Calm sounds by default, large readable text, and sign-in with Google or GitHub with no invite codes required.
+              Built for our hosted proxy and a capped judge invite: install, hold <strong>Right Ctrl</strong>, and ask aloud—no account, keys, or invite codes needed. Signing in with Google or GitHub in Settings is optional and gives you your own daily allowance.
             </p>
-            <a class="button" href="#download">Download for Windows</a>
+            <div class="hero-actions" style="align-items: center; margin-bottom: 24px;">
+              <a class="button" href="https://github.com/OAzizjon/meta-mate/releases/latest">Download for Windows</a>
+              <span class="hero-note">Windows 10 &amp; 11 (x64) only</span>
+            </div>
+            <div class="feature-card" style="text-align: left; max-width: 680px; margin: 0 auto;">
+              <h3 class="card-title">Windows SmartScreen note</h3>
+              <p class="card-body">
+                The installer is not code-signed yet, so Windows SmartScreen will show <strong>&ldquo;Windows protected your PC&rdquo;</strong>. Click <strong>More info</strong>, then click <strong>Run anyway</strong>. Once running, hold Right Ctrl and speak.
+              </p>
+            </div>
           </div>
         </div>
       </section>

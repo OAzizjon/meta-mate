@@ -1,19 +1,22 @@
 # MetaMate
 
-MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl or tap for hands-free voice, and he answers aloud, flies next to the right button, and teaches you step by step. In a lesson, say yes to let him click the verified target—one left click per yes, never Pay, Delete, or password actions.
+Windows 10/11 x64 (the video shows it on any OS).
 
-- The voice loop works end to end: hold Right Ctrl, or tap, talk, and pause; Mate answers aloud.
-- “Where is the button?” works live on Windows Settings, with Mate flying beside the target and a ring around it.
-- Password fields are blacked out before anything is sent, and Mate fails closed when he cannot safely inspect a window.
+## Try it in 60 seconds
 
-## Try it
+1. **Download:** Get the release installer (built for our hosted proxy with a capped judge invite — no account, invite codes, or API keys needed).
+2. **SmartScreen:** The installer is not code-signed yet. When Windows SmartScreen displays *"Windows protected your PC"*, click **More info**, then **Run anyway**.
+3. **Ask:** Hold **Right Ctrl**, ask aloud *"Where is the Start button?"*, and release. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
+4. **Sign-in (optional):** Right-click the tray icon to open **Settings**. Signing in with Google or GitHub is completely optional and gives you your own daily allowance.
 
-1. Hold **Right Ctrl** and ask aloud: “Where is the volume control?” or “How do I make the text bigger?”
-2. Release the key. Mate answers and points to the control.
-3. During a lesson, say “do it for me,” then answer “yes” to let him press one harmless button.
-4. Right-click the tray icon to open **Settings**; try hands-free mode, **Quick**, or **Thorough**.
+MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl for push-to-talk voice, and he answers aloud, flies next to the right button, and teaches you step by step.
 
-Meta models: Muse Spark 1.3, Muse Voice Transcribe, and MMS-TTS.
+- **Push-to-talk voice:** Hold Right Ctrl, speak, and release; Mate answers aloud with a live transcript in the bubble.
+- **Mate's beam:** "Where is the button?" works live in any app—Mate flies beside the target and shines his beam right on it.
+- **Step-by-step lessons:** For "how do I..." requests, Mate guides you step by step where you click each target yourself (escalating to Muse Wonder after two misses on Quick).
+- **"Is this safe?" scam check:** Gives an instant verdict, lists red flags, and shines a beam on the worst one—never telling anyone to click, call, or pay.
+- **Keepsake lesson card:** Muse Glimmer words (when its GPU answers) and a Muse Image picture (without text) that you can print.
+- **Privacy by design:** Only captures the target window during a request, paints password fields black before sending, and fails closed.
 
 <!-- demo GIF here -->
 
@@ -25,10 +28,12 @@ Meta models: Muse Spark 1.3, Muse Voice Transcribe, and MMS-TTS.
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
-- Hold to talk or use hands-free mode: tap, talk, and pause.
-- Mate points at the right button in any app, then waits for you to click—or, in a lesson, say yes for one verified left click.
+- Hold **Right Ctrl** for push-to-talk voice with a live transcript in the bubble (or use hands-free mode).
+- Mate points his beam at the right button in any app, and guides you step by step in lessons where you click each target (escalating to Muse Wonder after two misses on Quick).
 - SAM 3.1 outlines targets in apps without an accessibility tree, including Qt apps such as Telegram Desktop and games.
-- A tray icon opens Settings.
+- "Is this safe?" scam check: inspects the active window, delivers a verdict, highlights red flags, and shines a beam on the worst one—never telling anyone to click, call, or pay.
+- Keepsake lesson card: Muse Glimmer writes the steps in simple words (when its GPU answers) and Muse Image paints a soft gouache picture without text, ready to Print.
+- A tray icon opens Settings (optional Google or GitHub sign-in for individual allowances; model selection between Quick and Thorough).
 - Hear helpful sound cues, or use calm mode designed for older users.
 
 ## Why it is different
@@ -41,31 +46,32 @@ Mate is a **teacher, not an autonomous agent**: he guides one step at a time ins
 Voice: hold to talk → Muse Voice Transcribe → Muse Spark → MateScript → MMS-TTS
 Screen: active window → UI Automation (UIA) + computer use → SAM 3.1 fallback
                                                     ↓
-                                   Mate points; you click or say yes in a lesson
+                                   Mate points; you click each step in a lesson
 ```
 
-UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 3.1 outlines targets when accessibility data is missing, including in Qt apps and games. In a lesson, Mate clicks the verified target only after a spoken yes, one left click per yes, and never Pay, Delete, or password actions.
+UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 3.1 outlines targets when accessibility data is missing, including in Qt apps and games. In a lesson, the person clicks each verified target themselves (Mate escalates to Muse Wonder after two misses on Quick); Mate never touches Pay, Delete, or password actions.
 
 ## Safety and privacy
 
 - Mate's windows never take focus away from your app.
 - A screenshot is taken only during a question and includes only the app you are asking about and its popups. Password fields, gaps, and every other app's window are painted black before it leaves your computer; if this cannot be guaranteed, Mate fails closed.
 - Mate never clicks Pay, Delete, or password actions.
-- In a lesson, Mate clicks the verified target only after you say yes, one left click per yes.
+- In a lesson, the person clicks each verified target themselves.
+- "Is this safe?" scam check evaluates only the active window and never tells anyone to click, call, or pay.
 - If Mate cannot find something, he says "I can't find it" rather than pointing at a guess.
 - Provider keys live only on the proxy server, never in the app.
 
 ## Built with Meta
 
-| Meta model | Role in MetaMate |
-|---|---|
-| Muse Spark 1.3 | Spoken answers, pointing, computer use in lessons |
-| Muse Wonder 1.0 | Thorough answers; lessons escalate to it after two misses |
-| Muse Voice Transcribe | Realtime speech |
-| SAM 3.1 | Outlines where the accessibility tree has nothing |
-| Muse Image | The lesson card |
-| Muse Glimmer 30B | Open weights, served on Modal: quick routing |
-| MMS-TTS | Meta open-weight voices, on Modal |
+| Meta model | Role in MetaMate | Measured performance |
+|---|---|---|
+| **Muse Spark 1.3** | Spoken answers, pointing beam, step-by-step lessons, and "Is this safe?" scam check | First token in 1.4–2.6 s at reasoning effort `minimal` (D41, D45) |
+| **Muse Wonder 1.0** | Thorough answers; lessons escalate to Wonder after two misses on Quick | High-reasoning model for complex guidance and fallback escalation |
+| **Muse Voice Transcribe** | Realtime push-to-talk speech recognition (Right Ctrl) | Final transcript 250–360 ms after key-up (socket opens at key-down) (D44, D45) |
+| **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
+| **Muse Glimmer 30B** | Keepsake lesson card text: rewrites lesson steps in simple words (Meta open weights on Modal) | Q4_K_M ~15 tokens/s on an L4 GPU (D53) |
+| **Muse Image** | Keepsake lesson card illustration (soft gouache art with Mate, without text; printable) | Generates custom scene illustration for completed lessons (D55) |
+| **SAM 3.1** | Outlines UI targets where the accessibility tree has nothing (canvas, Qt apps, games) | Target segmentation masks and boundary guidance |
 
 ## MateScript in 10 lines
 

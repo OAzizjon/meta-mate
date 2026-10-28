@@ -1,7 +1,8 @@
 <!doctype html>
 <!-- Lesson card window (WP62): Muse Image recap card for older users.
-     Shows an illustrated card with Mate, the lesson title and numbered steps,
-     with Print and Close buttons. Supports dark mode and reduced motion. -->
+     Shows an illustrated card with Mate, the lesson title, numbered steps and a
+     line crediting the models (WP71), with Print and Close buttons. Supports dark
+     mode and reduced motion. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -220,6 +221,14 @@
         color: var(--text);
       }
 
+      /* No display here: the [hidden] attribute hides the line. */
+      .card-credits {
+        margin: 0;
+        font-size: 16px;
+        line-height: 1.4;
+        color: var(--text-muted);
+      }
+
       .card-actions {
         display: flex;
         align-items: center;
@@ -339,6 +348,11 @@
 
         .card-step-text {
           color: #000000 !important;
+        }
+
+        .card-credits {
+          color: #000000 !important;
+          page-break-inside: avoid;
         }
 
         .card-actions {

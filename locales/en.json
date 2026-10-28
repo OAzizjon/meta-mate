@@ -85,6 +85,8 @@
   "card.placeholder_step_1": "Open Windows Settings",
   "card.placeholder_step_2": "Choose Accessibility and Text size",
   "card.placeholder_step_3": "Move the slider until comfortable",
+  "card.credits_glimmer": "Words by Muse Glimmer (Meta open weights) · Picture by Muse Image",
+  "card.credits_image": "Picture by Muse Image",
   "auth.title": "Account",
   "auth.why": "So {name} can answer you: each account gets its own daily allowance",
   "auth.google": "Sign in with Google",
