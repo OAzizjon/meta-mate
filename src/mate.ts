@@ -8,6 +8,7 @@ import { getLocale, setLocale, t } from "./i18n";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
+import { AnswerGenerations } from "./ipc/answer-generation";
 import type { LocaleKey } from "./i18n";
 import { mountOnboarding, setOnboardingTranslator, stopOnboarding } from "./onboarding";
 import { createTimelinePlayer } from "./player";
@@ -217,7 +218,7 @@ async function createRouter(
   let listening = false;
   let listeningGeneration: number | null = null;
   let showingHeard = false;
-  let generation = -1;
+  const generations = new AnswerGenerations();
   let idle = false;
   const setState = (state: RobotState): void => {
     idle = state === "idle";
@@ -253,7 +254,7 @@ async function createRouter(
       return new Promise<void>((resolve) => setTimeout(resolve, CANT_FIND_BUBBLE_MS));
     },
     onDone(doneGeneration) {
-      if (doneGeneration !== generation) return;
+      if (doneGeneration !== generations.answer) return;
       setState("idle");
       bubble.hideAfter(DONE_BUBBLE_MS);
       // Every sentence before `End` was played out: the worklet reported its end.
@@ -261,9 +262,9 @@ async function createRouter(
     },
   });
   return (msg) => {
-    if (msg.generation < generation) return;
-    if (msg.generation > generation) {
-      generation = msg.generation;
+    const newest = generations.newest;
+    if (!generations.accept(msg)) return;
+    if (generations.newest > newest) {
       idle = false;
       bubble.setModel(null);
     }

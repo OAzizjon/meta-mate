@@ -27,7 +27,7 @@ const FLAG: &str = "--debug-window";
 pub enum DebugAnswerMsg {
     Model {
         generation: u64,
-        model: &'static str,
+        model: Option<&'static str>,
     },
     State {
         generation: u64,
@@ -154,7 +154,7 @@ fn answer_msg(message: &AnswerMsg) -> DebugMsg {
     let msg = match message {
         AnswerMsg::Model { generation, model } => DebugAnswerMsg::Model {
             generation: *generation,
-            model,
+            model: *model,
         },
         AnswerMsg::State { generation, state } => DebugAnswerMsg::State {
             generation: *generation,

@@ -431,7 +431,7 @@ export class DebugStore {
       const inner = msg.msg;
       switch (inner.type) {
         case "model":
-          record.lines.push(inner.model);
+          if (inner.model !== null) record.lines.push(inner.model);
           break;
         case "item":
           record.items.push(inner.item);

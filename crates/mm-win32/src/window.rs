@@ -21,15 +21,21 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::BOOL;
 
 /// Window classes of the desktop and the taskbars: never a target.
-const SHELL_CLASSES: [&str; 4] = [
+const SHELL_CLASSES: [&str; 6] = [
     "Progman",
     "WorkerW",
     "Shell_TrayWnd",
     "Shell_SecondaryTrayWnd",
+    "NotifyIconOverflowWindow",
+    "TopLevelWindowForOverflowXamlIsland",
 ];
 
 /// The class of menu windows (context menus, menu bar drop-downs).
 const MENU_CLASS: &str = "#32768";
+
+fn eligible_class(class: &str) -> bool {
+    !SHELL_CLASSES.contains(&class) && class != MENU_CLASS
+}
 
 /// The user's window, its popups and the region to capture. Debug carries handles and
 /// rectangles only, never a title (convention 3).
@@ -52,10 +58,21 @@ pub struct Target {
 /// (another virtual desktop, a suspended app) or zero-sized window.
 pub fn foreground_target(own: &[HWND]) -> Option<Target> {
     let hwnd = crate::focus::foreground();
+    target_of(hwnd, own)
+}
+
+/// Rebuild a remembered target without activating it; recycled handles fail closed.
+pub fn remembered_target(window: TargetWindow, own: &[HWND]) -> Option<Target> {
+    let target = target_of(HWND(window.handle as usize as *mut std::ffi::c_void), own)?;
+    (target.window == window).then_some(target)
+}
+
+fn target_of(hwnd: HWND, own: &[HWND]) -> Option<Target> {
     if hwnd.is_invalid() || own.contains(&hwnd) {
         return None;
     }
-    if SHELL_CLASSES.contains(&class_name(hwnd)?.as_str()) || !shown(hwnd) {
+    let class = class_name(hwnd)?;
+    if !eligible_class(&class) || !shown(hwnd) {
         return None;
     }
     let mut process_id = 0u32;
@@ -316,6 +333,15 @@ fn class_name(hwnd: HWND) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shell_tray_and_menu_windows_never_replace_the_target() {
+        for class in SHELL_CLASSES.into_iter().chain([MENU_CLASS]) {
+            assert!(!eligible_class(class));
+        }
+        assert!(eligible_class("Chrome_WidgetWin_1"));
+        assert!(eligible_class("Notepad"));
+    }
 
     const MONITOR: PhysRect = PhysRect {
         left: 0,

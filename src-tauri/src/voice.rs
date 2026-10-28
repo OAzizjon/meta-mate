@@ -118,15 +118,19 @@ pub struct VoiceLoop {
 
 enum Input {
     Ptt(PttEvent),
-    Text(String),
+    Text(String, Option<mm_platform::TargetWindow>),
 }
 
-struct TextQuestions(mpsc::UnboundedSender<Input>);
+struct TextQuestions {
+    sender: mpsc::UnboundedSender<Input>,
+    target: Arc<Mutex<Option<mm_platform::TargetWindow>>>,
+}
 
 /// Queues a text question on the voice loop, with the same barge-in as a new press.
 pub(crate) fn ask_text(app: &AppHandle, text: String) {
     if let Some(questions) = app.try_state::<TextQuestions>() {
-        let _ = questions.0.send(Input::Text(text));
+        let target = questions.target.lock().ok().and_then(|target| *target);
+        let _ = questions.sender.send(Input::Text(text, target));
     }
 }
 
@@ -150,7 +154,10 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     // For the outlines SAM 3.1 draws when a point is on nothing UI Automation lists, and
     // for signing in.
     app.manage(proxy.clone());
-    app.manage(TextQuestions(questions));
+    app.manage(TextQuestions {
+        sender: questions,
+        target: Arc::default(),
+    });
     tauri::async_runtime::spawn(run(app.clone(), proxy, receiver, silencer));
     Some(VoiceLoop { _driver: driver })
 }
@@ -191,6 +198,7 @@ pub fn ask(app: &AppHandle, question: String) {
             ack_at,
             transcript,
             Arc::default(),
+            None,
         )
         .await;
         let sent = asked.elapsed();
@@ -294,16 +302,35 @@ async fn run(
     // include tray questions and must never collide with a later press.
     let mut next_generation = 0u64;
     let mut recording = None;
-    while let Some(event) = events.recv().await {
+    let mut sampling = tokio::time::interval(Duration::from_millis(100));
+    loop {
+        let event = tokio::select! {
+            event = events.recv() => {
+                let Some(event) = event else { break };
+                event
+            }
+            _ = sampling.tick() => {
+                let own = own_windows(&app)
+                    .into_iter()
+                    .map(|handle| mm_win32::HWND(handle as *mut std::ffi::c_void))
+                    .collect::<Vec<_>>();
+                if let Some(target) = mm_win32::window::foreground_target(&own)
+                    && let Ok(mut last) = app.state::<TextQuestions>().target.lock()
+                {
+                    *last = Some(target.window);
+                }
+                continue;
+            }
+        };
         let (event, text) = match event {
-            Input::Text(text) => {
+            Input::Text(text, target) => {
                 next_generation += 1;
                 recording = None;
                 (
                     PttEvent::Start {
                         generation: next_generation,
                     },
-                    Some(text),
+                    Some((text, target)),
                 )
             }
             Input::Ptt(PttEvent::Start { generation }) => {
@@ -358,11 +385,8 @@ async fn run(
                 } else {
                     stop_pointing(&app);
                 }
-                if let Some(text) = text {
+                if let Some((text, target)) = text {
                     let transcript = tokio::spawn(async move {
-                        // The tray has closed; let Windows restore the person's foreground
-                        // window before the shared answer path takes its redacted look.
-                        tokio::time::sleep(Duration::from_millis(300)).await;
                         Ok(Transcript {
                             text,
                             ended_at: None,
@@ -386,6 +410,7 @@ async fn run(
                             tokio::time::Instant::now() + ACK_AFTER,
                             transcript,
                             Arc::clone(&lessons),
+                            Some(target),
                         ))),
                     });
                     continue;
@@ -487,6 +512,7 @@ async fn run(
                         ack_at,
                         transcript,
                         Arc::clone(&lessons),
+                        None,
                     )));
                 }
             }
@@ -506,6 +532,10 @@ async fn run(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the answer path's own state, handed over once"
+)]
 async fn answer(
     app: AppHandle,
     proxy: Proxy,
@@ -514,6 +544,7 @@ async fn answer(
     ack_at: tokio::time::Instant,
     transcript: JoinHandle<Result<Transcript, ProxyError>>,
     lessons: Lessons,
+    tray_target: Option<Option<mm_platform::TargetWindow>>,
 ) {
     let stream = app.state::<AnswerStream>();
     let question = match transcript.await {
@@ -560,6 +591,15 @@ async fn answer(
         return;
     }
     let locale = stream.locale();
+    if tray_target == Some(None) {
+        say_line(&stream, &phrases, &locale, generation, "robot.cant_look");
+        stream.send(AnswerMsg::State {
+            generation,
+            state: "idle",
+        });
+        return;
+    }
+    let target = tray_target.flatten();
     // D47: the offline guess routes at once (a classifier call would cost ~2 s); a question
     // about the screen gets one redacted look at the foreground window first.
     // Development builds: timings against key-up for the debug window.
@@ -593,6 +633,7 @@ async fn answer(
             own,
             received,
             Arc::clone(&speech_epoch),
+            target,
         ));
         let lesson = Lesson {
             generation,
@@ -626,7 +667,7 @@ async fn answer(
                 generation,
                 state: "looking",
             });
-            let look = crate::screen::take_look(&own, &wanted);
+            let look = crate::screen::take_look_at(&own, &wanted, target);
             looker.state::<AnswerStream>().send(AnswerMsg::State {
                 generation,
                 state: "thinking",
@@ -789,10 +830,11 @@ async fn answer(
         let result = proxy
             .respond(CallKind::Answer, &body, |delta| emit(parser.push(delta)))
             .await;
-        if let Ok(answer) = &result
-            && let Some(model) = model_chip(answer.model.as_deref())
-        {
-            stream.send(AnswerMsg::Model { generation, model });
+        if let Ok(answer) = &result {
+            stream.send(AnswerMsg::Model {
+                generation,
+                model: model_chip(answer.model.as_deref()),
+            });
         }
         emit(parser.finish());
         // The parser never invents `<end>` at EOF, and the model often omits it: the

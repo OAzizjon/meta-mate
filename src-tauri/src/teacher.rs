@@ -34,7 +34,7 @@ use tokio::sync::{mpsc, oneshot};
 use crate::answer_stream::{AnswerMsg, AnswerStream, model_chip};
 use crate::pointing::{Pointing, show_target, stop_pointing};
 use crate::proxy::{CallKind, Proxy};
-use crate::screen::{Look, LookFailure, take_look};
+use crate::screen::{Look, LookFailure};
 use crate::voice::{Phrases, say_line, voice_of};
 
 /// How often the teacher's clock ticks (settle time, timeouts).
@@ -257,7 +257,12 @@ fn listen_for_keys(started: Instant, inputs: mpsc::UnboundedSender<TeacherInput>
 }
 
 /// Takes a look on a blocking thread (the same rules as a "where" question).
-async fn look(app: &AppHandle, generation: u64, own: Vec<isize>) -> Result<Look, LookFailure> {
+async fn look(
+    app: &AppHandle,
+    generation: u64,
+    own: Vec<isize>,
+    target: Option<mm_platform::TargetWindow>,
+) -> Result<Look, LookFailure> {
     let looker = app.clone();
     tokio::task::spawn_blocking(move || {
         // Mate may still be flying: the copy waits until he is still.
@@ -270,7 +275,7 @@ async fn look(app: &AppHandle, generation: u64, own: Vec<isize>) -> Result<Look,
             generation,
             state: "looking",
         });
-        let look = take_look(&own, &wanted);
+        let look = crate::screen::take_look_at(&own, &wanted, target);
         looker.state::<AnswerStream>().send(AnswerMsg::State {
             generation,
             state: "thinking",
@@ -298,12 +303,13 @@ pub(crate) async fn teach(
     own: Vec<isize>,
     mut words: mpsc::UnboundedReceiver<Words>,
     speech_epoch: Arc<AtomicU64>,
+    target: Option<mm_platform::TargetWindow>,
 ) {
     let model = ModelChoice::from(crate::settings::model(&app));
     let stream = app.state::<AnswerStream>();
     let started = Instant::now();
     let now = || u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-    let mut current = match look(&app, generation, own.clone()).await {
+    let mut current = match look(&app, generation, own.clone(), target).await {
         Ok(look) => Arc::new(look),
         Err(failure) => {
             if stream.is_cancelled(generation) {
@@ -367,9 +373,10 @@ pub(crate) async fn teach(
                 Ok(answer) => {
                     let served = model_chip(answer.model.as_deref());
                     if served != shown_model {
-                        if let Some(model) = served {
-                            stream.send(AnswerMsg::Model { generation, model });
-                        }
+                        stream.send(AnswerMsg::Model {
+                            generation,
+                            model: served,
+                        });
                         shown_model = served;
                     }
                     if fell_back(session.model, answer.model.as_deref()) {
@@ -602,7 +609,7 @@ pub(crate) async fn teach(
                             finish(&app, &stream, generation);
                             return;
                         };
-                        match look(&app, generation, own.clone()).await {
+                        match look(&app, generation, own.clone(), None).await {
                             Ok(next) => current = Arc::new(next),
                             Err(failure) => {
                                 if cancelled() {

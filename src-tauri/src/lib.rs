@@ -206,7 +206,10 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         app,
         locale_text(&locale, "tray.try_title"),
         true,
-        &[&try_items[0], &try_items[1], &try_items[2]],
+        &try_items
+            .iter()
+            .map(|item| item as &dyn tauri::menu::IsMenuItem<_>)
+            .collect::<Vec<_>>(),
     )?;
     let menu = Menu::with_items(app, &[&try_menu, &settings_item, &quit_item])?;
     let mut builder = TrayIconBuilder::new()
@@ -227,8 +230,7 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             #[cfg(windows)]
             key if TRY_QUESTIONS.contains(&key) => {
                 let text = locale_text(&app.state::<answer_stream::AnswerStream>().locale(), key);
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move { voice::ask_text(&app, text) });
+                voice::ask_text(app, text);
             }
             _ => {}
         });

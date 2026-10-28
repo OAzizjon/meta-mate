@@ -48,7 +48,7 @@ export type AnswerLineKey = (typeof ANSWER_LINE_KEYS)[number];
 
 /** `AnswerMsg`, with the timeline item already validated. */
 export type AnswerMsg =
-  | { readonly type: "model"; readonly generation: number; readonly model: AnswerModel }
+  | { readonly type: "model"; readonly generation: number; readonly model: AnswerModel | null }
   | { readonly type: "state"; readonly generation: number; readonly state: AnswerState }
   | { readonly type: "level"; readonly generation: number; readonly level: number }
   | { readonly type: "heard"; readonly generation: number; readonly text: string }
@@ -109,8 +109,8 @@ function parseMsg(raw: unknown): AnswerMsg | null {
   switch (type) {
     case "model": {
       const { model } = msg;
-      return typeof model === "string" && (ANSWER_MODELS as readonly string[]).includes(model)
-        ? { type, generation, model: model as AnswerModel }
+      return model === null || (typeof model === "string" && (ANSWER_MODELS as readonly string[]).includes(model))
+        ? { type, generation, model: model as AnswerModel | null }
         : null;
     }
     case "state": {

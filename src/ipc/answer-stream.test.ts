@@ -38,6 +38,7 @@ test("every message type parses into a fresh copy", () => {
     LEVEL,
     HEARD,
     ...ANSWER_MODELS.map((model) => ({ type: "model", generation: 1, model })),
+    { type: "model", generation: 1, model: null },
     { type: "level", generation: 0, level: 0 },
     { type: "level", generation: 2, level: 1 },
     ITEM,
@@ -69,6 +70,7 @@ test("Rust's JSON parses and serializes back unchanged", () => {
     // TTS failed: an empty chunk still ends the sentence.
     '{"type":"pcm","generation":4,"sentence":3,"sampleRate":16000,"eos":true,"samplesB64":""}',
     '{"type":"cancel","generation":4}',
+    '{"type":"model","generation":4,"model":null}',
     '{"type":"line","generation":5,"key":"robot.network_error"}',
   ]) {
     const msg = parseAnswerMsg(JSON.parse(line));
@@ -200,7 +202,7 @@ const MALFORMED: unknown[] = [
   { type: "model", generation: 1 },
   { type: "model", generation: 1, model: "muse-spark-1.3", extra: true },
   ...NOT_IDS.map((generation) => ({ type: "model", generation, model: "muse-spark-1.3" })),
-  ...[null, 1, {}, "", "Muse Spark 1.3", "muse-spark-preview", "sam-3.1 "].map(
+  ...[undefined, 1, {}, "", "Muse Spark 1.3", "muse-spark-preview", "sam-3.1 "].map(
     (model) => ({ type: "model", generation: 1, model }),
   ),
   ...NOT_IDS.map((generation) => ({ ...CANCEL, generation })),

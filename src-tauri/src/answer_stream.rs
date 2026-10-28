@@ -52,7 +52,7 @@ pub enum AnswerMsg {
     /// A closed display id, never the proxy's raw model header.
     Model {
         generation: u64,
-        model: &'static str,
+        model: Option<&'static str>,
     },
     /// The microphone's RMS level (0..=1) while listening, ~12 Hz: Mate's ears move.
     Level {
@@ -103,12 +103,26 @@ mod model_tests {
     fn model_message_uses_the_answer_wire_format() {
         let message = AnswerMsg::Model {
             generation: 7,
-            model: "muse-spark-1.3",
+            model: Some("muse-spark-1.3"),
         };
         assert_eq!(
             serde_json::to_value(message).unwrap(),
             serde_json::json!({"type": "model", "generation": 7, "model": "muse-spark-1.3"})
         );
+    }
+
+    #[test]
+    fn unknown_or_missing_model_clears_the_chip() {
+        for served in [None, Some("unknown-model")] {
+            let message = AnswerMsg::Model {
+                generation: 7,
+                model: model_chip(served),
+            };
+            assert_eq!(
+                serde_json::to_value(message).unwrap(),
+                serde_json::json!({"type": "model", "generation": 7, "model": null})
+            );
+        }
     }
 
     #[test]

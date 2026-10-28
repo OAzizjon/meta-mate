@@ -30,7 +30,7 @@ pub struct Look {
     pub redacted: Redacted,
     pub list: ElementList,
     /// The target window's own frame when it was captured: pointing later checks the
-    /// window is still there, unmoved (`take_look` sets it; `prepare` uses the region).
+    /// window is still there, unmoved (`take_look_at` sets it; `prepare` uses the region).
     pub window_frame: PhysRect,
     /// What was painted over besides password fields: the parts of the region that are
     /// not the target app (gaps beside its popups, other apps' windows above it). Nothing
@@ -326,7 +326,14 @@ impl Drop for Hidden<'_> {
 /// target, and hidden while the screen is copied. `wanted` is asked just before our
 /// windows hide: a cancelled question never touches the screen. The window is checked
 /// again after the copy; if it changed, the look is taken once more, then refused.
-pub fn take_look(own: &[isize], wanted: &dyn Fn() -> bool) -> Result<Look, LookFailure> {
+///
+/// A tray question passes the last eligible window as `target` instead of following
+/// tray focus; None looks at the foreground window.
+pub fn take_look_at(
+    own: &[isize],
+    wanted: &dyn Fn() -> bool,
+    target: Option<mm_platform::TargetWindow>,
+) -> Result<Look, LookFailure> {
     use mm_win32::HWND;
 
     if own.len() < 2 || own.contains(&0) {
@@ -339,19 +346,27 @@ pub fn take_look(own: &[isize], wanted: &dyn Fn() -> bool) -> Result<Look, LookF
     let _one = LOOKING
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    match look_once(&own, wanted) {
-        Err(LookFailure::Changed) => look_once(&own, wanted),
+    match look_once(&own, wanted, target) {
+        Err(LookFailure::Changed) => look_once(&own, wanted, target),
         result => result,
     }
 }
 
-fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, LookFailure> {
+fn look_once(
+    own: &[mm_win32::HWND],
+    wanted: &dyn Fn() -> bool,
+    remembered: Option<mm_platform::TargetWindow>,
+) -> Result<Look, LookFailure> {
     use mm_platform::same_hidden;
     use mm_win32::{capture, overlay, uia, window};
 
     #[cfg(debug_assertions)]
     let started = std::time::Instant::now();
-    let target = window::foreground_target(own).ok_or(LookFailure::NoWindow)?;
+    let target_now = || match remembered {
+        Some(target) => window::remembered_target(target, own),
+        None => window::foreground_target(own),
+    };
+    let target = target_now().ok_or(LookFailure::NoWindow)?;
     let walker = uia::UiaWalker::new().map_err(|_| LookFailure::Uia)?;
     let mut snapshot = walker
         .snapshot_with_popups(
@@ -389,7 +404,7 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
     #[cfg(debug_assertions)]
     let copied_at = started.elapsed();
     // The masks come from the walk: the window must be exactly where it was then.
-    let after = window::foreground_target(own).ok_or(LookFailure::Changed)?;
+    let after = target_now().ok_or(LookFailure::Changed)?;
     if after.hwnd != target.hwnd
         || after.frame != target.frame
         || after.popups != target.popups

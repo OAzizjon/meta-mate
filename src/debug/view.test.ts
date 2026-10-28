@@ -205,12 +205,18 @@ test("parseDebugAnswerMsg accepts the closed model ids and nothing else", () => 
     assert.notEqual(parsed, raw);
   }
 
+  // null clears the chip: a turn served by a model outside the closed set.
+  assert.deepEqual(parseDebugAnswerMsg({ type: "model", generation: 1, model: null }), {
+    type: "model",
+    generation: 1,
+    model: null,
+  });
+
   const malformed: unknown[] = [
     // Raw proxy headers never reach the window: only the closed display ids do.
     { type: "model", generation: 1, model: "muse-spark-preview" },
     { type: "model", generation: 1, model: "Muse Spark 1.3" },
     { type: "model", generation: 1, model: "" },
-    { type: "model", generation: 1, model: null },
     { type: "model", generation: 1, model: 13 },
     { type: "model", generation: 1 },
     { type: "model", model: "muse-spark-1.3" },
