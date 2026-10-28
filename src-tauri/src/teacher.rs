@@ -755,8 +755,9 @@ fn input_staleness(
             now_ms, foreground, ..
         } => {
             // The app's own dialogs and popups have their own handles: the same process
-            // in front is the app in front.
-            let in_front = foreground.is_some_and(|front| front.process_id == target.process_id);
+            // in front is the app in front. A window the hook could not name (a focus
+            // change in flight) is no reason to doubt the key or to say "click the app".
+            let in_front = foreground.is_none_or(|front| front.process_id == target.process_id);
             (
                 *now_ms < pointed_ms || !in_front,
                 *now_ms >= pointed_ms && !in_front,
