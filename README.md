@@ -59,12 +59,13 @@ UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 
 
 | Meta model | Role in MetaMate |
 |---|---|
-| Muse Voice Transcribe | Real-time speech recognition |
-| Muse Spark 1.3 | Understands requests and guides tasks |
-| Muse Wonder 1.0 | Optional: choose it in settings for harder tasks; Spark stays the default |
-| SAM 3.1 | Refines visual targets when UIA is unavailable |
-| Muse Image | Develops concepts for Mate's character |
-| MMS-TTS | Gives Mate a voice; Meta open weights, served via Modal |
+| Muse Spark 1.3 | Spoken answers, pointing, computer use in lessons |
+| Muse Wonder 1.0 | Thorough answers; lessons escalate to it after two misses |
+| Muse Voice Transcribe | Realtime speech |
+| SAM 3.1 | Outlines where the accessibility tree has nothing |
+| Muse Image | The lesson card |
+| Muse Glimmer 30B | Open weights, served on Modal: quick routing |
+| MMS-TTS | Meta open-weight voices, on Modal |
 
 ## MateScript in 10 lines
 

@@ -29,11 +29,13 @@ const ITEM = { type: "item", generation: 1, item: { kind: "end" } };
 const PCM = { type: "pcm", generation: 2, sentence: 1, sampleRate: 16000, eos: true, samplesB64: "AAD/fw==" };
 const CANCEL = { type: "cancel", generation: 1 };
 const LINE = { type: "line", generation: 1, key: "robot.cant_find" };
+const HEARD = { type: "heard", generation: 1, text: "Open my calendar" };
 
 test("every message type parses into a fresh copy", () => {
   for (const raw of [
     ...ANSWER_STATES.map((state) => ({ type: "state", generation: 0, state })),
     LEVEL,
+    HEARD,
     { type: "level", generation: 0, level: 0 },
     { type: "level", generation: 2, level: 1 },
     ITEM,
@@ -58,6 +60,7 @@ test("Rust's JSON parses and serializes back unchanged", () => {
     '{"type":"level","generation":4,"level":0}',
     '{"type":"level","generation":4,"level":0.375}',
     '{"type":"level","generation":4,"level":1}',
+    '{"type":"heard","generation":4,"text":"Open my calendar"}',
     '{"type":"item","generation":4,"item":{"kind":"lang","value":"ru"}}',
     '{"type":"item","generation":4,"item":{"kind":"point_rejected"}}',
     '{"type":"pcm","generation":4,"sentence":2,"sampleRate":22050,"eos":true,"samplesB64":"AID//w=="}',
@@ -70,6 +73,30 @@ test("Rust's JSON parses and serializes back unchanged", () => {
     assert.ok(msg, `rejected: ${line}`);
     assert.equal(JSON.stringify(msg), line);
   }
+});
+
+test("heard accepts at most 200 Unicode characters and copies text once", () => {
+  for (const text of ["", "hello", "a".repeat(200), "\u{1f4a1}".repeat(200)]) {
+    const raw = { ...HEARD, text };
+    assert.deepEqual(parseAnswerMsg(raw), raw);
+  }
+  for (const text of [null, undefined, 1, {}, [], "a".repeat(201), "\u{1f4a1}".repeat(201)]) {
+    assert.equal(parseAnswerMsg({ ...HEARD, text }), null);
+  }
+  assert.equal(parseAnswerMsg({ type: "heard", generation: 1 }), null);
+  assert.equal(parseAnswerMsg({ ...HEARD, extra: true }), null);
+  assert.equal(parseAnswerMsg({ ...HEARD, generation: -1 }), null);
+  let reads = 0;
+  const msg = parseAnswerMsg({
+    ...HEARD,
+    get text() {
+      reads += 1;
+      return reads === 1 ? "hello" : null;
+    },
+  });
+  assert.deepEqual(msg, { ...HEARD, text: "hello" });
+  assert.equal(reads, 1);
+  assert.equal(Object.getOwnPropertyDescriptor(msg, "text")?.value, "hello");
 });
 
 test("PCM decodes little-endian", () => {
@@ -200,6 +227,7 @@ test("hostile objects are rejected without throwing", () => {
     { get type() { return boom(); }, generation: 1 },
     { type: "cancel", get generation() { return boom(); } },
     { ...LEVEL, get level() { return boom(); } },
+    { ...HEARD, get text() { return boom(); } },
     { ...PCM, get samplesB64() { return boom(); } },
     { ...ITEM, item: new Proxy({ kind: "end" }, { ownKeys: boom }) },
     { ...STATE, state: { toString: boom } },
@@ -259,14 +287,16 @@ test("the subscription routes parsed messages and drops the rest without their t
   fake.send({ type: "line", generation: 1, key: "Private words" });
   fake.send({ type: "Private words" });
   fake.send(STATE);
-  assert.deepEqual(received, [CANCEL, STATE]);
-  assert.equal(warn.mock.callCount(), 2);
+  fake.send(HEARD);
+  fake.send({ ...HEARD, text: "Private words".repeat(30) });
+  assert.deepEqual(received, [CANCEL, STATE, HEARD]);
+  assert.equal(warn.mock.callCount(), 3);
   for (const call of warn.mock.calls) {
     assert.ok(!inspect(call.arguments).includes("Private"));
   }
   unsubscribe();
   fake.send(CANCEL);
-  assert.equal(received.length, 2);
+  assert.equal(received.length, 3);
 });
 
 test("messages that arrive while subscribing are delivered", async () => {

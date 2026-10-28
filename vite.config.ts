@@ -19,6 +19,7 @@ export default defineConfig({
         s3: "s3.html",
         debug: "debug.html",
         settings: "settings.html",
+        card: "card.html",
       },
     },
   },

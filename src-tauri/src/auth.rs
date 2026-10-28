@@ -2,12 +2,12 @@
 //! holds the client secrets, and the app only ever sees a one-time login code on its own
 //! loopback port, which it trades with its PKCE verifier for a session token. The token
 //! replaces the built-in invite for every call (`Proxy::set_session`) and is kept in the
-//! app's config folder until the person signs out.
+//! app's config folder, sealed for this Windows user (DPAPI), until the person signs out.
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use base64::Engine;
@@ -18,9 +18,14 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::proxy::Proxy;
 
-const FILE_NAME: &str = "session.json";
+const FILE_NAME: &str = "session.bin";
+/// Builds before DPAPI kept the token readable here: removed when found.
+const PLAIN_FILE_NAME: &str = "session.json";
 /// How long the browser has to come back: signing in may need a password and a code.
 const BROWSER_WAIT: Duration = Duration::from_secs(300);
+/// One connection to the loopback port: its request line within this time and size.
+const REQUEST_WAIT: Duration = Duration::from_secs(5);
+const REQUEST_MAX_BYTES: usize = 8192;
 const CHANGED_EVENT: &str = "auth-changed";
 const PROVIDERS: [&str; 2] = ["google", "github"];
 
@@ -51,11 +56,22 @@ impl std::fmt::Debug for Session {
     }
 }
 
-/// The signed-in session in memory, and whether a sign-in is under way.
+/// The signed-in session in memory, whether a sign-in is under way, and how many times the
+/// person signed out: a sign-in that started before a sign-out never lands after it.
 #[derive(Default)]
 pub struct Auth {
     session: Mutex<Option<Session>>,
     busy: AtomicBool,
+    sign_outs: AtomicU64,
+}
+
+/// Clears `busy` however the sign-in ends.
+struct Busy<'a>(&'a AtomicBool);
+
+impl Drop for Busy<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
 }
 
 impl Auth {
@@ -98,16 +114,24 @@ pub async fn sign_in(app: AppHandle, provider: String) -> Result<AuthStatus, Str
     if auth.busy.swap(true, Ordering::AcqRel) {
         return Err("auth.busy".into());
     }
+    let _busy = Busy(&auth.busy);
+    let sign_outs = auth.sign_outs.load(Ordering::Acquire);
     let proxy = proxy.inner().clone();
-    let result = sign_in_with(&app, &proxy, &provider).await;
-    auth.busy.store(false, Ordering::Release);
-    let session = result?;
-    proxy.set_session(Some(session.token.clone()));
-    if let Err(error) = save(&app, &session) {
-        // Signed in for this run all the same; the next start asks again.
-        eprintln!("auth: could not keep the session: {error}");
-    }
-    if let Ok(mut current) = auth.session.lock() {
+    let session = sign_in_with(&app, &proxy, &provider).await?;
+    {
+        // Under the session lock, which `sign_out` holds while it counts: either the
+        // sign-out comes after this and undoes it, or it came before and this is dropped.
+        let Ok(mut current) = auth.session.lock() else {
+            return Err("auth.failed".into());
+        };
+        if auth.sign_outs.load(Ordering::Acquire) != sign_outs {
+            return Err("auth.cancelled".into());
+        }
+        proxy.set_session(Some(session.token.clone()));
+        if let Err(error) = save(&app, &session) {
+            // Signed in for this run all the same; the next start asks again.
+            eprintln!("auth: could not keep the session: {error}");
+        }
         *current = Some(session);
     }
     let status = auth.status();
@@ -117,14 +141,21 @@ pub async fn sign_in(app: AppHandle, provider: String) -> Result<AuthStatus, Str
 
 #[tauri::command]
 pub fn sign_out(app: AppHandle, auth: State<'_, Auth>) {
-    if let Ok(mut current) = auth.session.lock() {
+    {
+        let mut current = auth
+            .session
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        auth.sign_outs.fetch_add(1, Ordering::AcqRel);
         *current = None;
-    }
-    if let Some(proxy) = app.try_state::<Proxy>() {
-        proxy.set_session(None);
-    }
-    if let Some(path) = file(&app) {
-        let _ = std::fs::remove_file(path);
+        if let Some(proxy) = app.try_state::<Proxy>() {
+            proxy.set_session(None);
+        }
+        for name in [FILE_NAME, PLAIN_FILE_NAME] {
+            if let Some(path) = file(&app, name) {
+                let _ = std::fs::remove_file(path);
+            }
+        }
     }
     let _ = app.emit(CHANGED_EVENT, auth.status());
 }
@@ -177,8 +208,10 @@ struct Pages {
     failed: String,
 }
 
-/// Waits for the browser's one request to `/callback?code=..&state=..` and answers it.
-/// `auth.cancelled` when nobody comes back in time; a wrong state is `auth.failed`.
+/// Waits for the browser's request to `/callback?code=..&state=..` and answers it.
+/// `auth.cancelled` when nobody comes back in time. A callback with another state or no
+/// code gets the "failed" page and the wait goes on: another program on this computer that
+/// finds the port cannot end the person's sign-in.
 fn wait_for_code(listener: &TcpListener, expected: &str, pages: &Pages) -> Result<String, String> {
     listener.set_nonblocking(true).map_err(|_| "auth.failed")?;
     let started = Instant::now();
@@ -195,10 +228,9 @@ fn wait_for_code(listener: &TcpListener, expected: &str, pages: &Pages) -> Resul
             Err(_) => return Err("auth.failed".into()),
         };
         let _ = stream.set_nonblocking(false);
-        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-        let mut buffer = [0u8; 8192];
-        let read = stream.read(&mut buffer).unwrap_or(0);
-        let request = String::from_utf8_lossy(&buffer[..read]);
+        let _ = stream.set_read_timeout(Some(REQUEST_WAIT));
+        let _ = stream.set_write_timeout(Some(REQUEST_WAIT));
+        let request = request_line(&mut stream, Instant::now() + REQUEST_WAIT);
         let Some(found) = callback_params(&request) else {
             // Something else (a favicon): not ours, keep waiting.
             let _ = stream.write_all(
@@ -209,12 +241,28 @@ fn wait_for_code(listener: &TcpListener, expected: &str, pages: &Pages) -> Resul
         let ok = found.1 == expected && !found.0.is_empty();
         let page = page(if ok { &pages.done } else { &pages.failed });
         let _ = stream.write_all(page.as_bytes());
-        return if ok {
-            Ok(found.0)
-        } else {
-            Err("auth.failed".into())
-        };
+        if ok {
+            return Ok(found.0);
+        }
     }
+}
+
+/// The request's first line (through CRLF), read in as many pieces as TCP delivers it, at
+/// most `REQUEST_MAX_BYTES` and until `deadline`; whatever arrived when it stops.
+fn request_line(stream: &mut impl Read, deadline: Instant) -> String {
+    let mut received = Vec::new();
+    let mut chunk = [0u8; 1024];
+    while received.len() < REQUEST_MAX_BYTES && Instant::now() < deadline {
+        match stream.read(&mut chunk) {
+            Ok(0) | Err(_) => break,
+            Ok(read) => received.extend_from_slice(&chunk[..read]),
+        }
+        if received.windows(2).any(|pair| pair == b"\r\n") {
+            break;
+        }
+    }
+    received.truncate(REQUEST_MAX_BYTES);
+    String::from_utf8_lossy(&received).into_owned()
 }
 
 /// `(code, state)` from a request line `GET /callback?code=..&state=.. HTTP/1.1`.
@@ -265,28 +313,32 @@ fn locale(app: &AppHandle) -> String {
         .unwrap_or_else(|| "en".into())
 }
 
-fn file(app: &AppHandle) -> Option<std::path::PathBuf> {
-    app.path()
-        .app_config_dir()
-        .ok()
-        .map(|dir| dir.join(FILE_NAME))
+fn file(app: &AppHandle, name: &str) -> Option<std::path::PathBuf> {
+    app.path().app_config_dir().ok().map(|dir| dir.join(name))
 }
 
 fn load(app: &AppHandle) -> Option<Session> {
-    let text = std::fs::read_to_string(file(app)?).ok()?;
-    let session: Session = serde_json::from_str(text.trim_start_matches('\u{feff}')).ok()?;
+    if let Some(plain) = file(app, PLAIN_FILE_NAME) {
+        // A readable token from an older build: signing in again is the safe way back.
+        let _ = std::fs::remove_file(plain);
+    }
+    let sealed = std::fs::read(file(app, FILE_NAME)?).ok()?;
+    let session: Session = serde_json::from_slice(&mm_win32::dpapi::unprotect(&sealed)?).ok()?;
     session.token.starts_with("mms1.").then_some(session)
 }
 
-/// Written next to settings.json, through a temporary file renamed over the old one.
+/// Sealed for this Windows user and written next to settings.json, through a temporary file
+/// renamed over the old one.
 fn save(app: &AppHandle, session: &Session) -> std::io::Result<()> {
-    let path = file(app).ok_or_else(|| std::io::Error::other("no config folder"))?;
+    let path = file(app, FILE_NAME).ok_or_else(|| std::io::Error::other("no config folder"))?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    let temporary = path.with_extension("json.tmp");
     let text = serde_json::to_vec(session).map_err(std::io::Error::other)?;
-    std::fs::write(&temporary, text)?;
+    let sealed =
+        mm_win32::dpapi::protect(&text).ok_or_else(|| std::io::Error::other("DPAPI refused"))?;
+    let temporary = path.with_extension("bin.tmp");
+    std::fs::write(&temporary, sealed)?;
     std::fs::rename(&temporary, &path)
 }
 
@@ -313,6 +365,70 @@ mod tests {
         ] {
             assert_eq!(callback_params(request), None, "{request}");
         }
+    }
+
+    /// Hands out its bytes a few at a time, like TCP may.
+    struct Pieces(Vec<u8>, usize);
+
+    impl Read for Pieces {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            let end = (self.1 + 7).min(self.0.len()).min(self.1 + buffer.len());
+            let piece = &self.0[self.1..end];
+            buffer[..piece.len()].copy_from_slice(piece);
+            self.1 = end;
+            Ok(piece.len())
+        }
+    }
+
+    #[test]
+    fn a_request_line_split_by_tcp_is_read_whole() {
+        let request = b"GET /callback?code=abc&state=xyz-long-state HTTP/1.1\r\nHost: x\r\n\r\n";
+        let line = request_line(
+            &mut Pieces(request.to_vec(), 0),
+            Instant::now() + Duration::from_secs(5),
+        );
+        assert_eq!(
+            callback_params(&line),
+            Some(("abc".into(), "xyz-long-state".into()))
+        );
+        let endless = vec![b'a'; REQUEST_MAX_BYTES * 2];
+        let line = request_line(
+            &mut Pieces(endless, 0),
+            Instant::now() + Duration::from_secs(5),
+        );
+        assert_eq!(line.len(), REQUEST_MAX_BYTES);
+    }
+
+    #[test]
+    fn a_wrong_callback_does_not_end_the_wait() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let browser = std::thread::spawn(move || {
+            let mut pages = Vec::new();
+            for target in [
+                "/callback?code=planted&state=wrong-state",
+                "/callback?code=&state=right-state",
+                "/callback?code=real&state=right-state",
+            ] {
+                let mut stream = std::net::TcpStream::connect(("127.0.0.1", port)).unwrap();
+                write!(stream, "GET {target} HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n").unwrap();
+                let mut page = String::new();
+                let _ = stream.read_to_string(&mut page);
+                pages.push(page);
+            }
+            pages
+        });
+        let pages = Pages {
+            done: "done".into(),
+            failed: "failed".into(),
+        };
+        assert_eq!(
+            wait_for_code(&listener, "right-state", &pages),
+            Ok("real".into())
+        );
+        let seen = browser.join().unwrap();
+        assert!(seen[0].ends_with("failed</p>") && seen[1].ends_with("failed</p>"));
+        assert!(seen[2].ends_with("done</p>"));
     }
 
     #[test]

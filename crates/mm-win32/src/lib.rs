@@ -7,6 +7,7 @@
 #![cfg(windows)]
 
 pub mod capture;
+pub mod dpapi;
 pub mod dpi;
 pub mod focus;
 pub mod input;

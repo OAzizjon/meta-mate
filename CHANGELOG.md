@@ -10,6 +10,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- Mate shows the words he hears while you speak; "Is this safe?" asks Mate to check the window for scams; a successful lesson leaves a keepsake card drawn by Muse Image in `Pictures\MetaMate`.
+- App sign-in through the browser with a loopback callback and a saved session; proxy `/v1/image` (Muse Image) and `/v1/glimmer` endpoints; provider-side PKCE; sign-in floods are refused instead of evicting live sign-ins.
+- Proxy sign-in with Google and GitHub using PKCE between the app and proxy, HMAC session tokens, and judge tiers by e-mail; Muse Glimmer 30B (Meta open weights) served by llama.cpp on a Modal L4 GPU; MMS-TTS deployed on Modal; hackathon rules read (D52).
 - Rust workspace in `Cargo.toml` with `crates/mm-core` for pure core names and coordinate types, and `crates/mm-platform` for OS service traits.
 - `mm_core::geom` physical, screenshot, and CSS pixel types, per-frame `FrameTransform`, per-monitor `MonitorTransform`, tests, and a compile-fail doctest.
 - English and Russian locale files in `locales/en.json` and `locales/ru.json`, based on `docs/copy.md`, with a model-choice setting, plus `tools/tests/test_locales.py`.

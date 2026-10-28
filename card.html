@@ -1,0 +1,354 @@
+<!doctype html>
+<!-- Lesson card window (WP62): Muse Image recap card for older users.
+     Shows an illustrated card with Mate, the lesson title and numbered steps,
+     with Print and Close buttons. Supports dark mode and reduced motion. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title></title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fffdf7;
+        --panel-bg: #ffffff;
+        --panel-border: #d0d8e5;
+        --text: #1f2a44;
+        --text-muted: #475569;
+        --accent: #1d4ed8;
+        --accent-soft: #eff6ff;
+        --accent-hover: #1e40af;
+        --accent-contrast: #ffffff;
+        --badge-bg: #fef3c7;
+        --badge-text: #92400e;
+        --step-bg: #f8fafc;
+        --step-border: #e2e8f0;
+        --step-num-bg: #1d4ed8;
+        --step-num-text: #ffffff;
+        --btn-secondary-bg: #f1f5f9;
+        --btn-secondary-border: #cbd5e1;
+        --btn-secondary-text: #1f2a44;
+        --btn-secondary-hover: #e2e8f0;
+        --shadow: 0 4px 20px rgba(31, 42, 68, 0.09);
+        --radius: 16px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #131722;
+          --panel-bg: #1c2230;
+          --panel-border: #2e384d;
+          --text: #f1f5f9;
+          --text-muted: #cbd5e1;
+          --accent: #ffd23f;
+          --accent-soft: #252f42;
+          --accent-hover: #facc15;
+          --accent-contrast: #131722;
+          --badge-bg: #422006;
+          --badge-text: #fef08a;
+          --step-bg: #22293a;
+          --step-border: #2e384d;
+          --step-num-bg: #ffd23f;
+          --step-num-text: #131722;
+          --btn-secondary-bg: #22293a;
+          --btn-secondary-border: #3b4760;
+          --btn-secondary-text: #f1f5f9;
+          --btn-secondary-hover: #2d374d;
+          --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font: 20px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+
+      #card-app {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 28px 24px 44px;
+      }
+
+      .card-layout {
+        display: grid;
+        grid-template-columns: minmax(300px, 1fr) minmax(340px, 1.35fr);
+        gap: 36px;
+        align-items: start;
+        background: var(--panel-bg);
+        border: 2px solid var(--panel-border);
+        border-radius: var(--radius);
+        padding: 32px;
+        box-shadow: var(--shadow);
+      }
+
+      @media (max-width: 760px) {
+        .card-layout {
+          grid-template-columns: 1fr;
+          padding: 24px;
+          gap: 28px;
+        }
+      }
+
+      .card-media-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+      }
+
+      .card-image-wrapper {
+        width: 100%;
+        max-width: 440px;
+        aspect-ratio: 1 / 1;
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--accent-soft);
+        border: 2px solid var(--panel-border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .card-image {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      .card-placeholder-art {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at center, var(--accent-soft) 0%, var(--panel-bg) 75%);
+      }
+
+      .placeholder-bulb {
+        max-width: 220px;
+        max-height: 220px;
+        filter: drop-shadow(0 4px 12px rgba(255, 210, 63, 0.35));
+      }
+
+      .card-content-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        min-width: 0;
+      }
+
+      .card-header {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .card-badge {
+        display: inline-block;
+        padding: 5px 14px;
+        border-radius: 9999px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+        background: var(--badge-bg);
+        color: var(--badge-text);
+        width: fit-content;
+      }
+
+      .card-title {
+        margin: 0;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--text);
+        word-break: break-word;
+      }
+
+      .card-steps {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .card-step {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        background: var(--step-bg);
+        border: 2px solid var(--step-border);
+        border-radius: 12px;
+        padding: 16px 18px;
+      }
+
+      .card-step-num {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: var(--step-num-bg);
+        color: var(--step-num-text);
+        font-size: 20px;
+        font-weight: 800;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      .card-step-text {
+        font-size: 21px;
+        font-weight: 500;
+        line-height: 1.5;
+        color: var(--text);
+      }
+
+      .card-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 56px;
+        min-width: 140px;
+        padding: 14px 32px;
+        font-size: 20px;
+        font-weight: 700;
+        border-radius: 12px;
+        cursor: pointer;
+        user-select: none;
+        transition:
+          background-color 140ms ease-out,
+          border-color 140ms ease-out,
+          transform 100ms ease-out;
+      }
+
+      .btn:active {
+        transform: scale(0.98);
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: var(--accent-contrast);
+        border: 2px solid var(--accent);
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+      }
+
+      .btn-secondary {
+        background: var(--btn-secondary-bg);
+        color: var(--btn-secondary-text);
+        border: 2px solid var(--btn-secondary-border);
+      }
+
+      .btn-secondary:hover {
+        background: var(--btn-secondary-hover);
+      }
+
+      .btn:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      .reduce-motion *,
+      .reduce-motion *::before,
+      .reduce-motion *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+
+      @media print {
+        body {
+          background: #ffffff !important;
+          color: #000000 !important;
+        }
+
+        #card-app {
+          max-width: 100% !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+
+        .card-layout {
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+          display: block !important;
+        }
+
+        .card-media-panel {
+          margin-bottom: 24px !important;
+          page-break-inside: avoid;
+        }
+
+        .card-image-wrapper {
+          border: 1px solid #ccc !important;
+          max-width: 300px !important;
+          margin: 0 auto !important;
+        }
+
+        .card-step {
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          page-break-inside: avoid;
+          margin-bottom: 12px !important;
+        }
+
+        .card-step-num {
+          background: #000000 !important;
+          color: #ffffff !important;
+        }
+
+        .card-step-text {
+          color: #000000 !important;
+        }
+
+        .card-actions {
+          display: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="card-app"></main>
+    <script type="module" src="/src/card-page.ts"></script>
+  </body>
+</html>

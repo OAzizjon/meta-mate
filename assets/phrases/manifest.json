@@ -10,6 +10,11 @@
       "ms": 3792,
       "text_sha256": "f8083e7b060ba459b89519859247b4f9b2fa74dffe8b84cfb9cc8ec0d26b06c6"
     },
+    "robot.checking_safety": {
+      "file": "en/robot.checking_safety.wav",
+      "ms": 4064,
+      "text_sha256": "563e90442fac0743ea3ea51b1fc4dca382699bf89ab185f39ab978a8da9c4f6d"
+    },
     "robot.do_it_for_me": {
       "file": "en/robot.do_it_for_me.wav",
       "ms": 4816,
@@ -156,6 +161,11 @@
       "file": "ru/robot.cant_find.wav",
       "ms": 5264,
       "text_sha256": "aeb36ac3f397e3823170540c54e36fcead2e025a7246822f60d40a927b85cc85"
+    },
+    "robot.checking_safety": {
+      "file": "ru/robot.checking_safety.wav",
+      "ms": 4752,
+      "text_sha256": "4f945359fac424b7064110a2e40ff7b5409351f48e4816efb9e90f954c8a6c58"
     },
     "robot.do_it_for_me": {
       "file": "ru/robot.do_it_for_me.wav",

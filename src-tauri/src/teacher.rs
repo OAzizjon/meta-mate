@@ -8,7 +8,8 @@
 //! An optional left click requires a separate spoken yes and verified injection.
 //!
 //! The lesson is one generation of the answer stream: commentary lines are sentences of
-//! its timeline, cached lines (wrong place, done) are spoken as sentence 0.
+//! its timeline, cached lines (wrong place, done) are spoken as sentence 0. A lesson the
+//! model finished leaves a keepsake card of its commentary (card.rs).
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -339,6 +340,8 @@ pub(crate) async fn teach(
     );
     let mut sentence = 0u64;
     let mut steps_done = 0usize;
+    // The commentary lines in order: the steps of the lesson's card.
+    let mut card_steps: Vec<String> = Vec::new();
     // The model's first point is sometimes off its target (live: a slider drag that
     // started 80 px to its left). Instead of guessing, the first turn is asked once more
     // with a little more reasoning; a second miss is "I can't find it" (invariant 5).
@@ -435,14 +438,29 @@ pub(crate) async fn teach(
                 eprintln!("teacher: commands {pending:?}");
             }
             let mut ended = false;
+            // Only a lesson the model finished, nothing refused on the way, gets a card.
+            let mut finished = false;
+            let mut any_refused = false;
             // The model's own last words ("All done!") make the cached "done" line a repeat.
             let mut spoke = false;
+            // The last turn's words close the lesson ("All done!"): no step of its card.
+            let closing = pending
+                .iter()
+                .any(|command| matches!(command, TeacherCommand::Finished));
             for command in std::mem::take(&mut pending) {
                 if cancelled() {
                     return;
                 }
                 match command {
                     TeacherCommand::SpeakCommentary(text) => {
+                        // The prompt allows a leading `<lang ..><mood ..>`: never spoken.
+                        let text = crate::card::without_tags(&text).trim().to_owned();
+                        if !closing
+                            && card_steps.len() < crate::card::MAX_STEPS
+                            && !text.trim().is_empty()
+                        {
+                            card_steps.push(text.clone());
+                        }
                         sentence += 1;
                         speak(
                             &stream,
@@ -578,10 +596,25 @@ pub(crate) async fn teach(
                     }
                     // The lines of the same batch ("I don't press that", "All done") are
                     // still said before the lesson ends.
-                    TeacherCommand::Finished | TeacherCommand::Refused(_) => ended = true,
+                    TeacherCommand::Finished => {
+                        ended = true;
+                        finished = true;
+                    }
+                    TeacherCommand::Refused(_) => {
+                        ended = true;
+                        any_refused = true;
+                    }
                 }
             }
             if ended {
+                if finished && !any_refused && !cancelled() {
+                    // Drawn beside the lesson, which ends now (card.rs).
+                    tauri::async_runtime::spawn(crate::card::make(
+                        app.clone(),
+                        question.clone(),
+                        std::mem::take(&mut card_steps),
+                    ));
+                }
                 finish(&app, &stream, generation);
                 return;
             }

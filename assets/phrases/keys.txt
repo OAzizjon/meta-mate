@@ -27,3 +27,4 @@ robot.private_window
 robot.password_covered
 robot.login_page
 robot.do_it_for_me
+robot.checking_safety

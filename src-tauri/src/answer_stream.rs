@@ -44,6 +44,11 @@ pub enum AnswerMsg {
         generation: u64,
         key: &'static str,
     },
+    /// The person's current transcript, capped at 200 characters; never log its text.
+    Heard {
+        generation: u64,
+        text: String,
+    },
     /// The microphone's RMS level (0..=1) while listening, ~12 Hz: Mate's ears move.
     Level {
         generation: u64,
@@ -134,6 +139,7 @@ impl AnswerStream {
             | AnswerMsg::Item { generation, .. }
             | AnswerMsg::Pcm { generation, .. }
             | AnswerMsg::Line { generation, .. }
+            | AnswerMsg::Heard { generation, .. }
             | AnswerMsg::Level { generation, .. } => {
                 if cancelled.is_some_and(|through| *generation <= through) {
                     return;

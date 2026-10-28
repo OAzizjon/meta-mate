@@ -48,6 +48,11 @@ pub enum DebugAnswerMsg {
         generation: u64,
         key: &'static str,
     },
+    /// Only the character count is mirrored; transcript text stays out of diagnostics.
+    Heard {
+        generation: u64,
+        chars: usize,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -171,6 +176,10 @@ fn answer_msg(message: &AnswerMsg) -> DebugMsg {
             generation: *generation,
             key,
         },
+        AnswerMsg::Heard { generation, text } => DebugAnswerMsg::Heard {
+            generation: *generation,
+            chars: text.chars().count(),
+        },
         // Never mirrored (`answer` skips them); shown as a cancel-free no-op state.
         AnswerMsg::Level { generation, .. } => DebugAnswerMsg::State {
             generation: *generation,
@@ -290,6 +299,22 @@ mod tests {
                 }
             }))
         );
+    }
+
+    #[test]
+    fn heard_mirrors_only_character_count() {
+        let heard = answer_msg(&AnswerMsg::Heard {
+            generation: 5,
+            text: "Private \u{1f4a1}".into(),
+        });
+        assert_eq!(
+            serde_json::to_value(&heard).ok(),
+            Some(json!({
+                "type": "answer",
+                "msg": { "type": "heard", "generation": 5, "chars": 9 }
+            }))
+        );
+        assert!(!format!("{heard:?}").contains("Private"));
     }
 
     #[test]

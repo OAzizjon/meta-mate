@@ -45,6 +45,7 @@ export type AnswerLineKey = (typeof ANSWER_LINE_KEYS)[number];
 export type AnswerMsg =
   | { readonly type: "state"; readonly generation: number; readonly state: AnswerState }
   | { readonly type: "level"; readonly generation: number; readonly level: number }
+  | { readonly type: "heard"; readonly generation: number; readonly text: string }
   | { readonly type: "item"; readonly generation: number; readonly item: TimelineItem }
   | {
       readonly type: "pcm";
@@ -67,6 +68,7 @@ type JsonObject = Readonly<Record<string, unknown>>;
 const KEYS: Readonly<Record<AnswerType, readonly string[]>> = {
   state: ["type", "generation", "state"],
   level: ["type", "generation", "level"],
+  heard: ["type", "generation", "text"],
   item: ["type", "generation", "item"],
   pcm: ["type", "generation", "sentence", "sampleRate", "eos", "samplesB64"],
   cancel: ["type", "generation"],
@@ -105,6 +107,13 @@ function parseMsg(raw: unknown): AnswerMsg | null {
     case "level": {
       const { level } = msg;
       return isLevel(level) ? { type, generation, level: level === 0 ? 0 : level } : null;
+    }
+    case "heard": {
+      const { text } = msg;
+      // Match Rust's chars() limit, including characters outside the BMP.
+      return typeof text === "string" && text.length <= 400 && Array.from(text).length <= 200
+        ? { type, generation, text }
+        : null;
     }
     case "item": {
       const item = parseTimelineItem(msg.item);

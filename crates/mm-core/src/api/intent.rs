@@ -8,6 +8,8 @@ pub enum Intent {
     How,
     Chat,
     Do,
+    /// "Is this safe?": a verdict on the window (scams). Only the offline cues pick it.
+    Safety,
 }
 
 const CLASSIFIER: &str = "Classify the user's request. Reply with one word:\n\
@@ -217,9 +219,181 @@ pub fn asks_do_it(text: &str) -> bool {
         )
 }
 
-/// Conservative English/Russian fallback when the classifier is unavailable.
-/// Delegation wins over finding, which wins over teaching when cues overlap.
+/// How far either side of a verdict its subject may be: "is this message from my bank real".
+const VERDICT_REACH: usize = 6;
+
+/// "Is this email real?", "Это мошенники?": a verdict on trust with the thing on the
+/// screen (or the person it is aimed at) at most a few words either side of it. A verdict word
+/// alone never counts ("Tell me about phone scams"), nor a setting named after one
+/// ("safe mode"); "safety" and "безопасности" are no verdicts ("Where is the safety
+/// settings?").
+fn asks_safety(text: &str) -> bool {
+    let lower = spoken_words(text);
+    let words: Vec<_> = words(&lower).collect();
+    // Trust in the thing, never in Mate: "Can I trust you?" is a chat.
+    let trust = contains_spoken(
+        &words,
+        &[
+            "trust this",
+            "trust that",
+            "trust it",
+            "trust these",
+            "trust them",
+            "being scammed",
+            "getting scammed",
+            "really from",
+            "доверять этому",
+            "доверять этой",
+            "доверять этим",
+            "доверять им",
+            "верить этому",
+            "верить этой",
+            "действительно от",
+            "правда от",
+        ],
+    );
+    trust
+        || words.iter().enumerate().any(|(at, _)| {
+            is_verdict(&words, at)
+                && !words
+                    .get(at + 1)
+                    .is_some_and(|next| matches!(*next, "mode" | "quick" | "quickly" | "режим"))
+                && words[at.saturating_sub(VERDICT_REACH)
+                    ..(at + VERDICT_REACH + 1).min(words.len())]
+                    .iter()
+                    .any(|word| is_subject(word))
+        })
+}
+
+/// The thing on the screen ("this", "это", "тут") or the person a scam is aimed at ("меня").
+fn is_subject(word: &str) -> bool {
+    matches!(
+        word,
+        "this"
+            | "that"
+            | "it"
+            | "these"
+            | "those"
+            | "they"
+            | "its"
+            | "thats"
+            | "theyre"
+            | "это"
+            | "этот"
+            | "эта"
+            | "эти"
+            | "этому"
+            | "этой"
+            | "эту"
+            | "этом"
+            | "этого"
+            | "этим"
+            | "этих"
+            | "тут"
+            | "здесь"
+            | "он"
+            | "она"
+            | "оно"
+            | "они"
+            | "меня"
+            | "нас"
+            | "мне"
+    )
+}
+
+/// Russian verdicts inflect ("мошенник", "мошенники", "мошенничество"): matched by stem.
+/// "безопасн" is no stem: "безопасности" is the settings page.
+// "настоящ" and "развод" need context checks in "is_verdict".
+const RUSSIAN_VERDICT_STEMS: [&str; 13] = [
+    "мошенн",
+    "настоящ",
+    "подлинн",
+    "поддел",
+    "фальшив",
+    "фейк",
+    "обман",
+    "развод",
+    "фишинг",
+    "афер",
+    "надёжн",
+    "надежн",
+    "опасн",
+];
+
+/// A word that judges trust: English words whole, Russian ones by stem or form.
+fn is_verdict(words: &[&str], at: usize) -> bool {
+    let word = words[at];
+    let next = words.get(at + 1).copied();
+    // "Real good" is praise; "real email" asks about authenticity.
+    if word == "real" {
+        return next.is_none_or(|next| {
+            matches!(
+                next,
+                "email" | "message" | "site" | "website" | "page" | "link" | "call"
+                    | "letter" | "offer"
+            )
+        });
+    }
+    // "Оформить развод" is divorce; "в настоящее время" is a time phrase.
+    if word.starts_with("развод")
+        && at.checked_sub(1).is_some_and(|before| {
+            let previous = words[before];
+            matches!(previous, "на" | "о" | "про")
+                || previous.starts_with("оформ")
+                || previous.starts_with("пода")
+        })
+        || word.starts_with("настоящ") && next.is_some_and(|next| next.starts_with("врем"))
+    {
+        return false;
+    }
+    matches!(
+        word,
+        "safe"
+            | "unsafe"
+            | "dangerous"
+            | "fake"
+            | "legit"
+            | "legitimate"
+            | "genuine"
+            | "authentic"
+            | "trustworthy"
+            | "suspicious"
+            | "scam"
+            | "scams"
+            | "scammer"
+            | "scammers"
+            | "scammy"
+            | "fraud"
+            | "fraudulent"
+            | "fraudster"
+            | "fraudsters"
+            | "phishing"
+            | "безопасно"
+            | "безопасный"
+            | "безопасная"
+            | "безопасное"
+            | "безопасные"
+            | "безопасен"
+            | "безопасна"
+            | "небезопасно"
+            | "небезопасный"
+            | "опасен"
+            | "доверять"
+            | "верить"
+            | "развели"
+            | "лохотрон"
+    ) || RUSSIAN_VERDICT_STEMS
+        .iter()
+        .any(|stem| word.starts_with(*stem))
+}
+
+/// Conservative English/Russian fallback when the classifier is unavailable. A scam
+/// check wins over delegation (Mate looks before anyone presses), delegation over
+/// finding, and finding over teaching when cues overlap.
 pub fn guess_intent(question: &str) -> Intent {
+    if asks_safety(question) {
+        return Intent::Safety;
+    }
     let lower = question.to_lowercase();
     let words: Vec<&str> = words(&lower).collect();
     if [

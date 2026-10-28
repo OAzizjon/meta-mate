@@ -112,7 +112,7 @@ async fn run(path: &Path, base: &str, report: &mut Value) -> Result<(), String> 
     let transcript = proxy
         .transcribe(receiver, |progress| match progress {
             AsrProgress::Ready => ready = Some(Instant::now()),
-            AsrProgress::Partial => {
+            AsrProgress::Partial(_) => {
                 first_partial.get_or_insert_with(Instant::now);
             }
         })

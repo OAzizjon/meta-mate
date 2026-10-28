@@ -12,3 +12,6 @@ contrase = "contrase"
 # Deliberately broken MateScript inputs in crates/mm-core/tests/matescript.rs
 hapy = "hapy"
 hel = "hel"
+# "they're" without its apostrophe, as spoken_words() in crates/mm-core/src/api/intent.rs
+# leaves it
+theyre = "theyre"

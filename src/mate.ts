@@ -186,9 +186,14 @@ async function createRouter(
       console.error("[mate] lesson-interrupt listener failed", error);
     });
   let listening = false;
+  let listeningGeneration: number | null = null;
+  let showingHeard = false;
   const setState = (state: RobotState): void => {
     if (listening && state !== "listening") {
       listening = false;
+      listeningGeneration = null;
+      if (showingHeard) bubble.show(null);
+      showingHeard = false;
       robot.setVoiceLevel(0);
     } else {
       listening = state === "listening";
@@ -203,10 +208,14 @@ async function createRouter(
     },
     audio,
     resolveTarget: (point, generation, step) => pointAt(generation, point, step),
-    showBubble: (text) => bubble.show(text),
+    showBubble: (text) => {
+      showingHeard = false;
+      bubble.show(text);
+    },
     onLine(line) {
       // The only line a timeline raises today; nothing speaks it here.
       if (line !== "CantFind") return;
+      showingHeard = false;
       bubble.show(t("robot.cant_find"), CANT_FIND_BUBBLE_MS);
       return new Promise<void>((resolve) => setTimeout(resolve, CANT_FIND_BUBBLE_MS));
     },
@@ -223,7 +232,17 @@ async function createRouter(
     switch (msg.type) {
       case "state":
         setState(msg.state);
-        if (msg.state === "listening") bubble.show(null);
+        if (msg.state === "listening") {
+          listeningGeneration = msg.generation;
+          showingHeard = false;
+          bubble.show(null);
+        }
+        return;
+      case "heard":
+        if (listening && msg.generation === listeningGeneration) {
+          bubble.show(msg.text || null);
+          showingHeard = true;
+        }
         return;
       case "level":
         if (listening) robot.setVoiceLevel(msg.level);
@@ -250,6 +269,7 @@ async function createRouter(
         setState("idle");
         return;
       case "line":
+        showingHeard = false;
         bubble.show(t(msg.key), LINE_BUBBLE_MS);
         return;
     }

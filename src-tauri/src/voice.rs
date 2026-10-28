@@ -4,9 +4,9 @@
 //! press cancels the answer still playing (barge-in). If the answer is slow to start, a
 //! cached "let me think" phrase covers the wait.
 //!
-//! A question about the screen ("where is", "how do I", "do it for me": D47) first gets
-//! one redacted look at the foreground window (screen.rs); the answer then points, and
-//! the WebView asks `point_at` (pointing.rs) when it reaches that sentence.
+//! A question about the screen ("where is", "how do I", "do it for me": D47; "is this
+//! safe") first gets one redacted look at the foreground window (screen.rs); the answer
+//! then points, and the WebView asks `point_at` (pointing.rs) when it reaches that sentence.
 //!
 //! For now it runs in development builds against `server/run_dev.py --tts`, whose
 //! per-run invite it reads; the installed app gets its proxy and invite with Day 6.
@@ -17,7 +17,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use mm_core::api::intent::{Intent, guess_intent};
-use mm_core::api::request::{ModelChoice, ReasoningEffort, chat_request, point_request};
+use mm_core::api::request::{
+    ModelChoice, ReasoningEffort, chat_request, point_request, safety_request,
+};
 use mm_core::matescript::{Bound, Item, Mode, Parser, Point, Settings};
 use mm_core::ptt::{PttEvent, PttSettings};
 use tauri::{AppHandle, Emitter, Manager};
@@ -30,6 +32,21 @@ use crate::mic::Microphone;
 use crate::pointing::{Pointing, stop_pointing};
 use crate::proxy::{CallKind, Proxy, ProxyError, Transcript};
 use crate::ptt::{self, PttDriver};
+
+/// How often the bubble may show a new partial transcript.
+const HEARD_EVERY: Duration = Duration::from_millis(125);
+/// The bubble shows the last words heard, at most this many characters.
+const HEARD_MAX_CHARS: usize = 200;
+
+/// The end of `text` that fits the bubble, cut at a character boundary.
+fn heard_tail(text: &str) -> String {
+    let count = text.chars().count();
+    if count <= HEARD_MAX_CHARS {
+        return text.to_owned();
+    }
+    let tail: String = text.chars().skip(count - HEARD_MAX_CHARS + 1).collect();
+    format!("…{tail}")
+}
 
 /// The development proxy (server/run_dev.py).
 #[cfg(debug_assertions)]
@@ -45,6 +62,8 @@ const VOICES: [&str; 2] = ["en", "ru"];
 /// chat answer, so Mate does not repeat himself; the look line for the screen.
 const THINKING: [&str; 3] = ["robot.thinking", "robot.thinking_2", "robot.thinking_3"];
 const LOOKING: &str = "robot.looking";
+/// "Is this safe?" reasons longer (`low`): the wait gets its own line.
+const CHECKING: &str = "robot.checking_safety";
 /// How long the beam stays after the answer played out.
 const POINT_LINGER: Duration = Duration::from_secs(3);
 /// The longest an answer may take to play out before its pointing is cleared anyway.
@@ -326,8 +345,29 @@ async fn run(
                     }
                 };
                 let transcriber = proxy.clone();
+                // What Mate hears appears in his bubble as the person speaks (their own
+                // words on their own screen; never logged), at most ~8 times a second.
+                let listener = app.clone();
+                let mut shown = Instant::now()
+                    .checked_sub(Duration::from_secs(1))
+                    .unwrap_or_else(Instant::now);
+                let on_progress = move |progress: crate::proxy::AsrProgress| {
+                    let crate::proxy::AsrProgress::Partial(text) = progress else {
+                        return;
+                    };
+                    if text.is_empty() || shown.elapsed() < HEARD_EVERY {
+                        return;
+                    }
+                    shown = Instant::now();
+                    listener.state::<AnswerStream>().send(AnswerMsg::Heard {
+                        generation,
+                        text: heard_tail(&text),
+                    });
+                };
                 let transcript =
-                    tokio::spawn(async move { transcriber.transcribe(received, |_| {}).await });
+                    tokio::spawn(
+                        async move { transcriber.transcribe(received, on_progress).await },
+                    );
                 current = Some(Session {
                     generation,
                     microphone: Some(microphone),
@@ -482,7 +522,8 @@ async fn answer(
         let _ = task.await;
         return;
     }
-    let screen = intent == Intent::Where;
+    // "Is this safe?" takes the where path's look and pointing; only the prompt differs.
+    let screen = matches!(intent, Intent::Where | Intent::Safety);
     let (body, settings, wait_phrase) = if screen {
         let own = own_windows(&app);
         let looker = app.clone();
@@ -515,18 +556,26 @@ async fn answer(
                     look.redacted.painted,
                     since_key_up(tokio::time::Instant::now()),
                 );
-                let body = point_request(
-                    ModelChoice::from(crate::settings::model(&app)),
-                    ReasoningEffort::Minimal,
-                    &question,
-                    &look.list,
-                    &look.redacted.image,
-                );
+                let model = ModelChoice::from(crate::settings::model(&app));
+                let (list, image) = (&look.list, &look.redacted.image);
+                let (body, wait_phrase) = if intent == Intent::Safety {
+                    let effort = ReasoningEffort::SAFETY_CHECK;
+                    (
+                        safety_request(model, effort, &question, list, image),
+                        CHECKING,
+                    )
+                } else {
+                    let effort = ReasoningEffort::Minimal;
+                    (
+                        point_request(model, effort, &question, list, image),
+                        LOOKING,
+                    )
+                };
                 let settings = look.parser_settings(&locale, Mode::Calm);
                 if let Some(pointing) = app.try_state::<Pointing>() {
                     pointing.set(generation, look);
                 }
-                (body, settings, LOOKING)
+                (body, settings, wait_phrase)
             }
             Ok(Err(failure)) => {
                 eprintln!("voice: look: {failure}");
@@ -590,7 +639,9 @@ async fn answer(
         let mut lang = locale.to_owned();
         let ended = &AtomicBool::new(false);
         // A sentence whose point the look cannot resolve is never spoken as "here": it
-        // becomes "I can't see that here" before its speech is made (invariant 5).
+        // becomes "I can't see that here" before its speech is made (invariant 5). A safety
+        // verdict keeps its words without the beam: its red flag is often plain text (the
+        // sender), and the warning matters more than the pointing.
         let look = app
             .try_state::<Pointing>()
             .and_then(|pointing| pointing.look(generation));
@@ -598,8 +649,16 @@ async fn answer(
         let mut emit = move |items: Vec<Item>| {
             for item in items {
                 let item = match item {
-                    Item::Say(say) if look.as_ref().is_some_and(|look| !resolvable(look, &say)) => {
-                        Item::PointRejected
+                    Item::Say(mut say)
+                        if look.as_ref().is_some_and(|look| !resolvable(look, &say)) =>
+                    {
+                        if intent == Intent::Safety {
+                            say.bound
+                                .retain(|bound| !matches!(bound, Bound::Point(_) | Bound::Step(_)));
+                            Item::Say(say)
+                        } else {
+                            Item::PointRejected
+                        }
                     }
                     other => other,
                 };
@@ -767,7 +826,7 @@ pub(crate) fn voice_of(locale: &str) -> &'static str {
 async fn cache_phrases(proxy: Proxy, phrases: Phrases) {
     load_built_phrases(&phrases);
     // Wait phrases the build does not have yet: synthesized once through the proxy.
-    for key in THINKING.into_iter().chain([LOOKING]) {
+    for key in THINKING.into_iter().chain([LOOKING, CHECKING]) {
         for (voice, locale) in [
             ("en", include_str!("../../locales/en.json")),
             ("ru", include_str!("../../locales/ru.json")),

@@ -12,6 +12,7 @@
 
 mod answer_stream;
 mod auth;
+mod card;
 #[cfg(debug_assertions)]
 mod debug_view;
 #[cfg(windows)]

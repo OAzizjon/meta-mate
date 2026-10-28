@@ -6,6 +6,22 @@
 import { getLocale, setLocale, t } from "./i18n/index.ts";
 import type { LocaleCode, LocaleKey } from "./i18n/index.ts";
 import {
+  AUTH_CHANGED_EVENT,
+  AUTH_PROVIDERS,
+  createAccountStore,
+  isAuthProvider,
+  isAuthStatus,
+} from "./settings/account.ts";
+import type {
+  AccountInvoke,
+  AccountState,
+  AccountStatus,
+  AccountStore,
+  AccountSubscribe,
+  AuthProvider,
+  AuthStatus,
+} from "./settings/account.ts";
+import {
   DEFAULT_SETTINGS,
   MAX_VOICE_SPEED,
   MIN_VOICE_SPEED,
@@ -41,6 +57,11 @@ import type {
 } from "./settings/model.ts";
 
 export {
+  AUTH_CHANGED_EVENT,
+  AUTH_PROVIDERS,
+  createAccountStore,
+  isAuthProvider,
+  isAuthStatus,
   DEFAULT_SETTINGS,
   MAX_VOICE_SPEED,
   MIN_VOICE_SPEED,
@@ -65,6 +86,13 @@ export {
   updateSettings,
 };
 export type {
+  AccountInvoke,
+  AccountState,
+  AccountStatus,
+  AccountStore,
+  AccountSubscribe,
+  AuthProvider,
+  AuthStatus,
   ModelChoice,
   PttMode,
   RobotSize,
@@ -93,7 +121,23 @@ const tauriSubscribe: SettingsSubscribe = async (onChanged) => {
   });
 };
 
+const tauriAccountInvoke: AccountInvoke = async (cmd, args) => {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke(cmd, args);
+};
+
+const tauriAccountSubscribe: AccountSubscribe = async (onChanged) => {
+  const { listen } = await import("@tauri-apps/api/event");
+  return listen<unknown>(AUTH_CHANGED_EVENT, (event) => {
+    onChanged(event.payload);
+  });
+};
+
 const defaultStore = createSettingsStore(isTauri() ? tauriInvoke : null);
+const defaultAccountStore = createAccountStore(
+  isTauri() ? tauriAccountInvoke : null,
+  isTauri() ? tauriAccountSubscribe : null,
+);
 
 /** Loads settings via `invoke("load_settings")` (or returns in-memory settings outside Tauri). */
 export async function loadSettings(): Promise<Settings> {
@@ -108,6 +152,7 @@ export async function saveSettings(settings: Settings): Promise<Settings> {
 export interface MountSettingsOptions {
   readonly store?: SettingsStore;
   readonly subscribe?: SettingsSubscribe | null;
+  readonly accountStore?: AccountStore;
 }
 
 export interface SettingsController {
@@ -116,6 +161,7 @@ export interface SettingsController {
   reload(): Promise<Settings>;
   setLocale(locale: LocaleCode): void;
   destroy(): void;
+  readonly accountStore: AccountStore;
 }
 
 declare global {
@@ -253,6 +299,160 @@ function buildCheckbox(
   return { wrapper, input, titleEl, labelKey };
 }
 
+interface AccountSectionRefs {
+  readonly section: HTMLElement;
+  readonly syncText: () => void;
+  readonly syncState: (state: AccountState) => void;
+  readonly destroy: () => void;
+}
+
+function buildAccountSection(accountStore: AccountStore): AccountSectionRefs {
+  const section = document.createElement("section");
+  section.className = "settings-group settings-account";
+  section.setAttribute("aria-labelledby", "settings-account-title");
+
+  const headerDiv = document.createElement("div");
+  headerDiv.className = "settings-account-header";
+
+  const titleEl = document.createElement("h2");
+  titleEl.id = "settings-account-title";
+  titleEl.className = "settings-account-title";
+
+  const whyEl = document.createElement("p");
+  whyEl.className = "settings-account-why";
+
+  headerDiv.append(titleEl, whyEl);
+
+  // Signed out view
+  const signedOutView = document.createElement("div");
+  signedOutView.className = "settings-account-signed-out";
+
+  const buttonsRow = document.createElement("div");
+  buttonsRow.className = "settings-account-buttons";
+
+  const googleBtn = document.createElement("button");
+  googleBtn.type = "button";
+  googleBtn.id = "settings-auth-google";
+  googleBtn.className = "settings-account-btn settings-account-btn-google";
+
+  const githubBtn = document.createElement("button");
+  githubBtn.type = "button";
+  githubBtn.id = "settings-auth-github";
+  githubBtn.className = "settings-account-btn settings-account-btn-github";
+
+  buttonsRow.append(googleBtn, githubBtn);
+  signedOutView.append(buttonsRow);
+
+  googleBtn.addEventListener("click", () => {
+    void accountStore.signIn("google");
+  });
+
+  githubBtn.addEventListener("click", () => {
+    void accountStore.signIn("github");
+  });
+
+  // Signed in view
+  const signedInView = document.createElement("div");
+  signedInView.className = "settings-account-signed-in";
+  signedInView.style.display = "none";
+
+  const userEl = document.createElement("span");
+  userEl.className = "settings-account-user";
+
+  const signOutBtn = document.createElement("button");
+  signOutBtn.type = "button";
+  signOutBtn.id = "settings-auth-signout";
+  signOutBtn.className = "settings-account-sign-out";
+
+  signOutBtn.addEventListener("click", () => {
+    void accountStore.signOut();
+  });
+
+  signedInView.append(userEl, signOutBtn);
+
+  // Accessible status line
+  const statusEl = document.createElement("div");
+  statusEl.className = "settings-account-status";
+  statusEl.setAttribute("role", "status");
+  statusEl.setAttribute("aria-live", "polite");
+
+  section.append(headerDiv, signedOutView, signedInView, statusEl);
+
+  const getProviderName = (provider?: AuthProvider): string => {
+    if (provider === "github") {
+      return t("auth.provider_github");
+    }
+    return t("auth.provider_google");
+  };
+
+  const syncState = (state: AccountState): void => {
+    if (state.status === "signed_in") {
+      signedOutView.style.display = "none";
+      signedInView.style.display = "flex";
+      userEl.textContent = t("auth.signed_in", {
+        name: state.name,
+        provider: getProviderName(state.provider),
+      });
+      statusEl.textContent = "";
+      statusEl.classList.remove("is-error");
+      signOutBtn.disabled = false;
+    } else if (state.status === "signing_in") {
+      signedOutView.style.display = "block";
+      signedInView.style.display = "none";
+      googleBtn.disabled = true;
+      githubBtn.disabled = true;
+
+      const isGoogle = state.provider === "google";
+      googleBtn.classList.toggle("is-waiting", isGoogle);
+      githubBtn.classList.toggle("is-waiting", !isGoogle);
+
+      googleBtn.textContent = isGoogle ? t("auth.waiting") : t("auth.google");
+      githubBtn.textContent = !isGoogle ? t("auth.waiting") : t("auth.github");
+
+      statusEl.textContent = t("auth.waiting");
+      statusEl.classList.remove("is-error");
+    } else {
+      // signed_out
+      signedOutView.style.display = "block";
+      signedInView.style.display = "none";
+
+      const canSign = accountStore.canSignIn();
+      googleBtn.disabled = !canSign;
+      githubBtn.disabled = !canSign;
+      googleBtn.classList.remove("is-waiting");
+      githubBtn.classList.remove("is-waiting");
+      googleBtn.textContent = t("auth.google");
+      githubBtn.textContent = t("auth.github");
+
+      if (state.error) {
+        statusEl.textContent = t(state.error as LocaleKey);
+        statusEl.classList.add("is-error");
+      } else {
+        statusEl.textContent = "";
+        statusEl.classList.remove("is-error");
+      }
+    }
+  };
+
+  const syncText = (): void => {
+    titleEl.textContent = t("auth.title");
+    whyEl.textContent = t("auth.why");
+    signOutBtn.textContent = t("auth.sign_out");
+    syncState(accountStore.getState());
+  };
+
+  syncText();
+
+  return {
+    section,
+    syncText,
+    syncState,
+    destroy(): void {
+      section.replaceChildren();
+    },
+  };
+}
+
 export function mountSettings(
   container: HTMLElement,
   options: MountSettingsOptions = {},
@@ -265,6 +465,7 @@ export function mountSettings(
         ? tauriSubscribe
         : null
       : options.subscribe;
+  const accountStore = options.accountStore ?? defaultAccountStore;
   let destroyed = false;
 
   const header = document.createElement("header");
@@ -289,6 +490,8 @@ export function mountSettings(
       return updated;
     });
   };
+
+  const accountGroup = buildAccountSection(accountStore);
 
   const modelGroup = buildRadioGroup<ModelChoice>(
     "model",
@@ -436,6 +639,7 @@ export function mountSettings(
   togglesGroup.append(reduceMotionBox.wrapper, startWithWindowsBox.wrapper);
 
   form.append(
+    accountGroup.section,
     modelGroup.fieldset,
     pttGroup.fieldset,
     soundGroup.fieldset,
@@ -491,6 +695,7 @@ export function mountSettings(
     speedLabel.textContent = t("settings.voice_speed");
     reduceMotionBox.titleEl.textContent = t(reduceMotionBox.labelKey);
     startWithWindowsBox.titleEl.textContent = t(startWithWindowsBox.labelKey);
+    accountGroup.syncText();
   };
 
   const syncRadioSelection = <V extends string>(
@@ -541,6 +746,18 @@ export function mountSettings(
     }
   });
 
+  const unsubscribeAccount = accountStore.subscribe((accountState) => {
+    if (!destroyed) {
+      accountGroup.syncState(accountState);
+    }
+  });
+
+  void accountStore.load().then((accountState) => {
+    if (!destroyed) {
+      accountGroup.syncState(accountState);
+    }
+  });
+
   return {
     getSettings(): Settings {
       return store.get();
@@ -549,6 +766,7 @@ export function mountSettings(
       return applyPatch(patch);
     },
     reload(): Promise<Settings> {
+      void accountStore.load();
       return store.load().then((loaded) => {
         if (!destroyed) {
           syncControls(loaded);
@@ -563,16 +781,22 @@ export function mountSettings(
     destroy(): void {
       destroyed = true;
       unsubscribeChanged();
+      unsubscribeAccount();
+      accountGroup.destroy();
       motionQuery?.removeEventListener("change", onMotionMediaChange);
       container.replaceChildren();
     },
+    accountStore,
   };
 }
 
 if (typeof document !== "undefined") {
   const root = document.getElementById("settings-app");
   if (root) {
-    const controller = mountSettings(root, { store: defaultStore });
+    const controller = mountSettings(root, {
+      store: defaultStore,
+      accountStore: defaultAccountStore,
+    });
     if (import.meta.env.DEV) {
       window.__settings = controller;
     }

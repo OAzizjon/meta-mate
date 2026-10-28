@@ -1,9 +1,12 @@
 //! The app's side of the MetaMate proxy (server/metamate_proxy/app.py): a streamed
-//! `/v1/responses`, the `/v1/asr` WebSocket and `/v1/tts`. The invite code is the only
-//! credential the app holds (CLAUDE.md "Secrets"); it never reaches a log or an error.
+//! `/v1/responses`, the `/v1/asr` WebSocket, `/v1/tts`, `/v1/image` and `/v1/glimmer`. The
+//! invite code is the only credential the app holds (CLAUDE.md "Secrets"); it never
+//! reaches a log or an error.
 
 use std::fmt;
 use std::sync::{Arc, RwLock};
+
+use base64::Engine;
 use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, StreamExt};
@@ -23,6 +26,11 @@ const READ_IDLE: Duration = Duration::from_secs(40);
 const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 /// MMS-TTS on a cold Modal container; the caller covers the wait with a cached phrase.
 const TTS_TIMEOUT: Duration = Duration::from_secs(35);
+/// One Muse Image picture: the lesson card waits for it in the background.
+const IMAGE_TIMEOUT: Duration = Duration::from_secs(60);
+/// One Muse Glimmer chat: its GPU scales to zero and takes ~60-90 s to start (D53); the
+/// lesson card waits for it in the background.
+const GLIMMER_TIMEOUT: Duration = Duration::from_secs(150);
 const ASR_ACK_TIMEOUT: Duration = Duration::from_secs(10);
 /// After `endStream` the final transcript came in 364 ms (D44).
 const ASR_FINAL_TIMEOUT: Duration = Duration::from_secs(15);
@@ -32,6 +40,11 @@ const ASR_SESSION_TIMEOUT: Duration = Duration::from_secs(105);
 const JSON_MAX_BYTES: usize = 4 << 20;
 /// One spoken sentence (300 characters, about 20 s of 16 kHz PCM16): far below this.
 const WAV_MAX_BYTES: usize = 8 << 20;
+/// The proxy passes a PNG picture of up to 12 MB: 16 MB as base64.
+const IMAGE_JSON_MAX_BYTES: usize = 20 << 20;
+/// Glimmer's answer (at most 600 tokens of text): far below this.
+const GLIMMER_JSON_MAX_BYTES: usize = 64 << 10;
+const PNG_MAGIC: &[u8] = &[0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
 const ASR_END_STREAM: &str = r#"{"type":"endStream"}"#;
 const SSE_EVENT_MAX_BYTES: usize = 1 << 20;
 
@@ -120,12 +133,23 @@ impl fmt::Debug for Speech {
 }
 
 /// What the speech socket reports while the person speaks.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum AsrProgress {
     /// The handshake was acknowledged: frames sent so far are on their way.
     Ready,
-    /// A partial transcript arrived (its text stays out of this event).
-    Partial,
+    /// A partial transcript arrived: everything heard so far (`partialMode` CUMULATIVE).
+    /// The person's own words: shown back to them, never logged.
+    Partial(String),
+}
+
+impl fmt::Debug for AsrProgress {
+    /// The heard words never reach a log: only their length.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ready => f.write_str("Ready"),
+            Self::Partial(text) => write!(f, "Partial({} chars)", text.chars().count()),
+        }
+    }
 }
 
 pub struct Transcript {
@@ -145,6 +169,10 @@ impl fmt::Debug for Transcript {
 #[derive(Clone)]
 pub struct Proxy {
     http: reqwest::Client,
+    /// `http` without the read-idle limit, for the card's slow calls: a cold Glimmer GPU sends
+    /// nothing for a minute or more and a picture takes its time, so `GLIMMER_TIMEOUT` and
+    /// `IMAGE_TIMEOUT` bound the whole call instead.
+    slow_http: reqwest::Client,
     base: String,
     invite: String,
     /// The session token after signing in (D54), shared by every clone: it replaces the
@@ -183,8 +211,13 @@ impl Proxy {
             .read_timeout(READ_IDLE)
             .build()
             .map_err(network)?;
+        let slow_http = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .build()
+            .map_err(network)?;
         Ok(Self {
             http,
+            slow_http,
             base: base.to_owned(),
             invite: invite.to_owned(),
             session: Arc::default(),
@@ -309,6 +342,67 @@ impl Proxy {
         Ok(Speech { wav, synth_ms })
     }
 
+    /// One picture from Muse Image for `prompt` (1..=1500 characters): the PNG's bytes. A
+    /// 429 means today's image allowance is used up.
+    pub async fn image(&self, prompt: &str) -> Result<Vec<u8>, ProxyError> {
+        let response = self
+            .slow_http
+            .post(format!("{}/v1/image", self.base))
+            .bearer_auth(self.credential())
+            .timeout(IMAGE_TIMEOUT)
+            .json(&json!({"prompt": prompt}))
+            .send()
+            .await
+            .map_err(network)?;
+        let response = accepted(response).await?;
+        let raw = capped_body(response, IMAGE_JSON_MAX_BYTES).await?;
+        let value: Value = serde_json::from_slice(&raw)
+            .map_err(|_| ProxyError::Protocol("the picture answer is not JSON"))?;
+        let encoded = value["png_b64"]
+            .as_str()
+            .ok_or(ProxyError::Protocol("the picture answer has no picture"))?;
+        let png = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|_| ProxyError::Protocol("the picture is not base64"))?;
+        if !png.starts_with(PNG_MAGIC) {
+            return Err(ProxyError::Protocol("the picture is not a PNG"));
+        }
+        Ok(png)
+    }
+
+    /// One short chat with Muse Glimmer (Meta's open weights on our GPU): a `system` and a
+    /// `user` message (1..=4000 characters each) and at most `max_tokens` (1..=600) back,
+    /// as plain text. A 429 means today's Glimmer allowance is used up, a 502 or 503 that
+    /// Glimmer is down; a cold start takes a minute or more.
+    pub async fn glimmer(
+        &self,
+        system: &str,
+        user: &str,
+        max_tokens: u32,
+    ) -> Result<String, ProxyError> {
+        let messages = json!([
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ]);
+        let response = self
+            .slow_http
+            .post(format!("{}/v1/glimmer", self.base))
+            .bearer_auth(self.credential())
+            .timeout(GLIMMER_TIMEOUT)
+            .json(&json!({"messages": messages, "max_tokens": max_tokens}))
+            .send()
+            .await
+            .map_err(network)?;
+        let response = accepted(response).await?;
+        let raw = capped_body(response, GLIMMER_JSON_MAX_BYTES).await?;
+        let value: Value = serde_json::from_slice(&raw)
+            .map_err(|_| ProxyError::Protocol("the Glimmer answer is not JSON"))?;
+        value["text"]
+            .as_str()
+            .map(str::to_owned)
+            .ok_or(ProxyError::Protocol("the Glimmer answer has no text"))
+    }
+
     /// One push-to-talk transcription. Call it at key-down: connecting takes ~1.9 s (D44),
     /// so the 80 ms PCM16 24 kHz frames sent meanwhile wait in `frames`; closing `frames`
     /// (key-up) ends the stream, and the final transcript follows.
@@ -369,7 +463,8 @@ impl Proxy {
                     let text = event["transcript"].as_str().unwrap_or_default();
                     return Ok::<_, ProxyError>(text.trim().to_owned());
                 }
-                on_progress(AsrProgress::Partial);
+                let heard = event["transcript"].as_str().unwrap_or_default();
+                on_progress(AsrProgress::Partial(heard.trim().to_owned()));
             }
         };
         tokio::pin!(send, receive);
