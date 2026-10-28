@@ -474,7 +474,17 @@ async fn answer(
                 flight.wait_idle(Duration::from_secs(1));
             }
             let wanted = || !looker.state::<AnswerStream>().is_cancelled(generation);
-            crate::screen::take_look(&own, &wanted)
+            // Mate's eyes sweep while he copies the window (the robot's "looking" state).
+            looker.state::<AnswerStream>().send(AnswerMsg::State {
+                generation,
+                state: "looking",
+            });
+            let look = crate::screen::take_look(&own, &wanted);
+            looker.state::<AnswerStream>().send(AnswerMsg::State {
+                generation,
+                state: "thinking",
+            });
+            look
         });
         match looked.await {
             Ok(Ok(look)) => {

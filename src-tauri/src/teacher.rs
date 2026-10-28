@@ -258,7 +258,17 @@ async fn look(app: &AppHandle, generation: u64, own: Vec<isize>) -> Result<Look,
             flight.wait_idle(Duration::from_secs(1));
         }
         let wanted = || !looker.state::<AnswerStream>().is_cancelled(generation);
-        take_look(&own, &wanted)
+        // Mate's eyes sweep while he copies the window (the robot's "looking" state).
+        looker.state::<AnswerStream>().send(AnswerMsg::State {
+            generation,
+            state: "looking",
+        });
+        let look = take_look(&own, &wanted);
+        looker.state::<AnswerStream>().send(AnswerMsg::State {
+            generation,
+            state: "thinking",
+        });
+        look
     })
     .await
     .unwrap_or(Err(LookFailure::Cancelled))
@@ -652,7 +662,7 @@ fn expire_offer(teacher: &mut Teacher, offered_at: &mut Option<Instant>, now_ms:
 /// otherwise the step stays unplaceable and the teacher refuses (invariant 5).
 async fn outline_unlisted(
     proxy: &Proxy,
-    look: &Look,
+    look: &Arc<Look>,
     response: &ParsedResponse,
     targets: &mut [Option<PhysRect>],
 ) {
@@ -660,19 +670,24 @@ async fn outline_unlisted(
         .computer_calls
         .iter()
         .flat_map(|call| call.actions.iter());
-    for (action, target) in actions.zip(targets.iter_mut()) {
+    // All at once: a turn with several such clicks waits for the slowest, not the sum.
+    let mut asked = Vec::new();
+    for (index, (action, target)) in actions.zip(targets.iter()).enumerate() {
         let (Action::Click { x, y, .. } | Action::DoubleClick { x, y }) = action else {
             continue;
         };
-        if target.is_some() {
-            continue;
-        }
         let (Ok(x), Ok(y)) = (u32::try_from(*x), u32::try_from(*y)) else {
             continue;
         };
-        if crate::sam::outline_allowed(look, x, y) {
-            *target = crate::sam::sam_outline(proxy, look, x, y).await;
+        if target.is_none() && crate::sam::outline_allowed(look, x, y) {
+            let (proxy, look) = (proxy.clone(), Arc::clone(look));
+            let task =
+                tokio::spawn(async move { crate::sam::sam_outline(&proxy, &look, x, y).await });
+            asked.push((index, task));
         }
+    }
+    for (index, task) in asked {
+        targets[index] = task.await.ok().flatten();
     }
 }
 

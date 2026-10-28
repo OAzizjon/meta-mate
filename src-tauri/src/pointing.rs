@@ -338,15 +338,16 @@ pub async fn point_at(
         }
         (None, _) => None,
     };
+    // A newer press may have ended this answer while SAM worked: its ring is not ours to
+    // clear, and nothing of ours may be shown.
+    if pointing.generation() != Some(generation) {
+        return None;
+    }
     let Some(target) = resolved else {
         // Nothing pointable there: the ring of an earlier point must not stay lit.
         stop_pointing(&app);
         return None;
     };
-    // A newer press may have ended this answer while we resolved: show nothing then.
-    if pointing.generation() != Some(generation) {
-        return None;
-    }
     show_target(&app, generation, target, step.map(|s| (s.number, s.total)))
 }
 
