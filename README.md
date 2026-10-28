@@ -6,6 +6,13 @@ MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right C
 - “Where is the button?” works live on Windows Settings, with Mate flying beside the target and a ring around it.
 - Password fields are blacked out before anything is sent, and Mate fails closed when he cannot safely inspect a window.
 
+## Try it
+
+1. Hold **Right Ctrl** and ask aloud: “Where is the volume control?” or “How do I make the text bigger?”
+2. Release the key. Mate answers and points to the control.
+3. During a lesson, say “do it for me,” then answer “yes” to let him press one harmless button.
+4. Right-click the tray icon to open **Settings**; try hands-free mode, **Quick**, or **Thorough**.
+
 Meta models: Muse Spark 1.3, Muse Voice Transcribe, and MMS-TTS.
 
 <!-- demo GIF here -->

@@ -1,5 +1,5 @@
 {
-  "robot.first_launch": "Здравствуйте! Я {name}. Зажмите правый Ctrl или меня, чтобы поговорить.",
+  "robot.first_launch": "Здравствуйте! Я {name}. Чтобы поговорить, зажмите правый Ctrl и спросите.",
   "robot.listening": "Слушаю.",
   "robot.thinking": "Сейчас подумаю.",
   "robot.thinking_2": "Одну секунду.",

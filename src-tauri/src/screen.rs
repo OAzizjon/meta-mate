@@ -437,10 +437,16 @@ const SEARCHED: &str = "s";
 /// so its name and everything below it stay out of the prompt.
 fn complete_with(snapshot: &mut UiSnapshot, found: &[mm_platform::UiElement]) {
     for walked in &mut snapshot.elements {
-        let same = |field: &&mm_platform::UiElement| {
-            field.control_type == walked.control_type && field.rect == walked.rect
+        let Some(rect) = walked.rect else {
+            continue;
         };
-        if walked.rect.is_some() && found.iter().any(|field| same(&field)) {
+        // The same element: the same type, mostly the same place (the two reads may differ
+        // by a pixel or a scroll step). Hiding a neighbour too is safe.
+        let same = |field: &&mm_platform::UiElement| {
+            field.control_type == walked.control_type
+                && field.rect.is_some_and(|other| mostly_overlap(rect, other))
+        };
+        if found.iter().any(|field| same(&field)) {
             walked.password_like = true;
         }
     }
@@ -452,6 +458,19 @@ fn complete_with(snapshot: &mut UiSnapshot, found: &[mm_platform::UiElement]) {
         snapshot.elements.push(field);
     }
     snapshot.truncated = false;
+}
+
+/// Whether the overlap of `a` and `b` is more than half of the smaller one.
+fn mostly_overlap(a: PhysRect, b: PhysRect) -> bool {
+    let width = i64::from(a.right.min(b.right)) - i64::from(a.left.max(b.left));
+    let height = i64::from(a.bottom.min(b.bottom)) - i64::from(a.top.max(b.top));
+    if width <= 0 || height <= 0 {
+        return false;
+    }
+    let area = |r: PhysRect| {
+        (i64::from(r.right) - i64::from(r.left)) * (i64::from(r.bottom) - i64::from(r.top))
+    };
+    2 * width * height > area(a).min(area(b))
 }
 
 /// A field to hide as two searches compare it: its control type and its edges.

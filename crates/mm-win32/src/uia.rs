@@ -201,24 +201,18 @@ impl UiaWalker {
         Some(())
     }
 
-    /// The fields near `toggle` (every on-screen Edit, Document, Custom and Text under its
-    /// grandparent, so their insides too), marked password-like.
+    /// The fields near `toggle` (every on-screen Edit, Document, Custom and Text under the
+    /// nearest ancestor that holds an edit field, so their insides too), marked
+    /// password-like.
     fn siblings_of(
         &self,
         toggle: &UIElement,
         on_screen: &uiautomation::core::UICondition,
         hide: &mut Vec<UiElement>,
     ) -> Option<()> {
-        // Web forms wrap the field and its toggle in separate boxes: search the toggle's
-        // grandparent (its parent when it has none), not only its siblings.
-        let parent = self
-            .walker
-            .get_parent_build_cache(toggle, &self.cache)
-            .ok()?;
-        let area = self
-            .walker
-            .get_parent_build_cache(&parent, &self.cache)
-            .unwrap_or(parent);
+        // Web forms wrap the field and its toggle in separate boxes: climb from the toggle
+        // until an ancestor holds an edit field (at most four levels), and hide what that
+        // ancestor holds. Hiding a little too much is safe; missing the field is not.
         let automation = &self.automation;
         let mut fields = automation
             .create_property_condition(
@@ -244,9 +238,25 @@ impl UiaWalker {
         let fields = automation
             .create_and_condition(on_screen.clone(), fields)
             .ok()?;
-        let near = area
-            .find_all_build_cache(TreeScope::Descendants, &fields, &self.cache)
-            .ok()?;
+        let mut area = toggle.clone();
+        let mut near = Vec::new();
+        for _ in 0..4 {
+            let Ok(up) = self.walker.get_parent_build_cache(&area, &self.cache) else {
+                break;
+            };
+            area = up;
+            near = area
+                .find_all_build_cache(TreeScope::Descendants, &fields, &self.cache)
+                .ok()?;
+            let has_edit = near.iter().any(|element| {
+                element
+                    .get_cached_control_type()
+                    .is_ok_and(|kind| kind == ControlType::Edit)
+            });
+            if has_edit {
+                break;
+            }
+        }
         for element in &near {
             let mut described = describe(element, &format!("s{}", hide.len()), None)?;
             described.password_like = true;
