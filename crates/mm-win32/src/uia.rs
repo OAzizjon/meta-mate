@@ -7,7 +7,7 @@
 //! multithreaded apartment; keep it off the UI thread (a hung provider must never
 //! freeze Mate).
 
-use mm_core::geom::PhysRect;
+use mm_core::geom::{PhysPoint, PhysRect};
 use mm_core::privacy::password_like;
 use mm_platform::{TargetWindow, UiElement, UiSnapshot, is_interactive_type};
 use uiautomation::core::UICacheRequest;
@@ -68,6 +68,18 @@ pub struct UiaWalker {
 }
 
 impl UiaWalker {
+    /// A live hit with the walk's cached properties; COM stays on the calling thread.
+    pub fn element_at_point(&self, point: PhysPoint) -> Option<UiElement> {
+        let element = self
+            .automation
+            .element_from_point_build_cache(
+                uiautomation::types::Point::new(point.x, point.y),
+                &self.cache,
+            )
+            .ok()?;
+        describe(&element, "p0", None)
+    }
+
     /// Initializes COM (multithreaded) on this thread and prepares the cache request.
     pub fn new() -> uiautomation::Result<Self> {
         let automation = UIAutomation::new()?;

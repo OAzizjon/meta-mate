@@ -15,7 +15,7 @@ use mm_core::redaction::{
     redact,
 };
 use mm_core::shot::Bgra;
-use mm_platform::{CapturedImage, UiSnapshot};
+use mm_platform::{CapturedImage, UiElement, UiSnapshot};
 
 /// The long edge of the image the model gets (S4 measured ~3.7k tokens at 1280 px).
 pub const MAX_EDGE: u32 = 1280;
@@ -25,6 +25,8 @@ pub const MAX_LISTED: usize = 60;
 /// One look at the target, ready for a point request.
 pub struct Look {
     pub snapshot: UiSnapshot,
+    /// The walk was cut and a separate sensitive-field scan vouched for the picture.
+    pub cut: bool,
     pub redacted: Redacted,
     pub list: ElementList,
     /// The target window's own frame when it was captured: pointing later checks the
@@ -146,6 +148,7 @@ pub fn prepare(
     let window_frame = snapshot.frame;
     Ok(Look {
         snapshot,
+        cut: false,
         redacted,
         list,
         window_frame,
@@ -154,6 +157,44 @@ pub fn prepare(
 }
 
 impl Look {
+    /// Validate a live hit without trusting its snapshot-local id or unknown ancestry.
+    pub fn resolve_live(&self, element: Option<UiElement>) -> Option<PhysRect> {
+        let element = element?;
+        if !element.interactive
+            || !element.enabled
+            || element.offscreen
+            || element.is_password
+            || element.password_like
+        {
+            return None;
+        }
+        let rect = element.rect?;
+        let frame = self.snapshot.frame;
+        if rect.left >= rect.right
+            || rect.top >= rect.bottom
+            || clip(rect, frame) != Some(rect)
+            || overlaps_any(rect, &self.painted)
+        {
+            return None;
+        }
+        let area = |r: PhysRect| {
+            (i128::from(r.right) - i128::from(r.left)) * (i128::from(r.bottom) - i128::from(r.top))
+        };
+        if area(rect) * 5 > area(frame) * 2 {
+            return None;
+        }
+        let hidden = self.snapshot.hidden_ids();
+        if self.snapshot.elements.iter().any(|element| {
+            hidden.contains(&element.id)
+                && element
+                    .rect
+                    .is_some_and(|hidden| clip(rect, hidden).is_some())
+        }) {
+            return None;
+        }
+        Some(rect)
+    }
+
     /// The parser's settings for the answer to this look: only listed ids, pixels inside
     /// the image that was sent.
     pub fn parser_settings(&self, language: &str, mode: Mode) -> Settings {
@@ -410,6 +451,7 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
         painted.len()
     );
     let mut look = prepare(snapshot, &capture, &painted).map_err(LookFailure::Prepare)?;
+    look.cut = scanned.is_some();
     look.window_frame = target.frame;
     Ok(look)
 }
@@ -637,6 +679,119 @@ mod tests {
 
     fn capture() -> CapturedImage {
         CapturedImage::new(400, 300, vec![200; 400 * 300 * 4]).unwrap()
+    }
+
+    fn live_button() -> UiElement {
+        let mut button = element(
+            "p0",
+            "Button",
+            "Open",
+            PhysRect::new(400, 300, 480, 330).unwrap(),
+        );
+        button.parent = None;
+        button
+    }
+
+    #[test]
+    fn live_hit_accepts_an_unlisted_button_without_ancestry() {
+        let mut snapshot = snapshot();
+        snapshot.elements.retain(|element| element.id != "e1");
+        let look = prepare(snapshot, &capture(), &[]).unwrap();
+        assert!(!look.cut);
+        assert_eq!(look.resolve(&Point::Pixel(320, 260)), None);
+        let button = live_button();
+        assert_eq!(look.resolve_live(Some(button.clone())), button.rect);
+        assert_eq!(look.resolve_live(None), None);
+    }
+
+    #[test]
+    fn live_hit_refuses_noninteractive_disabled_and_offscreen_elements() {
+        let look = prepare(snapshot(), &capture(), &[]).unwrap();
+        let mut noninteractive = live_button();
+        noninteractive.interactive = false;
+        assert_eq!(look.resolve_live(Some(noninteractive)), None);
+        let mut disabled = live_button();
+        disabled.enabled = false;
+        assert_eq!(look.resolve_live(Some(disabled)), None);
+        let mut offscreen = live_button();
+        offscreen.offscreen = true;
+        assert_eq!(look.resolve_live(Some(offscreen)), None);
+    }
+
+    #[test]
+    fn live_hit_refuses_each_password_flag() {
+        let look = prepare(snapshot(), &capture(), &[]).unwrap();
+        let mut password = live_button();
+        password.is_password = true;
+        assert_eq!(look.resolve_live(Some(password)), None);
+        let mut password_like = live_button();
+        password_like.password_like = true;
+        assert_eq!(look.resolve_live(Some(password_like)), None);
+    }
+
+    #[test]
+    fn live_hit_refuses_missing_invalid_or_outside_bounds() {
+        let look = prepare(snapshot(), &capture(), &[]).unwrap();
+        for rect in [
+            None,
+            Some(PhysRect {
+                left: 400,
+                top: 300,
+                right: 400,
+                bottom: 330,
+            }),
+            Some(PhysRect {
+                left: 480,
+                top: 300,
+                right: 400,
+                bottom: 330,
+            }),
+            Some(PhysRect::new(99, 300, 120, 330).unwrap()),
+            Some(PhysRect::new(400, 49, 480, 60).unwrap()),
+            Some(PhysRect::new(400, 300, 501, 330).unwrap()),
+            Some(PhysRect::new(400, 300, 480, 351).unwrap()),
+        ] {
+            let mut button = live_button();
+            button.rect = rect;
+            assert_eq!(look.resolve_live(Some(button)), None, "{rect:?}");
+        }
+    }
+
+    #[test]
+    fn live_hit_refuses_even_partial_painted_overlap() {
+        let look = prepare(
+            snapshot(),
+            &capture(),
+            &[PhysRect::new(479, 329, 500, 350).unwrap()],
+        )
+        .unwrap();
+        assert_eq!(look.resolve_live(Some(live_button())), None);
+    }
+
+    #[test]
+    fn live_hit_refuses_hidden_fields_and_their_descendants() {
+        let mut snapshot = snapshot();
+        let mut child = element("e4", "Text", "", live_button().rect.unwrap());
+        child.parent = Some("e3".into());
+        snapshot.elements.push(child);
+        let look = prepare(snapshot, &capture(), &[]).unwrap();
+        assert_eq!(look.resolve_live(Some(live_button())), None);
+        let mut button = live_button();
+        // Only one corner overlaps the password field itself.
+        button.rect = Some(PhysRect::new(349, 229, 400, 260).unwrap());
+        assert_eq!(look.resolve_live(Some(button)), None);
+    }
+
+    #[test]
+    fn live_hit_accepts_exactly_forty_percent_but_refuses_more() {
+        let mut snapshot = snapshot();
+        snapshot.elements.clear();
+        let look = prepare(snapshot, &capture(), &[]).unwrap();
+        let mut button = live_button();
+        button.rect = Some(PhysRect::new(100, 50, 500, 170).unwrap());
+        assert_eq!(look.resolve_live(Some(button.clone())), button.rect);
+        button.rect = Some(PhysRect::new(100, 50, 500, 171).unwrap());
+        assert_eq!(look.resolve_live(Some(button)), None);
     }
 
     #[test]

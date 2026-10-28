@@ -337,7 +337,26 @@ pub async fn point_at(
         });
         return None;
     }
-    let resolved = match (look.resolve(&point), &point) {
+    let mut resolved = look.resolve(&point);
+    if resolved.is_none()
+        && look.cut
+        && let Point::Pixel(x, y) = &point
+        && let Some(phys) = mm_core::geom::ShotPoint::new(f64::from(*x) + 0.5, f64::from(*y) + 0.5)
+            .ok()
+            .and_then(|shot| look.redacted.frame.shot_to_phys_checked(shot))
+        && !mm_core::redaction::point_in_any(phys, &look.painted)
+    {
+        let element = tokio::task::spawn_blocking(move || {
+            mm_win32::uia::UiaWalker::new().ok()?.element_at_point(phys)
+        })
+        .await
+        .ok()
+        .flatten();
+        resolved = look
+            .resolve_live(element)
+            .filter(|rect| rect.contains(phys));
+    }
+    let resolved = match (resolved, &point) {
         (Some(target), _) => Some(target),
         // A pixel on nothing UI Automation lists (an app without a tree): the outline of
         // what is there, from SAM 3.1, or nothing (sam.rs).

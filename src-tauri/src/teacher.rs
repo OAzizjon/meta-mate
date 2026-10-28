@@ -44,6 +44,8 @@ const IDLE_LIMIT: Duration = Duration::from_secs(180);
 /// The longest a lesson may run at all: the mouse hook is system-wide.
 const LESSON_LIMIT: Duration = Duration::from_secs(600);
 const OFFER_LIMIT: Duration = Duration::from_secs(30);
+/// The pause before a failed model turn is asked again.
+const RETRY_PAUSE: Duration = Duration::from_millis(700);
 
 /// Recognized speech and a reply indicating whether the lesson consumed it.
 pub(crate) struct Words {
@@ -395,6 +397,9 @@ pub(crate) async fn teach(
             )
         });
         if failed && !refused {
+            // Meta's computer use sometimes answers 500 twice in a row (seen 10-28): a
+            // short pause gives the second try a better chance.
+            tokio::time::sleep(RETRY_PAUSE).await;
             continue 'turns;
         }
         let missed = pending.iter().any(|command| {
@@ -664,9 +669,8 @@ fn expire_offer(teacher: &mut Teacher, offered_at: &mut Option<Instant>, now_ms:
     }
 }
 
-/// A click on nothing UI Automation knows (Telegram is Qt, a game, a canvas page): the
-/// outline SAM 3.1 finds under the model's pixel, if it is a sensible target (sam.rs);
-/// otherwise the step stays unplaceable and the teacher refuses (invariant 5).
+/// Resolve unlisted clicks live after a cut walk, then try SAM's outline when allowed.
+/// Otherwise the step stays unplaceable and the teacher refuses (invariant 5).
 async fn outline_unlisted(
     proxy: &Proxy,
     look: &Arc<Look>,
@@ -686,10 +690,34 @@ async fn outline_unlisted(
         let (Ok(x), Ok(y)) = (u32::try_from(*x), u32::try_from(*y)) else {
             continue;
         };
-        if target.is_none() && crate::sam::outline_allowed(look, x, y) {
+        if target.is_none() && (look.cut || crate::sam::outline_allowed(look, x, y)) {
             let (proxy, look) = (proxy.clone(), Arc::clone(look));
-            let task =
-                tokio::spawn(async move { crate::sam::sam_outline(&proxy, &look, x, y).await });
+            let task = tokio::spawn(async move {
+                if look.cut
+                    && let Some(phys) = ShotPoint::new(f64::from(x) + 0.5, f64::from(y) + 0.5)
+                        .ok()
+                        .and_then(|shot| look.redacted.frame.shot_to_phys_checked(shot))
+                    && !point_in_any(phys, &look.painted)
+                {
+                    let element = tokio::task::spawn_blocking(move || {
+                        mm_win32::uia::UiaWalker::new().ok()?.element_at_point(phys)
+                    })
+                    .await
+                    .ok()
+                    .flatten();
+                    if let Some(rect) = look
+                        .resolve_live(element)
+                        .filter(|rect| rect.contains(phys))
+                    {
+                        return Some(rect);
+                    }
+                }
+                if crate::sam::outline_allowed(&look, x, y) {
+                    crate::sam::sam_outline(&proxy, &look, x, y).await
+                } else {
+                    None
+                }
+            });
             asked.push((index, task));
         }
     }
