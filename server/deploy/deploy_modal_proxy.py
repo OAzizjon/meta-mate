@@ -62,18 +62,24 @@ def store_secret(values: dict) -> None:
         Path(path).unlink(missing_ok=True)
 
 
-def restart_containers() -> None:
-    """Stops this app's running containers; Modal starts a fresh one (min_containers=1)."""
+def restart_containers() -> bool:
+    """Stops this app's running containers; Modal starts a fresh one (min_containers=1) in a
+    few seconds, so deploy outside judging hours. False when that could not be done."""
     listed = subprocess.run(['modal', 'container', 'list', '--json'], capture_output=True, text=True,
                             encoding='utf-8', errors='replace')
     try:
-        containers = json.loads(listed.stdout)
+        containers = json.loads(listed.stdout) if listed.returncode == 0 else None
     except ValueError:
-        containers = []
-    for container in containers if isinstance(containers, list) else []:
+        containers = None
+    if not isinstance(containers, list):
+        return False
+    ok = True
+    for container in containers:
         if isinstance(container, dict) and container.get('app_name') == 'metamate-proxy':
-            subprocess.run(['modal', 'container', 'stop', '-y', str(container.get('container_id'))],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            stopped = subprocess.run(['modal', 'container', 'stop', '-y', str(container.get('container_id'))],
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ok = ok and stopped.returncode == 0
+    return ok
 
 
 def main() -> int:
@@ -127,7 +133,9 @@ def main() -> int:
         return 1
     # The always-warm container keeps the secret it started with (2026-10-29: it went on
     # sending Google the old URL); a fresh one reads the new secret.
-    restart_containers()
+    if not restart_containers():
+        print('!! could not restart the proxy container: it may still use the old secret '
+              '(modal container list / modal container stop -y ID)')
     # Only a deployment whose secret names its own URL is linked for `mm release`.
     link['url'] = url
     save_link(link)
