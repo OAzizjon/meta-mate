@@ -84,8 +84,9 @@ function devHook(robot: RobotController, setUiLocale: (locale: LocaleCode) => vo
 }
 
 interface Bubble {
+  /** Puts the model chip under the text (null clears it); it goes when the bubble hides. */
   setModel(model: AnswerModel | null): void;
-  /** Shows `text` (null hides the bubble), for `ms` when given. */
+  /** Shows `text` (null hides the bubble), for `ms` when given; the chip is left as it is. */
   show(text: string | null, ms?: number): void;
   /** Hides the bubble after `ms`, unless something else is shown first. */
   hideAfter(ms: number): void;
@@ -97,25 +98,34 @@ function mountBubble(element: HTMLElement): Bubble {
   chip.className = "mate-model-chip";
   chip.hidden = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const setModel = (model: AnswerModel | null): void => {
+    chip.textContent = model === null ? "" : t(MODEL_KEYS[model]);
+    chip.hidden = model === null;
+  };
   const show = (text: string | null, ms?: number): void => {
     clearTimeout(timer);
     timer = undefined;
     // textContent only: answer text is never parsed as markup.
     textElement.textContent = text ?? "";
-    // Onboarding shares this element and may have replaced its children.
-    element.replaceChildren(textElement, chip);
+    // Onboarding shares this element and may have replaced its children. Otherwise the
+    // nodes stay put: re-inserting the chip would restart its fade on every sentence.
+    if (textElement.parentNode !== element || chip.parentNode !== element) {
+      element.replaceChildren(textElement, chip);
+    }
     element.hidden = text === null;
+    // The chip goes with the bubble: a later line in the same answer shows none.
+    if (text === null) setModel(null);
     if (text !== null && ms !== undefined) timer = setTimeout(() => show(null), ms);
   };
   return {
-    setModel(model) {
-      chip.textContent = model === null ? "" : t(MODEL_KEYS[model]);
-      chip.hidden = model === null;
-    },
+    setModel,
     show,
     hideAfter(ms) {
       clearTimeout(timer);
-      timer = element.hidden ? undefined : setTimeout(() => show(null), ms);
+      timer = undefined;
+      // Nothing lingers when the bubble is already hidden: the chip goes now.
+      if (element.hidden) setModel(null);
+      else timer = setTimeout(() => show(null), ms);
     },
   };
 }
@@ -211,7 +221,7 @@ async function createRouter(
   let idle = false;
   const setState = (state: RobotState): void => {
     idle = state === "idle";
-    if (idle) bubble.setModel(null);
+    // The chip stays while the bubble lingers after the answer; the bubble clears it.
     if (listening && state !== "listening") {
       listening = false;
       listeningGeneration = null;

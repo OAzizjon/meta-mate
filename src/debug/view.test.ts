@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { inspect } from "node:util";
 
+import { ANSWER_MODELS } from "../ipc/answer-stream.ts";
 import type { TimelineItem } from "../ipc/timeline.ts";
 import {
   DebugStore,
@@ -68,6 +69,11 @@ const VALID_ANSWER_LINE: DebugMsg = {
   msg: { type: "line", generation: 1, key: "robot.cant_find" },
 };
 
+const VALID_ANSWER_MODEL: DebugMsg = {
+  type: "answer",
+  msg: { type: "model", generation: 1, model: "muse-spark-1.3" },
+};
+
 const VALID_TIMING: DebugMsg = {
   type: "timing",
   generation: 1,
@@ -104,6 +110,8 @@ test("every valid DebugMsg variant parses into a fresh copy", () => {
     },
     VALID_ANSWER_CANCEL,
     VALID_ANSWER_LINE,
+    VALID_ANSWER_MODEL,
+    { type: "answer", msg: { type: "model", generation: 0, model: "muse-wonder-1.0" } },
     VALID_TIMING,
     { type: "timing", generation: 2, name: "first_text", ms: 820 },
     { type: "timing", generation: 2, name: "first_audio", ms: 1250 },
@@ -122,6 +130,7 @@ test("getDebugMsgGeneration returns the target generation", () => {
   assert.equal(getDebugMsgGeneration(VALID_ANSWER_STATE), 1);
   assert.equal(getDebugMsgGeneration(VALID_ANSWER_ITEM), 1);
   assert.equal(getDebugMsgGeneration(VALID_ANSWER_PCM), 1);
+  assert.equal(getDebugMsgGeneration(VALID_ANSWER_MODEL), 1);
   assert.equal(getDebugMsgGeneration(VALID_TIMING), 1);
   assert.equal(getDebugMsgGeneration(VALID_LOOK), 1);
 });
@@ -180,10 +189,39 @@ test("malformed DebugMsg payloads are rejected without throwing", () => {
     },
     { type: "answer", msg: { type: "line", generation: 1, key: "" } },
     { type: "answer", msg: { type: "item", generation: 1, item: { kind: "invalid_kind" } } },
+    { type: "answer", msg: { type: "model", generation: 1, model: "gpt-4o" } },
   ];
 
   for (const raw of malformed) {
     assert.equal(parseDebugMsg(raw), null, inspect(raw));
+  }
+});
+
+test("parseDebugAnswerMsg accepts the closed model ids and nothing else", () => {
+  for (const model of ANSWER_MODELS) {
+    const raw = { type: "model", generation: 3, model };
+    const parsed = parseDebugAnswerMsg(raw);
+    assert.deepEqual(parsed, raw, model);
+    assert.notEqual(parsed, raw);
+  }
+
+  const malformed: unknown[] = [
+    // Raw proxy headers never reach the window: only the closed display ids do.
+    { type: "model", generation: 1, model: "muse-spark-preview" },
+    { type: "model", generation: 1, model: "Muse Spark 1.3" },
+    { type: "model", generation: 1, model: "" },
+    { type: "model", generation: 1, model: null },
+    { type: "model", generation: 1, model: 13 },
+    { type: "model", generation: 1 },
+    { type: "model", model: "muse-spark-1.3" },
+    { type: "model", generation: -1, model: "muse-spark-1.3" },
+    { type: "model", generation: 1.5, model: "muse-spark-1.3" },
+    { type: "model", generation: "1", model: "muse-spark-1.3" },
+    { type: "model", generation: 1, model: "muse-spark-1.3", extra: true },
+  ];
+  for (const raw of malformed) {
+    assert.equal(parseDebugAnswerMsg(raw), null, inspect(raw));
+    assert.equal(parseDebugMsg({ type: "answer", msg: raw }), null, inspect(raw));
   }
 });
 
@@ -460,6 +498,34 @@ test("DebugStore aggregates items, pcm, timings, look, state, and cancellation",
   const updated = store.getGenerations()[0];
   assert.equal(updated.timings.length, 2);
   assert.equal(updated.timings.find((t) => t.name === "first_text")?.ms, 420);
+});
+
+test("DebugStore records the model chip of its generation among the lines", () => {
+  const store = new DebugStore();
+
+  store.addMsg({ type: "answer", msg: { type: "state", generation: 7, state: "thinking" } });
+  store.addMsg({ type: "answer", msg: { type: "model", generation: 7, model: "muse-spark-1.3" } });
+  store.addMsg({ type: "answer", msg: { type: "line", generation: 7, key: "robot.cant_find" } });
+  assert.equal(
+    store.handleRaw({
+      type: "answer",
+      msg: { type: "model", generation: 8, model: "muse-wonder-1.0" },
+    }),
+    true,
+  );
+  // An unknown model is dropped before it reaches the store.
+  assert.equal(
+    store.handleRaw({ type: "answer", msg: { type: "model", generation: 8, model: "gpt-4o" } }),
+    false,
+  );
+
+  const [newest, older] = store.getGenerations();
+  assert.equal(newest.generation, 8);
+  assert.deepEqual(newest.lines, ["muse-wonder-1.0"]);
+  assert.equal(older.generation, 7);
+  assert.deepEqual(older.lines, ["muse-spark-1.3", "robot.cant_find"]);
+  assert.equal(older.state, "thinking");
+  assert.equal(older.items.length, 0);
 });
 
 test("renderDebugViewHtml and renderGenerationHtml generate complete HTML markup", () => {

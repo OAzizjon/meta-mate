@@ -1,8 +1,8 @@
 {
-  "model.muse_spark": "модель Muse Spark 1.3",
-  "model.muse_wonder": "модель Muse Wonder 1.0",
-  "model.sam": "модель SAM 3.1",
-  "model.voice_transcribe": "модель Muse Voice Transcribe 1.0",
+  "model.muse_spark": "Muse Spark 1.3 · ответ",
+  "model.muse_wonder": "Muse Wonder 1.0 · ответ",
+  "model.sam": "SAM 3.1 · контур",
+  "model.voice_transcribe": "Muse Voice Transcribe 1.0 · речь",
   "robot.first_launch": "Здравствуйте! Я {name}. Чтобы поговорить, зажмите правый Ctrl и спросите.",
   "robot.listening": "Слушаю.",
   "robot.thinking": "Сейчас подумаю.",
