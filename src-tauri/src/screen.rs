@@ -336,16 +336,32 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
     };
     let capture = copied.map_err(LookFailure::Capture)?;
     let copied_at = started.elapsed();
-    // The masks come from the walk: the window must be exactly where it was then, under
-    // the same windows of other apps.
+    // The masks come from the walk: the window must be exactly where it was then.
     let after = window::foreground_target(own).ok_or(LookFailure::Changed)?;
     if after.hwnd != target.hwnd
         || after.frame != target.frame
         || after.popups != target.popups
         || after.region != target.region
-        || window::occluders(&after, own) != occluders
     {
+        #[cfg(debug_assertions)]
+        eprintln!(
+            "look: changed: window {} frame {} popups {}/{} region {}",
+            after.hwnd == target.hwnd,
+            after.frame == target.frame,
+            target.popups.len(),
+            after.popups.len(),
+            after.region == target.region,
+        );
         return Err(LookFailure::Changed);
+    }
+    // Windows above the target before and after the copy are both painted: the taskbar
+    // re-raises itself when our windows come back, and whatever was above during the
+    // copy was above at one of the two moments.
+    let mut occluders = occluders;
+    for above in window::occluders(&after, own) {
+        if !occluders.contains(&above) {
+            occluders.push(above);
+        }
     }
     // A password field that appeared or moved while the screen was copied is not in the
     // first walk's masks (invariant 3): walk again and compare what must be hidden.
@@ -358,6 +374,8 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
         )
         .map_err(|_| LookFailure::Uia)?;
     if !same_hidden(&snapshot, &again) {
+        #[cfg(debug_assertions)]
+        eprintln!("look: changed: hidden fields differ between the walks");
         return Err(LookFailure::Changed);
     }
     let painted = painted_areas(target.region, target.frame, &target.popups, &occluders);

@@ -1,8 +1,8 @@
 # MetaMate
 
-MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl and ask by voice; he answers aloud, flies next to the right button in any app, and teaches you step by step, with a golden ring showing where to click—he never clicks payments, deletions, or passwords for you.
+MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl or tap for hands-free voice, and he answers aloud, flies next to the right button, and teaches you step by step. In a lesson, say yes to let him click the verified target—one left click per yes, never Pay, Delete, or password actions.
 
-- The voice loop works end to end: hold Right Ctrl, speak, and Mate answers aloud.
+- The voice loop works end to end: hold Right Ctrl, or tap, talk, and pause; Mate answers aloud.
 - “Where is the button?” works live on Windows Settings, with Mate flying beside the target and a ring around it.
 - Password fields are blacked out before anything is sent, and Mate fails closed when he cannot safely inspect a window.
 
@@ -18,8 +18,10 @@ Meta models: Muse Spark 1.3, Muse Voice Transcribe, and MMS-TTS.
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
-- Hold to talk and ask in any language.
-- Mate points at the right button in any app, then waits for you to click.
+- Hold to talk or use hands-free mode: tap, talk, and pause.
+- Mate points at the right button in any app, then waits for you to click—or, in a lesson, say yes for one verified left click.
+- SAM 3.1 outlines targets in apps without an accessibility tree, including Qt apps such as Telegram Desktop and games.
+- A tray icon opens Settings.
 - Hear helpful sound cues, or use calm mode designed for older users.
 
 ## Why it is different
@@ -32,17 +34,17 @@ Mate is a **teacher, not an autonomous agent**: he guides one step at a time ins
 Voice: hold to talk → Muse Voice Transcribe → Muse Spark → MateScript → MMS-TTS
 Screen: active window → UI Automation (UIA) + computer use → SAM 3.1 fallback
                                                     ↓
-                                        Mate points; you click
+                                   Mate points; you click or say yes in a lesson
 ```
 
-UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 3.1 can refine a visual target when accessibility data is missing. Mate clicks for you only when you say "do it for me" and confirm, and never on payments, deletions or passwords.
+UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 3.1 outlines targets when accessibility data is missing, including in Qt apps and games. In a lesson, Mate clicks the verified target only after a spoken yes, one left click per yes, and never Pay, Delete, or password actions.
 
 ## Safety and privacy
 
 - Mate's windows never take focus away from your app.
 - A screenshot is taken only during a question and includes only the app you are asking about and its popups. Password fields, gaps, and every other app's window are painted black before it leaves your computer; if this cannot be guaranteed, Mate fails closed.
-- Mate never presses Pay, Buy, Delete, money-transfer, or password actions.
-- Mate presses any other button only after you say yes, one button per yes.
+- Mate never clicks Pay, Delete, or password actions.
+- In a lesson, Mate clicks the verified target only after you say yes, one left click per yes.
 - If Mate cannot find something, he says "I can't find it" rather than pointing at a guess.
 - Provider keys live only on the proxy server, never in the app.
 

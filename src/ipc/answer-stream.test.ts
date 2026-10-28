@@ -54,6 +54,7 @@ test("every message type parses into a fresh copy", () => {
 test("Rust's JSON parses and serializes back unchanged", () => {
   for (const line of [
     '{"type":"state","generation":4,"state":"listening"}',
+    '{"type":"state","generation":4,"state":"looking"}',
     '{"type":"level","generation":4,"level":0}',
     '{"type":"level","generation":4,"level":0.375}',
     '{"type":"level","generation":4,"level":1}',
@@ -171,7 +172,7 @@ const MALFORMED: unknown[] = [
   ...NOT_IDS.map((generation) => ({ ...STATE, generation })),
   ...NOT_IDS.map((generation) => ({ ...LEVEL, generation })),
   ...NOT_IDS.map((sentence) => ({ ...PCM, sentence })),
-  ...["speaking", "Listening", "idle ", "", null, 1].map((state) => ({ ...STATE, state })),
+  ...["speaking", "Listening", "Looking", "idle ", "", null, 1].map((state) => ({ ...STATE, state })),
   ...[-0.001, -1, 1.001, 2, Number.MAX_VALUE, Infinity, -Infinity, NaN, "0.5", null, true, {}, [0.5]].map(
     (level) => ({ ...LEVEL, level }),
   ),

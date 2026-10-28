@@ -3,7 +3,7 @@
 // svg.ts turns the nodes into elements. The functions at the end map the viewBox to CSS
 // pixels and aim the arm, the beam and the eyes.
 
-import type { CssPoint, CssRect, RobotMood } from "./types";
+import type { CssPoint, CssRect, RobotMood } from "./types.ts";
 
 export const INK = "#1F2A44";
 export const GLASS_PATH =

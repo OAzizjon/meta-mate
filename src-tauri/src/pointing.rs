@@ -4,6 +4,7 @@
 //! point; Mate flies beside the target without covering it (mm_core::placement) and the
 //! highlight window shines on it (highlight.rs).
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use std::thread::JoinHandle;
@@ -23,14 +24,55 @@ use mm_win32::winevent::{self, Follow};
 /// Clearance between Mate and the target, in CSS pixels at 100 %.
 const GAP: f64 = 24.0;
 
+/// A SAM 3.1 outline asked for while the answer was still being written, by
+/// (generation, pixel x, pixel y): pointing then waits for it instead of starting late.
+type Outlines = HashMap<(u64, u32, u32), tauri::async_runtime::JoinHandle<Option<PhysRect>>>;
+
 /// The look of the answer being played, by generation.
 #[derive(Default)]
 pub struct Pointing {
     current: Mutex<Option<(u64, Arc<Look>)>>,
     follower: Mutex<Option<Follower>>,
+    outlines: Mutex<Outlines>,
 }
 
 impl Pointing {
+    /// Starts SAM on pixel (x, y) of `generation`'s look now (voice.rs, while parsing).
+    pub fn prefetch_outline(&self, app: &AppHandle, generation: u64, x: u32, y: u32) {
+        let (Some(look), Some(proxy)) = (
+            self.look(generation),
+            app.try_state::<crate::proxy::Proxy>(),
+        ) else {
+            return;
+        };
+        let proxy = proxy.inner().clone();
+        let task = tauri::async_runtime::spawn(async move {
+            crate::sam::sam_outline(&proxy, &look, x, y).await
+        });
+        if let Ok(mut outlines) = self.outlines.lock() {
+            // Only this answer's outlines are worth keeping.
+            outlines.retain(|(owner, _, _), _| *owner == generation);
+            outlines.insert((generation, x, y), task);
+        }
+    }
+
+    /// The outline asked for earlier, or a fresh one.
+    async fn outline(
+        &self,
+        app: &AppHandle,
+        generation: u64,
+        look: &Look,
+        x: u32,
+        y: u32,
+    ) -> Option<PhysRect> {
+        let early = self.outlines.lock().ok()?.remove(&(generation, x, y));
+        if let Some(task) = early {
+            return task.await.ok().flatten();
+        }
+        let proxy = app.try_state::<crate::proxy::Proxy>()?.inner().clone();
+        crate::sam::sam_outline(&proxy, look, x, y).await
+    }
+
     pub fn set(&self, generation: u64, look: Look) {
         self.stop_following();
         if let Ok(mut current) = self.current.lock() {
@@ -283,14 +325,16 @@ pub async fn point_at(
         (Some(target), _) => Some(target),
         // A pixel on nothing UI Automation lists (an app without a tree): the outline of
         // what is there, from SAM 3.1, or nothing (sam.rs).
-        (None, Point::Pixel(x, y)) if crate::sam::tree_is_flat(&look.snapshot) => {
-            match app.try_state::<crate::proxy::Proxy>() {
-                Some(proxy) => {
-                    let proxy = proxy.inner().clone();
-                    crate::sam::sam_outline(&proxy, &look, *x, *y).await
-                }
-                None => None,
+        (None, Point::Pixel(x, y)) if crate::sam::outline_allowed(&look, *x, *y) => {
+            let outline = pointing.outline(&app, generation, &look, *x, *y).await;
+            if outline.is_none() && pointing.generation() == Some(generation) {
+                // The sentence was let through for SAM; it found nothing: say so.
+                app.state::<AnswerStream>().send(AnswerMsg::Line {
+                    generation,
+                    key: "robot.cant_find",
+                });
             }
+            outline
         }
         (None, _) => None,
     };

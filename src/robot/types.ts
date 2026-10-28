@@ -5,6 +5,7 @@
 export const ROBOT_STATES = [
   "idle",
   "listening",
+  "looking",
   "thinking",
   "speaking",
   "flying",

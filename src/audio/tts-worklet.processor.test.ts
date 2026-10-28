@@ -97,3 +97,48 @@ test("overflow rejects the whole chunk, preserves queued speech, and ends the sk
   assert.ok(messages.some((message) => message.type === "sentence-end" && message.sentenceId === 2));
   assert.deepEqual([...render(processor, capacity - 8)], Array(capacity - 8).fill(0.25));
 });
+
+test("interrupt mid-sentence ends dropped sentences and plays the next pushed sentence", () => {
+  const { processor, messages } = setup();
+  processor.pushPcm(1, 1, 48_000, false, new Int16Array([8192, 16384, 8192, 16384]));
+  processor.pushPcm(1, 2, 48_000, true, new Int16Array([16384, 16384]));
+  assert.deepEqual([...render(processor, 2)], [0.25, 0.5]);
+  assert.equal(messages.some((message) => message.type === "sentence-end"), false);
+
+  processor.handleMessage({ type: "interrupt", generationId: 1 });
+  assert.equal(processor.bufferedFrames, 0);
+  assert.equal(processor.currentGenerationId, 1);
+  assert.deepEqual(
+    messages.filter((message) => message.type === "sentence-end"),
+    [
+      { type: "sentence-end", generationId: 1, sentenceId: 1 },
+      { type: "sentence-end", generationId: 1, sentenceId: 2 },
+    ],
+  );
+  assert.deepEqual([...render(processor, 2)], [0, 0]);
+
+  processor.pushPcm(1, 3, 48_000, true, new Int16Array([-8192, 8192]));
+  assert.deepEqual([...render(processor, 2)], [-0.25, 0.25]);
+  assert.ok(
+    messages.some(
+      (message) =>
+        message.type === "sentence-end" &&
+        message.generationId === 1 &&
+        message.sentenceId === 3,
+    ),
+  );
+});
+
+test("interrupt for another generation leaves the playing generation unaffected", () => {
+  const { processor, messages } = setup();
+  processor.pushPcm(2, 1, 48_000, true, new Int16Array([16384, 8192]));
+  processor.handleMessage({ type: "interrupt", generationId: 1 });
+  processor.handleMessage({ type: "interrupt", generationId: 3 });
+  assert.equal(processor.currentGenerationId, 2);
+  assert.equal(processor.bufferedFrames, 2);
+  assert.deepEqual([...render(processor, 2)], [0.5, 0.25]);
+  assert.deepEqual(
+    messages.filter((message) => message.type === "sentence-end"),
+    [{ type: "sentence-end", generationId: 2, sentenceId: 1 }],
+  );
+});

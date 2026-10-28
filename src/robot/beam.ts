@@ -2,9 +2,9 @@
 // glow and a contour on the target (docs/robot.md "pointing"). It draws into an SVG without
 // a viewBox that covers the page, so its user units are client CSS pixels.
 
-import { BEAM_COLOR, BEAM_STOPS, CONTOUR_COLOR, computeBeamPolygon, rectCenter } from "./geometry";
-import { num, setAttr, svgEl, uniqueId } from "./svg";
-import type { CssPoint, CssRect } from "./types";
+import { BEAM_COLOR, BEAM_STOPS, CONTOUR_COLOR, computeBeamPolygon, rectCenter } from "./geometry.ts";
+import { num, setAttr, svgEl, uniqueId } from "./svg.ts";
+import type { CssPoint, CssRect } from "./types.ts";
 
 export interface BeamController {
   /** Shines from `nozzle` onto `target`; `halfWidth` is the cone's half width at the lens. */

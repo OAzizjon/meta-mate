@@ -139,6 +139,7 @@ export interface AudioEngine {
   readonly fallbackNeeded: boolean;
   ensureResumed(): Promise<boolean>;
   pushPcm(chunk: PcmChunk): void;
+  interrupt(generationId: number): void;
   cancel(generationId: number): void;
   waitForSentenceEnd(generationId: number, sentenceId: number): Promise<void>;
   playCue(name: CueName, opts?: CueOptions): PlaybackHandle;
@@ -268,6 +269,20 @@ export async function createAudioEngine(
         pcm,
       };
       workletNode.port.postMessage(msg, [pcm]);
+    },
+    interrupt(generationId: number): void {
+      if (disposed || generationId <= canceledThrough) return;
+      if (workletNode) {
+        const msg: WorkletInboundMsg = {
+          type: "interrupt",
+          generationId,
+        };
+        workletNode.port.postMessage(msg);
+      }
+      if (generationId === activeGeneration) {
+        mixer.setSpeechActive(false);
+        options.onVoiceLevel?.(0);
+      }
     },
     cancel(generationId: number): void {
       canceledThrough = Math.max(canceledThrough, generationId);

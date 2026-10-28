@@ -36,6 +36,52 @@ pub fn tree_is_flat(snapshot: &UiSnapshot) -> bool {
         < MIN_NAMED_INTERACTIVE
 }
 
+/// Whether SAM may outline what lies under screenshot pixel `(x, y)`: the whole tree is
+/// flat, or the element under the pixel is a container (a canvas page, a Qt window) with
+/// no interactive element inside it. A blank spot between the buttons of a rich tree
+/// stays "I can't find it" (invariant 5). Window chrome (caption buttons, an address bar)
+/// does not make a canvas page "rich".
+pub fn outline_allowed(look: &Look, x: u32, y: u32) -> bool {
+    let snapshot = &look.snapshot;
+    if tree_is_flat(snapshot) {
+        return true;
+    }
+    let Some(phys) = mm_core::geom::ShotPoint::new(f64::from(x) + 0.5, f64::from(y) + 0.5)
+        .ok()
+        .and_then(|shot| look.redacted.frame.shot_to_phys_checked(shot))
+    else {
+        return false;
+    };
+    let Some(under) = snapshot.element_at(phys) else {
+        return false;
+    };
+    // The window itself always holds its chrome: never a reason on its own.
+    if under.parent.is_none() || under.interactive {
+        return false;
+    }
+    !snapshot.elements.iter().any(|element| {
+        element.interactive
+            && element.enabled
+            && !element.offscreen
+            && element.rect.is_some()
+            && descends_from(snapshot, element, &under.id)
+    })
+}
+
+/// Whether `element` lies below the element `ancestor` (by parent ids; a cycle or a
+/// missing parent ends the walk).
+fn descends_from(snapshot: &UiSnapshot, element: &mm_platform::UiElement, ancestor: &str) -> bool {
+    let mut parent = element.parent.as_deref();
+    for _ in 0..snapshot.elements.len() {
+        match parent {
+            Some(id) if id == ancestor => return true,
+            Some(id) => parent = snapshot.element(id).and_then(|up| up.parent.as_deref()),
+            None => return false,
+        }
+    }
+    false
+}
+
 /// Asks SAM 3.1 through `proxy` for the contour box around screenshot pixel `(x, y)` of
 /// `look`, returning its physical screen rectangle when a valid box arrives within 6 s,
 /// lies inside `look.snapshot.frame`, and does not touch `look.painted`.
@@ -141,6 +187,45 @@ mod tests {
             elements,
             truncated: false,
         }
+    }
+
+    fn canvas_capture() -> CapturedImage {
+        CapturedImage::new(400, 300, vec![200; 400 * 300 * 4]).unwrap()
+    }
+
+    #[test]
+    fn a_canvas_without_controls_may_be_outlined_but_a_rich_area_may_not() {
+        let window = |id: &str, kind: &str, name: &str, parent: Option<&str>, rect| UiElement {
+            parent: parent.map(str::to_owned),
+            rect: Some(rect),
+            ..el(id, kind, name)
+        };
+        let whole = FRAME;
+        let canvas = PhysRect::new(100, 100, 500, 350).unwrap();
+        let chrome = PhysRect::new(400, 50, 420, 70).unwrap();
+        let mut elements = vec![
+            window("e0", "Window", "Postcard Maker", None, whole),
+            window("e1", "Button", "Minimize", Some("e0"), chrome),
+            window("e2", "Button", "Maximize", Some("e0"), chrome),
+            window("e3", "Button", "Close", Some("e0"), chrome),
+            window("e4", "Document", "Postcard Maker", Some("e0"), canvas),
+        ];
+        let look = prepare(snapshot_with(elements.clone()), &canvas_capture(), &[]).unwrap();
+        // The capture is the frame at 1:1: pixel (300, 200) is physical (400, 250).
+        assert!(!tree_is_flat(&look.snapshot));
+        assert!(outline_allowed(&look, 300, 200));
+        // A button inside the document: the document is a rich area now.
+        elements.push(window(
+            "e5",
+            "Button",
+            "Send",
+            Some("e4"),
+            PhysRect::new(110, 110, 150, 130).unwrap(),
+        ));
+        let look = prepare(snapshot_with(elements), &canvas_capture(), &[]).unwrap();
+        assert!(!outline_allowed(&look, 300, 200));
+        // Above the canvas only the window itself is under the pixel: not allowed.
+        assert!(!outline_allowed(&look, 10, 10));
     }
 
     #[test]

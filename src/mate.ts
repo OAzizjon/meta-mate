@@ -27,6 +27,7 @@ import type {
 const LINE_BUBBLE_MS = 4000;
 const CANT_FIND_BUBBLE_MS = 3000;
 const DONE_BUBBLE_MS = 1500;
+const LESSON_INTERRUPT_EVENT = "lesson-interrupt";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 const tauriInvoke: SettingsInvoke = async (cmd, args) => {
@@ -170,6 +171,20 @@ async function createRouter(
       void reportPlayback("trace", 0, msg.type);
     }
   });
+  const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
+  void getCurrentWebviewWindow()
+    .listen<unknown>(LESSON_INTERRUPT_EVENT, (event) => {
+      if (
+        typeof event.payload === "number" &&
+        Number.isSafeInteger(event.payload) &&
+        event.payload >= 0
+      ) {
+        audio.interrupt(event.payload);
+      }
+    })
+    .catch((error: unknown) => {
+      console.error("[mate] lesson-interrupt listener failed", error);
+    });
   let listening = false;
   const setState = (state: RobotState): void => {
     if (listening && state !== "listening") {

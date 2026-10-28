@@ -132,6 +132,10 @@ export type WorkletInboundMsg =
       readonly pcm: ArrayBuffer;
     }
   | {
+      readonly type: "interrupt";
+      readonly generationId: number;
+    }
+  | {
       readonly type: "cancel";
       readonly generationId: number;
     };

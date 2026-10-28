@@ -106,6 +106,10 @@
   transform: scale(1.12);
 }
 
+.mate-svg[data-state="looking"] .mate-eyes {
+  animation: mate-look 0.6s ease-in-out 1 forwards;
+}
+
 .mate-svg[data-state="thinking"] .mate-layer-aura {
   animation: mate-pulse 1.6s ease-in-out infinite;
 }
@@ -161,8 +165,23 @@
 }
 
 .mate-root.reduce-motion .mate-body,
-.mate-svg.reduce-motion .mate-body {
+.mate-svg.reduce-motion .mate-body,
+.mate-root.reduce-motion .mate-eyes,
+.mate-svg.reduce-motion .mate-eyes {
   transform: none;
+}
+
+@keyframes mate-look {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(-4px);
+  }
+  70% {
+    transform: translateX(4px);
+  }
 }
 
 @keyframes mate-bob {

@@ -38,6 +38,28 @@ To exercise the full voice path from a WAV file, run `cargo run -p metamate --fe
 
 To inspect push-to-talk without opening a window, run `cargo run -p metamate --features custom-protocol -- --ptt-probe`. It prints a prompt and each event with elapsed time, then exits after 60 seconds.
 
+## Build the installer
+
+On the Windows build machine, install the locked npm dependencies and build from the repository root:
+
+```powershell
+npm ci
+npm run tauri -- build --bundles nsis --target x86_64-pc-windows-msvc
+```
+
+The MetaMate setup executable is under `target/x86_64-pc-windows-msvc/release/bundle/nsis/` (or the equivalent under `CARGO_TARGET_DIR`). Product name and existing icons come from `src-tauri/tauri.conf.json`. NSIS installs for the current user without administrator rights and offers English and Russian. It does not register Start with Windows; that setting remains store only. Audio autoplay is already configured in `overlay.rs`.
+
+`offlineInstaller` embeds the full WebView2 runtime installer, increasing the download size substantially. Both downloaded and embedded bootstrappers still fetch the runtime from the internet, so neither supports a judge installing offline. The build machine needs network access to fetch bundler tools and the runtime unless already cached; installation needs no network. MetaMate's cloud answers still require network access.
+
+Keep Tauri 2's standard NSIS template: its uninstaller offers an unchecked application-data deletion checkbox. Keeping the default preserves `%APPDATA%\app.metamate.desktop` (including `settings.json`); only explicitly checking the box should remove it. No custom uninstall hook should delete settings unconditionally.
+
+Before handing the installer to judges, the lead must verify on a real build:
+
+- Install as a standard user without UAC, on a clean x64 Windows profile with network disabled and no WebView2 runtime; launch successfully after runtime installation.
+- Check both language choices in setup and uninstall, the existing app icons, and playback on first launch. Confirm no Startup entry or Run registry value is created, including after saving Start with Windows.
+- Save settings, uninstall with the deletion box untouched, and reinstall: settings must survive. Repeat with the box checked: the app's config folder must be removed. Verify an upgrade preserves settings too. These checks must confirm the pinned CLI's standard-template checkbox behavior before release.
+- Test the signed release or document the unsigned installer's SmartScreen steps; then reconnect and exercise the judge invite and voice path end to end.
+
 ## Chosen helper tools (why each one earns its place)
 
 | Tool | What we use it for | Install |

@@ -2,8 +2,8 @@
 // arrives with a small bounce (docs/robot.md "flying"). With reduced motion he fades out,
 // jumps and fades in: no positions in between, no tilt.
 
-import { clamp } from "./geometry";
-import type { CssPoint } from "./types";
+import { clamp } from "./geometry.ts";
+import type { CssPoint } from "./types.ts";
 
 export interface FlightOptions {
   readonly reduceMotion: boolean;

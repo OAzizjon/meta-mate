@@ -23,8 +23,8 @@ import {
   baseNodes,
   glassNodes,
   openMouthRy,
-} from "./geometry";
-import type { ArmAim, ArmPose, EyeShape, GradientSpec, MouthShape, SvgAttrs, SvgNode, ViewPoint } from "./geometry";
+} from "./geometry.ts";
+import type { ArmAim, ArmPose, EyeShape, GradientSpec, MouthShape, SvgAttrs, SvgNode, ViewPoint } from "./geometry.ts";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 

@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use mm_core::api::intent::{Intent, guess_intent};
 use mm_core::api::request::{ModelChoice, ReasoningEffort, chat_request, point_request};
-use mm_core::matescript::{Bound, Item, Mode, Parser, Settings};
+use mm_core::matescript::{Bound, Item, Mode, Parser, Point, Settings};
 use mm_core::ptt::{PttEvent, PttSettings};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{Notify, mpsc, oneshot};
@@ -566,6 +566,7 @@ async fn answer(
         let look = app
             .try_state::<Pointing>()
             .and_then(|pointing| pointing.look(generation));
+        let outliner = app.clone();
         let mut emit = move |items: Vec<Item>| {
             for item in items {
                 let item = match item {
@@ -574,6 +575,14 @@ async fn answer(
                     }
                     other => other,
                 };
+                // A pixel only SAM can outline: ask now, while the sentence is spoken.
+                if let (Item::Say(say), Some(look)) = (&item, look.as_ref()) {
+                    for (x, y) in outline_pixels(look, say) {
+                        if let Some(pointing) = outliner.try_state::<Pointing>() {
+                            pointing.prefetch_outline(&outliner, generation, x, y);
+                        }
+                    }
+                }
                 if !matches!(item, Item::Lang(_) | Item::BadTag)
                     && !started.swap(true, Ordering::AcqRel)
                 {
@@ -639,26 +648,54 @@ async fn answer(
     }
 }
 
-/// Whether every point of `say` resolves against `look` (a sentence without one does).
+/// Whether every point of `say` resolves against `look` (a sentence without one does), or
+/// is a pixel SAM 3.1 may outline (point_at then waits for the outline).
 fn resolvable(look: &crate::screen::Look, say: &mm_core::matescript::Say) -> bool {
+    let ok = |point: &Point| {
+        look.resolve(point).is_some()
+            || matches!(point, Point::Pixel(x, y) if crate::sam::outline_allowed(look, *x, *y))
+    };
     say.bound.iter().all(|bound| match bound {
-        Bound::Point(point) => look.resolve(point).is_some(),
-        Bound::Step(step) => look.resolve(&step.target).is_some(),
+        Bound::Point(point) => ok(point),
+        Bound::Step(step) => ok(&step.target),
         _ => true,
     })
 }
 
-/// Our windows' handles (Mate, every monitor's highlight): never a target, hidden while
-/// capturing.
+/// The pixels of `say` that nothing in the tree resolves but SAM may outline.
+fn outline_pixels(look: &crate::screen::Look, say: &mm_core::matescript::Say) -> Vec<(u32, u32)> {
+    say.bound
+        .iter()
+        .filter_map(|bound| match bound {
+            Bound::Point(point) => Some(point),
+            Bound::Step(step) => Some(&step.target),
+            _ => None,
+        })
+        .filter_map(|point| match point {
+            Point::Pixel(x, y)
+                if look.resolve(point).is_none() && crate::sam::outline_allowed(look, *x, *y) =>
+            {
+                Some((*x, *y))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// Overlay handles: never a target, hidden while capturing. Settings is a normal window.
 fn own_windows(app: &AppHandle) -> Vec<isize> {
-    // Every window of ours (Mate, each monitor's highlight, the debug window): none may be
-    // in the picture. A window whose handle cannot be read makes the list short, and the
+    // A window whose handle cannot be read makes the list short, and the
     // look then refuses (screen.rs checks the count).
     app.webview_windows()
         .into_values()
+        .filter(|window| is_overlay(window.label()))
         .filter_map(|window| window.hwnd().ok())
         .map(|hwnd| hwnd.0 as isize)
         .collect()
+}
+
+fn is_overlay(label: &str) -> bool {
+    matches!(label, "mate" | "debug") || label.starts_with("highlight-")
 }
 
 /// The cached phrase `key` in the UI locale's voice.
@@ -755,6 +792,21 @@ fn load_built_phrases(phrases: &Phrases) {
             if let Ok(wav) = std::fs::read(base.join(file)) {
                 cached.insert((voice, key.clone()), wav);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_overlay;
+
+    #[test]
+    fn only_overlays_are_hidden_during_a_look() {
+        for label in ["mate", "debug", "highlight-0", "highlight-1"] {
+            assert!(is_overlay(label), "{label}");
+        }
+        for label in ["settings", "other", "highlight", "mate-settings"] {
+            assert!(!is_overlay(label), "{label}");
         }
     }
 }

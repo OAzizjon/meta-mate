@@ -60,6 +60,19 @@ fn pressable(snapshot: &mm_platform::UiSnapshot, rect: PhysRect) -> bool {
         return false;
     };
     let hidden = snapshot.hidden_ids();
+    // Popup roots have no link to the target window; its title still guards the click.
+    let Some(window) = snapshot
+        .elements
+        .iter()
+        .find(|element| element.parent.is_none() && element.control_type == "Window")
+    else {
+        return false;
+    };
+    if hidden.contains(&window.id)
+        || mm_core::privacy::forbidden(&window.name, &window.control_type)
+    {
+        return false;
+    }
     let mut named = false;
     for level in 0..snapshot.elements.len() {
         if hidden.contains(&element.id)
@@ -70,7 +83,10 @@ fn pressable(snapshot: &mm_platform::UiSnapshot, rect: PhysRect) -> bool {
         if level == 0 || !["Window", "Pane", "Document"].contains(&element.control_type.as_str()) {
             named |= !element.name.trim().is_empty();
         }
-        if element.control_type == "Window" {
+        if element.control_type == "Window"
+            || (element.parent.is_none()
+                && ["Menu", "List", "Pane"].contains(&element.control_type.as_str()))
+        {
             return named;
         }
         let Some(parent) = element
@@ -82,7 +98,7 @@ fn pressable(snapshot: &mm_platform::UiSnapshot, rect: PhysRect) -> bool {
         };
         element = parent;
     }
-    false // Missing windows and parent cycles fail closed.
+    false // Missing roots and parent cycles fail closed.
 }
 
 /// The locale key of a teacher line; None for a line that needs words the model gives
@@ -142,6 +158,8 @@ fn targets_for(look: &Look, response: &ParsedResponse) -> Vec<Option<PhysRect>> 
             // A slider's thumb: the pointable element where the drag starts.
             Action::Drag { path } => {
                 let &(x, y) = path.first()?;
+                let &(end_x, end_y) = path.last()?;
+                at(end_x, end_y)?;
                 visible(look.snapshot.target_at(at(x, y)?)?.rect?)
             }
             // No privacy-safe ValueChanged source exists yet. Refuse type steps
@@ -153,6 +171,16 @@ fn targets_for(look: &Look, response: &ParsedResponse) -> Vec<Option<PhysRect>> 
             Action::Unknown { .. } => None,
         })
         .collect()
+}
+
+/// Freeze the selected model for every request and retry in one lesson.
+fn lesson_session(model: ModelChoice, (sent_width, sent_height): (u32, u32)) -> ComputerSession {
+    ComputerSession {
+        model,
+        effort: ReasoningEffort::Minimal,
+        sent_width,
+        sent_height,
+    }
 }
 
 /// The person's clicks while a lesson runs: the low-level mouse hook, recognized into
@@ -254,6 +282,7 @@ pub(crate) async fn teach(
     mut words: mpsc::UnboundedReceiver<Words>,
     speech_epoch: Arc<AtomicU64>,
 ) {
+    let model = ModelChoice::from(crate::settings::model(&app));
     let stream = app.state::<AnswerStream>();
     let started = Instant::now();
     let now = || u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
@@ -274,13 +303,7 @@ pub(crate) async fn teach(
             return;
         }
     };
-    let (sent_width, sent_height) = current.redacted.frame.sent_size();
-    let mut session = ComputerSession {
-        model: ModelChoice::Quick,
-        effort: ReasoningEffort::Minimal,
-        sent_width,
-        sent_height,
-    };
+    let mut session = lesson_session(model, current.redacted.frame.sent_size());
     let (inputs, mut received) = mpsc::unbounded_channel();
     let keys = listen_for_keys(started, inputs.clone());
     let config = TeacherConfig {
@@ -633,9 +656,6 @@ async fn outline_unlisted(
     response: &ParsedResponse,
     targets: &mut [Option<PhysRect>],
 ) {
-    if !crate::sam::tree_is_flat(&look.snapshot) {
-        return;
-    }
     let actions = response
         .computer_calls
         .iter()
@@ -650,7 +670,9 @@ async fn outline_unlisted(
         let (Ok(x), Ok(y)) = (u32::try_from(*x), u32::try_from(*y)) else {
             continue;
         };
-        *target = crate::sam::sam_outline(proxy, look, x, y).await;
+        if crate::sam::outline_allowed(look, x, y) {
+            *target = crate::sam::sam_outline(proxy, look, x, y).await;
+        }
     }
 }
 
@@ -736,6 +758,111 @@ mod tests {
                 ),
             ],
         }
+    }
+
+    fn prepared_look(painted: &[PhysRect]) -> Look {
+        let capture = mm_platform::CapturedImage::new(100, 100, vec![200; 100 * 100 * 4]).unwrap();
+        crate::screen::prepare(offer_snapshot(), &capture, painted).unwrap()
+    }
+
+    #[test]
+    fn selected_model_survives_retries_and_followups() {
+        let look = prepared_look(&[]);
+        for selected in [
+            crate::settings::Model::Quick,
+            crate::settings::Model::Thorough,
+        ] {
+            let model = ModelChoice::from(selected);
+            let mut session = lesson_session(model, look.redacted.frame.sent_size());
+            let expected = serde_json::to_value(model).unwrap();
+            for effort in [ReasoningEffort::Minimal, ReasoningEffort::Low] {
+                session.effort = effort;
+                let first = computer_request(
+                    session.model,
+                    session.effort,
+                    "Open options",
+                    &look.list,
+                    &look.redacted.image,
+                );
+                let next =
+                    computer_followup(session, "response", "call", &[], &look.redacted.image);
+                assert_eq!(first["model"], expected);
+                assert_eq!(next["model"], expected);
+            }
+        }
+    }
+
+    #[test]
+    fn drags_refuse_painted_starts_and_ends() {
+        let response = |path| ParsedResponse {
+            id: "response".into(),
+            model: String::new(),
+            status: "completed".into(),
+            commentary: Vec::new(),
+            computer_calls: vec![mm_core::api::response::ComputerCall {
+                call_id: "call".into(),
+                actions: vec![Action::Drag { path }],
+                safety_checks: Vec::new(),
+                replay_receipt: None,
+            }],
+            usage: None,
+            incomplete_reason: None,
+            reasoning_items: 0,
+        };
+        let painted = PhysRect::new(60, 60, 80, 80).unwrap();
+        let look = prepared_look(&[painted]);
+        let target = look.snapshot.elements[2].rect;
+        assert_eq!(
+            targets_for(&look, &response(vec![(20, 20), (50, 50)])),
+            vec![target]
+        );
+        for path in [
+            vec![(20, 20), (60, 60)],
+            vec![(60, 60), (20, 20)],
+            vec![(20, 20), (100, 50)],
+            Vec::new(),
+        ] {
+            assert_eq!(targets_for(&look, &response(path)), vec![None]);
+        }
+    }
+
+    #[test]
+    fn popup_roots_still_check_the_target_window_title() {
+        for kind in ["Menu", "List", "Pane"] {
+            let mut snapshot = offer_snapshot();
+            let rect = snapshot.elements[2].rect.unwrap();
+            snapshot.elements[1].parent = None;
+            snapshot.elements[1].control_type = kind.into();
+            snapshot.elements[2].control_type = "MenuItem".into();
+            assert!(pressable(&snapshot, rect), "{kind}");
+            snapshot.elements[0].name = "Delete file?".into();
+            assert!(!pressable(&snapshot, rect));
+            snapshot.elements[0].name = "Settings".into();
+            snapshot.elements[1].name = "Payment".into();
+            assert!(!pressable(&snapshot, rect));
+            snapshot.elements[1].name.clear();
+            snapshot.elements[2].name.clear();
+            assert!(!pressable(&snapshot, rect));
+            snapshot.elements[2].name = "Open".into();
+            snapshot.elements[1].is_password = true;
+            assert!(!pressable(&snapshot, rect));
+        }
+    }
+
+    #[test]
+    fn popup_roots_need_a_target_window_and_complete_snapshot() {
+        let mut snapshot = offer_snapshot();
+        let rect = snapshot.elements[2].rect.unwrap();
+        snapshot.elements[1].parent = None;
+        snapshot.elements[1].control_type = "Menu".into();
+        snapshot.truncated = true;
+        assert!(!pressable(&snapshot, rect));
+        snapshot.truncated = false;
+        snapshot.elements[0].control_type = "Pane".into();
+        assert!(!pressable(&snapshot, rect));
+        snapshot.elements[0].control_type = "Window".into();
+        snapshot.elements[1].control_type = "Custom".into();
+        assert!(!pressable(&snapshot, rect));
     }
 
     #[test]

@@ -121,6 +121,10 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
       this.cancel(msg.generationId);
       return;
     }
+    if (msg.type === "interrupt") {
+      this.interrupt(msg.generationId);
+      return;
+    }
     this.pushPcm(
       msg.generationId,
       msg.sentenceId,
@@ -128,6 +132,31 @@ export class TtsRingProcessor extends BaseWorkletProcessor {
       msg.eos,
       new Int16Array(msg.pcm),
     );
+  }
+
+  interrupt(generationId: number): void {
+    if (
+      generationId <= this.canceledThrough ||
+      generationId !== this.activeGenerationId
+    ) {
+      return;
+    }
+    const dropped = this.sentences.splice(0);
+    this.resetStream();
+    for (const span of dropped) {
+      if (!span.started) {
+        this.emit({
+          type: "sentence-start",
+          generationId: span.generationId,
+          sentenceId: span.sentenceId,
+        });
+      }
+      this.emit({
+        type: "sentence-end",
+        generationId: span.generationId,
+        sentenceId: span.sentenceId,
+      });
+    }
   }
 
   cancel(generationId: number): void {

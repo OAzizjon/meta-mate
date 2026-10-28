@@ -3,16 +3,16 @@
 // setting or the OS (prefers-reduced-motion) asks for it.
 
 import "./robot.css";
-import { fitRobotSize, robotSizeDimensions } from "../settings/apply";
-import { createBeamController } from "./beam";
-import { createFlightController } from "./flight";
-import { createStateAnimator } from "./states";
-import { buildMateSvg, svgEl } from "./svg";
-import { DEFAULT_ROBOT_SIZE } from "./types";
-import type { CssPoint, CssRect, RobotMood, RobotSizePreset, RobotState } from "./types";
+import { fitRobotSize, robotSizeDimensions } from "../settings/apply.ts";
+import { createBeamController } from "./beam.ts";
+import { createFlightController } from "./flight.ts";
+import { createStateAnimator } from "./states.ts";
+import { buildMateSvg, svgEl } from "./svg.ts";
+import { DEFAULT_ROBOT_SIZE } from "./types.ts";
+import type { CssPoint, CssRect, RobotMood, RobotSizePreset, RobotState } from "./types.ts";
 
-export type { CssPoint, CssRect, RobotMood, RobotSizePreset, RobotState } from "./types";
-export { ROBOT_MOODS, ROBOT_STATES, isRobotMood, isRobotState } from "./types";
+export type { CssPoint, CssRect, RobotMood, RobotSizePreset, RobotState } from "./types.ts";
+export { ROBOT_MOODS, ROBOT_STATES, isRobotMood, isRobotState } from "./types.ts";
 
 export interface RobotController {
   setState(state: RobotState): void;

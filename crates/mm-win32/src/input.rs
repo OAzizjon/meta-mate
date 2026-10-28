@@ -16,7 +16,8 @@ use mm_platform::{
     check_confirmation,
 };
 use uiautomation::UIAutomation;
-use uiautomation::types::Point;
+use uiautomation::types::{Handle, Point};
+use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     INPUT, INPUT_0, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN,
     MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_VIRTUALDESK, MOUSEINPUT, SendInput,
@@ -59,13 +60,17 @@ impl InputInjector for Win32Injector {
             .ok_or(PlatformError::WindowNotFound)?;
         check_element(target, at)?;
         // Last, right before the click (the UIA reads above can take a while): the window
-        // the person said yes in is still in front and the point is inside its frame.
+        // the person said yes in is still in front and the point is in it or its popups.
         let front = crate::window::foreground_target(&[]).ok_or(PlatformError::WindowNotFound)?;
-        if front.window != target || !front.frame.contains(at) {
+        if front.window != target || !inside_target(at, front.frame, &front.popups) {
             return Err(PlatformError::WindowNotFound);
         }
         click(absolute)
     }
+}
+
+fn inside_target(at: PhysPoint, frame: PhysRect, popups: &[PhysRect]) -> bool {
+    frame.contains(at) || popups.iter().any(|rect| rect.contains(at))
 }
 
 /// Refuses unless the element under `at` belongs to the target's process (no other window
@@ -76,6 +81,15 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
     let unanswered = |_| PlatformError::UiaTimeout;
     let automation = UIAutomation::new().map_err(unanswered)?;
     let walker = automation.get_control_view_walker().map_err(unanswered)?;
+    let desktop = automation.get_root_element().map_err(unanswered)?;
+    // Menus may be desktop children, so their ancestry never reads the owner's title.
+    let hwnd = HWND(target.handle as usize as *mut std::ffi::c_void);
+    let window = automation
+        .element_from_handle(Handle::from(hwnd))
+        .map_err(unanswered)?;
+    if forbidden(&window.get_name().map_err(unanswered)?, "Window") {
+        return Err(PlatformError::SafetyBlocked);
+    }
     let mut element = automation
         .element_from_point(Point::new(at.x, at.y))
         .map_err(unanswered)?;
@@ -83,7 +97,7 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
         return Err(PlatformError::WindowNotFound);
     }
     let mut named = false;
-    let mut reached_window = false;
+    let mut reached_root = false;
     for level in 0..=MAX_ANCESTORS {
         // Unknown fails closed, like the snapshot walker; a password box's inner text or
         // reveal icon counts as the box.
@@ -106,7 +120,7 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
         // The walk goes on through panes and documents (a "Delete file?" dialog's "Yes"
         // sits in one) and ends with the first window, whose title was just checked.
         if level > 0 && control_type == "Window" {
-            reached_window = true;
+            reached_root = true;
             break;
         }
         // A container's title names the page, not what the click does.
@@ -114,13 +128,21 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
             named |= !name.trim().is_empty();
         }
         if level < MAX_ANCESTORS {
-            element = walker.get_parent(&element).map_err(unanswered)?;
+            let parent = walker.get_parent(&element).map_err(unanswered)?;
+            if automation
+                .compare_elements(&parent, &desktop)
+                .map_err(unanswered)?
+            {
+                reached_root = ["Menu", "List", "Pane"].contains(&control_type.as_str());
+                break;
+            }
+            element = parent;
         }
     }
     // An icon with no name anywhere below its container: what it does is unknown (a bin
-    // icon deletes), so Mate does not press it. A walk that never reached its window did
-    // not read the dialog's title ("Delete account?"): no press either.
-    if !named || !reached_window {
+    // icon deletes), so Mate does not press it. Missing roots and excessive depth also
+    // fail closed; a popup's owner title was checked separately above.
+    if !named || !reached_root {
         return Err(PlatformError::SafetyBlocked);
     }
     Ok(())
@@ -228,6 +250,19 @@ mod tests {
 
     fn at(x: i32, y: i32) -> PhysPoint {
         PhysPoint { x, y }
+    }
+
+    #[test]
+    fn clicks_may_land_in_the_frame_or_a_popup_but_not_the_gap() {
+        let frame = rect(0, 0, 100, 100);
+        let popups = [rect(120, 10, 160, 50), rect(160, 30, 200, 70)];
+        for point in [at(20, 20), at(120, 10), at(199, 69)] {
+            assert!(inside_target(point, frame, &popups));
+        }
+        for point in [at(110, 20), at(200, 50), at(160, 70), at(-1, 0)] {
+            assert!(!inside_target(point, frame, &popups));
+        }
+        assert!(!inside_target(at(120, 10), frame, &[]));
     }
 
     /// The pixel Windows maps an absolute coordinate back to, with either divisor seen in

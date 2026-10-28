@@ -10,7 +10,7 @@ import { parseTimelineItem } from "./timeline.ts";
 import type { TimelineItem } from "./timeline.ts";
 
 /** The robot states Rust sets directly (the timeline sets the others). */
-export const ANSWER_STATES = ["listening", "thinking", "idle"] as const;
+export const ANSWER_STATES = ["listening", "looking", "thinking", "idle"] as const;
 export type AnswerState = (typeof ANSWER_STATES)[number];
 
 /** The locale lines Rust may show in the bubble (it may send their audio as sentence 0). */

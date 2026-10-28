@@ -3,7 +3,7 @@
 // briefly (oops, success), then the mood returns. Loops live in robot.css, keyed on the
 // data-state / data-mood / data-cheeks attributes set here; one-shot moves use Web Animations.
 
-import type { BeamController } from "./beam";
+import type { BeamController } from "./beam.ts";
 import {
   BEAM_HALF_WIDTH,
   MOOD_FACES,
@@ -16,11 +16,13 @@ import {
   rectCenter,
   viewScale,
   viewToCss,
-} from "./geometry";
-import type { CheekStyle, EyeShape, Face, MouthShape, ViewPoint } from "./geometry";
-import { setArmPose, setAttr, setEyes, setGaze, setMouth, setMouthOpen } from "./svg";
-import type { MateSvgRefs } from "./svg";
-import type { CssPoint, CssRect, RobotMood, RobotState } from "./types";
+} from "./geometry.ts";
+import type { CheekStyle, EyeShape, Face, MouthShape, ViewPoint } from "./geometry.ts";
+import { setArmPose, setAttr, setEyes, setGaze, setMouth, setMouthOpen } from "./svg.ts";
+import type { MateSvgRefs } from "./svg.ts";
+import type { CssPoint, CssRect, RobotMood, RobotState } from "./types.ts";
+
+export const LOOKING_SWEEP_MS = 600;
 
 export interface StateAnimator {
   setState(state: RobotState): void;
@@ -48,6 +50,7 @@ interface FaceOverride {
 
 const STATE_FACES: Partial<Record<RobotState, FaceOverride>> = {
   listening: { eyes: "wide" },
+  looking: { eyes: "open" },
   success: { eyes: "happy", mouth: "grin", ms: 1200 },
   oops: { eyes: "squint", ms: 600 },
   sleeping: { eyes: "closed", mouth: "small" },
@@ -72,6 +75,19 @@ const BODY_MOVES: Partial<Record<RobotState, OneShot>> = {
       { transform: "rotate(0deg)" },
     ],
     options: { duration: 600, easing: "ease-in-out" },
+  },
+};
+
+// Eye moves, skipped when motion is reduced.
+const EYE_MOVES: Partial<Record<RobotState, OneShot>> = {
+  looking: {
+    keyframes: [
+      { transform: "translateX(0)" },
+      { transform: "translateX(-4px)", offset: 0.3 },
+      { transform: "translateX(4px)", offset: 0.7 },
+      { transform: "translateX(0)" },
+    ],
+    options: { duration: LOOKING_SWEEP_MS, easing: "ease-in-out", fill: "forwards" },
   },
 };
 
@@ -109,9 +125,20 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   let reduceMotion = false;
   let blinking = false;
   let overrideOn = false;
-  let overrideTimer = 0;
-  let blinkTimer = 0;
+  let overrideTimer: ReturnType<typeof setTimeout> | undefined;
+  let blinkTimer: ReturnType<typeof setTimeout> | undefined;
   let oneShots: Animation[] = [];
+
+  function isMotionReduced(): boolean {
+    if (reduceMotion) return true;
+    if (typeof refs.svg.classList?.contains === "function" && refs.svg.classList.contains("reduce-motion")) {
+      return true;
+    }
+    if (typeof refs.svg.closest === "function" && refs.svg.closest(".reduce-motion") !== null) {
+      return true;
+    }
+    return false;
+  }
 
   function face(): Face {
     const base = MOOD_FACES[mood];
@@ -121,6 +148,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   }
 
   function gaze(): ViewPoint {
+    if (state === "looking") return NO_GAZE;
     if (state === "thinking" || mood === "thinking") return THINKING_GAZE;
     if (state !== "idle" || !cursor) return NO_GAZE;
     const box = boxOf(refs.svg);
@@ -129,7 +157,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
 
   function renderFace(): void {
     const f = face();
-    setEyes(refs, blinking && BLINKABLE.has(f.eyes) ? "closed" : f.eyes);
+    setEyes(refs, blinking && state !== "looking" && BLINKABLE.has(f.eyes) ? "closed" : f.eyes);
     if (state === "speaking" && voice >= VOICE_OPEN) setMouthOpen(refs, voice);
     else setMouth(refs, f.mouth);
     setAttr(refs.svg, "data-cheeks", f.cheeks);
@@ -163,7 +191,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     const aim = armAim(cssToView(box, rectCenter(target)));
     setArmPose(refs, "point", aim);
     beam.aimAt(viewToCss(box, nozzleInView(aim)), target, BEAM_HALF_WIDTH * scale);
-    beam.setPulse(state === "waiting_for_click" && !reduceMotion);
+    beam.setPulse(state === "waiting_for_click" && !isMotionReduced());
   }
 
   function render(): void {
@@ -175,11 +203,11 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   }
 
   function startOverride(): void {
-    window.clearTimeout(overrideTimer);
+    clearTimeout(overrideTimer);
     const ms = STATE_FACES[state]?.ms;
     overrideOn = ms !== undefined;
     if (ms === undefined) return;
-    overrideTimer = window.setTimeout(() => {
+    overrideTimer = setTimeout(() => {
       overrideOn = false;
       renderFace();
     }, ms);
@@ -192,19 +220,22 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
 
   function playOneShots(): void {
     stopOneShots();
+    const reduced = isMotionReduced();
     const move = BODY_MOVES[state];
-    if (move && !reduceMotion) oneShots.push(refs.body.animate(move.keyframes, move.options));
+    if (move && !reduced) oneShots.push(refs.body.animate(move.keyframes, move.options));
+    const eyeMove = EYE_MOVES[state];
+    if (eyeMove && !reduced) oneShots.push(refs.eyes.animate(eyeMove.keyframes, eyeMove.options));
     if (state === "success") oneShots.push(refs.layers.aura.animate(FLASH.keyframes, FLASH.options));
   }
 
   function scheduleBlink(): void {
-    blinkTimer = window.setTimeout(blink, BLINK_MIN_GAP_MS + Math.random() * BLINK_GAP_SPREAD_MS);
+    blinkTimer = setTimeout(blink, BLINK_MIN_GAP_MS + Math.random() * BLINK_GAP_SPREAD_MS);
   }
 
   function blink(): void {
     blinking = true;
     renderFace();
-    blinkTimer = window.setTimeout(() => {
+    blinkTimer = setTimeout(() => {
       blinking = false;
       renderFace();
       scheduleBlink();
@@ -251,12 +282,12 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     setReduceMotion(reduce) {
       reduceMotion = reduce;
       refs.svg.classList.toggle("reduce-motion", reduce);
-      if (reduce) stopOneShots();
+      if (isMotionReduced()) stopOneShots();
       renderPose();
     },
     destroy() {
-      window.clearTimeout(overrideTimer);
-      window.clearTimeout(blinkTimer);
+      clearTimeout(overrideTimer);
+      clearTimeout(blinkTimer);
       stopOneShots();
       beam.hide();
     },

@@ -49,6 +49,8 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Teacher core support for offering a gated spoken-confirmation "Do it for me" action after two misses or on request, with one left click completing the current step (`crates/mm-core/src/teacher/`).
 - A tray menu and settings window with live settings updates, language-aware labels, answer model, TTS speed, motion, sound mode, and robot size (`src-tauri/src/lib.rs`, `src-tauri/src/settings.rs`, `src/settings/`).
 - Teacher keypress steps driven by events from the push-to-talk hook (`src-tauri/src/teacher.rs`, `crates/mm-core/src/teacher/keys.rs`).
+- For screen answers and lesson steps, SAM 3.1 outlines a target when the UI Automation tree has fewer than three named interactive elements; rich trees still refuse uncertain targets (`crates/mm-core/`, `src-tauri/src/sam.rs`).
+- Toggle push-to-talk starts on a tap and ends on a second tap or 1.2 seconds of speech silence (30 seconds maximum); microphone level animates Mate (`crates/mm-core/src/vad.rs`, `src-tauri/`, `src/`).
 
 ### Changed
 
@@ -70,6 +72,11 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - TTS speed is validated and passed through the proxy to MMS-TTS; the settings window snaps speed changes to 0.05 increments (`server/metamate_proxy/`, `src/settings/`).
 - Prompts put the answer first, avoid invented names, and treat black boxes as hidden content (`crates/mm-core/src/api/request.rs`).
 - Debug builds report the time spent in each part of a screen look (`src-tauri/src/screen.rs`).
+- The highlight follows only the target window's movement, so tooltips and child windows no longer clear it (`src-tauri/`).
+- Password-word redaction no longer hides custom controls painted on long password words (`crates/mm-win32/`).
+- Lesson offers to do a step require safe, visible controls, expire after 30 seconds, and re-check the foreground window before clicking (`src-tauri/src/teacher.rs`).
+- During a lesson, push-to-talk first handles a pending "Do it for me" offer; yes or no stays in the lesson, while unrelated speech starts a new question (`src-tauri/src/teacher.rs`).
+- "Yes" is recognized as confirmation, and `mm probe sam` reports failed answers instead of recording them (`crates/mm-core/src/teacher/`, `tools/mm_probe.py`).
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)
 
