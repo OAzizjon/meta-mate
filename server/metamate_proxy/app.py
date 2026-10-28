@@ -72,6 +72,7 @@ class Settings:
     session_secret: str = field(default='', repr=False)
     public_url: str = 'http://127.0.0.1:8787'
     judge_emails: frozenset[str] = frozenset()
+    ledger_path: str = ''
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> 'Settings':
@@ -127,7 +128,7 @@ class Settings:
         judges = frozenset(item.strip().lower() for item in env.get('PROXY_JUDGE_EMAILS', '').split(',')
                            if '@' in item)
         return Settings(key, base, invites, budget, prices, tts_url, tts_secret, glimmer_url, oauth,
-                        session_secret, public_url, judges)
+                        session_secret, public_url, judges, env.get('PROXY_LEDGER_PATH') or '')
 
 
 @dataclass
@@ -225,10 +226,11 @@ class Relay(StreamingResponse):
 
 
 def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
-               asr_connect=None) -> FastAPI:
+               asr_connect=None, ledger_commit=None) -> FastAPI:
     """`client` and `asr_connect` are injectable for tests (no network)."""
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-    state = State()
+    state = State(ledger=policy.Ledger(path=settings.ledger_path, commit=ledger_commit))
+    state.ledger.load(today())
     # The sign-in endpoints take a `state` query parameter: this name keeps them apart.
     state_flows = state.flows
     http = client or httpx.AsyncClient(timeout=httpx.Timeout(120, connect=10))
@@ -749,11 +751,11 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
     return app
 
 
-def app_from_env():
+def app_from_env(ledger_commit=None):
     """The production entry point (`uvicorn metamate_proxy.app:app_from_env --factory`,
     server/deploy/): settings from the environment, which systemd fills from a root-owned
     file. A bad or missing setting stops the start, before any request."""
-    return create_app(Settings.from_env())
+    return create_app(Settings.from_env(), ledger_commit=ledger_commit)
 
 
 def final_response(event: bytes) -> dict | None:

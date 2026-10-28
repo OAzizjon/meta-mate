@@ -23,6 +23,8 @@ PROXY_PUBLIC_URL
 PROXY_ADMIN_TOKEN
 # Daily spend cap in USD for all invite codes together
 PROXY_DAILY_BUDGET_USD
+# Optional durable daily counters; absent: in-memory ledger only
+PROXY_LEDGER_PATH
 # Sign-in (D54): Google and GitHub OAuth clients (from JustLog3), the key that signs
 # session tokens, and the e-mails that get the judge tier
 GOOGLE_CLIENT_ID

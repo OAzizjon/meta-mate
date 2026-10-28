@@ -3,7 +3,10 @@
 from copy import deepcopy
 from datetime import date, timedelta
 import json
+from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import Mock, patch
 
 # A real 1x1 PNG built here: every image must be a valid embedded PNG.
 def _png_1x1() -> str:
@@ -31,6 +34,90 @@ from metamate_proxy.policy import (
 
 # The model-answer kinds; SAM has its own fixed shape (SamTests).
 TEXT_KINDS = [kind for kind in CallKind if kind != CallKind.SAM]
+
+
+class LedgerFileTests(unittest.TestCase):
+    def test_round_trip_all_daily_counters_and_recent_dates(self):
+        from metamate_proxy.policy import DayTotals, Totals
+
+        today = date(2026, 10, 29)
+        totals = DayTotals(overall=Totals(3, 0.3), invites={'inv': Totals(3, 0.3)},
+                           wonder={'inv': Totals(1, 0.1)}, asr_seconds={'inv': 1.5},
+                           tts_chars={'inv': 10}, sam={'inv': Totals(1, 0.02)},
+                           images={'inv': Totals(1, 0.01)}, glimmer={'inv': 2})
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / 'ledger.json')
+            original = Ledger({today - timedelta(days=n): deepcopy(totals) for n in (-1, 0, 1, 2)}, path)
+            original.save()
+            loaded = Ledger(path=path)
+            loaded.load(today)
+            self.assertEqual(loaded.days, {today: totals, today - timedelta(days=1): totals})
+            self.assertEqual(loaded._pending, {})
+
+    def test_corrupt_files_start_empty_and_log(self):
+        today = date(2026, 10, 29)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'ledger.json'
+            for content in ('{', '[]', '{"2026-10-29": {"overall": {"usd": -1}}}',
+                            '{"2026-10-29": null}'):
+                path.write_text(content, encoding='utf-8')
+                loaded = Ledger(path=str(path))
+                with self.assertLogs('metamate_proxy.policy', level='WARNING'):
+                    loaded.load(today)
+                self.assertEqual(loaded.days, {})
+
+    def test_charges_settlements_refunds_and_pending_reservations(self):
+        from metamate_proxy.policy import (IMAGE, charge_glimmer, charge_tts, refund_image,
+                                           reserve_asr, settle_asr)
+
+        today = date(2026, 10, 29)
+        prices = Prices(1, 1, 1, 1)
+        with tempfile.TemporaryDirectory() as folder:
+            path = str(Path(folder) / 'ledger.json')
+            commit = Mock()
+            ledger = Ledger(path=path, commit=commit)
+
+            def reload():
+                result = Ledger(path=path)
+                result.load(today)
+                return result.days[today]
+
+            settled = reserve(ledger, 'inv', JUDGE, Budget(10), WONDER, 0.1, today)
+            pending = reserve(ledger, 'inv', JUDGE, Budget(10), SPARK, 0.2, today)
+            self.assertEqual(reload().overall.calls, 0)
+            reconcile(ledger, settled, {'input_tokens': 100, 'output_tokens': 50}, prices)
+            self.assertEqual(reload().overall.calls, 1)
+            self.assertAlmostEqual(reload().overall.usd, 0.00015)
+            reconcile(ledger, pending, None, prices)
+            self.assertAlmostEqual(reload().overall.usd, 0.20015)
+            image = reserve(ledger, 'inv', JUDGE, Budget(10), IMAGE, 0.01, today)
+            reconcile(ledger, image, None, prices)
+            refund_image(ledger, image)
+            self.assertEqual(reload().images['inv'].usd, 0)
+            charge_tts(ledger, 'inv', 25, today)
+            self.assertEqual(reload().tts_chars['inv'], 25)
+            charge_glimmer(ledger, 'inv', today)
+            self.assertEqual(reload().glimmer['inv'], 1)
+            seconds = reserve_asr(ledger, 'inv', JUDGE, 60, today)
+            self.assertEqual(reload().asr_seconds['inv'], 0)
+            settle_asr(ledger, 'inv', seconds, 12, today)
+            self.assertEqual(reload().asr_seconds['inv'], 12)
+            self.assertEqual(commit.call_count, 11)
+            self.assertEqual(list(Path(folder).iterdir()), [Path(path)])
+
+    def test_failed_replace_preserves_previous_snapshot(self):
+        from metamate_proxy.policy import charge_tts
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'ledger.json'
+            ledger = Ledger(path=str(path))
+            charge_tts(ledger, 'inv', 1, date(2026, 10, 29))
+            before = path.read_bytes()
+            with patch('metamate_proxy.policy.os.replace', side_effect=OSError('disk error')):
+                with self.assertRaises(OSError):
+                    ledger.save()
+            self.assertEqual(path.read_bytes(), before)
+            self.assertEqual(list(Path(folder).iterdir()), [path])
 
 
 class RequestTests(unittest.TestCase):

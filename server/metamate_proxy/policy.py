@@ -2,13 +2,18 @@
 
 import base64
 import binascii
-from dataclasses import dataclass, field
-from datetime import date
+from copy import deepcopy
+from dataclasses import asdict, dataclass, field
+from datetime import date, timedelta
 from enum import Enum
 import json
+import logging
 from math import isfinite
+import os
+from pathlib import Path
 import re
-from typing import Mapping
+import tempfile
+from typing import Callable, Mapping
 
 
 SPARK = "muse-spark-1.3"
@@ -497,10 +502,99 @@ def context_tokens(usage: Mapping | None) -> int | None:
 
 @dataclass
 class Ledger:
-    """In-memory counters keyed by caller-supplied UTC dates; not thread-safe."""
+    """Counters keyed by UTC dates; callers serialize mutations and file writes."""
 
     days: dict[date, DayTotals] = field(default_factory=dict)
+    path: str = ''
+    commit: Callable[[], None] | None = field(default=None, repr=False)
     _pending: dict[int, Reservation] = field(default_factory=dict, init=False, repr=False)
+    _asr_pending: dict[tuple[date, str], float] = field(default_factory=dict, init=False, repr=False)
+
+    def load(self, today: date) -> None:
+        """Load only today and yesterday, accepting no partial malformed snapshot."""
+        if not self.path:
+            return
+        try:
+            raw = json.loads(Path(self.path).read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("ledger must be an object")
+            days = {}
+            for day in (today, today - timedelta(days=1)):
+                if day.isoformat() not in raw:
+                    continue
+                values = raw[day.isoformat()]
+                if not isinstance(values, dict) or set(values) != set(DayTotals.__dataclass_fields__):
+                    raise ValueError("invalid daily counters")
+                parsed = DayTotals()
+                for name, value in values.items():
+                    if name == "overall":
+                        parsed.overall = _read_totals(value)
+                        continue
+                    if not isinstance(value, dict):
+                        raise ValueError("invalid invite counters")
+                    counts = {}
+                    for invite, count in value.items():
+                        if name in ("invites", "wonder", "sam", "images"):
+                            counts[invite] = _read_totals(count)
+                        else:
+                            _read_counter(count, integer=name != "asr_seconds")
+                            counts[invite] = count
+                    setattr(parsed, name, counts)
+                days[day] = parsed
+            self.days = days
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError, TypeError, RecursionError, OverflowError):
+            logging.getLogger(__name__).warning("Ignoring unreadable or malformed ledger file")
+
+    def save(self) -> None:
+        """Atomically save settled totals; pending calls are lost on restart."""
+        if not self.path:
+            return
+        days = deepcopy(self.days)
+        for reservation in self._pending.values():
+            day = days[reservation.day]
+            counters = [day.overall, day.invites[reservation.invite]]
+            extra = {WONDER: day.wonder, SAM: day.sam, IMAGE: day.images}.get(reservation.model)
+            if extra is not None:
+                counters.append(extra[reservation.invite])
+            for total in counters:
+                total.calls -= 1
+                total.usd = max(0.0, total.usd - reservation.estimated_cost)
+        for (day, invite), seconds in self._asr_pending.items():
+            counts = days[day].asr_seconds
+            counts[invite] = max(0.0, counts[invite] - seconds)
+        path = Path(self.path)
+        temporary = None
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                             prefix=path.name + ".", delete=False) as stream:
+                temporary = Path(stream.name)
+                json.dump({day.isoformat(): asdict(totals) for day, totals in days.items()},
+                          stream, allow_nan=False)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+            if self.commit is not None:
+                self.commit()
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
+
+def _read_counter(value, integer: bool = False) -> None:
+    if type(value) not in ((int,) if integer else (int, float)):
+        raise ValueError("invalid counter type")
+    _nonnegative(value, "counter")
+
+
+def _read_totals(value) -> Totals:
+    if not isinstance(value, dict) or set(value) != {"calls", "usd"}:
+        raise ValueError("invalid totals")
+    _read_counter(value["calls"], integer=True)
+    _read_counter(value["usd"])
+    return Totals(**value)
 
 
 def decide(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
@@ -556,6 +650,7 @@ def reserve(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
         total.calls += 1
         total.usd += estimated_cost
     ledger._pending[id(reservation)] = reservation
+    ledger.save()
     return reservation
 
 
@@ -572,11 +667,13 @@ def reconcile(ledger: Ledger, reservation: Reservation,
         raise ValueError("unknown or already reconciled reservation")
     if upstream_model is not None and upstream_model != reservation.model:
         del ledger._pending[id(reservation)]
+        ledger.save()
         return "model_mismatch"
     if reservation.model in (SAM, IMAGE):
         # A fixed price per call, no token usage to settle against: the reservation is the
         # cost (an image Meta refused costs nothing: refund it below the call site).
         del ledger._pending[id(reservation)]
+        ledger.save()
         return None
     if usage is not None:
         try:
@@ -584,6 +681,7 @@ def reconcile(ledger: Ledger, reservation: Reservation,
         except ValueError:
             # Malformed usage: keep the whole reservation, but settle it.
             del ledger._pending[id(reservation)]
+            ledger.save()
             return "bad_usage"
         delta = cost - reservation.estimated_cost
         day = ledger.days[reservation.day]
@@ -593,6 +691,7 @@ def reconcile(ledger: Ledger, reservation: Reservation,
         for total in counters:
             total.usd = max(0.0, total.usd + delta)
     del ledger._pending[id(reservation)]
+    ledger.save()
 
 
 def asr_allowance(ledger: Ledger, invite: str, limits: InviteLimits, today: date) -> float:
@@ -606,6 +705,7 @@ def charge_asr(ledger: Ledger, invite: str, seconds: float, today: date) -> None
     _nonnegative(seconds, "seconds")
     day = ledger.days.setdefault(today, DayTotals())
     day.asr_seconds[invite] = day.asr_seconds.get(invite, 0.0) + seconds
+    ledger.save()
 
 
 def reserve_asr(ledger: Ledger, invite: str, limits: InviteLimits, wanted: float,
@@ -614,6 +714,8 @@ def reserve_asr(ledger: Ledger, invite: str, limits: InviteLimits, wanted: float
     cannot each see the same remainder; returns the seconds granted (0: refuse)."""
     _nonnegative(wanted, "wanted")
     granted = min(wanted, asr_allowance(ledger, invite, limits, today))
+    key = (today, invite)
+    ledger._asr_pending[key] = ledger._asr_pending.get(key, 0.0) + granted
     charge_asr(ledger, invite, granted, today)
     return granted
 
@@ -625,6 +727,9 @@ def settle_asr(ledger: Ledger, invite: str, reserved: float, used: float, day: d
     totals = ledger.days.setdefault(day, DayTotals())
     unused = max(0.0, reserved - used)
     totals.asr_seconds[invite] = max(0.0, totals.asr_seconds.get(invite, 0.0) - unused)
+    key = (day, invite)
+    ledger._asr_pending[key] = max(0.0, ledger._asr_pending.get(key, 0.0) - reserved)
+    ledger.save()
 
 
 def tts_allowance(ledger: Ledger, invite: str, limits: InviteLimits, today: date) -> int:
@@ -638,6 +743,7 @@ def charge_tts(ledger: Ledger, invite: str, chars: int, today: date) -> None:
     _tokens(chars)
     day = ledger.days.setdefault(today, DayTotals())
     day.tts_chars[invite] = day.tts_chars.get(invite, 0) + chars
+    ledger.save()
 
 
 def glimmer_allowance(ledger: Ledger, invite: str, limits: InviteLimits, today: date) -> int:
@@ -649,6 +755,7 @@ def glimmer_allowance(ledger: Ledger, invite: str, limits: InviteLimits, today: 
 def charge_glimmer(ledger: Ledger, invite: str, today: date) -> None:
     day = ledger.days.setdefault(today, DayTotals())
     day.glimmer[invite] = day.glimmer.get(invite, 0) + 1
+    ledger.save()
 
 
 def refund_image(ledger: Ledger, reservation: Reservation) -> None:
@@ -656,3 +763,4 @@ def refund_image(ledger: Ledger, reservation: Reservation) -> None:
     day = ledger.days[reservation.day]
     for total in (day.overall, day.invites[reservation.invite], day.images[reservation.invite]):
         total.usd = max(0.0, total.usd - reservation.estimated_cost)
+    ledger.save()

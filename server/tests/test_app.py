@@ -5,6 +5,8 @@ server/tests -t server`); without it these tests are skipped."""
 import asyncio
 import time
 import json
+from pathlib import Path
+import tempfile
 import unittest
 
 try:
@@ -114,6 +116,30 @@ def ask(client: TestClient, body: dict, code: str = JUDGE_CODE, kind: str = 'ans
 
 
 class ProxyTests(unittest.TestCase):
+    def test_restart_retains_spend_and_refuses_over_budget_calls(self):
+        from metamate_proxy.app import today
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'ledger.json'
+            env = {**ENV, 'PROXY_LEDGER_PATH': str(path), 'PROXY_DAILY_BUDGET_USD': '0.025'}
+            body = {'model': 'muse-spark-1.3', 'input': 'Hi'}
+            self.assertEqual(ask(client_for(FakeMeta(), env), body).status_code, 200)
+            saved = json.loads(path.read_text(encoding='utf-8'))[today().isoformat()]
+            self.assertAlmostEqual(saved['overall']['usd'], 0.0014)
+            self.assertAlmostEqual(saved['invites'][JUDGE_CODE]['usd'], 0.0014)
+            fake = FakeMeta()
+            restarted = client_for(fake, env)
+            self.assertEqual(ask(restarted, body).status_code, 429)
+            self.assertEqual(fake.requests, [])
+
+    def test_corrupt_ledger_starts_app_with_empty_spend(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'ledger.json'
+            path.write_text('broken', encoding='utf-8')
+            with self.assertLogs('metamate_proxy.policy', level='WARNING'):
+                client = client_for(FakeMeta(), {**ENV, 'PROXY_LEDGER_PATH': str(path)})
+            self.assertEqual(ask(client, {'model': 'muse-spark-1.3', 'input': 'Hi'}).status_code, 200)
+
     def test_an_unknown_invite_is_refused_before_anything_is_sent(self):
         fake = FakeMeta()
         client = client_for(fake)
