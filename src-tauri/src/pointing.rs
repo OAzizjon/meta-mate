@@ -154,11 +154,8 @@ impl Follower {
     ) -> Option<Self> {
         let window = look.snapshot.target;
         let original = look.window_frame;
-        let initial = mm_win32::window::foreground_target(&[])?;
-        if initial.window != window
-            || initial.frame != original
-            || initial.region != look.snapshot.frame
-        {
+        let initial = mm_win32::window::remembered_target(window, &[])?;
+        if initial.frame != original || initial.region != look.snapshot.frame {
             return None;
         }
         let popups = popup_state(&initial);
@@ -213,9 +210,9 @@ impl Follower {
                     if !uncertain && !moved {
                         continue;
                     }
-                    let current = mm_win32::window::foreground_target(&[]);
+                    let current = mm_win32::window::remembered_target(window, &[]);
                     let frame = current
-                        .filter(|now| now.window == window && popup_state(now) == popups)
+                        .filter(|now| popup_state(now) == popups)
                         .map(|now| now.frame);
                     let change = if uncertain {
                         Follow::Clear
@@ -246,11 +243,9 @@ impl Follower {
                                 return;
                             }
                             // The frame may have changed again while waiting for the UI thread.
-                            let valid =
-                                mm_win32::window::foreground_target(&[]).is_some_and(|now| {
-                                    now.window == window
-                                        && Some(now.frame) == frame
-                                        && popup_state(&now) == expected_popups
+                            let valid = mm_win32::window::remembered_target(window, &[])
+                                .is_some_and(|now| {
+                                    Some(now.frame) == frame && popup_state(&now) == expected_popups
                                 });
                             if clear || !valid {
                                 stop_pointing(&ui);

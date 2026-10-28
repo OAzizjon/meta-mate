@@ -123,13 +123,16 @@ enum Input {
 
 struct TextQuestions {
     sender: mpsc::UnboundedSender<Input>,
-    target: Arc<Mutex<Option<mm_platform::TargetWindow>>>,
+    target: Arc<Mutex<mm_platform::RecentTargets>>,
 }
 
 /// Queues a text question on the voice loop, with the same barge-in as a new press.
 pub(crate) fn ask_text(app: &AppHandle, text: String) {
     if let Some(questions) = app.try_state::<TextQuestions>() {
-        let target = questions.target.lock().ok().and_then(|target| *target);
+        let target = questions.target.lock().ok().and_then(|targets| {
+            targets
+                .newest_valid(|target| mm_win32::window::remembered_target(target, &[]).is_some())
+        });
         let _ = questions.sender.send(Input::Text(text, target));
     }
 }
@@ -317,7 +320,7 @@ async fn run(
                 if let Some(target) = mm_win32::window::foreground_target(&own)
                     && let Ok(mut last) = app.state::<TextQuestions>().target.lock()
                 {
-                    *last = Some(target.window);
+                    last.remember(target.window);
                 }
                 continue;
             }
@@ -551,10 +554,19 @@ async fn answer(
         Ok(Ok(transcript)) => transcript.text,
         Ok(Err(error)) => {
             eprintln!("voice: speech recognition: {error}");
+            let generation = live_lesson(&lessons).map_or(generation, |lesson| lesson.generation);
             return failed(&stream, generation);
         }
         Err(_) => return, // cancelled
     };
+    if question.trim().is_empty() {
+        let generation = live_lesson(&lessons).map_or(generation, |lesson| lesson.generation);
+        stream.send(AnswerMsg::State {
+            generation,
+            state: "idle",
+        });
+        return;
+    }
     // The lesson decides first. Recognition belongs to this press; accepted words
     // and all resulting speech still belong to the lesson's original generation.
     if let Some(lesson) = live_lesson(&lessons) {
@@ -583,16 +595,15 @@ async fn answer(
         });
         stop_pointing(&app);
     }
-    if question.is_empty() {
-        stream.send(AnswerMsg::State {
-            generation,
-            state: "idle",
-        });
-        return;
-    }
     let locale = stream.locale();
     if tray_target == Some(None) {
-        say_line(&stream, &phrases, &locale, generation, "robot.cant_look");
+        say_line(
+            &stream,
+            &phrases,
+            &locale,
+            generation,
+            crate::screen::LookFailure::NoWindow.line(),
+        );
         stream.send(AnswerMsg::State {
             generation,
             state: "idle",

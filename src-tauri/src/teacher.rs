@@ -609,7 +609,12 @@ pub(crate) async fn teach(
                             finish(&app, &stream, generation);
                             return;
                         };
-                        match look(&app, generation, own.clone(), None).await {
+                        let fallback = target.and_then(|_| {
+                            mm_win32::window::foreground_target(&[])
+                                .is_none()
+                                .then_some(current.snapshot.target)
+                        });
+                        match look(&app, generation, own.clone(), fallback).await {
                             Ok(next) => current = Arc::new(next),
                             Err(failure) => {
                                 if cancelled() {
@@ -703,9 +708,13 @@ pub(crate) async fn teach(
                         return;
                     };
                     let stale = match &input {
+                        TeacherInput::KeyChord { now_ms, .. } => {
+                            *now_ms < pointed_ms
+                                || !mm_win32::window::foreground_target(&[])
+                                    .is_some_and(|front| front.window == current.snapshot.target)
+                        }
                         TeacherInput::Click { now_ms, .. }
-                        | TeacherInput::DoubleClick { now_ms, .. }
-                        | TeacherInput::KeyChord { now_ms, .. } => {
+                        | TeacherInput::DoubleClick { now_ms, .. } => {
                             *now_ms < pointed_ms
                         }
                         _ => false,

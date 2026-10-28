@@ -128,12 +128,7 @@ pub fn occluders(target: &Target, own: &[HWND]) -> Vec<PhysRect> {
         .handles
         .into_iter()
         .filter(|window| !target.popup_hwnds.contains(window) && !own.contains(window))
-        .filter(|&window| {
-            let mut process_id = 0u32;
-            // SAFETY: the out pointer is a local u32 that outlives the call.
-            unsafe { GetWindowThreadProcessId(window, Some(&mut process_id)) };
-            process_id != std::process::id() && shown(window) && !transparent(window)
-        })
+        .filter(|&window| shown(window) && !transparent(window))
         .filter_map(|window| clip_to_region(frame_of(window)?, target.region))
         .collect()
 }

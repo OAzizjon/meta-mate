@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AnswerGenerations } from "./answer-generation.ts";
+import { AnswerGenerations, HeldPresentation } from "./answer-generation.ts";
 
 test("a follow-up recording keeps the lesson's speech, state and model", () => {
   const ids = new AnswerGenerations();
@@ -40,4 +40,59 @@ test("a late recording cannot replace the newest microphone's state or words", (
   assert.equal(ids.accept({ type: "level", generation: 2, level: 0.5 }), false);
   assert.equal(ids.accept({ type: "state", generation: 2, state: "idle" }), false);
   assert.ok(ids.accept({ type: "state", generation: 1, state: "thinking" }));
+});
+
+test("cancelling an older lesson keeps a newer recording thinking", () => {
+  const ids = new AnswerGenerations();
+  ids.accept({ type: "model", generation: 1, model: null });
+  ids.accept({ type: "state", generation: 2, state: "thinking" });
+  assert.ok(ids.accept({ type: "cancel", generation: 1 }));
+  assert.equal(ids.canIdle(1), false);
+  assert.equal(ids.canIdle(2), true);
+});
+
+test("a recognition failure under the lesson generation keeps later lesson output", () => {
+  const ids = new AnswerGenerations();
+  ids.accept({ type: "model", generation: 1, model: null });
+  ids.accept({ type: "state", generation: 2, state: "thinking" });
+  assert.ok(ids.accept({ type: "line", generation: 1, key: "robot.network_error" }));
+  assert.ok(ids.accept({ type: "state", generation: 1, state: "idle" }));
+  assert.ok(ids.accept({ type: "item", generation: 1, item: { kind: "end" } }));
+  assert.equal(ids.answer, 1);
+});
+
+test("lesson visuals wait for listening to end while its items are accepted", () => {
+  const ids = new AnswerGenerations();
+  const presentation = new HeldPresentation();
+  const shown: string[] = [];
+  ids.accept({ type: "model", generation: 1, model: null });
+  ids.accept({ type: "state", generation: 2, state: "listening" });
+  assert.equal(ids.holdPresentation, true);
+  assert.ok(ids.accept({ type: "state", generation: 1, state: "looking" }));
+  assert.ok(ids.accept({ type: "item", generation: 1, item: { kind: "end" } }));
+  presentation.apply("state", ids.holdPresentation, () => shown.push("looking"));
+  presentation.apply("state", ids.holdPresentation, () => shown.push("idle"));
+  presentation.apply("bubble", ids.holdPresentation, () => shown.push("lesson"));
+  assert.deepEqual(shown, []);
+  assert.ok(ids.accept({ type: "heard", generation: 2, text: "which one?" }));
+  assert.ok(ids.accept({ type: "level", generation: 2, level: 0.5 }));
+  assert.equal(ids.listening, 2);
+  ids.accept({ type: "state", generation: 2, state: "thinking" });
+  assert.equal(ids.holdPresentation, false);
+  presentation.release();
+  assert.deepEqual(shown, ["idle", "lesson"]);
+  presentation.release();
+  assert.deepEqual(shown, ["idle", "lesson"]);
+});
+
+test("superseding a lesson discards its held visual changes", () => {
+  const presentation = new HeldPresentation();
+  const shown: string[] = [];
+  presentation.apply("state", true, () => shown.push("idle"));
+  presentation.apply("bubble", true, () => shown.push("old lesson"));
+  presentation.clear();
+  presentation.release();
+  assert.deepEqual(shown, []);
+  presentation.apply("bubble", false, () => shown.push("new answer"));
+  assert.deepEqual(shown, ["new answer"]);
 });

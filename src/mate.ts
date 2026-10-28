@@ -8,7 +8,7 @@ import { getLocale, setLocale, t } from "./i18n";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
-import { AnswerGenerations } from "./ipc/answer-generation";
+import { AnswerGenerations, HeldPresentation } from "./ipc/answer-generation";
 import type { LocaleKey } from "./i18n";
 import { mountOnboarding, setOnboardingTranslator, stopOnboarding } from "./onboarding";
 import { createTimelinePlayer } from "./player";
@@ -219,6 +219,10 @@ async function createRouter(
   let listeningGeneration: number | null = null;
   let showingHeard = false;
   const generations = new AnswerGenerations();
+  const presentation = new HeldPresentation();
+  const present = (key: string, update: () => void): void => {
+    presentation.apply(key, generations.holdPresentation, update);
+  };
   let idle = false;
   const setState = (state: RobotState): void => {
     idle = state === "idle";
@@ -236,34 +240,41 @@ async function createRouter(
   };
   const player = createTimelinePlayer({
     robot: {
-      setState,
-      setMood: (mood) => robot.setMood(mood),
-      aimAt: (target) => robot.aimAt(target),
+      setState: (state) => present("state", () => setState(state)),
+      setMood: (mood) => present("mood", () => robot.setMood(mood)),
+      aimAt: (target) => present("aim", () => robot.aimAt(target)),
     },
     audio,
     resolveTarget: (point, generation, step) => pointAt(generation, point, step),
     showBubble: (text) => {
-      showingHeard = false;
-      bubble.show(text);
+      present("bubble", () => {
+        showingHeard = false;
+        bubble.show(text);
+      });
     },
     onLine(line) {
       // The only line a timeline raises today; nothing speaks it here.
       if (line !== "CantFind") return;
-      showingHeard = false;
-      bubble.show(t("robot.cant_find"), CANT_FIND_BUBBLE_MS);
+      present("bubble", () => {
+        showingHeard = false;
+        bubble.show(t("robot.cant_find"), CANT_FIND_BUBBLE_MS);
+      });
       return new Promise<void>((resolve) => setTimeout(resolve, CANT_FIND_BUBBLE_MS));
     },
     onDone(doneGeneration) {
       if (doneGeneration !== generations.answer) return;
-      setState("idle");
-      bubble.hideAfter(DONE_BUBBLE_MS);
+      present("state", () => setState("idle"));
+      present("bubble", () => bubble.hideAfter(DONE_BUBBLE_MS));
       // Every sentence before `End` was played out: the worklet reported its end.
       void reportPlayback("done", doneGeneration);
     },
   });
   return (msg) => {
     const newest = generations.newest;
+    const answer = generations.answer;
     if (!generations.accept(msg)) return;
+    if (msg.type === "cancel" || generations.answer > answer) presentation.clear();
+    if (!generations.holdPresentation) presentation.release();
     if (generations.newest > newest) {
       idle = false;
       bubble.setModel(null);
@@ -272,9 +283,15 @@ async function createRouter(
     stopOnboarding();
     switch (msg.type) {
       case "model":
-        if (!idle) bubble.setModel(msg.model);
+        present("model", () => {
+          if (!idle) bubble.setModel(msg.model);
+        });
         return;
       case "state":
+        if (msg.generation !== generations.listening && generations.holdPresentation) {
+          present("state", () => setState(msg.state));
+          return;
+        }
         setState(msg.state);
         if (msg.state === "listening") {
           listeningGeneration = msg.generation;
@@ -310,11 +327,13 @@ async function createRouter(
       case "cancel":
         // Cancels the audio engine too.
         player.cancel(msg.generation);
-        setState("idle");
+        if (generations.canIdle(msg.generation)) setState("idle");
         return;
       case "line":
-        showingHeard = false;
-        bubble.show(t(msg.key), LINE_BUBBLE_MS);
+        present("bubble", () => {
+          showingHeard = false;
+          bubble.show(t(msg.key), LINE_BUBBLE_MS);
+        });
         return;
     }
   };
