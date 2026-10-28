@@ -11,6 +11,7 @@
 //! `server/run_dev.py --tts` is up.
 
 mod answer_stream;
+mod auth;
 #[cfg(debug_assertions)]
 mod debug_view;
 #[cfg(windows)]
@@ -68,12 +69,16 @@ pub fn run() {
     let result = tauri::Builder::default()
         .manage(answer_stream::AnswerStream::default())
         .manage(pointing::Pointing::default())
+        .manage(auth::Auth::default())
         .invoke_handler(tauri::generate_handler![
             answer_stream::subscribe_answer_stream,
             answer_stream::report_playback,
             pointing::point_at,
             settings::load_settings,
-            settings::save_settings
+            settings::save_settings,
+            auth::auth_status,
+            auth::sign_in,
+            auth::sign_out
         ])
         .setup(move |app| {
             {
@@ -256,7 +261,7 @@ fn open_settings(app: &tauri::AppHandle) {
 
 /// `key` from the locale files (invariant 7): Russian for the "ru" locale, else English;
 /// the key itself when it is missing.
-fn locale_text(locale: &str, key: &str) -> String {
+pub(crate) fn locale_text(locale: &str, key: &str) -> String {
     let strings = if locale == "ru" {
         include_str!("../../locales/ru.json")
     } else {

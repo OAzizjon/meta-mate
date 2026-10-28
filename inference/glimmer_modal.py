@@ -65,6 +65,9 @@ def serve() -> None:
         '--n-gpu-layers', '999',
         '--ctx-size', '8192',
         '--parallel', '4',
+        # Glimmer reasons before it answers (like Spark); MetaMate's uses are short and fast,
+        # and at ~15 tokens/s on an L4 the reasoning alone would take seconds.
+        '--reasoning-budget', '0',
         '--host', '0.0.0.0',
         '--port', str(PORT),
         '--api-key', os.environ['MMS_TTS_SECRET'],

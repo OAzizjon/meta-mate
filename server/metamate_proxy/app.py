@@ -11,6 +11,8 @@ and need no lock, and a settlement in a `finally` cannot be cut by a cancellatio
 """
 
 import asyncio
+import base64
+import binascii
 import json
 import os
 import re
@@ -61,6 +63,8 @@ class Settings:
     # MMS-TTS (tts/serve_dev.py locally, Modal in production); empty: /v1/tts answers 503.
     tts_url: str = ''
     tts_secret: str = field(default='', repr=False)
+    # Muse Glimmer on Modal (D53), behind the same shared secret as the TTS; empty: 503.
+    glimmer_url: str = ''
     # Sign-in (D54): OAuth clients by provider, the key that signs session tokens, this
     # proxy's public origin (the providers' redirect URIs live under it) and the e-mails
     # that get the judge tier. Without a session secret, sign-in answers 503.
@@ -104,6 +108,9 @@ class Settings:
                 raise ValueError('MMS_TTS_URL must be https (http only on 127.0.0.1)')
             if len(tts_secret) < 16:
                 raise ValueError('MMS_TTS_SECRET of 16+ characters is required with MMS_TTS_URL')
+        glimmer_url = (env.get('GLIMMER_URL') or '').rstrip('/')
+        if glimmer_url and (not glimmer_url.startswith('https://') or len(tts_secret) < 16):
+            raise ValueError('GLIMMER_URL must be https and needs MMS_TTS_SECRET')
         oauth = {}
         for provider in auth.PROVIDERS:
             client_id = env.get(f'{provider.upper()}_CLIENT_ID') or ''
@@ -119,8 +126,8 @@ class Settings:
             raise ValueError('PROXY_PUBLIC_URL must be https (http only on 127.0.0.1)')
         judges = frozenset(item.strip().lower() for item in env.get('PROXY_JUDGE_EMAILS', '').split(',')
                            if '@' in item)
-        return Settings(key, base, invites, budget, prices, tts_url, tts_secret, oauth, session_secret,
-                        public_url, judges)
+        return Settings(key, base, invites, budget, prices, tts_url, tts_secret, glimmer_url, oauth,
+                        session_secret, public_url, judges)
 
 
 @dataclass
@@ -241,18 +248,23 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
             return auth_page('Sign-in is not available.', 503)
         if not (auth.valid_port(port) and auth.valid_app_state(state) and auth.valid_challenge(challenge)):
             return auth_page('This sign-in link is not valid.', 400)
-        flow_state = state_flows.start(provider, port, state, challenge, datetime.now(timezone.utc).timestamp())
+        started = state_flows.start(provider, port, state, challenge, datetime.now(timezone.utc).timestamp())
+        if started is None:
+            return auth_page('Too many sign-ins right now. Please try again in a few minutes.', 503)
+        flow_state, provider_verifier = started
         details = auth.PROVIDERS[provider]
         query = {'client_id': client.id, 'redirect_uri': redirect_uri(provider), 'response_type': 'code',
-                 'scope': details.scope, 'state': flow_state}
+                 'scope': details.scope, 'state': flow_state,
+                 'code_challenge': auth.challenge_of(provider_verifier), 'code_challenge_method': 'S256'}
         if provider == 'google':
             query.update(access_type='online', prompt='select_account')
         return RedirectResponse(str(httpx.URL(details.authorize, params=query)), status_code=302)
 
-    async def identity_from(provider: str, client: auth.Client, code: str) -> auth.Identity | None:
+    async def identity_from(provider: str, client: auth.Client, code: str, verifier: str) -> auth.Identity | None:
         details = auth.PROVIDERS[provider]
         form = {'client_id': client.id, 'client_secret': client.secret, 'code': code,
-                'redirect_uri': redirect_uri(provider), 'grant_type': 'authorization_code'}
+                'redirect_uri': redirect_uri(provider), 'grant_type': 'authorization_code',
+                'code_verifier': verifier}
         try:
             token = await http.post(details.token, data=form, headers={'Accept': 'application/json'},
                                     timeout=AUTH_SECONDS)
@@ -277,10 +289,12 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         flow = state_flows.finish(provider, state, datetime.now(timezone.utc).timestamp())
         if client is None or flow is None or not code or len(code) > 2048:
             return auth_page('This sign-in has expired. Please try again from MetaMate.', 400)
-        identity = await identity_from(provider, client, code)
+        identity = await identity_from(provider, client, code, flow['provider_verifier'])
         if identity is None:
             return auth_page('The sign-in did not work. Please try again from MetaMate.', 400)
         login = state_flows.issue(flow, identity, datetime.now(timezone.utc).timestamp())
+        if login is None:
+            return auth_page('Too many sign-ins right now. Please try again in a few minutes.', 503)
         back = httpx.URL(f'http://127.0.0.1:{flow["port"]}/callback',
                          params={'code': login, 'state': flow['app_state']})
         return RedirectResponse(str(back), status_code=302)
@@ -522,6 +536,90 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
             return error(502, 'speech synthesis failed')
         timing = {'X-Synth-Ms': upstream.headers['x-synth-ms']} if 'x-synth-ms' in upstream.headers else {}
         return Response(upstream.content, media_type='audio/wav', headers=timing)
+
+    async def json_body(request: Request, limit: int) -> dict | None:
+        raw = await read_body(request, limit)
+        try:
+            body = json.loads(raw) if raw is not None else None
+        except (ValueError, RecursionError):
+            return None
+        return body if isinstance(body, dict) else None
+
+    @app.post('/v1/image')
+    async def image(request: Request) -> Response:
+        """One picture from Muse Image (the lesson card, D55): a fixed request shape, one
+        PNG, $0.01 reserved under a daily image allowance; a refused image is refunded."""
+        who = invite_of(request.headers.get('authorization'), settings)
+        if who is None:
+            return error(401, 'unknown invite code')
+        invite, limits = who
+        body = await json_body(request, 8192)
+        prompt = body.get('prompt') if body else None
+        if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > policy.IMAGE_PROMPT_CHARS:
+            return error(400, f'send {{"prompt"}} of 1 to {policy.IMAGE_PROMPT_CHARS} characters')
+        try:
+            reservation = policy.reserve(state.ledger, invite, limits, settings.budget, policy.IMAGE,
+                                         policy.IMAGE_USD, today())
+        except ValueError as refused:
+            return error(429, str(refused))
+        forward = {'model': policy.IMAGE, 'prompt': prompt, 'n': 1, 'size': '1024x1024',
+                   'response_format': 'b64_json', 'output_format': 'png'}
+        headers = {'Authorization': 'Bearer ' + settings.meta_key, 'Content-Type': 'application/json'}
+        try:
+            upstream = await http.post(settings.meta_base + '/images/generations', json=forward,
+                                       headers=headers, timeout=90)
+        except httpx.HTTPError:
+            policy.reconcile(state.ledger, reservation, None, settings.prices)
+            return error(502, 'image generation failed')
+        policy.reconcile(state.ledger, reservation, None, settings.prices)
+        if upstream.status_code != 200:
+            if upstream.status_code < 500:
+                policy.refund_image(state.ledger, reservation)
+            return upstream_error(upstream.status_code, upstream.content, settings.meta_key)
+        try:
+            encoded = upstream.json()['data'][0]['b64_json']
+            png = base64.b64decode(encoded, validate=True)
+        except (ValueError, KeyError, IndexError, TypeError, binascii.Error):
+            return error(502, 'image generation failed')
+        if png[:8] != b'\x89PNG\r\n\x1a\n' or len(png) > 12_000_000:
+            return error(502, 'image generation failed')
+        return JSONResponse({'png_b64': base64.b64encode(png).decode('ascii')})
+
+    @app.post('/v1/glimmer')
+    async def glimmer(request: Request) -> Response:
+        """Muse Glimmer (Meta's open weights) on our own GPU (D53): a short chat for work
+        that can wait a few seconds, such as the lesson card's wording. Only system and user
+        text messages pass; the reply is plain text."""
+        who = invite_of(request.headers.get('authorization'), settings)
+        if who is None:
+            return error(401, 'unknown invite code')
+        if not settings.glimmer_url:
+            return error(503, 'Muse Glimmer is not configured')
+        invite, limits = who
+        body = await json_body(request, 16384)
+        messages = body.get('messages') if body else None
+        tokens = body.get('max_tokens', 300) if body else 300
+        if (not isinstance(messages, list) or not 1 <= len(messages) <= 4
+                or any(not isinstance(m, dict) or set(m) != {'role', 'content'} or m['role'] not in ('system', 'user')
+                       or not isinstance(m['content'], str) or not m['content'] or len(m['content']) > 4000
+                       for m in messages)
+                or type(tokens) is not int or not 1 <= tokens <= policy.GLIMMER_MAX_TOKENS):
+            return error(400, 'send {"messages": [system/user text], "max_tokens": 1..600}')
+        if policy.glimmer_allowance(state.ledger, invite, limits, today()) < 1:
+            return error(429, 'glimmer allowance used up for today')
+        policy.charge_glimmer(state.ledger, invite, today())
+        forward = {'model': 'muse-glimmer-30b', 'messages': messages, 'max_tokens': tokens, 'temperature': 0.3,
+                   # Harmony models think in a separate channel first: keep that short.
+                   'chat_template_kwargs': {'reasoning_effort': 'low'}}
+        try:
+            upstream = await http.post(settings.glimmer_url + '/v1/chat/completions', json=forward,
+                                       headers={'Authorization': 'Bearer ' + settings.tts_secret}, timeout=120)
+            text = upstream.json()['choices'][0]['message']['content'] if upstream.status_code == 200 else None
+        except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
+            text = None
+        if not isinstance(text, str) or not text.strip():
+            return error(502, 'Muse Glimmer did not answer')
+        return JSONResponse({'text': text.strip()})
 
     @app.websocket('/v1/asr')
     async def asr(ws: WebSocket) -> None:

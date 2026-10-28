@@ -45,6 +45,8 @@
   "tray.about": "О программе",
   "tray.quit": "Выйти",
   "tray.tooltip": "Удерживайте правый Ctrl и спросите меня",
+  "auth.browser_done": "Вход выполнен. Закройте эту вкладку и вернитесь в MetaMate.",
+  "auth.browser_failed": "Войти не получилось. Закройте эту вкладку и попробуйте ещё раз в MetaMate.",
   "settings.robot_size": "Размер робота",
   "settings.voice_speed": "Скорость речи",
   "settings.sound_volume": "Громкость звуков",

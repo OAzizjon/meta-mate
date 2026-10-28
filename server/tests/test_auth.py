@@ -25,13 +25,18 @@ class FakeProviders:
         self.email = email
         self.verified = verified
         self.requests: list[httpx.Request] = []
+        # code -> the PKCE challenge of the authorize request it answered
+        self.codes: dict[str, str] = {}
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         url = str(request.url)
         if url == auth.PROVIDERS['google'].token or url == auth.PROVIDERS['github'].token:
             form = parse_qs(request.content.decode())
-            if form.get('code') != ['good-code']:
+            # The provider checks PKCE: the code is bound to the challenge it was issued for.
+            issued_for = self.codes.get(form.get('code', [''])[0])
+            verifier = form.get('code_verifier', [''])[0]
+            if issued_for is None or issued_for != auth.challenge_of(verifier):
                 return httpx.Response(400, json={'error': 'invalid_grant'})
             return httpx.Response(200, json={'access_token': 'provider-access'})
         if url == auth.GOOGLE_USERINFO:
@@ -48,14 +53,20 @@ class FakeProviders:
 
 def client_for(fake: FakeProviders, env: dict | None = None) -> TestClient:
     upstream = httpx.AsyncClient(transport=httpx.MockTransport(fake.handler))
-    return TestClient(create_app(Settings.from_env(env or AUTH_ENV), client=upstream), follow_redirects=False)
+    client = TestClient(create_app(Settings.from_env(env or AUTH_ENV), client=upstream), follow_redirects=False)
+    client.fake = fake
+    return client
 
 
 def sign_in(client: TestClient, provider='google', code='good-code', verifier=VERIFIER):
     start = client.get(f'/auth/{provider}/start', params={
         'port': 51234, 'state': 'app-state-123456789', 'challenge': auth.challenge_of(verifier)})
     assert start.status_code == 302, start.text
-    proxy_state = parse_qs(urlsplit(start.headers['location']).query)['state'][0]
+    query = parse_qs(urlsplit(start.headers['location']).query)
+    proxy_state = query['state'][0]
+    # The person signs in: the provider issues `code` for this flow's challenge.
+    if code == 'good-code':
+        client.fake.codes[code] = query['code_challenge'][0]
     back = client.get(f'/auth/{provider}/callback', params={'code': code, 'state': proxy_state})
     return start, back
 
@@ -86,9 +97,9 @@ class PureTests(unittest.TestCase):
 
     def test_flows_are_single_use_and_bound_to_the_verifier(self):
         flows = auth.Flows()
-        state = flows.start('google', 50000, 'app-state-123456789', auth.challenge_of(VERIFIER), now=0)
+        state, _ = flows.start('google', 50000, 'app-state-123456789', auth.challenge_of(VERIFIER), now=0)
         self.assertIsNone(flows.finish('github', state, now=1))
-        state = flows.start('google', 50000, 'app-state-123456789', auth.challenge_of(VERIFIER), now=0)
+        state, _ = flows.start('google', 50000, 'app-state-123456789', auth.challenge_of(VERIFIER), now=0)
         flow = flows.finish('google', state, now=1)
         self.assertIsNone(flows.finish('google', state, now=1))
         code = flows.issue(flow, auth.Identity('google', '1', '', 'A'), now=1)
@@ -100,7 +111,33 @@ class PureTests(unittest.TestCase):
         self.assertEqual(flows.redeem(code, VERIFIER, now=2).subject, '1')
 
 
+    def test_a_flood_is_refused_instead_of_evicting_live_sign_ins(self):
+        flows = auth.Flows()
+        first, _ = flows.start('google', 50000, 'app-state-123456789', 'c' * 43, now=0)
+        for _ in range(auth.MAX_PENDING - 1):
+            flows.start('google', 50000, 'app-state-123456789', 'c' * 43, now=1)
+        self.assertIsNone(flows.start('google', 50000, 'app-state-123456789', 'c' * 43, now=2))
+        self.assertIsNotNone(flows.finish('google', first, now=3))
+        # Expired entries make room again.
+        self.assertIsNotNone(flows.start('google', 50000, 'app-state-123456789', 'c' * 43,
+                                         now=2 + auth.PENDING_SECONDS))
+
+
 class FlowTests(unittest.TestCase):
+    def test_a_stolen_provider_code_cannot_be_replayed_through_another_flow(self):
+        fake = FakeProviders()
+        client = client_for(fake)
+        # The victim's flow gets a code the attacker steals before it is used.
+        victim = client.get('/auth/google/start', params={
+            'port': 51234, 'state': 'victim-state-1234567', 'challenge': auth.challenge_of(VERIFIER)})
+        fake.codes['stolen-code'] = parse_qs(urlsplit(victim.headers['location']).query)['code_challenge'][0]
+        attacker = client.get('/auth/google/start', params={
+            'port': 51235, 'state': 'attacker-state-123456', 'challenge': auth.challenge_of('a' * 50)})
+        attacker_state = parse_qs(urlsplit(attacker.headers['location']).query)['state'][0]
+        back = client.get('/auth/google/callback', params={'code': 'stolen-code', 'state': attacker_state})
+        self.assertEqual(back.status_code, 400)
+
+
     def test_google_sign_in_end_to_end_then_the_token_works(self):
         fake = FakeProviders()
         client = client_for(fake)

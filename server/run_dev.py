@@ -28,6 +28,11 @@ from metamate_proxy.app import Settings, create_app  # noqa: E402
 
 INVITE_FILE = ROOT / 'server' / '.dev-invite'
 MODAL_LINK = ROOT / 'server' / '.dev-tts.json'
+# The key that signs dev session tokens (sign-in, D54): kept so a restart keeps you signed in.
+SESSION_FILE = ROOT / 'server' / '.dev-session'
+# Muse Glimmer on Modal (inference/glimmer_modal.py), behind the same secret as the TTS.
+GLIMMER_DEV_URL = 'https://obdazizjon--metamate-glimmer-serve.us-east.modal.run'
+OAUTH_NAMES = ('GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET')
 TTS_PYTHON = Path('C:/mmw/py-tts/Scripts/python.exe')
 TTS_PORT = 8788
 # An 80 ms PCM frame is under 4 KB: a socket never needs more (uvicorn's default is 16 MiB).
@@ -47,6 +52,16 @@ def main() -> int:
     invite = 'dev-' + secrets.token_urlsafe(18)
     INVITE_FILE.write_text(invite + '\n', encoding='utf-8')
     env = dict(os.environ, META_API_KEY=key, META_API_BASE=base, PROXY_INVITE_CODES=f'{invite}:judge')
+    # Sign-in: the OAuth clients from the secrets file (names only ever printed) and a
+    # persistent dev signing key.
+    for name in OAUTH_NAMES:
+        value = mm_probe.read_secret(name)
+        if value:
+            env[name] = value
+    if not SESSION_FILE.exists():
+        SESSION_FILE.write_text(secrets.token_urlsafe(48) + '
+', encoding='utf-8')
+    env['PROXY_SESSION_SECRET'] = SESSION_FILE.read_text(encoding='utf-8').strip()
     tts_secret = secrets.token_urlsafe(24)
     if args.tts:
         env.update(MMS_TTS_URL=f'http://127.0.0.1:{TTS_PORT}', MMS_TTS_SECRET=tts_secret)
@@ -54,6 +69,7 @@ def main() -> int:
         try:
             link = json.loads(MODAL_LINK.read_text(encoding='utf-8'))
             env.update(MMS_TTS_URL=str(link['url']), MMS_TTS_SECRET=str(link['secret']))
+            env['GLIMMER_URL'] = GLIMMER_DEV_URL
         except (OSError, ValueError, KeyError, TypeError):
             print(f'no Modal link in {MODAL_LINK.relative_to(ROOT).as_posix()}: run tts/deploy_modal.py first')
             return 2

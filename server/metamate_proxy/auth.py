@@ -151,26 +151,36 @@ class Flows:
     codes: dict[str, dict] = field(default_factory=dict)
 
     def _prune(self, now: float) -> None:
+        """Only expired entries go: a flood never evicts a live sign-in (it is refused)."""
         for store, ttl in ((self.pending, PENDING_SECONDS), (self.codes, CODE_SECONDS)):
+            if not store or now - next(iter(store.values()))['at'] <= ttl:
+                continue  # insertion order: the oldest is first, so nothing else expired
             for key in [key for key, value in store.items() if now - value['at'] > ttl]:
                 del store[key]
-            while len(store) >= MAX_PENDING:
-                del store[next(iter(store))]
 
-    def start(self, provider: str, port: int, app_state: str, challenge: str, now: float) -> str:
+    def start(self, provider: str, port: int, app_state: str, challenge: str,
+              now: float) -> tuple[str, str] | None:
+        """(proxy state, provider PKCE verifier); None when too many sign-ins are open."""
         self._prune(now)
+        if len(self.pending) >= MAX_PENDING:
+            return None
         state = secrets.token_urlsafe(24)
+        # The provider's own PKCE: a provider code stolen from someone else's sign-in cannot
+        # be pushed through this flow, because it was issued for that flow's challenge.
+        verifier = secrets.token_urlsafe(48)
         self.pending[state] = {'provider': provider, 'port': port, 'app_state': app_state,
-                               'challenge': challenge, 'at': now}
-        return state
+                               'challenge': challenge, 'provider_verifier': verifier, 'at': now}
+        return state, verifier
 
     def finish(self, provider: str, state: str, now: float) -> dict | None:
         self._prune(now)
         flow = self.pending.pop(state, None) if isinstance(state, str) else None
         return flow if flow and flow['provider'] == provider else None
 
-    def issue(self, flow: dict, identity: Identity, now: float) -> str:
+    def issue(self, flow: dict, identity: Identity, now: float) -> str | None:
         self._prune(now)
+        if len(self.codes) >= MAX_PENDING:
+            return None
         code = secrets.token_urlsafe(24)
         self.codes[code] = {'identity': identity, 'challenge': flow['challenge'], 'at': now}
         return code

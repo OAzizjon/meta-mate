@@ -20,6 +20,12 @@ ALLOWED_MODELS = {SPARK, WONDER}
 # never refunded, under its own daily cap per invite.
 SAM = "sam-3.1"
 SAM_CALL_USD = 0.02
+# Muse Image is billed $0.01 per image (docs, image generation); a lesson card is one.
+IMAGE = "muse-image-1.0"
+IMAGE_USD = 0.01
+IMAGE_PROMPT_CHARS = 1500
+# Muse Glimmer runs on our own Modal GPU: no per-call price, only a daily cap.
+GLIMMER_MAX_TOKENS = 600
 SAM_POINT = re.compile(r"<0f>1<\|point;x=(\d{1,4});y=(\d{1,4});w=(\d{1,4});h=(\d{1,4})\|>")
 # Reasoning counts as output (D41: ~100 tokens even at minimal, 356-570 for a computer
 # turn), so a cap below that ends the turn before any text: keep these generous.
@@ -370,6 +376,8 @@ class InviteLimits:
     asr_seconds: int = 1200
     tts_chars: int = 20_000
     sam_calls: int = 60
+    image_calls: int = 10
+    glimmer_calls: int = 100
 
     def __post_init__(self) -> None:
         _nonnegative(self.daily_usd, "daily_usd")
@@ -379,13 +387,17 @@ class InviteLimits:
         _tokens(self.asr_seconds)
         _tokens(self.tts_chars)
         _tokens(self.sam_calls)
+        _tokens(self.image_calls)
+        _tokens(self.glimmer_calls)
 
 
 # Initial policy defaults, not provider pricing or a promise of unlimited judging.
 TESTER = InviteLimits(daily_usd=1.0, wonder_calls=5, wonder_usd=0.25, daily_calls=150,
-                      asr_seconds=600, tts_chars=10_000, sam_calls=20)
+                      asr_seconds=600, tts_chars=10_000, sam_calls=20, image_calls=5,
+                      glimmer_calls=50)
 JUDGE = InviteLimits(daily_usd=5.0, wonder_calls=25, wonder_usd=2.0, daily_calls=400,
-                     asr_seconds=1800, tts_chars=30_000, sam_calls=60)
+                     asr_seconds=1800, tts_chars=30_000, sam_calls=60, image_calls=20,
+                     glimmer_calls=200)
 
 
 @dataclass(frozen=True)
@@ -413,6 +425,8 @@ class DayTotals:
     asr_seconds: dict[str, float] = field(default_factory=dict)
     tts_chars: dict[str, int] = field(default_factory=dict)
     sam: dict[str, Totals] = field(default_factory=dict)
+    images: dict[str, Totals] = field(default_factory=dict)
+    glimmer: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -492,7 +506,7 @@ class Ledger:
 def decide(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
            requested_model: str, estimated_cost: float, today: date) -> Decision:
     """Check projected spend; fallback uses the same conservative cost ceiling."""
-    if requested_model != SAM:
+    if requested_model not in (SAM, IMAGE):
         _model(requested_model)
     _nonnegative(estimated_cost, "estimated_cost")
     day = ledger.days.get(today, DayTotals())
@@ -501,6 +515,8 @@ def decide(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
         return Decision(None, "invite_calls")
     if requested_model == SAM and day.sam.get(invite, Totals()).calls >= limits.sam_calls:
         return Decision(None, "sam_allowance")
+    if requested_model == IMAGE and day.images.get(invite, Totals()).calls >= limits.image_calls:
+        return Decision(None, "image_allowance")
     spent = own.usd
     if spent >= limits.daily_usd or spent + estimated_cost > limits.daily_usd:
         return Decision(None, "invite_budget")
@@ -534,6 +550,8 @@ def reserve(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
         counters.append(day.wonder.setdefault(invite, Totals()))
     if decision.model == SAM:
         counters.append(day.sam.setdefault(invite, Totals()))
+    if decision.model == IMAGE:
+        counters.append(day.images.setdefault(invite, Totals()))
     for total in counters:
         total.calls += 1
         total.usd += estimated_cost
@@ -555,8 +573,9 @@ def reconcile(ledger: Ledger, reservation: Reservation,
     if upstream_model is not None and upstream_model != reservation.model:
         del ledger._pending[id(reservation)]
         return "model_mismatch"
-    if reservation.model == SAM:
-        # No price and no token usage to settle against: the reservation is the cost.
+    if reservation.model in (SAM, IMAGE):
+        # A fixed price per call, no token usage to settle against: the reservation is the
+        # cost (an image Meta refused costs nothing: refund it below the call site).
         del ledger._pending[id(reservation)]
         return None
     if usage is not None:
@@ -619,3 +638,21 @@ def charge_tts(ledger: Ledger, invite: str, chars: int, today: date) -> None:
     _tokens(chars)
     day = ledger.days.setdefault(today, DayTotals())
     day.tts_chars[invite] = day.tts_chars.get(invite, 0) + chars
+
+
+def glimmer_allowance(ledger: Ledger, invite: str, limits: InviteLimits, today: date) -> int:
+    """Muse Glimmer calls left today for `invite` (our own GPU: a count, not dollars)."""
+    used = ledger.days.get(today, DayTotals()).glimmer.get(invite, 0)
+    return max(0, limits.glimmer_calls - used)
+
+
+def charge_glimmer(ledger: Ledger, invite: str, today: date) -> None:
+    day = ledger.days.setdefault(today, DayTotals())
+    day.glimmer[invite] = day.glimmer.get(invite, 0) + 1
+
+
+def refund_image(ledger: Ledger, reservation: Reservation) -> None:
+    """An image Meta refused (4xx, a content-policy block) was not billed."""
+    day = ledger.days[reservation.day]
+    for total in (day.overall, day.invites[reservation.invite], day.images[reservation.invite]):
+        total.usd = max(0.0, total.usd - reservation.estimated_cost)

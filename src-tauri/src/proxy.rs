@@ -3,6 +3,7 @@
 //! credential the app holds (CLAUDE.md "Secrets"); it never reaches a log or an error.
 
 use std::fmt;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use futures_util::{SinkExt, StreamExt};
@@ -146,6 +147,9 @@ pub struct Proxy {
     http: reqwest::Client,
     base: String,
     invite: String,
+    /// The session token after signing in (D54), shared by every clone: it replaces the
+    /// invite for every call until the person signs out.
+    session: Arc<RwLock<Option<String>>>,
 }
 
 impl fmt::Debug for Proxy {
@@ -183,7 +187,45 @@ impl Proxy {
             http,
             base: base.to_owned(),
             invite: invite.to_owned(),
+            session: Arc::default(),
         })
+    }
+
+    /// The proxy's origin (the sign-in pages live under it).
+    pub fn base(&self) -> &str {
+        &self.base
+    }
+
+    /// Signed in (`Some`) or back to the built-in invite (`None`), for every clone at once.
+    pub fn set_session(&self, token: Option<String>) {
+        if let Ok(mut session) = self.session.write() {
+            *session = token;
+        }
+    }
+
+    /// What each call carries: the session token, else the invite.
+    fn credential(&self) -> String {
+        self.session
+            .read()
+            .ok()
+            .and_then(|session| session.clone())
+            .unwrap_or_else(|| self.invite.clone())
+    }
+
+    /// Trades the one-time login code the browser brought back for a session (D54).
+    pub async fn redeem_login(&self, code: &str, verifier: &str) -> Result<Value, ProxyError> {
+        let response = self
+            .http
+            .post(format!("{}/auth/token", self.base))
+            .timeout(Duration::from_secs(20))
+            .json(&json!({"code": code, "verifier": verifier}))
+            .send()
+            .await
+            .map_err(network)?;
+        if !response.status().is_success() {
+            return Err(ProxyError::Protocol("the login code was refused"));
+        }
+        response.json().await.map_err(network)
     }
 
     /// Sends one Responses API request and streams the answer: `on_delta` gets each piece
@@ -197,7 +239,7 @@ impl Proxy {
         let response = self
             .http
             .post(format!("{}/v1/responses", self.base))
-            .bearer_auth(&self.invite)
+            .bearer_auth(self.credential())
             .header("X-MetaMate-Call", kind.header())
             .json(body)
             .send()
@@ -251,7 +293,7 @@ impl Proxy {
         let response = self
             .http
             .post(format!("{}/v1/tts", self.base))
-            .bearer_auth(&self.invite)
+            .bearer_auth(self.credential())
             .timeout(TTS_TIMEOUT)
             .json(&json!({"lang": lang, "text": text, "speed": speed}))
             .send()
@@ -286,7 +328,7 @@ impl Proxy {
             .map_err(network)?;
         let (mut sink, mut stream) = socket.split();
         let handshake = json!({
-            "authorization": {"accessToken": format!("Bearer {}", self.invite)},
+            "authorization": {"accessToken": format!("Bearer {}", self.credential())},
             "audioEncoding": "PCM_24KHZ",
             "mode": "PUSH_TO_TALK",
             "partialMode": "CUMULATIVE",
