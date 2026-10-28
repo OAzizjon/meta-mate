@@ -109,6 +109,8 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     .map_err(|error| eprintln!("voice: push-to-talk: {error}"))
     .ok()?;
     let silencer = driver.silencer();
+    // For the outlines SAM 3.1 draws when a point is on nothing UI Automation lists.
+    app.manage(proxy.clone());
     tauri::async_runtime::spawn(run(app.clone(), proxy, receiver, silencer));
     Some(VoiceLoop { _driver: driver })
 }
@@ -123,6 +125,7 @@ pub fn ask(app: &AppHandle, question: String) {
         app.exit(1);
         return;
     };
+    app.manage(proxy.clone());
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let stream = app.state::<AnswerStream>();

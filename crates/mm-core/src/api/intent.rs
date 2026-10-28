@@ -126,7 +126,7 @@ pub fn parse_yes_no(text: &str) -> Option<bool> {
     );
     if has_no(&words) || (yes && negated(&words)) {
         Some(false)
-    } else if doubtful(&words) {
+    } else if doubtful(&words) && !pressing(&words) {
         // "да вряд ли", "yes maybe later": not a yes Mate may press on; he asks again.
         None
     } else if yes {
@@ -141,6 +141,24 @@ fn negated(words: &[&str]) -> bool {
     words
         .iter()
         .any(|word| matches!(*word, "not" | "never" | "не" | "ни" | "никогда"))
+}
+
+/// An explicit "press it" ("да ладно, нажми"): it outweighs a hesitant opening.
+fn pressing(words: &[&str]) -> bool {
+    contains_spoken(
+        words,
+        &[
+            "press it",
+            "do it",
+            "go ahead",
+            "нажми",
+            "нажмите",
+            "давай",
+            "давайте",
+            "сделай",
+            "сделайте",
+        ],
+    )
 }
 
 /// Hesitation or a "later": not consent to press now.

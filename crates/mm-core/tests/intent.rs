@@ -146,6 +146,7 @@ fn spoken_yes_no_covers_both_languages_and_negation_wins() {
         "ладно",
         "Yes, please.",
         "Хорошо, нажмите!",
+        "Да ладно, нажми",
     ] {
         assert_eq!(parse_yes_no(text), Some(true), "{text}");
     }

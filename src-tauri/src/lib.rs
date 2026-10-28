@@ -27,6 +27,8 @@ mod ptt;
 #[cfg(windows)]
 mod s3;
 #[cfg(windows)]
+mod sam;
+#[cfg(windows)]
 mod screen;
 #[cfg(windows)]
 mod selftest;

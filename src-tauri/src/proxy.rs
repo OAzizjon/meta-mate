@@ -43,6 +43,7 @@ pub enum CallKind {
     Speech,
     Answer,
     Computer,
+    Sam,
 }
 
 impl CallKind {
@@ -52,6 +53,7 @@ impl CallKind {
             Self::Speech => "speech",
             Self::Answer => "answer",
             Self::Computer => "computer",
+            Self::Sam => "sam",
         }
     }
 }

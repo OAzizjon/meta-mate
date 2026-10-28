@@ -700,6 +700,9 @@ def cmd_sam(args) -> int:
     usd = cost_usd(payload['model'], *tokens, args.price, ((final or {}).get('usage') or {}).get('cost'))
     ledger_add({'ts': time.time(), 'provider': args.provider, 'model': payload['model'], 'kind': 'sam',
                 'in': tokens[0], 'out': tokens[1], 'usd': usd})
+    if not isinstance(final, dict) or final.get('status') != 'completed' or final.get('error'):
+        status = final.get('status') if isinstance(final, dict) else 'no final event'
+        raise ProbeError(f'SAM did not complete ({status}); nothing recorded')
     answer = ''.join(text)
     boxes = [tuple(map(int, m.groups())) for m in SAM_BOX.finditer(answer)]
     print(f'{fx.name}: {width}x{height}, prompt {prompt!r}, status {(final or {}).get("status")}, '

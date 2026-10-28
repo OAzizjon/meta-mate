@@ -333,7 +333,8 @@ pub(crate) async fn teach(
                             .first()
                             .map(|call| call.call_id.clone());
                         let turn = (response.id.clone(), call_id);
-                        let targets = targets_for(&current, &response);
+                        let mut targets = targets_for(&current, &response);
+                        outline_unlisted(&proxy, &current, &response, &mut targets).await;
                         #[cfg(debug_assertions)]
                         eprintln!("teacher: turn {response:?} targets {targets:?}");
                         let frame = current.redacted.frame;
@@ -620,6 +621,36 @@ fn expire_offer(teacher: &mut Teacher, offered_at: &mut Option<Instant>, now_ms:
         *offered_at = None;
         // Reset Awaiting without speaking. A later explicit request can offer again.
         let _ = teacher.input(TeacherInput::DoItUnavailable { now_ms });
+    }
+}
+
+/// A click on nothing UI Automation knows (Telegram is Qt, a game, a canvas page): the
+/// outline SAM 3.1 finds under the model's pixel, if it is a sensible target (sam.rs);
+/// otherwise the step stays unplaceable and the teacher refuses (invariant 5).
+async fn outline_unlisted(
+    proxy: &Proxy,
+    look: &Look,
+    response: &ParsedResponse,
+    targets: &mut [Option<PhysRect>],
+) {
+    if !crate::sam::tree_is_flat(&look.snapshot) {
+        return;
+    }
+    let actions = response
+        .computer_calls
+        .iter()
+        .flat_map(|call| call.actions.iter());
+    for (action, target) in actions.zip(targets.iter_mut()) {
+        let (Action::Click { x, y, .. } | Action::DoubleClick { x, y }) = action else {
+            continue;
+        };
+        if target.is_some() {
+            continue;
+        }
+        let (Ok(x), Ok(y)) = (u32::try_from(*x), u32::try_from(*y)) else {
+            continue;
+        };
+        *target = crate::sam::sam_outline(proxy, look, x, y).await;
     }
 }
 

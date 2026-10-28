@@ -4,4 +4,5 @@
 pub mod intent;
 pub mod request;
 pub mod response;
+pub mod sam;
 pub mod sse;

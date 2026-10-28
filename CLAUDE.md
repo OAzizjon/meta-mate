@@ -26,7 +26,7 @@ The build started at the kickoff on 2026-10-26, 22:00 Tashkent (D38); submission
 | `mm sounds [normalize]` | sound licences check / convert + loudness-normalize (ffmpeg; cues keep their levels) |
 | `mm agents [stats]` | drafting team queue |
 | `mm keys DIR [--apply]` | owner only: copy key values from another project's secrets file (prints names only) |
-| `mm probe models\|stream\|click\|ledger` | lead only: the Meta API from this machine: stream with timings and cost, one computer-use (or `<point eNN>`) turn on a fixture with the UIA element it hit, replay recordings, a dollar ledger (skill `metamate-meta-api`) |
+| `mm probe models\|stream\|click\|sam\|asr\|ledger` | lead only: the Meta API from this machine: stream with timings and cost, one computer-use (or `<point eNN>`) turn on a fixture with the UIA element it hit, a SAM 3.1 outline under a pixel, speech recognition on a WAV, replay recordings, a dollar ledger (skill `metamate-meta-api`) |
 | `mm agent check|test` | the **only** commands agents may run: offline, no secrets, no GUI |
 
 Agent mode is enforced in code: without `.git` (agent copies), inside a draft-agents sandbox, or with `MM_AGENT=1`, every command except `mm agent ...` is refused.

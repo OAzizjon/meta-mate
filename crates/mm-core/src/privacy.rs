@@ -82,15 +82,6 @@ pub fn password_like(
             .into_iter()
             .any(password_words);
     }
-    // A PIN box drawn as a custom control is still a PIN box (the field types `forbidden`
-    // uses); it may also be a reveal toggle, checked below.
-    if control_type.eq_ignore_ascii_case("Custom")
-        && [name, automation_id, help_text]
-            .into_iter()
-            .any(password_words)
-    {
-        return true;
-    }
     if ["Text", "Document", "Window", "Pane"]
         .into_iter()
         .any(|kind| control_type.eq_ignore_ascii_case(kind))

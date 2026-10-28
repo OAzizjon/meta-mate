@@ -139,10 +139,14 @@ impl Follower {
                             0x8001 | 0x8003 => {
                                 uncertain |= event.hwnd == window.handle && event.object == 0;
                             }
-                            // A window (the target, a child or a popup) moved or resized:
-                            // the frame and the popups decide below. Carets, hover, focus,
-                            // names and values change all the time and never clear the ring.
-                            winevent::LOCATION if event.object == 0 && event.child == 0 => {
+                            // The target window itself moved or resized: its frame and popups
+                            // decide below. Children, tooltips, carets, hover, focus, names
+                            // and values change all the time and never clear the ring.
+                            winevent::LOCATION
+                                if event.hwnd == window.handle
+                                    && event.object == 0
+                                    && event.child == 0 =>
+                            {
                                 moved = true;
                             }
                             _ => {}
@@ -258,7 +262,7 @@ pub struct MateRect {
 /// cannot be shown: no look for that answer, nothing pointable there (invariant 5), or the
 /// target on a monitor the highlight does not cover (Mate says so).
 #[tauri::command]
-pub fn point_at(
+pub async fn point_at(
     app: AppHandle,
     generation: u64,
     point: Point,
@@ -275,7 +279,22 @@ pub fn point_at(
         });
         return None;
     }
-    let Some(target) = look.resolve(&point) else {
+    let resolved = match (look.resolve(&point), &point) {
+        (Some(target), _) => Some(target),
+        // A pixel on nothing UI Automation lists (an app without a tree): the outline of
+        // what is there, from SAM 3.1, or nothing (sam.rs).
+        (None, Point::Pixel(x, y)) if crate::sam::tree_is_flat(&look.snapshot) => {
+            match app.try_state::<crate::proxy::Proxy>() {
+                Some(proxy) => {
+                    let proxy = proxy.inner().clone();
+                    crate::sam::sam_outline(&proxy, &look, *x, *y).await
+                }
+                None => None,
+            }
+        }
+        (None, _) => None,
+    };
+    let Some(target) = resolved else {
         // Nothing pointable there: the ring of an earlier point must not stay lit.
         stop_pointing(&app);
         return None;

@@ -123,14 +123,16 @@ fn control_branch_precedence_and_case() {
         assert!(password_like(kind, "Show password", "", "", ""));
         assert!(password_like(kind, "", "togglePassword", "", ""));
         assert!(password_like(kind, "", "revealbutton", "", ""));
-        // Only a custom control can be the PIN or password box itself.
-        assert_eq!(
-            password_like(kind, "", "", "password", ""),
-            kind == "Custom"
-        );
+        assert!(!password_like(kind, "", "", "password", ""));
     }
-    assert!(password_like("Custom", "PIN", "", "", ""));
-    assert!(password_like("custom", "", "cvv_input", "", ""));
+    // Short tokens never paint a custom control: "Pin this message" is no PIN box.
+    assert!(!password_like(
+        "Custom",
+        "Pin",
+        "pin-button",
+        "Pin this message",
+        ""
+    ));
     assert!(password_like("eDiT", "", "PIN", "", ""));
     assert!(!password_like("Edit", "", "RevealButton", "", ""));
     assert!(!password_like("Edit", "", "", "", "MyPasswordBox"));
