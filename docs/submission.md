@@ -40,3 +40,12 @@ The app is built in Rust and Tauri 2 with a TypeScript WebView. A small FastAPI 
 
 **What's next**
 We want to learn from real sessions and reduce the cases where Mate has to escalate with Muse Wonder, while improving the safety check for less common window types.
+
+## X post drafts (Most Viral, post by Nov 8 with the video)
+
+Drafted by DeepSeek and oss; never post a made-up incident as if it happened.
+
+1. Your mom kept your report cards. Her laptop now keeps one too.
+   MetaMate: hold Right Ctrl, ask out loud. After each lesson, a printable keepsake card: Muse Glimmer writes it, Muse Image draws it. Built on Meta's Muse models. #MetaMate
+2. Your mom is one wrong click from a drained bank account.
+   MetaMate: hold Right Ctrl, ask out loud. Mate, a glowing bulb, beams the right button. "Is this safe?" and he flags the worst scam signal. He never says click, call or pay. Built on Meta's Muse models. #MetaMate

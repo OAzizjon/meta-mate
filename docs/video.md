@@ -241,3 +241,121 @@ If you agree, please reply with: *"I agree"* along with your choices above.
 Warm regards,  
 {your name}  
 {contact information}
+
+## Tester session plan (2026-10-29): MetaMate (Windows Accessibility & Scam Helper)
+
+*Target Participant: 1 Older Adult (65+) | Duration: 10–15 Minutes | Setting: In-person or Zoom (Full Desktop Share)*  
+*Purpose: Validate core live interaction flows and capture authentic, empowering tester footage for the Meta Global AI Developer Hackathon video and X announcement.*
+
+---
+
+### 1. Setup Checklist (T-minus 5 minutes)
+
+- [ ] **Windows Environment**: Windows 10/11 with display scaling set to 100% or 125%; clear sensitive files/icons from desktop.
+- [ ] **Privacy Invariant Check**: Ensure private personal windows (banking, emails, chats) are closed; fail-closed redaction active (docs/architecture.md:30).
+- [ ] **MetaMate Application**: Launch release build (`mm.exe`). Confirm PTT key is active on **Right Ctrl** (or enable Hands-Free "Press to start and stop" in `settings.html` if the participant has motor fatigue).
+- [ ] **Audio & TTS**: Verify microphone input level; ensure speakers/headphones output MMS-TTS voice cues clearly (`assets/sounds/cues/`).
+- [ ] **Fixtures Ready in Edge/Chrome**:
+  - Tab 1: Pop-up scam alert (`fixtures/demo/scam-popup.html`).
+  - Tab 2: Bank phishing email (`fixtures/demo/scam-email.html`).
+- [ ] **Windows Settings**: Minimize Settings app ready on desktop (for the text size lesson).
+- [ ] **Camera & Recording**:
+  - Over-the-shoulder smartphone angle (capturing keyboard hand, screen, and facial expressions/smiles).
+  - Screen capture recording the **entire desktop (Screen 1)** so transparent overlay windows (`WS_EX_NOACTIVATE` Mate bubble and highlight ring) are visible.
+- [ ] **Consent Signed**: Tester signed written consent form (below).
+
+---
+
+### 2. Five Practical Tasks (Exact Script & Filming Guide)
+
+#### Task 1: The Push-to-Talk Greeting & Orientation (2 min)
+*Goal: Familiarize the tester with holding Right Ctrl and seeing Mate listen in real time.*
+* **What to say (EN)**: *"Hold down the Right Control key at the bottom right of your keyboard, say 'Hello Mate, where is the Recycle Bin?', and release the key."*  
+  **Exact words (RU)**: *«Зажмите клавишу Правый Ctrl в правом нижнем углу клавиатуры, скажите вслух: „Привет, Мейт, где корзина?“, и отпустите клавишу».*
+* **What to film**: Close-up of the tester’s right hand on Right Ctrl, cutting to Mate waking up, streaming speech live into the speech bubble, flying across the screen, and settling the flashlight beam on the icon.
+
+#### Task 2: Urgent Scam Check — Deceptive Pop-up (3 min)
+*Goal: Show fast visual scam evaluation and pointing at the worst red flag without auto-clicking.*
+* **Setup**: Open `fixtures/demo/scam-popup.html` (*"SYSTEM SECURITY WARNING — infected with 3 viruses"*).
+* **What to say (EN)**: *"A scary warning popped up. Don't click anything on the screen. Just hold Right Ctrl and ask: 'Is this safe?'"*  
+  **Exact words (RU)**: *«Появилось тревожное окно с предупреждением. Не нажимайте ничего на экране. Просто зажмите Правый Ctrl и спросите: „Это безопасно?“».*
+* **What to film**: Tester's tense face relaxing; screen capture showing Mate switching to `<mood sad>`, flying over, shining his beam directly onto the fake telephone number (`+1 (888) 555-0142`), and speaking: *"This looks like a scam. Do not call this number."*
+
+#### Task 3: Phishing Email Evaluation (2 min)
+*Goal: Verify second scam fixture inspection on phishing bank notice.*
+* **Setup**: Switch to `fixtures/demo/scam-email.html` (*"Nordway Bank — Urgent: your account will be closed today"*).
+* **What to say (EN)**: *"Here is an urgent email from a bank. Hold Right Ctrl and ask: 'Is this an authentic bank letter?'"*  
+  **Exact words (RU)**: *«Вот срочное письмо якобы из банка. Зажмите Правый Ctrl и спросите: „Это настоящее письмо из банка?“».*
+* **What to film**: Mate targeting the suspicious sender domain (`@nordway-bank-verify.co`) and deceptive *"Verify now"* button, cautioning the tester not to verify or click links.
+
+#### Task 4: Interactive Lesson — "Make the Text Bigger" (3–4 min)
+*Goal: Showcase Teacher Mode where Mate guides with flashlight beam and the user clicks every step.*
+* **Setup**: Open Windows Settings.
+* **What to say (EN)**: *"Let's make Windows text easier to read. Hold Right Ctrl and say: 'Mate, how do I make the text bigger?' Mate will shine a light where to click—you move the mouse and click it yourself."*  
+  **Exact words (RU)**: *«Давайте сделаем текст в системе крупнее и удобнее для чтения. Зажмите Правый Ctrl и скажите: „Мейт, как сделать текст крупнее?“. Мейт подсветит нужную кнопку лучом, а вы сами наведите мышку и нажмите её».*
+* **What to film**: Split/over-the-shoulder view: Mate beams on *Accessibility*, tester moves the mouse and clicks. Mate says the step is right and moves on. Mate advances to the *Text size* slider, tester adjusts it, and feels the joy of doing it independently.
+
+#### Task 5: The Keepsake Lesson Card & Print (2 min)
+*Goal: Complete lesson flow, show gouache keepsake card popup, and print prompt.*
+* **Setup**: Teacher lesson finishes; `card.html` opens automatically.
+* **What to say (EN)**: *"Look, Mate prepared a printed keepsake card of the steps you just mastered so you never forget them! Click the blue 'Print' button on the card."*  
+  **Exact words (RU)**: *«Посмотрите, Мейт подготовил памятную карточку с шагами, которые вы только что выполнили, чтобы они всегда были под рукой! Нажмите синюю кнопку „Печать“ на карточке».*
+* **What to film**: Tester's smile seeing the card illustration and simple numbered steps; mouse click on *Print* opening Windows print preview; camera pans to physical printer or the saved file notification in `Pictures\MetaMate`.
+
+---
+
+### 3. Post-Session Interview (3 Questions)
+
+1. **Empowerment vs. Remote Control**
+   * **EN**: *"Did you prefer Mate shining a flashlight so you could click yourself, compared to someone taking over your screen or explaining over the phone? Why?"*
+   * **RU**: *«Вам понравилось, что Мейт светит фонариком, а вы нажимаете сами, по сравнению с тем, когда кто-то перехватывает управление экраном или объясняет по телефону? Почему?»*
+2. **Safety & Peace of Mind**
+   * **EN**: *"When that scary virus warning popped up, did Mate's answer and flashlight beam help you feel safe and in control?"*
+   * **RU**: *«Когда выскочило пугающее окно с вирусом, помогли ли ответ Мейта и его луч почувствовать себя спокойнее и увереннее?»*
+3. **Daily Confidence**
+   * **EN**: *"Would you feel comfortable having Mate open on your computer every day to ask whenever you get stuck?"*
+   * **RU**: *«Было бы вам комфортно оставить Мейта на компьютере на каждый день, чтобы обращаться к нему всякий раз, когда что-то непонятно?»*
+
+---
+
+### 4. Informed Consent Form / Форма согласия
+
+#### English Version
+
+**MetaMate Tester Video & Voice Consent Form**
+
+I hereby grant permission to the MetaMate project team to record my voice, computer screen, and video appearance during the user testing session conducted on ____________________, 2026.
+
+I understand and agree that:
+1. **Public Use**: Brief excerpts of audio, video, and screen footage (approx. 15–45 seconds) may be published publicly in the Meta Global AI Developer Hackathon submission video, in the open-source code repository, and on public social media channels (including X / Twitter).
+2. **Privacy**: No sensitive personal data, passwords, or banking credentials were captured. Background windows were excluded or redacted.
+3. **Preferences (Please check applicable)**:
+   - [ ] You may show my face and voice.
+   - [ ] Use my voice and screen recording only (do not show my face).
+   - [ ] You may credit my first name: ___________________ / [ ] Keep my identity anonymous.
+4. **Voluntary**: I may withdraw consent anytime before final submission (November 3, 2026) by contacting the team, whereupon my footage will be deleted.
+
+**Tester Signature**: _____________________________  
+**Date**: ______________________
+
+---
+
+#### Русская версия
+
+**Согласие участника на запись видео и голоса (MetaMate)**
+
+Настоящим я даю разрешение команде проекта MetaMate на запись моего голоса, экрана компьютера и видеоизображения в ходе тестовой сессии, проведённой «___» ____________ 2026 г.
+
+Я подтверждаю и соглашаюсь со следующим:
+1. **Публичное использование**: Короткие фрагменты видео, голоса и записи экрана (примерно 15–45 секунд) могут быть опубликованы в демонстрационном видеоролике для хакатона Meta Global AI Developer Hackathon, на странице открытого репозитория проекта и в социальных сетях (включая X / Twitter).
+2. **Конфиденциальность**: Личные конфиденциальные данные, пароли и банковская информация не записывались. Фоновые окна скрыты или закрашены.
+3. **Пожелания участника (отметьте нужное)**:
+   - [ ] Разрешаю показывать лицо и использовать голос.
+   - [ ] Использовать только запись экрана и голос (не показывать лицо).
+   - [ ] Можно указать моё имя: ___________________ / [ ] Сохранить анонимность.
+4. **Добровольность**: Я могу отозвать своё согласие в любой момент до финальной сдачи проекта (3 ноября 2026 г.), после чего видеозаписи с моим участием будут удалены.
+
+**Подпись участника**: _____________________________  
+**Дата**: ______________________
+
+---

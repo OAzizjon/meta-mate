@@ -10,6 +10,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- The judges' proxy is live on Modal; Google sign-in has been verified through it.
+- Mate's answer bubble shows which Meta model answered; the tray offers "Try a question" for people whose microphone does not work.
+- The team added a second Claude worker for design and backup lead coverage, plus a fourth Gemini account.
 - Sign-in hardening: a new sign-in replaces a forgotten one, links opened elsewhere are refused, and sessions are sealed with DPAPI in local app data.
 - Lessons escalate to Muse Wonder after two misses, with Mate explaining the escalation.
 - Keepsake card filenames use local time, and each card draws exactly one Mate.
