@@ -163,6 +163,15 @@ class CheckTests(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertTrue(result.skipped)
 
+    def test_python_compiles_files_and_reports_syntax_error_line(self):
+        self.write("server/good.py", "answer = 42\n")
+        self.write("server/broken.py", "answer = 42\nif True print(answer)\n")
+        self.write("server/__pycache__/cached.py", "if True print('ignored')\n")
+        self.write("server/venv/lib/ignored.py", "if True print('ignored')\n")
+        result = self.run_check("python")
+        self.assertFalse(result.ok)
+        self.assertEqual(result.details, ["server/broken.py:2 invalid syntax"])
+
     def test_python_examples_and_comments_are_not_environment_reads(self):
         self.write("main.py", '# os.getenv("COMMENT")\nexample = \'os.getenv("EXAMPLE")\'\n')
         self.assertTrue(self.run_check("env-names").ok)

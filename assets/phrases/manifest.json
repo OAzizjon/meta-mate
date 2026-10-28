@@ -130,6 +130,11 @@
       "ms": 1456,
       "text_sha256": "1e59f968e4cf921181be104348303357db3637f2c1a80cf6b1bc6e84bb958941"
     },
+    "robot.thinking_harder": {
+      "file": "en/robot.thinking_harder.wav",
+      "ms": 2704,
+      "text_sha256": "b28b198a51db7048c436a8a06b59a4203af001a36052e6c3699bc26c293f9ac2"
+    },
     "robot.too_many_turns": {
       "file": "en/robot.too_many_turns.wav",
       "ms": 3472,
@@ -281,6 +286,11 @@
       "file": "ru/robot.thinking_3.wav",
       "ms": 1120,
       "text_sha256": "f8ba8d50d94b669596429ee8c45d9aec6b1144daac5d79df6cea4d02a38f55bb"
+    },
+    "robot.thinking_harder": {
+      "file": "ru/robot.thinking_harder.wav",
+      "ms": 2480,
+      "text_sha256": "afae8c6b9a75415bbbe35596cb142578ba7feda95d0ef6eaa4551de7a728165c"
     },
     "robot.too_many_turns": {
       "file": "ru/robot.too_many_turns.wav",

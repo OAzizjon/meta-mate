@@ -176,7 +176,7 @@ fn targets_for(look: &Look, response: &ParsedResponse) -> Vec<Option<PhysRect>> 
         .collect()
 }
 
-/// Freeze the selected model for every request and retry in one lesson.
+/// Start the lesson with the selected model.
 fn lesson_session(model: ModelChoice, (sent_width, sent_height): (u32, u32)) -> ComputerSession {
     ComputerSession {
         model,
@@ -184,6 +184,10 @@ fn lesson_session(model: ModelChoice, (sent_width, sent_height): (u32, u32)) -> 
         sent_width,
         sent_height,
     }
+}
+
+fn fell_back(asked: ModelChoice, served: Option<&str>) -> bool {
+    asked == ModelChoice::Thorough && served.is_some_and(|model| model.starts_with("muse-spark"))
 }
 
 /// The person's clicks while a lesson runs: the low-level mouse hook, recognized into
@@ -320,6 +324,8 @@ pub(crate) async fn teach(
     let (inputs, mut received) = mpsc::unbounded_channel();
     let keys = listen_for_keys(started, inputs.clone());
     let config = TeacherConfig {
+        configured_model: model,
+        auto_escalate: true,
         do_it_for_me: true,
         keyboard_steps: keys.is_some(),
         ..TeacherConfig::default()
@@ -358,6 +364,15 @@ pub(crate) async fn teach(
         let (mut pending, last_turn, failed) =
             match proxy.respond(CallKind::Computer, &body, |_| {}).await {
                 Ok(answer) => {
+                    if fell_back(session.model, answer.model.as_deref()) {
+                        for command in teacher.input(TeacherInput::WonderUnavailable) {
+                            if let TeacherCommand::UseModel(model) = command {
+                                session.model = model;
+                            }
+                        }
+                        // A failed answer is retried with Quick too.
+                        body["model"] = serde_json::json!(session.model);
+                    }
                     let response = answer.response;
                     let failed = response.status != "completed"
                         || response.incomplete_reason.is_some()
@@ -561,7 +576,18 @@ pub(crate) async fn teach(
                         pending.extend(teacher.input(TeacherInput::DoItDone { ok, now_ms: now() }));
                     }
                     TeacherCommand::AcknowledgeSafetyChecks(ids) => acknowledged = ids,
-                    TeacherCommand::UseModel(model) => session.model = model,
+                    TeacherCommand::UseModel(model) => {
+                        session.model = model;
+                        if model == ModelChoice::Thorough {
+                            say_line(
+                                &stream,
+                                &phrases,
+                                &locale,
+                                generation,
+                                "robot.thinking_harder",
+                            );
+                        }
+                    }
                     TeacherCommand::RequestScreenshot => {
                         offered_at = None;
                         let Some((response_id, Some(call_id))) = last_turn.clone() else {
@@ -806,6 +832,17 @@ fn finish(app: &AppHandle, stream: &AnswerStream, generation: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_wonder_served_by_spark_is_a_fallback() {
+        assert!(fell_back(ModelChoice::Thorough, Some("muse-spark-1.3")));
+        assert!(fell_back(ModelChoice::Thorough, Some("muse-spark")));
+        assert!(!fell_back(ModelChoice::Quick, Some("muse-spark-1.3")));
+        assert!(!fell_back(ModelChoice::Thorough, Some("muse-wonder-1.0")));
+        assert!(!fell_back(ModelChoice::Thorough, Some("other-model")));
+        assert!(!fell_back(ModelChoice::Thorough, Some("")));
+        assert!(!fell_back(ModelChoice::Thorough, None));
+    }
 
     fn offer_snapshot() -> mm_platform::UiSnapshot {
         let frame = PhysRect::new(0, 0, 100, 100).unwrap();

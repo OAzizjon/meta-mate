@@ -45,9 +45,9 @@ const PROMPT_CHARS: usize = 1500;
 /// Glimmer's reply: a title, the steps and a scene as JSON (room for six long Russian
 /// steps and the model's short reasoning).
 const WORDING_TOKENS: u32 = 600;
-/// The picture when Glimmer wrote no scene.
-const GENERIC_SCENE: &str =
-    "a person at a computer smiling, with a small glowing light-bulb helper beside them";
+/// The picture when Glimmer wrote no scene. Never a helper character: the prompt adds Mate,
+/// and a scene with one drew two (2026-10-28).
+const GENERIC_SCENE: &str = "an older person at a computer at home, smiling as they finish a task";
 /// The title's share of the file name.
 const FILE_TITLE_CHARS: usize = 40;
 /// Two cards with the same title in one minute: `name (2).png` and so on, up to this.
@@ -112,7 +112,7 @@ pub(crate) async fn make(app: AppHandle, question: String, steps: Vec<String>) {
             return;
         }
     };
-    let stem = file_stem(ended, &title);
+    let stem = file_stem(local(ended), &title);
     let image = data_url(&png);
     match tokio::task::spawn_blocking(move || save(&folder, &stem, &png)).await {
         Ok(Ok(_)) => {}
@@ -182,8 +182,9 @@ fn wording_system() -> String {
          question (Russian stays Russian): short, simple everyday words, no jargon. At most \
          {MAX_STEPS} steps, each at most 90 characters; keep the order and meaning of the \
          lesson's steps and never invent steps. Write \"scene\" in English: one sentence \
-         describing a warm illustration of the task's idea, with NO text, letters, numbers, \
-         logos, screenshots or brand names in it."
+         describing a warm illustration of the person and the task's idea, with NO text, \
+         letters, numbers, logos, screenshots or brand names in it, and no helper or \
+         mascot character (one is added to the picture separately)."
     )
 }
 
@@ -245,9 +246,9 @@ fn prompt(scene: &str) -> String {
     // enough for a home printer (DeepSeek's pick of five, 2026-10-28).
     let prompt = format!(
         "A soft gouache illustration for an older person: {scene}{stop} Warm cream \
-         background, gentle light, a cosy home. In a corner, a small glowing light-bulb \
-         character named {ROBOT_NAME}, with a friendly face, a round body and short arms, \
-         cheers them on. No text, no letters, no numbers, no logos, no screenshots, no brand \
+         background, gentle light, a cosy home. In a corner, exactly one small glowing \
+         light-bulb character named {ROBOT_NAME}, with a friendly face, a round body and \
+         short arms, cheers them on. No text, no letters, no numbers, no logos, no screenshots, no brand \
          names. Large clear shapes, high contrast, prints well at small size."
     );
     prompt.chars().take(PROMPT_CHARS).collect()
@@ -285,6 +286,21 @@ fn one_line(text: &str, max: usize) -> String {
     }
     let cut: String = line.chars().take(max.saturating_sub(1)).collect();
     format!("{}…", cut.trim_end())
+}
+
+/// `time` on the local clock: the person reads the file name.
+fn local(time: SystemTime) -> SystemTime {
+    #[cfg(windows)]
+    let offset = mm_win32::time::local_offset_seconds();
+    #[cfg(not(windows))]
+    let offset = 0;
+    let shift = Duration::from_secs(offset.unsigned_abs());
+    let shifted = if offset >= 0 {
+        time.checked_add(shift)
+    } else {
+        time.checked_sub(shift)
+    };
+    shifted.unwrap_or(time)
 }
 
 /// `<YYYY-MM-DD HH-MM> <short title>`, the name of a card made at `time` without its
@@ -688,14 +704,14 @@ mod tests {
         assert_eq!(
             prompt("An old woman smiles at her laptop."),
             "A soft gouache illustration for an older person: An old woman smiles at her \
-             laptop. Warm cream background, gentle light, a cosy home. In a corner, a small \
-             glowing light-bulb character named Mate, with a friendly face, a round body and \
-             short arms, cheers them on. No text, no letters, no numbers, no logos, no \
-             screenshots, no brand names. Large clear shapes, high contrast, prints well at \
+             laptop. Warm cream background, gentle light, a cosy home. In a corner, exactly \
+             one small glowing light-bulb character named Mate, with a friendly face, a round \
+             body and short arms, cheers them on. No text, no letters, no numbers, no logos, \
+             no screenshots, no brand names. Large clear shapes, high contrast, prints well at \
              small size."
         );
         // A scene without its full stop gets one.
-        assert!(prompt(GENERIC_SCENE).contains("beside them. Warm cream background"));
+        assert!(prompt(GENERIC_SCENE).contains("finish a task. Warm cream background"));
     }
 
     #[test]

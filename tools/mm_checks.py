@@ -295,6 +295,41 @@ def check_env_names(ctx: _Context) -> CheckResult:
     return _result("env-names", f"{len(details)} unlisted environment names", details)
 
 
+def check_python(ctx: _Context) -> CheckResult:
+    roots = ("server", "tts", "tools", "inference")
+    venv_names = {".venv", "venv", "env", "virtualenv"}
+    files = []
+    for name in roots:
+        folder = ctx.root / name
+        if not folder.is_dir():
+            continue
+        for current, directories, names in os.walk(folder, followlinks=False):
+            ctx.remaining()
+            current_path = Path(current)
+            directories[:] = sorted(
+                directory for directory in directories
+                if directory != "__pycache__"
+                and directory.lower() not in venv_names
+                and not (current_path / directory).is_symlink()
+                and not (current_path / directory / "pyvenv.cfg").is_file()
+            )
+            files.extend(current_path / filename for filename in sorted(names)
+                         if filename.endswith(".py")
+                         and not (current_path / filename).is_symlink())
+    if not files:
+        return _result("python", "No Python files", skipped=True)
+
+    details = []
+    for path in files:
+        ctx.remaining()
+        try:
+            compile(path.read_bytes(), str(path), "exec")
+        except SyntaxError as error:
+            line = error.lineno or 1
+            details.append(f"{path.relative_to(ctx.root).as_posix()}:{line} {error.msg}")
+    return _result("python", f"{len(details)} Python files failed to compile", details)
+
+
 def check_md_links(ctx: _Context) -> CheckResult:
     details = []
     for path in _files(ctx):
@@ -362,7 +397,7 @@ def check_web(ctx: _Context) -> CheckResult:
 
 
 CHECKS = {"secrets": check_secrets, "env-names": check_env_names,
-          "md-links": check_md_links, "typos": check_typos,
+          "md-links": check_md_links, "typos": check_typos, "python": check_python,
           "rust": check_rust, "web": check_web}
 
 

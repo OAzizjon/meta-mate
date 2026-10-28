@@ -170,6 +170,14 @@ declare global {
   }
 }
 
+/** The robot size choices as people read them (the stored values stay S, M, L, XL). */
+const SIZE_LABELS: Readonly<Record<RobotSize, LocaleKey>> = {
+  S: "settings.size_s",
+  M: "settings.size_m",
+  L: "settings.size_l",
+  XL: "settings.size_xl",
+};
+
 interface RadioSpec<V extends string> {
   readonly id: string;
   readonly value: V;
@@ -607,7 +615,7 @@ export function mountSettings(
     ROBOT_SIZES.map((size) => ({
       id: `settings-robot-size-${size}`,
       value: size,
-      literalLabel: size,
+      labelKey: SIZE_LABELS[size],
     })),
     "settings-size-grid",
     "settings-size-option",

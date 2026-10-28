@@ -45,7 +45,9 @@ def download() -> None:
 
 @app.function(
     image=server_image,
-    gpu='L4',
+    # L4 first; when Modal has none free (2026-10-28 evening: "waiting to be scheduled on
+    # a GPU_L4 worker" for half an hour), another 24 GB+ card rather than no answer.
+    gpu=['L4', 'A10G', 'L40S'],
     volumes={WEIGHTS: volume},
     secrets=[modal.Secret.from_name(SECRET_NAME)],
     scaledown_window=300,

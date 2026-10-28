@@ -16,6 +16,7 @@ pub mod monitors;
 pub mod mouse;
 pub mod overlay;
 pub mod shell;
+pub mod time;
 pub mod uia;
 pub mod window;
 pub mod winevent;
