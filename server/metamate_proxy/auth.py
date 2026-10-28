@@ -101,7 +101,8 @@ def read_session(token: str, secret: str, now: float) -> dict | None:
     if not secret or not isinstance(token, str) or not token.startswith(TOKEN_PREFIX) or len(token) > 1024:
         return None
     body, _, mac = token[len(TOKEN_PREFIX):].partition('.')
-    if not body or not mac:
+    # compare_digest raises on non-ASCII text: a forged "mms1.a.é" is just invalid.
+    if not body or not mac or not body.isascii() or not mac.isascii():
         return None
     expected = b64url(hmac.new(secret.encode('utf-8'), body.encode('ascii', 'replace'), hashlib.sha256).digest())
     if not hmac.compare_digest(expected, mac):

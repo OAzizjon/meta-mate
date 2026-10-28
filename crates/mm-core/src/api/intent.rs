@@ -258,8 +258,8 @@ fn asks_safety(text: &str) -> bool {
                 && !words
                     .get(at + 1)
                     .is_some_and(|next| matches!(*next, "mode" | "quick" | "quickly" | "режим"))
-                && words[at.saturating_sub(VERDICT_REACH)
-                    ..(at + VERDICT_REACH + 1).min(words.len())]
+                && words
+                    [at.saturating_sub(VERDICT_REACH)..(at + VERDICT_REACH + 1).min(words.len())]
                     .iter()
                     .any(|word| is_subject(word))
         })
@@ -329,8 +329,15 @@ fn is_verdict(words: &[&str], at: usize) -> bool {
         return next.is_none_or(|next| {
             matches!(
                 next,
-                "email" | "message" | "site" | "website" | "page" | "link" | "call"
-                    | "letter" | "offer"
+                "email"
+                    | "message"
+                    | "site"
+                    | "website"
+                    | "page"
+                    | "link"
+                    | "call"
+                    | "letter"
+                    | "offer"
             )
         });
     }

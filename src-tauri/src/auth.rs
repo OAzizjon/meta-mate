@@ -2,12 +2,12 @@
 //! holds the client secrets, and the app only ever sees a one-time login code on its own
 //! loopback port, which it trades with its PKCE verifier for a session token. The token
 //! replaces the built-in invite for every call (`Proxy::set_session`) and is kept in the
-//! app's config folder, sealed for this Windows user (DPAPI), until the person signs out.
+//! app's local data folder, sealed for this Windows user (DPAPI), until the person signs out.
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use base64::Engine;
@@ -19,12 +19,15 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::proxy::Proxy;
 
 const FILE_NAME: &str = "session.bin";
+const TEMPORARY_FILE_NAME: &str = "session.bin.tmp";
 /// Builds before DPAPI kept the token readable here: removed when found.
 const PLAIN_FILE_NAME: &str = "session.json";
 /// How long the browser has to come back: signing in may need a password and a code.
 const BROWSER_WAIT: Duration = Duration::from_secs(300);
-/// One connection to the loopback port: its request line within this time and size.
-const REQUEST_WAIT: Duration = Duration::from_secs(5);
+/// One connection to the loopback port: its request line within this time and size (one
+/// read may wait `READ_WAIT` more).
+const REQUEST_WAIT: Duration = Duration::from_secs(2);
+const READ_WAIT: Duration = Duration::from_secs(1);
 const REQUEST_MAX_BYTES: usize = 8192;
 const CHANGED_EVENT: &str = "auth-changed";
 const PROVIDERS: [&str; 2] = ["google", "github"];
@@ -56,32 +59,31 @@ impl std::fmt::Debug for Session {
     }
 }
 
-/// The signed-in session in memory, whether a sign-in is under way, and how many times the
-/// person signed out: a sign-in that started before a sign-out never lands after it.
+/// The signed-in session in memory, and a count of sign-ins and sign-outs: only the latest
+/// sign-in may land, so a new one replaces a forgotten browser tab's (never "busy" for
+/// minutes) and a sign-in that started before a sign-out never lands after it.
 #[derive(Default)]
 pub struct Auth {
     session: Mutex<Option<Session>>,
-    busy: AtomicBool,
-    sign_outs: AtomicU64,
-}
-
-/// Clears `busy` however the sign-in ends.
-struct Busy<'a>(&'a AtomicBool);
-
-impl Drop for Busy<'_> {
-    fn drop(&mut self) {
-        self.0.store(false, Ordering::Release);
-    }
+    attempts: AtomicU64,
 }
 
 impl Auth {
     fn status(&self) -> AuthStatus {
         let session = self.session.lock().ok().and_then(|session| session.clone());
-        AuthStatus {
-            signed_in: session.is_some(),
-            name: session.as_ref().map(|s| s.name.clone()),
-            provider: session.map(|s| s.provider),
-        }
+        status_of(session.as_ref())
+    }
+
+    fn is_latest(&self, attempt: u64) -> bool {
+        self.attempts.load(Ordering::Acquire) == attempt
+    }
+}
+
+fn status_of(session: Option<&Session>) -> AuthStatus {
+    AuthStatus {
+        signed_in: session.is_some(),
+        name: session.map(|s| s.name.clone()),
+        provider: session.map(|s| s.provider.clone()),
     }
 }
 
@@ -111,30 +113,25 @@ pub async fn sign_in(app: AppHandle, provider: String) -> Result<AuthStatus, Str
     let (Some(auth), Some(proxy)) = (app.try_state::<Auth>(), app.try_state::<Proxy>()) else {
         return Err("auth.unavailable".into());
     };
-    if auth.busy.swap(true, Ordering::AcqRel) {
-        return Err("auth.busy".into());
-    }
-    let _busy = Busy(&auth.busy);
-    let sign_outs = auth.sign_outs.load(Ordering::Acquire);
+    let attempt = auth.attempts.fetch_add(1, Ordering::AcqRel) + 1;
     let proxy = proxy.inner().clone();
-    let session = sign_in_with(&app, &proxy, &provider).await?;
-    {
-        // Under the session lock, which `sign_out` holds while it counts: either the
-        // sign-out comes after this and undoes it, or it came before and this is dropped.
-        let Ok(mut current) = auth.session.lock() else {
-            return Err("auth.failed".into());
-        };
-        if auth.sign_outs.load(Ordering::Acquire) != sign_outs {
-            return Err("auth.cancelled".into());
-        }
-        proxy.set_session(Some(session.token.clone()));
-        if let Err(error) = save(&app, &session) {
-            // Signed in for this run all the same; the next start asks again.
-            eprintln!("auth: could not keep the session: {error}");
-        }
-        *current = Some(session);
+    let session = sign_in_with(&app, &proxy, &provider, attempt).await?;
+    // Under the session lock, which `sign_out` holds while it counts: either the sign-out
+    // comes after this and undoes it, or it came before and this is dropped. The event goes
+    // out under the lock too, so the windows never see the two in the wrong order.
+    let Ok(mut current) = auth.session.lock() else {
+        return Err("auth.failed".into());
+    };
+    if !auth.is_latest(attempt) {
+        return Err("auth.cancelled".into());
     }
-    let status = auth.status();
+    proxy.set_session(Some(session.token.clone()));
+    if let Err(error) = save(&app, &session) {
+        // Signed in for this run all the same; the next start asks again.
+        eprintln!("auth: could not keep the session: {error}");
+    }
+    let status = status_of(Some(&session));
+    *current = Some(session);
     let _ = app.emit(CHANGED_EVENT, status.clone());
     Ok(status)
 }
@@ -146,21 +143,30 @@ pub fn sign_out(app: AppHandle, auth: State<'_, Auth>) {
             .session
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        auth.sign_outs.fetch_add(1, Ordering::AcqRel);
+        // A sign-in still waiting for its browser tab ends too.
+        auth.attempts.fetch_add(1, Ordering::AcqRel);
         *current = None;
         if let Some(proxy) = app.try_state::<Proxy>() {
             proxy.set_session(None);
         }
-        for name in [FILE_NAME, PLAIN_FILE_NAME] {
-            if let Some(path) = file(&app, name) {
+        for name in [FILE_NAME, TEMPORARY_FILE_NAME, PLAIN_FILE_NAME] {
+            for path in [file(&app, name), old_file(&app, name)]
+                .into_iter()
+                .flatten()
+            {
                 let _ = std::fs::remove_file(path);
             }
         }
+        let _ = app.emit(CHANGED_EVENT, status_of(None));
     }
-    let _ = app.emit(CHANGED_EVENT, auth.status());
 }
 
-async fn sign_in_with(app: &AppHandle, proxy: &Proxy, provider: &str) -> Result<Session, String> {
+async fn sign_in_with(
+    app: &AppHandle,
+    proxy: &Proxy,
+    provider: &str,
+    attempt: u64,
+) -> Result<Session, String> {
     let verifier = random_url_safe::<32>().ok_or("auth.failed")?;
     let state = random_url_safe::<24>().ok_or("auth.failed")?;
     let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
@@ -178,10 +184,17 @@ async fn sign_in_with(app: &AppHandle, proxy: &Proxy, provider: &str) -> Result<
         failed: crate::locale_text(&locale(app), "auth.browser_failed"),
     };
     let expected = state.clone();
-    let code =
-        tauri::async_runtime::spawn_blocking(move || wait_for_code(&listener, &expected, &pages))
-            .await
-            .map_err(|_| "auth.failed")??;
+    let checker = app.clone();
+    let wanted = move || {
+        checker
+            .try_state::<Auth>()
+            .is_some_and(|auth| auth.is_latest(attempt))
+    };
+    let code = tauri::async_runtime::spawn_blocking(move || {
+        wait_for_code(&listener, &expected, &pages, wanted)
+    })
+    .await
+    .map_err(|_| "auth.failed")??;
     let answer = proxy
         .redeem_login(&code, &verifier)
         .await
@@ -209,26 +222,32 @@ struct Pages {
 }
 
 /// Waits for the browser's request to `/callback?code=..&state=..` and answers it.
-/// `auth.cancelled` when nobody comes back in time. A callback with another state or no
-/// code gets the "failed" page and the wait goes on: another program on this computer that
-/// finds the port cannot end the person's sign-in.
-fn wait_for_code(listener: &TcpListener, expected: &str, pages: &Pages) -> Result<String, String> {
+/// `auth.cancelled` when nobody comes back in time or `wanted` turns false (a newer sign-in,
+/// a sign-out). A callback with another state or no code gets the "failed" page and the
+/// wait goes on, and so does a connection that fails: another program on this computer
+/// that finds the port cannot end the person's sign-in.
+fn wait_for_code(
+    listener: &TcpListener,
+    expected: &str,
+    pages: &Pages,
+    wanted: impl Fn() -> bool,
+) -> Result<String, String> {
     listener.set_nonblocking(true).map_err(|_| "auth.failed")?;
     let started = Instant::now();
     loop {
-        if started.elapsed() > BROWSER_WAIT {
+        if started.elapsed() > BROWSER_WAIT || !wanted() {
             return Err("auth.cancelled".into());
         }
         let mut stream = match listener.accept() {
             Ok((stream, _)) => stream,
-            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+            // WouldBlock, or a connection reset before it was taken: wait for the next.
+            Err(_) => {
                 std::thread::sleep(Duration::from_millis(100));
                 continue;
             }
-            Err(_) => return Err("auth.failed".into()),
         };
         let _ = stream.set_nonblocking(false);
-        let _ = stream.set_read_timeout(Some(REQUEST_WAIT));
+        let _ = stream.set_read_timeout(Some(READ_WAIT));
         let _ = stream.set_write_timeout(Some(REQUEST_WAIT));
         let request = request_line(&mut stream, Instant::now() + REQUEST_WAIT);
         let Some(found) = callback_params(&request) else {
@@ -313,33 +332,55 @@ fn locale(app: &AppHandle) -> String {
         .unwrap_or_else(|| "en".into())
 }
 
+/// In the local (not roaming) app data: DPAPI keys roam with a domain profile, the
+/// session should not.
 fn file(app: &AppHandle, name: &str) -> Option<std::path::PathBuf> {
+    app.path()
+        .app_local_data_dir()
+        .ok()
+        .map(|dir| dir.join(name))
+}
+
+/// Where builds of 2026-10-28 kept it (roaming).
+fn old_file(app: &AppHandle, name: &str) -> Option<std::path::PathBuf> {
     app.path().app_config_dir().ok().map(|dir| dir.join(name))
 }
 
 fn load(app: &AppHandle) -> Option<Session> {
-    if let Some(plain) = file(app, PLAIN_FILE_NAME) {
-        // A readable token from an older build: signing in again is the safe way back.
-        let _ = std::fs::remove_file(plain);
+    for name in [PLAIN_FILE_NAME, FILE_NAME, TEMPORARY_FILE_NAME] {
+        // A readable or roaming token from an older build: signing in again is the safe
+        // way back.
+        if let Some(old) = old_file(app, name) {
+            let _ = std::fs::remove_file(old);
+        }
     }
     let sealed = std::fs::read(file(app, FILE_NAME)?).ok()?;
     let session: Session = serde_json::from_slice(&mm_win32::dpapi::unprotect(&sealed)?).ok()?;
     session.token.starts_with("mms1.").then_some(session)
 }
 
-/// Sealed for this Windows user and written next to settings.json, through a temporary file
-/// renamed over the old one.
+/// Sealed for this Windows user, through a temporary file renamed over the old one; the
+/// temporary file never outlives a failure.
 fn save(app: &AppHandle, session: &Session) -> std::io::Result<()> {
-    let path = file(app, FILE_NAME).ok_or_else(|| std::io::Error::other("no config folder"))?;
+    let path = file(app, FILE_NAME).ok_or_else(|| std::io::Error::other("no data folder"))?;
+    let temporary =
+        file(app, TEMPORARY_FILE_NAME).ok_or_else(|| std::io::Error::other("no data folder"))?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
     let text = serde_json::to_vec(session).map_err(std::io::Error::other)?;
     let sealed =
         mm_win32::dpapi::protect(&text).ok_or_else(|| std::io::Error::other("DPAPI refused"))?;
-    let temporary = path.with_extension("bin.tmp");
-    std::fs::write(&temporary, sealed)?;
-    std::fs::rename(&temporary, &path)
+    let written = std::fs::File::create(&temporary).and_then(|mut file| {
+        file.write_all(&sealed)?;
+        // Before the rename: a power cut never leaves an empty session file.
+        file.sync_all()
+    });
+    let renamed = written.and_then(|()| std::fs::rename(&temporary, &path));
+    if renamed.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    renamed
 }
 
 #[cfg(test)]
@@ -423,12 +464,27 @@ mod tests {
             failed: "failed".into(),
         };
         assert_eq!(
-            wait_for_code(&listener, "right-state", &pages),
+            wait_for_code(&listener, "right-state", &pages, || true),
             Ok("real".into())
         );
         let seen = browser.join().unwrap();
         assert!(seen[0].ends_with("failed</p>") && seen[1].ends_with("failed</p>"));
         assert!(seen[2].ends_with("done</p>"));
+    }
+
+    #[test]
+    fn a_newer_sign_in_ends_the_wait() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let pages = Pages {
+            done: "done".into(),
+            failed: "failed".into(),
+        };
+        let started = Instant::now();
+        assert_eq!(
+            wait_for_code(&listener, "state", &pages, || false),
+            Err("auth.cancelled".into())
+        );
+        assert!(started.elapsed() < Duration::from_secs(1));
     }
 
     #[test]

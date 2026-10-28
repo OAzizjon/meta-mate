@@ -81,7 +81,7 @@ class PureTests(unittest.TestCase):
         tampered = token[:-2] + ('AA' if not token.endswith('AA') else 'BB')
         self.assertIsNone(auth.read_session(tampered, SECRET, now=1001))
         self.assertIsNone(auth.read_session(token, '', now=1001))
-        for junk in ('', 'mms1.', 'mms1.a.b', 'Bearer x', 'mms1.' + 'a' * 2000):
+        for junk in ('', 'mms1.', 'mms1.a.b', 'Bearer x', 'mms1.' + 'a' * 2000, 'mms1.a.é', 'mms1.é.a'):
             self.assertIsNone(auth.read_session(junk, SECRET, now=1001))
 
     def test_identities_need_verified_emails(self):
@@ -181,6 +181,15 @@ class FlowTests(unittest.TestCase):
         login = parse_qs(urlsplit(back.headers['location']).query)['code'][0]
         self.assertEqual(client.post('/auth/token', content=json.dumps(
             {'code': login, 'verifier': VERIFIER})).json()['tier'], 'user')
+
+    def test_a_start_from_a_link_elsewhere_is_refused(self):
+        client = client_for(FakeProviders())
+        params = {'port': 51234, 'state': 'app-state-123456789', 'challenge': auth.challenge_of(VERIFIER)}
+        for site in ('cross-site', 'same-site', 'same-origin'):
+            self.assertEqual(client.get('/auth/google/start', params=params,
+                                        headers={'Sec-Fetch-Site': site}).status_code, 403)
+        self.assertEqual(client.get('/auth/google/start', params=params,
+                                    headers={'Sec-Fetch-Site': 'none'}).status_code, 302)
 
     def test_bad_starts_callbacks_and_missing_configuration(self):
         client = client_for(FakeProviders())

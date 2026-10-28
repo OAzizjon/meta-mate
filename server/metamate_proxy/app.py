@@ -242,10 +242,16 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
         return f'{settings.public_url}/auth/{provider}/callback'
 
     @app.get('/auth/{provider}/start')
-    async def auth_start(provider: str, port: int = 0, state: str = '', challenge: str = '') -> Response:
+    async def auth_start(request: Request, provider: str, port: int = 0, state: str = '',
+                         challenge: str = '') -> Response:
         client = settings.oauth.get(provider)
         if client is None or not settings.session_secret:
             return auth_page('Sign-in is not available.', 503)
+        # The app opens this page itself (Sec-Fetch-Site: none). A link someone sent, clicked
+        # in mail, chat or another site, could carry their loopback port and hand them the
+        # session: refused.
+        if request.headers.get('sec-fetch-site', 'none') != 'none':
+            return auth_page('Please start signing in from MetaMate.', 403)
         if not (auth.valid_port(port) and auth.valid_app_state(state) and auth.valid_challenge(challenge)):
             return auth_page('This sign-in link is not valid.', 400)
         started = state_flows.start(provider, port, state, challenge, datetime.now(timezone.utc).timestamp())

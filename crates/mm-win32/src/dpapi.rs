@@ -1,5 +1,6 @@
-//! Secrets at rest for this Windows user only (DPAPI): the sign-in session (D54). Another
-//! user of the computer, or a copy of the file on another computer, cannot read them.
+//! Secrets at rest for this Windows user (DPAPI): the sign-in session (D54). Another user of
+//! the computer cannot read them, nor a copy on another computer unless the profile roams
+//! (a domain profile's keys travel with it).
 
 use windows::Win32::Foundation::{HLOCAL, LocalFree};
 use windows::Win32::Security::Cryptography::{
@@ -7,7 +8,7 @@ use windows::Win32::Security::Cryptography::{
 };
 use windows::core::PCWSTR;
 
-/// `data` sealed for the current user; None when Windows refused.
+/// `data` sealed for the current user; None when Windows refused or `data` is empty.
 pub fn protect(data: &[u8]) -> Option<Vec<u8>> {
     let input = blob(data)?;
     let mut output = CRYPT_INTEGER_BLOB::default();
@@ -30,7 +31,7 @@ pub fn protect(data: &[u8]) -> Option<Vec<u8>> {
 }
 
 /// What `protect` sealed for this user; None for anything else (another user's file,
-/// tampered bytes).
+/// tampered or empty bytes).
 pub fn unprotect(sealed: &[u8]) -> Option<Vec<u8>> {
     let input = blob(sealed)?;
     let mut output = CRYPT_INTEGER_BLOB::default();
@@ -51,7 +52,11 @@ pub fn unprotect(sealed: &[u8]) -> Option<Vec<u8>> {
     Some(unsafe { take(output) })
 }
 
+/// None for an empty slice: its pointer dangles, and DPAPI need not check the size first.
 fn blob(data: &[u8]) -> Option<CRYPT_INTEGER_BLOB> {
+    if data.is_empty() {
+        return None;
+    }
     Some(CRYPT_INTEGER_BLOB {
         cbData: u32::try_from(data.len()).ok()?,
         // DPAPI only reads the input.
@@ -92,5 +97,7 @@ mod tests {
         tampered[last] ^= 0x55;
         assert_eq!(unprotect(&tampered), None);
         assert_eq!(unprotect(b"not sealed"), None);
+        assert_eq!(unprotect(b""), None);
+        assert_eq!(protect(b""), None);
     }
 }
