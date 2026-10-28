@@ -28,6 +28,7 @@ __pycache__/
 /server/.dev-invite
 /server/.dev-tts.json
 /server/.dev-session
+/server/.prod-proxy.json
 
 # Drafting agents
 /.draft-input/
