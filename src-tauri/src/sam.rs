@@ -43,15 +43,19 @@ pub fn tree_is_flat(snapshot: &UiSnapshot) -> bool {
 /// does not make a canvas page "rich".
 pub fn outline_allowed(look: &Look, x: u32, y: u32) -> bool {
     let snapshot = &look.snapshot;
-    if tree_is_flat(snapshot) {
-        return true;
-    }
     let Some(phys) = mm_core::geom::ShotPoint::new(f64::from(x) + 0.5, f64::from(y) + 0.5)
         .ok()
         .and_then(|shot| look.redacted.frame.shot_to_phys_checked(shot))
     else {
         return false;
     };
+    // Black in the picture: nothing there to outline, and nothing to ask about.
+    if mm_core::redaction::point_in_any(phys, &look.painted) {
+        return false;
+    }
+    if tree_is_flat(snapshot) {
+        return true;
+    }
     let Some(under) = snapshot.element_at(phys) else {
         return false;
     };

@@ -41,12 +41,17 @@ $PasswordToggle = New-Object System.Text.RegularExpressions.Regex($PasswordLong,
 # by any control on screen that talks about the password (an eye button can be a Button,
 # Custom, Image or Hyperlink; WinUI's is AutomationId RevealButton), and the PasswordBox class.
 function Test-PasswordLike([string]$Type, [string]$Name, [string]$AutomationId, [string]$HelpText, [string]$ClassName) {
+    # Keep branch precedence aligned with mm-core's privacy::password_like.
     if ($ClassName -eq 'PasswordBox') { return $true }
     if ($Type -eq 'Edit') {
-        return $PasswordWords.IsMatch($Name) -or $PasswordWords.IsMatch($AutomationId) -or $PasswordWords.IsMatch($HelpText)
+        foreach ($label in @($Name, $AutomationId, $HelpText)) {
+            if ($PasswordWords.IsMatch($label)) { return $true }
+        }
+        return $false
     }
     # Static labels ("Password:") and the window itself are not a sign that one is visible.
     if ($Type -in @('Text', 'Document', 'Window', 'Pane')) { return $false }
+    # Other control types use long words in name/id only; HelpText and short tokens do not count.
     return $AutomationId -eq 'RevealButton' -or $PasswordToggle.IsMatch($Name) -or $PasswordToggle.IsMatch($AutomationId)
 }
 
@@ -94,7 +99,35 @@ if ($SelfTest) {
         @($true, 'Edit', '', '', '', 'PasswordBox'),
         @($false, 'Button', 'Pin tab', '', '', ''),
         @($false, 'Text', 'Password', '', '', ''),
-        @($false, 'Window', 'Change password', '', '', ''))
+        @($false, 'Window', 'Change password', '', '', ''),
+        @($true, 'eDiT', '', 'PIN', '', ''),
+        @($false, 'Edit', '', 'RevealButton', '', ''),
+        @($false, 'Edit', '', '', '', 'MyPasswordBox'),
+        @($false, 'Button', '', 'prefixRevealButton', '', ''),
+        @($false, 'Custom', 'Pin', 'pin-button', 'Pin this message', ''))
+    # PasswordBox wins over static exclusions; a reveal id cannot override them.
+    foreach ($kind in @('Text', 'Document', 'Window', 'Pane', 'text')) {
+        $nodeCases += ,@($false, $kind, 'Password', 'RevealButton', 'PIN', '')
+        $nodeCases += ,@($true, $kind, '', '', '', 'passwordbox')
+    }
+    # Edit fields use every label, including short tokens in HelpText.
+    foreach ($sample in @('password', 'PIN', 'txt_pin', 'otp_input', 'CVV', 'CVC', '\u043f\u0438\u043d')) {
+        $label = [regex]::Unescape($sample)
+        $nodeCases += ,@($true, 'Edit', $label, '', '', '')
+        $nodeCases += ,@($true, 'Edit', '', $label, '', '')
+        $nodeCases += ,@($true, 'Edit', '', '', $label, '')
+        if ($sample -ne 'password') {
+            $nodeCases += ,@($false, 'Button', $label, $label, '', '')
+        }
+    }
+    # Reveal controls can have any other type, but HelpText alone is insufficient.
+    foreach ($kind in @('Custom', 'Image', 'Hyperlink', 'Button', '', 'Unknown')) {
+        $nodeCases += ,@($true, $kind, 'Show password', '', '', '')
+        $nodeCases += ,@($true, $kind, '', 'togglePassword', '', '')
+        $nodeCases += ,@($true, $kind, '', 'revealbutton', '', '')
+        $nodeCases += ,@($false, $kind, '', '', 'password', '')
+        $nodeCases += ,@($false, $kind, 'PIN', 'otp_input', 'CVV', '')
+    }
     foreach ($case in $nodeCases) {
         $got = Test-PasswordLike $case[1] $case[2] $case[3] $case[4] $case[5]
         if ($got -ne $case[0]) { Write-Output "Node case wrong: $($case[1..5] -join ' | ') -> $got"; $mismatches++ }

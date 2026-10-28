@@ -18,6 +18,7 @@ The build started at the kickoff on 2026-10-26, 22:00 Tashkent (D38); submission
 |---|---|
 | `mm doctor` | build tools and versions (Rust, MSVC, WebView2, Node, ffmpeg, uv, typos, ...) |
 | `mm status` | git, deadline countdown, today's plan, agent queue |
+| `mm release [--dry-run] [--allow-dirty]` | build the NSIS installer and print its path, size and SHA-256 |
 | `mm plan [N]` | today's (or day N's) plan |
 | `mm check [--full]` | fast checks: secrets, env names, Markdown links, typos; Rust/TS once they exist |
 | `mm test` | unit tests (tools, then cargo/npm) |
@@ -36,11 +37,12 @@ Agent mode is enforced in code: without `.git` (agent copies), inside a draft-ag
 | Where | What |
 |---|---|
 | `docs/` | strategy, decisions, plan, edge (forecast, asymmetric moves, acceleration), architecture, MateScript, pointing risks, sounds, robot, prompts, copy, video, Reddit research, server, setup, project structure |
-| `tools/` | `mm.py` CLI, `mm_checks.py`, `uia_dump.ps1`, `synth_cues.py` (cue sounds), `sounds_commons.py` (CC0/PD sounds: `--dry-run`, `--pin`), `tools/tests/` |
+| `tools/` | `mm.py` CLI (`mm release`), `mm_checks.py`, `uia_dump.ps1`, `synth_cues.py` (cue sounds), `sounds_commons.py` (CC0/PD sounds: `--dry-run`, `--pin`), `tools/tests/` |
 | `assets/sounds/` | `src/{cues,sfx,amb}` sources → `cues/`, `sfx/`, `amb/` OGG; `LICENSES.md` row per file; `sources.json` Commons pins |
 | `assets/art/` | robot art: `src/*.svg|html` sources → rendered PNG |
-| `crates/` | `mm-core` (pure: geom, matescript, api request/response/sse/intent, teacher, shot, redaction, privacy, ptt, mic, wav, placement, flight), `mm-platform` (traits, mock/replay), `mm-win32` (the only Win32 crate: dpi, focus, monitors, overlay, uia, keyboard, window, capture) — layout in `docs/project-structure.md` |
-| `src-tauri/` | the Tauri 2 shell: the voice loop (`voice.rs`, `proxy.rs`, `mic.rs`, `ptt.rs`, `answer_stream.rs`) and pointing (`screen.rs`, `pointing.rs`, `flight.rs`, `highlight.rs`). Flags: `--ask "question"`, `--voice-selftest FILE.wav`, `--ptt-probe`, `--look-probe`, `--s1-selftest`, `--s3-selftest` (build: `npm run build`, then `cargo build -p metamate --features custom-protocol`; dev stack: `server/run_dev.py --tts`) |
+| `crates/` | `mm-core` (pure: geom, matescript, api request/response/sse/intent, api/sam (SAM requests and box parser), vad (silence detector), teacher/keys, teacher, shot, redaction, privacy, ptt, mic, wav, placement, flight), `mm-platform` (traits, mock/replay), `mm-win32` (the only Win32 crate: dpi, focus, monitors, overlay, uia, keyboard, input (do it for me), winevent (window move hook), window, capture) — layout in `docs/project-structure.md` |
+| `src-tauri/` | the Tauri 2 shell: the voice loop (`voice.rs`, `proxy.rs`, `mic.rs`, `ptt.rs`, `answer_stream.rs`), pointing (`screen.rs`, `pointing.rs`, `flight.rs`, `highlight.rs`), SAM (`sam.rs`), settings (`settings.rs`), and the tray (`lib.rs`). Flags: `--ask "question"`, `--voice-selftest FILE.wav`, `--ptt-probe`, `--look-probe`, `--s1-selftest`, `--s3-selftest` (build: `npm run build`, then `cargo build -p metamate --features custom-protocol`; dev stack: `server/run_dev.py --tts`) |
+| `site/` | static landing page |
 | `src/`, `mate.html`, `highlight.html`, `s3.html` | the WebView: `robot` (Mate's B1 SVG), `audio`, `i18n`, `player` (MateScript timeline), `ipc` (answer stream), `highlight`; Node tests with `npm test` |
 | `assets/phrases/` | Mate's cached lines as WAV (`mm phrases build|check`; MMS-TTS, CC-BY-NC) |
 | `locales/` | `en.json`, `ru.json`: every user-facing string (invariant 7), checked by `tools/tests/test_locales.py` |

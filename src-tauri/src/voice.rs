@@ -32,6 +32,7 @@ use crate::proxy::{CallKind, Proxy, ProxyError, Transcript};
 use crate::ptt::{self, PttDriver};
 
 /// The development proxy (server/run_dev.py).
+#[cfg(debug_assertions)]
 const DEV_PROXY: &str = "http://127.0.0.1:8787";
 /// Silence after key-up before the cached phrase covers the wait.
 const ACK_AFTER: Duration = Duration::from_millis(700);
@@ -96,10 +97,11 @@ pub struct VoiceLoop {
     _driver: PttDriver,
 }
 
-/// Starts the loop when a development proxy invite exists; None otherwise (logged).
+/// Starts the loop when a proxy and an invite are known (`proxy_config`); None otherwise
+/// (logged).
 pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
-    let invite = dev_invite()?;
-    let proxy = Proxy::new(DEV_PROXY, &invite)
+    let (base, invite) = proxy_config()?;
+    let proxy = Proxy::new(&base, &invite)
         .map_err(|error| eprintln!("voice: {error}"))
         .ok()?;
     let (events, receiver) = mpsc::unbounded_channel();
@@ -120,8 +122,9 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
 /// once the window reports the answer played out, 1 after a minute: spike S7 (audio in
 /// WebView2 without a user gesture) and the whole answer path, with no one at the laptop.
 pub fn ask(app: &AppHandle, question: String) {
-    let Some(proxy) = dev_invite().and_then(|invite| Proxy::new(DEV_PROXY, &invite).ok()) else {
-        eprintln!("ask: no dev proxy: start server/run_dev.py --tts");
+    let proxy = proxy_config().and_then(|(base, invite)| Proxy::new(&base, &invite).ok());
+    let Some(proxy) = proxy else {
+        eprintln!("ask: no proxy: start server/run_dev.py --tts");
         app.exit(1);
         return;
     };
@@ -184,6 +187,23 @@ pub fn ask(app: &AppHandle, question: String) {
     });
 }
 
+/// The proxy and the invite answers go through: in development the local proxy and the
+/// invite `server/run_dev.py` wrote; a release the proxy and demo invite it was built with
+/// (`METAMATE_PROXY_URL`, `METAMATE_INVITE` at build time, D51: a capped invite the proxy
+/// can revoke, never a provider key).
+fn proxy_config() -> Option<(String, String)> {
+    #[cfg(debug_assertions)]
+    return dev_invite().map(|invite| (DEV_PROXY.to_owned(), invite));
+    #[cfg(not(debug_assertions))]
+    {
+        let built = option_env!("METAMATE_PROXY_URL").zip(option_env!("METAMATE_INVITE"));
+        if built.is_none() {
+            eprintln!("voice: this build has no proxy (METAMATE_PROXY_URL, METAMATE_INVITE)");
+        }
+        built.map(|(base, invite)| (base.to_owned(), invite.trim().to_owned()))
+    }
+}
+
 #[cfg(debug_assertions)]
 fn dev_invite() -> Option<String> {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../server/.dev-invite");
@@ -193,11 +213,6 @@ fn dev_invite() -> Option<String> {
         return None;
     }
     Some(invite)
-}
-
-#[cfg(not(debug_assertions))]
-fn dev_invite() -> Option<String> {
-    None
 }
 
 /// One press: the microphone while the key is held, then the answer.

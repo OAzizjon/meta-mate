@@ -51,12 +51,14 @@ const PROPERTIES: [UIProperty; 9] = [
 /// Control types a password field, a PIN box or a show/hide-password toggle comes as
 /// (what `password_like` and `UiSnapshot::hidden_ids` look at); `IsPassword` is asked for
 /// separately.
-const SENSITIVE_TYPES: [ControlType; 5] = [
+const SENSITIVE_TYPES: [ControlType; 7] = [
     ControlType::Edit,
     ControlType::Document,
     ControlType::Custom,
     ControlType::Button,
     ControlType::CheckBox,
+    ControlType::Hyperlink,
+    ControlType::Image,
 ];
 
 pub struct UiaWalker {
@@ -155,7 +157,9 @@ impl UiaWalker {
         let on_screen = automation
             .create_property_condition(UIProperty::IsOffscreen, Variant::from(false), None)
             .ok()?;
-        let condition = automation.create_and_condition(on_screen, condition).ok()?;
+        let condition = automation
+            .create_and_condition(on_screen.clone(), condition)
+            .ok()?;
         let found = root
             .find_all_build_cache(TreeScope::Subtree, &condition, &self.cache)
             .ok()?;
@@ -170,42 +174,85 @@ impl UiaWalker {
             let toggle = !matches!(described.control_type.as_str(), "Edit" | "Document")
                 && !described.is_password;
             hide.push(described);
+            self.descendants_of(element, &on_screen, &mut hide)?;
             if toggle {
-                self.siblings_of(element, &mut hide)?;
+                self.siblings_of(element, &on_screen, &mut hide)?;
             }
         }
         Some(hide)
     }
 
-    /// The fields beside `toggle` (Edit, Document, Custom and Text children of its parent),
-    /// marked password-like.
-    fn siblings_of(&self, toggle: &UIElement, hide: &mut Vec<UiElement>) -> Option<()> {
+    /// Everything on screen inside `field` (a text run may stick out of its box), marked
+    /// password-like.
+    fn descendants_of(
+        &self,
+        field: &UIElement,
+        on_screen: &uiautomation::core::UICondition,
+        hide: &mut Vec<UiElement>,
+    ) -> Option<()> {
+        let inside = field
+            .find_all_build_cache(TreeScope::Descendants, on_screen, &self.cache)
+            .ok()?;
+        for element in &inside {
+            let mut described = describe(element, &format!("s{}", hide.len()), None)?;
+            described.password_like = true;
+            hide.push(described);
+        }
+        Some(())
+    }
+
+    /// The fields near `toggle` (every on-screen Edit, Document, Custom and Text under its
+    /// grandparent, so their insides too), marked password-like.
+    fn siblings_of(
+        &self,
+        toggle: &UIElement,
+        on_screen: &uiautomation::core::UICondition,
+        hide: &mut Vec<UiElement>,
+    ) -> Option<()> {
+        // Web forms wrap the field and its toggle in separate boxes: search the toggle's
+        // grandparent (its parent when it has none), not only its siblings.
         let parent = self
             .walker
             .get_parent_build_cache(toggle, &self.cache)
             .ok()?;
-        let mut next = self
+        let area = self
             .walker
-            .get_first_child_build_cache(&parent, &self.cache);
-        loop {
-            let child = match next {
-                Ok(child) => child,
-                Err(error) if is_end(error.code()) => return Some(()),
-                Err(_) => return None,
-            };
-            next = self
-                .walker
-                .get_next_sibling_build_cache(&child, &self.cache);
-            let mut described = describe(&child, &format!("s{}", hide.len()), None)?;
-            if matches!(
-                described.control_type.as_str(),
-                "Edit" | "Document" | "Custom" | "Text"
-            ) && !described.offscreen
-            {
-                described.password_like = true;
-                hide.push(described);
-            }
+            .get_parent_build_cache(&parent, &self.cache)
+            .unwrap_or(parent);
+        let automation = &self.automation;
+        let mut fields = automation
+            .create_property_condition(
+                UIProperty::ControlType,
+                Variant::from(ControlType::Edit as i32),
+                None,
+            )
+            .ok()?;
+        for kind in [
+            ControlType::Document,
+            ControlType::Custom,
+            ControlType::Text,
+        ] {
+            let by_type = automation
+                .create_property_condition(
+                    UIProperty::ControlType,
+                    Variant::from(kind as i32),
+                    None,
+                )
+                .ok()?;
+            fields = automation.create_or_condition(fields, by_type).ok()?;
         }
+        let fields = automation
+            .create_and_condition(on_screen.clone(), fields)
+            .ok()?;
+        let near = area
+            .find_all_build_cache(TreeScope::Descendants, &fields, &self.cache)
+            .ok()?;
+        for element in &near {
+            let mut described = describe(element, &format!("s{}", hide.len()), None)?;
+            described.password_like = true;
+            hide.push(described);
+        }
+        Some(())
     }
 
     /// Walks `hwnd`'s control view onto `elements` (ids continue from its length); true when

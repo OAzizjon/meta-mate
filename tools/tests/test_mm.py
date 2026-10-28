@@ -332,7 +332,9 @@ class ReleaseTests(unittest.TestCase):
                           / 'MetaMate_0.1.0_x64-setup.exe')
         self.args = argparse.Namespace(allow_dirty=False, dry_run=False)
         self.output = io.StringIO()
+        release_env = {'METAMATE_PROXY_URL': 'https://proxy.example', 'METAMATE_INVITE': 'demo-code-123'}
         for patcher in (patch.object(mm, 'ROOT', self.root),
+                        patch.dict(mm.os.environ, release_env),
                         patch.object(mm, 'cmd_check', return_value=0),
                         patch.object(mm, 'run', side_effect=self.command),
                         contextlib.redirect_stdout(self.output)):
@@ -357,6 +359,15 @@ class ReleaseTests(unittest.TestCase):
             self.installer.parent.mkdir(parents=True, exist_ok=True)
             self.installer.write_bytes(b'abc')
         return self.build_code, ''
+
+    def test_release_needs_the_built_in_proxy_and_invite(self):
+        for env in ({'METAMATE_PROXY_URL': '', 'METAMATE_INVITE': 'demo-code-123'},
+                    {'METAMATE_PROXY_URL': 'http://proxy.example', 'METAMATE_INVITE': 'demo-code-123'},
+                    {'METAMATE_PROXY_URL': 'https://proxy.example', 'METAMATE_INVITE': ' '}):
+            with self.subTest(env=env), patch.dict(mm.os.environ, env):
+                self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertNotIn('demo-code-123', self.output.getvalue())
+        self.run.assert_not_called()
 
     def test_release_build_order_and_installer_report(self):
         self.assertEqual(mm.cmd_release(self.args), 0)

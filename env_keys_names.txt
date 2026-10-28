@@ -38,6 +38,11 @@ TAVILY_API_KEY
 
 # Tooling (tools/mm.py): 1 = restricted agent mode
 MM_AGENT
+
+# Release builds only, read at BUILD time (D51): the proxy the installed app talks to and
+# its capped demo invite code (an invite, never a provider key; revocable on the proxy)
+METAMATE_PROXY_URL
+METAMATE_INVITE
 # tts/mms.py: use only the Hugging Face cache, never download at run time
 HF_HUB_OFFLINE
 # Drafting team only (never the app or the proxy): DeepSeek API for occasional creative second opinions

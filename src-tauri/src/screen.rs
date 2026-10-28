@@ -124,7 +124,7 @@ pub fn prepare(
     let lines: Vec<ElementLine> = snapshot
         .elements
         .iter()
-        .filter(|element| !element.offscreen)
+        .filter(|element| !element.offscreen && !element.id.starts_with(SEARCHED))
         .filter_map(|element| {
             let rect = element.rect?;
             // Under another app's window: the model cannot see it, so it cannot be meant.
@@ -308,6 +308,7 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
     use mm_platform::same_hidden;
     use mm_win32::{capture, overlay, uia, window};
 
+    #[cfg(debug_assertions)]
     let started = std::time::Instant::now();
     let target = window::foreground_target(own).ok_or(LookFailure::NoWindow)?;
     let walker = uia::UiaWalker::new().map_err(|_| LookFailure::Uia)?;
@@ -344,6 +345,7 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
         capture::capture_region(target.region)
     };
     let capture = copied.map_err(LookFailure::Capture)?;
+    #[cfg(debug_assertions)]
     let copied_at = started.elapsed();
     // The masks come from the walk: the window must be exactly where it was then.
     let after = window::foreground_target(own).ok_or(LookFailure::Changed)?;
@@ -388,7 +390,8 @@ fn look_once(own: &[mm_win32::HWND], wanted: &dyn Fn() -> bool) -> Result<Look, 
                     uia::WalkLimits::default(),
                 )
                 .map_err(|_| LookFailure::Uia)?;
-            same_hidden(&snapshot, &again)
+            // A second walk that no longer sees everything vouches for nothing.
+            !again.truncated && same_hidden(&snapshot, &again)
         }
     };
     if !unchanged {
@@ -424,12 +427,26 @@ fn scan(
     Some(found)
 }
 
+/// The id prefix of fields the provider search added (`complete_with`): painted, never
+/// listed in the prompt.
+const SEARCHED: &str = "s";
+
 /// The search's fields join the walk's elements (new ids, no parent: never pointable,
-/// never named in the prompt), and the snapshot then vouches for the picture.
+/// never named in the prompt), and the snapshot then vouches for the picture. A walked
+/// element the search also found (the same control type at the same place) is marked too,
+/// so its name and everything below it stay out of the prompt.
 fn complete_with(snapshot: &mut UiSnapshot, found: &[mm_platform::UiElement]) {
-    for field in found {
+    for walked in &mut snapshot.elements {
+        let same = |field: &&mm_platform::UiElement| {
+            field.control_type == walked.control_type && field.rect == walked.rect
+        };
+        if walked.rect.is_some() && found.iter().any(|field| same(&field)) {
+            walked.password_like = true;
+        }
+    }
+    for (index, field) in found.iter().enumerate() {
         let mut field = field.clone();
-        field.id = format!("e{}", snapshot.elements.len());
+        field.id = format!("{SEARCHED}{index}");
         field.parent = None;
         field.password_like = true;
         snapshot.elements.push(field);
@@ -685,5 +702,24 @@ mod tests {
         assert_eq!(look.resolve(&Point::Id("e1".into())), None);
         assert_eq!(look.resolve(&Point::Pixel(320, 260)), None);
         assert_eq!(look.resolve(&Point::Pixel(390, 290)), None);
+    }
+
+    #[test]
+    fn a_searched_field_hides_its_walked_original_and_lifts_the_cut() {
+        let mut walked = snapshot();
+        walked.truncated = true;
+        // The walk saw a revealed password as plain text, without anything marking it.
+        let revealed = PhysRect::new(150, 250, 350, 280).unwrap();
+        walked
+            .elements
+            .push(element("e4", "Text", "hunter2", revealed));
+        let mut found = element("s0", "Text", "", revealed);
+        found.password_like = true;
+        complete_with(&mut walked, &[found]);
+        assert!(!walked.truncated);
+        let look = prepare(walked, &capture(), &[]).unwrap();
+        assert!(!look.list.text.contains("hunter2"));
+        assert_eq!(look.resolve(&Point::Id("s0".into())), None);
+        assert!(!look.list.text.contains("s0 "));
     }
 }

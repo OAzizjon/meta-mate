@@ -393,6 +393,7 @@ def cmd_release(args):
     ]
     if args.dry_run:
         print('Dry run: no checks or commands are executed.')
+        print('needs METAMATE_PROXY_URL (https) and METAMATE_INVITE in the environment (D51)')
         print('mm check')
         print('git status --porcelain --untracked-files=all'
               + (' (dirty tree allowed)' if args.allow_dirty else ' (must be clean)'))
@@ -402,6 +403,12 @@ def cmd_release(args):
               ' print installer path, size in bytes and SHA-256.')
         return 0
 
+    # D51: a release talks to the proxy and demo invite it is built with; without them
+    # the installed app cannot answer. Only the names are ever printed.
+    proxy = os.environ.get('METAMATE_PROXY_URL', '')
+    if not proxy.startswith('https://') or not os.environ.get('METAMATE_INVITE', '').strip():
+        print('Release refused: set METAMATE_PROXY_URL (https://...) and METAMATE_INVITE for the build.')
+        return 1
     if cmd_check(argparse.Namespace(full=False, only=None)) != 0:
         print('Release refused: mm check failed.')
         return 1
