@@ -62,6 +62,20 @@ def store_secret(values: dict) -> None:
         Path(path).unlink(missing_ok=True)
 
 
+def restart_containers() -> None:
+    """Stops this app's running containers; Modal starts a fresh one (min_containers=1)."""
+    listed = subprocess.run(['modal', 'container', 'list', '--json'], capture_output=True, text=True,
+                            encoding='utf-8', errors='replace')
+    try:
+        containers = json.loads(listed.stdout)
+    except ValueError:
+        containers = []
+    for container in containers if isinstance(containers, list) else []:
+        if isinstance(container, dict) and container.get('app_name') == 'metamate-proxy':
+            subprocess.run(['modal', 'container', 'stop', '-y', str(container.get('container_id'))],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--budget', default='15', help="the proxy's daily dollar cap (default 15)")
@@ -111,6 +125,9 @@ def main() -> int:
     else:
         print('the deployed URL keeps changing: nothing linked for mm release')
         return 1
+    # The always-warm container keeps the secret it started with (2026-10-29: it went on
+    # sending Google the old URL); a fresh one reads the new secret.
+    restart_containers()
     # Only a deployment whose secret names its own URL is linked for `mm release`.
     link['url'] = url
     save_link(link)
