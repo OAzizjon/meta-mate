@@ -2,7 +2,7 @@
 
 Static landing page for the adult child who installs Mate for a parent:
 
-- [`index.html`](index.html) — page markup (hero, "How it works" in 3 steps, "Safety and privacy", "Built with Meta", and `#download` call to action).
+- [`index.html`](index.html) — page markup (hero, "How it works" in 3 steps, "Keepsake lesson cards", scam check "Is this safe?", "Safety and privacy", "Built with Meta", and `#download` call to action).
 - [`style.css`](style.css) — responsive, accessible stylesheet using system fonts and light/dark high-contrast palettes.
 
 The hero image references [`../assets/art/mate.png`](../assets/art/mate.png) by relative path rather than duplicating binary assets.

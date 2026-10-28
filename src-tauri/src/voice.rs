@@ -213,7 +213,7 @@ pub fn ask(app: &AppHandle, question: String) {
 /// invite `server/run_dev.py` wrote; a release the proxy and demo invite it was built with
 /// (`METAMATE_PROXY_URL`, `METAMATE_INVITE` at build time, D51: a capped invite the proxy
 /// can revoke, never a provider key).
-fn proxy_config() -> Option<(String, String)> {
+pub(crate) fn proxy_config() -> Option<(String, String)> {
     #[cfg(debug_assertions)]
     return dev_invite().map(|invite| (DEV_PROXY.to_owned(), invite));
     #[cfg(not(debug_assertions))]

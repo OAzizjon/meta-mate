@@ -6,7 +6,8 @@
 //! report and exits with 0 (pass) or 1. `--voice-selftest FILE.wav` runs the voice path
 //! against the dev proxy without any window (voice_selftest.rs). `--ptt-probe` prints
 //! push-to-talk events for 60 s without any window (spike S2, ptt.rs). `--ask "question"`
-//! plays one answer in Mate's window and exits (spike S7, voice.rs). A normal start
+//! plays one answer in Mate's window and exits (spike S7, voice.rs). `--card-selftest [ru]`
+//! makes one lesson card through the dev proxy and exits (card.rs). A normal start
 //! in a development build also runs the live voice loop (voice.rs) when
 //! `server/run_dev.py --tts` is up.
 
@@ -66,6 +67,10 @@ pub fn run() {
         .position(|arg| arg == "--ask")
         .and_then(|at| args.get(at + 1))
         .cloned();
+    let card_selftest = args
+        .iter()
+        .position(|arg| arg == "--card-selftest")
+        .map(|at| args.get(at + 1).is_some_and(|language| language == "ru"));
 
     let result = tauri::Builder::default()
         .manage(answer_stream::AnswerStream::default())
@@ -96,6 +101,11 @@ pub fn run() {
             #[cfg(windows)]
             if control {
                 selftest::spawn_control(app.handle().clone(), before);
+                return Ok(());
+            }
+            #[cfg(all(windows, debug_assertions))]
+            if let Some(russian) = card_selftest {
+                card::selftest(app.handle(), russian);
                 return Ok(());
             }
             #[cfg(debug_assertions)]

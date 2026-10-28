@@ -435,6 +435,55 @@ fn send(app: &AppHandle, card: &LessonCard) {
     }
 }
 
+/// `--card-selftest [ru]` (development builds): the card of a made-up lesson through the
+/// dev proxy (Glimmer, then Muse Image), shown for a minute; then the app exits.
+#[cfg(all(windows, debug_assertions))]
+pub(crate) fn selftest(app: &AppHandle, russian: bool) {
+    let proxy =
+        crate::voice::proxy_config().and_then(|(base, invite)| Proxy::new(&base, &invite).ok());
+    let Some(proxy) = proxy else {
+        eprintln!("card: no proxy: start server/run_dev.py --tts-modal");
+        app.exit(1);
+        return;
+    };
+    crate::auth::restore(app, &proxy);
+    app.manage(proxy);
+    let (question, steps) = if russian {
+        (
+            "Как сделать текст на экране крупнее?",
+            [
+                "Откройте Параметры: это шестерёнка в меню Пуск.",
+                "Нажмите «Специальные возможности».",
+                "Выберите «Размер текста» и передвиньте ползунок вправо.",
+                "Нажмите «Применить».",
+            ],
+        )
+    } else {
+        (
+            "How do I make the text on my screen bigger?",
+            [
+                "Open Settings: it's the gear in the Start menu.",
+                "Click Accessibility.",
+                "Choose Text size and drag the slider to the right.",
+                "Click Apply.",
+            ],
+        )
+    };
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let started = std::time::Instant::now();
+        make(
+            app.clone(),
+            question.to_owned(),
+            steps.iter().map(|step| (*step).to_owned()).collect(),
+        )
+        .await;
+        eprintln!("card: selftest made the card in {:?}", started.elapsed());
+        tokio::time::sleep(Duration::from_secs(60)).await;
+        app.exit(0);
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::json;

@@ -59,8 +59,7 @@ def main() -> int:
         if value:
             env[name] = value
     if not SESSION_FILE.exists():
-        SESSION_FILE.write_text(secrets.token_urlsafe(48) + '
-', encoding='utf-8')
+        SESSION_FILE.write_bytes(secrets.token_urlsafe(48).encode('ascii') + b'\n')
     env['PROXY_SESSION_SECRET'] = SESSION_FILE.read_text(encoding='utf-8').strip()
     tts_secret = secrets.token_urlsafe(24)
     if args.tts:
