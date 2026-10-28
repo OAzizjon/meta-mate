@@ -60,6 +60,42 @@ body {
   display: none;
 }
 
+/* First-launch Right Ctrl keycap (src/onboarding.ts); gently pulses unless motion is reduced. */
+#mate-keycap {
+  position: fixed;
+  left: 50%;
+  top: calc(50% + 56px);
+  transform: translateX(-50%);
+  min-width: 96px;
+  max-width: calc(100% - 16px);
+  padding: 8px 16px;
+  border: 2px solid #1f2a44;
+  border-bottom-width: 4px;
+  border-radius: 10px;
+  background: #fffdf0;
+  color: #1f2430;
+  font: 700 16px/1.2 "Segoe UI", system-ui, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  animation: mate-keycap-pulse 1.8s ease-in-out infinite;
+}
+
+#mate-keycap[hidden] {
+  display: none;
+}
+
+@keyframes mate-keycap-pulse {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+
 #highlight {
   position: fixed;
   inset: 0;
@@ -69,6 +105,7 @@ body {
 }
 
 html.reduce-motion *,
+.reduce-motion,
 .reduce-motion * {
   animation: none !important;
   transition: none !important;

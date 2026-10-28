@@ -17,6 +17,7 @@ export function setOnboardingTranslator(translate: (key: LocaleKey) => string): 
 }
 export const ONBOARDING_STEP_MS = 6000;
 export const ONBOARDING_EXAMPLE_COUNT = 3;
+export const ONBOARDING_KEYCAP_KEY = "onboarding.key_right_ctrl" as const satisfies LocaleKey;
 
 export const ONBOARDING_EXAMPLE_KEYS = [
   "onboarding.example_1",
@@ -41,12 +42,17 @@ export interface OnboardingClock {
   clearTimeout(handle: unknown): void;
 }
 
-/** Pure view sink: `showBubble` drives `#mate-bubble`, `showExample` drives `#mate-onboarding` (if separate). */
+/**
+ * Pure view sink: `showBubble` drives `#mate-bubble`, `showExample` drives `#mate-onboarding`
+ * (if separate), and `showKeycap` drives `#mate-keycap`.
+ */
 export interface OnboardingSink {
   /** Updates the main speech bubble (`null` hides it). */
   showBubble(text: string | null): void;
   /** Optional separate sink for example questions; defaults to `showBubble` when omitted. */
   showExample?(text: string | null): void;
+  /** Optional sink for the first-launch keycap (`null` hides it). */
+  showKeycap?(text: string | null): void;
 }
 
 export interface OnboardingOptions {
@@ -62,6 +68,8 @@ export interface OnboardingOptions {
   readonly random?: () => number;
   /** Overrides translation lookup `t(key)` if needed in isolated tests. */
   readonly translate?: (key: LocaleKey) => string;
+  /** Optional keycap DOM element override (`#mate-keycap`) for `mountOnboarding`. */
+  readonly keycapElement?: HTMLElement | null;
 }
 
 export interface OnboardingController {
@@ -200,6 +208,7 @@ export function startOnboarding(
     if (sink.showExample) {
       sink.showExample(null);
     }
+    sink.showKeycap?.(null);
   };
 
   const advance = (): void => {
@@ -209,6 +218,7 @@ export function startOnboarding(
     if (stepIndex < examples.length) {
       const key = examples[stepIndex];
       stepIndex += 1;
+      sink.showKeycap?.(null);
       if (sink.showExample) {
         // Keep the greeting or clear it if the example uses its own element;
         // showing the example in #mate-onboarding while hiding #mate-bubble avoids two bubbles at once,
@@ -227,11 +237,12 @@ export function startOnboarding(
     }
   };
 
-  // Initial step: show `robot.first_launch` immediately.
+  // Initial step: show `robot.first_launch` and the Right Ctrl keycap immediately.
   if (sink.showExample) {
     sink.showExample(null);
   }
   sink.showBubble(translate("robot.first_launch"));
+  sink.showKeycap?.(translate(ONBOARDING_KEYCAP_KEY));
   timer = clock.setTimeout(advance, stepMs);
 
   const controller: OnboardingController = {
@@ -248,15 +259,34 @@ export function startOnboarding(
   return controller;
 }
 
+function isElementLike(value: unknown): value is HTMLElement {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    ("textContent" in value || "hidden" in value)
+  );
+}
+
 /**
- * Mounts first-run onboarding onto DOM elements in `mate.html` (`#mate-bubble` and/or
- * `#mate-onboarding`). Uses `textContent` only (never `innerHTML`) and toggles `hidden`.
+ * Mounts first-run onboarding onto DOM elements in `mate.html` (`#mate-bubble`,
+ * `#mate-onboarding`, and `#mate-keycap`). Uses `textContent` only (never `innerHTML`)
+ * and toggles `hidden`.
  */
 export function mountOnboarding(
   bubbleElement?: HTMLElement | null,
   onboardingElement?: HTMLElement | null,
-  options: OnboardingOptions = {},
+  keycapOrOptions?: HTMLElement | OnboardingOptions | null,
+  maybeOptions?: OnboardingOptions,
 ): OnboardingController {
+  const hasExplicitKeycap =
+    keycapOrOptions === null || isElementLike(keycapOrOptions);
+  const options: OnboardingOptions = hasExplicitKeycap
+    ? (maybeOptions ?? {})
+    : (keycapOrOptions ?? {});
+  const explicitKeycap = hasExplicitKeycap
+    ? keycapOrOptions
+    : options.keycapElement;
+
   const bubble =
     bubbleElement !== undefined
       ? bubbleElement
@@ -268,6 +298,12 @@ export function mountOnboarding(
       ? onboardingElement
       : typeof document !== "undefined"
         ? document.getElementById("mate-onboarding")
+        : null;
+  const keycap =
+    explicitKeycap !== undefined
+      ? explicitKeycap
+      : typeof document !== "undefined"
+        ? document.getElementById("mate-keycap")
         : null;
 
   const writeEl = (el: HTMLElement | null, text: string | null): void => {
@@ -286,6 +322,7 @@ export function mountOnboarding(
     {
       showBubble: (text) => writeEl(targetBubble, text),
       showExample: targetExample ? (text) => writeEl(targetExample, text) : undefined,
+      showKeycap: keycap ? (text) => writeEl(keycap, text) : undefined,
     },
     options,
   );

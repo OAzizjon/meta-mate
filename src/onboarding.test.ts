@@ -25,6 +25,7 @@ function t(key: string): string {
 import {
   ONBOARDING_EXAMPLE_COUNT,
   ONBOARDING_EXAMPLE_KEYS,
+  ONBOARDING_KEYCAP_KEY,
   ONBOARDING_STEP_MS,
   ONBOARDING_STORAGE_KEY,
   claimFirstRun,
@@ -143,6 +144,11 @@ test("onboarding.example_1..6 exist in both English and Russian locales", () => 
     assert.match(ruText, /[\u0400-\u04ff]/, `expected Cyrillic in ${key}: ${ruText}`);
     assert.ok(ruText.endsWith("?"), `expected question mark in ${key}: ${ruText}`);
   }
+
+  setLocale("en");
+  assert.equal(t(ONBOARDING_KEYCAP_KEY), "Right Ctrl");
+  setLocale("ru");
+  assert.equal(t(ONBOARDING_KEYCAP_KEY), "правый Ctrl");
 });
 
 test("first launch shows robot.first_launch then 3 examples every 6 s, then hides", () => {
@@ -301,22 +307,27 @@ test("mountOnboarding updates DOM elements using textContent and hidden attribut
 
   const fakeBubble = { textContent: "", hidden: true } as unknown as HTMLElement;
   const fakeOnboarding = { textContent: "", hidden: true } as unknown as HTMLElement;
+  const fakeKeycap = { textContent: "", hidden: true } as unknown as HTMLElement;
 
-  const controller = mountOnboarding(fakeBubble, fakeOnboarding, {
+  const controller = mountOnboarding(fakeBubble, fakeOnboarding, fakeKeycap, {
     clock,
     storage,
     exampleKeys: ["onboarding.example_4", "onboarding.example_5", "onboarding.example_6"],
   });
 
-  // t = 0: greeting in bubble, onboarding container stays hidden
+  // t = 0: greeting in bubble, keycap shown, onboarding container stays hidden
   assert.equal(controller.isActive(), true);
   assert.equal(fakeBubble.hidden, false);
   assert.equal(fakeBubble.textContent, t("robot.first_launch"));
+  assert.equal(fakeKeycap.hidden, false);
+  assert.equal(fakeKeycap.textContent, "Right Ctrl");
   assert.equal(fakeOnboarding.hidden, true);
 
-  // t = 6 s: bubble hides, onboarding container shows example_4
+  // t = 6 s: bubble and keycap hide, onboarding container shows example_4
   clock.advance(ONBOARDING_STEP_MS);
   assert.equal(fakeBubble.hidden, true);
+  assert.equal(fakeKeycap.hidden, true);
+  assert.equal(fakeKeycap.textContent, "");
   assert.equal(fakeOnboarding.hidden, false);
   assert.equal(fakeOnboarding.textContent, t("onboarding.example_4"));
 
@@ -324,9 +335,54 @@ test("mountOnboarding updates DOM elements using textContent and hidden attribut
   clock.advance(ONBOARDING_STEP_MS);
   assert.equal(fakeOnboarding.textContent, t("onboarding.example_5"));
 
-  // stopOnboarding() hides both
+  // stopOnboarding() hides all
   stopOnboarding();
   assert.equal(fakeBubble.hidden, true);
+  assert.equal(fakeKeycap.hidden, true);
   assert.equal(fakeOnboarding.hidden, true);
   assert.equal(fakeOnboarding.textContent, "");
+});
+
+test("keycap shows during robot.first_launch and hides when examples start or stopOnboarding() runs", () => {
+  const clock = createFakeClock();
+  const storage = createMemoryStorage();
+  const keycaps: (string | null)[] = [];
+
+  setLocale("ru");
+  startOnboarding(
+    {
+      showBubble: () => {},
+      showKeycap: (text) => keycaps.push(text),
+    },
+    { clock, storage },
+  );
+
+  // Shown immediately at t = 0 with translated Russian label
+  assert.deepEqual(keycaps, ["правый Ctrl"]);
+
+  // Still shown just before 6 s
+  clock.advance(ONBOARDING_STEP_MS - 1);
+  assert.deepEqual(keycaps, ["правый Ctrl"]);
+
+  // Hides at 6 s when robot.first_launch finishes
+  clock.advance(1);
+  assert.deepEqual(keycaps, ["правый Ctrl", null]);
+
+  // Stopping early during robot.first_launch also hides the keycap immediately
+  resetOnboardingSession();
+  const fakeBubble = { textContent: "", hidden: true } as unknown as HTMLElement;
+  const fakeOnboarding = { textContent: "", hidden: true } as unknown as HTMLElement;
+  const fakeKeycap = { textContent: "", hidden: true } as unknown as HTMLElement;
+
+  mountOnboarding(fakeBubble, fakeOnboarding, fakeKeycap, {
+    clock,
+    storage: createMemoryStorage(),
+  });
+  assert.equal(fakeKeycap.hidden, false);
+  assert.equal(fakeKeycap.textContent, "правый Ctrl");
+
+  clock.advance(2000);
+  stopOnboarding();
+  assert.equal(fakeKeycap.hidden, true);
+  assert.equal(fakeKeycap.textContent, "");
 });
