@@ -6,7 +6,7 @@ Windows 10/11 x64 (the video can be watched anywhere).
 
 1. **Download:** Get the release installer (built for our hosted proxy with a capped judge invite — no account, invite codes, or API keys needed).
 2. **SmartScreen:** The installer is not code-signed yet. When Windows SmartScreen displays *"Windows protected your PC"*, click **More info**, then **Run anyway**.
-3. **Ask:** Open Settings, hold **Right Ctrl**, ask aloud *"How do I make the text bigger?"*, and release. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
+3. **Ask:** Press **Win+I** to open Windows Settings, then hold **Right Ctrl**, ask aloud *"How do I make the text bigger?"*, and release. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
 4. **Sign-in (optional):** Right-click the tray icon to open **Settings**. Google sign-in is completely optional (GitHub sign-in is not in the judges' build yet) and gives you your own daily allowance.
 
 MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl for push-to-talk voice, and he answers aloud, flies next to the right button, and teaches you step by step.
