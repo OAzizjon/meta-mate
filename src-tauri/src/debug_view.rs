@@ -25,6 +25,10 @@ const FLAG: &str = "--debug-window";
     rename_all_fields = "camelCase"
 )]
 pub enum DebugAnswerMsg {
+    Model {
+        generation: u64,
+        model: &'static str,
+    },
     State {
         generation: u64,
         state: &'static str,
@@ -148,6 +152,10 @@ fn send(app: &AppHandle, payload: DebugMsg) {
 
 fn answer_msg(message: &AnswerMsg) -> DebugMsg {
     let msg = match message {
+        AnswerMsg::Model { generation, model } => DebugAnswerMsg::Model {
+            generation: *generation,
+            model,
+        },
         AnswerMsg::State { generation, state } => DebugAnswerMsg::State {
             generation: *generation,
             state,

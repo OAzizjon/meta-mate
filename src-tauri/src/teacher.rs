@@ -31,7 +31,7 @@ use mm_platform::{HumanConfirmation, InputAction, InputInjector, MouseButton};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::answer_stream::{AnswerMsg, AnswerStream};
+use crate::answer_stream::{AnswerMsg, AnswerStream, model_chip};
 use crate::pointing::{Pointing, show_target, stop_pointing};
 use crate::proxy::{CallKind, Proxy};
 use crate::screen::{Look, LookFailure, take_look};
@@ -356,6 +356,7 @@ pub(crate) async fn teach(
     let mut acknowledged: Vec<String> = Vec::new();
     let mut tick = tokio::time::interval(TICK);
     let mut offered_at: Option<Instant> = None;
+    let mut shown_model = None;
     'turns: loop {
         let cancelled = || stream.is_cancelled(generation);
         // One model turn on the current look. A failed turn (an error, a cut or unfinished
@@ -364,6 +365,13 @@ pub(crate) async fn teach(
         let (mut pending, last_turn, failed) =
             match proxy.respond(CallKind::Computer, &body, |_| {}).await {
                 Ok(answer) => {
+                    let served = model_chip(answer.model.as_deref());
+                    if served != shown_model {
+                        if let Some(model) = served {
+                            stream.send(AnswerMsg::Model { generation, model });
+                        }
+                        shown_model = served;
+                    }
                     if fell_back(session.model, answer.model.as_deref()) {
                         for command in teacher.input(TeacherInput::WonderUnavailable) {
                             if let TeacherCommand::UseModel(model) = command {

@@ -4,8 +4,8 @@
 // timings as a horizontal bar chart against key-up, and look stats.
 // Runs in Node tests directly without DOM or Tauri dependencies.
 
-import type { AnswerState } from "../ipc/answer-stream.ts";
-import { ANSWER_STATES } from "../ipc/answer-stream.ts";
+import type { AnswerMsg, AnswerState } from "../ipc/answer-stream.ts";
+import { ANSWER_STATES, parseAnswerMsg } from "../ipc/answer-stream.ts";
 import { parseTimelineItem } from "../ipc/timeline.ts";
 import type { Bound, Point, Sound, TimelineItem } from "../ipc/timeline.ts";
 
@@ -22,6 +22,7 @@ export interface DebugPcmMsg {
 }
 
 export type DebugAnswerMsg =
+  | Extract<AnswerMsg, { readonly type: "model" }>
   | { readonly type: "state"; readonly generation: number; readonly state: AnswerState }
   | { readonly type: "item"; readonly generation: number; readonly item: TimelineItem }
   | DebugPcmMsg
@@ -58,6 +59,7 @@ const TIMING_KEYS = ["type", "generation", "name", "ms"] as const;
 const LOOK_KEYS = ["type", "generation", "elements", "listed", "painted", "ms"] as const;
 
 const ANSWER_KEYS: Readonly<Record<DebugAnswerMsg["type"], readonly string[]>> = {
+  model: ["type", "generation", "model"],
   state: ["type", "generation", "state"],
   item: ["type", "generation", "item"],
   pcm: ["type", "generation", "sentence", "sampleRate", "eos", "samples"],
@@ -106,6 +108,10 @@ export function parseDebugAnswerMsg(raw: unknown): DebugAnswerMsg | null {
     if (!isId(generation)) return null;
 
     switch (type) {
+      case "model": {
+        const model = parseAnswerMsg(msg);
+        return model?.type === "model" ? model : null;
+      }
       case "state": {
         const { state } = msg;
         return isAnswerState(state) ? { type, generation, state } : null;
@@ -424,6 +430,9 @@ export class DebugStore {
     } else if (msg.type === "answer") {
       const inner = msg.msg;
       switch (inner.type) {
+        case "model":
+          record.lines.push(inner.model);
+          break;
         case "item":
           record.items.push(inner.item);
           break;

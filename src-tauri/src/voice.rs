@@ -26,7 +26,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{Notify, mpsc, oneshot};
 use tokio::task::{AbortHandle, JoinHandle};
 
-use crate::answer_stream::{AnswerMsg, AnswerStream};
+use crate::answer_stream::{AnswerMsg, AnswerStream, model_chip};
 use crate::flight::Flight;
 use crate::mic::Microphone;
 use crate::pointing::{Pointing, stop_pointing};
@@ -116,6 +116,20 @@ pub struct VoiceLoop {
     _driver: PttDriver,
 }
 
+enum Input {
+    Ptt(PttEvent),
+    Text(String),
+}
+
+struct TextQuestions(mpsc::UnboundedSender<Input>);
+
+/// Queues a text question on the voice loop, with the same barge-in as a new press.
+pub(crate) fn ask_text(app: &AppHandle, text: String) {
+    if let Some(questions) = app.try_state::<TextQuestions>() {
+        let _ = questions.0.send(Input::Text(text));
+    }
+}
+
 /// Starts the loop when a proxy and an invite are known (`proxy_config`); None otherwise
 /// (logged).
 pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
@@ -124,8 +138,9 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
         .map_err(|error| eprintln!("voice: {error}"))
         .ok()?;
     let (events, receiver) = mpsc::unbounded_channel();
+    let questions = events.clone();
     let driver = ptt::spawn(PttSettings::default(), move |event| {
-        let _ = events.send(event);
+        let _ = events.send(Input::Ptt(event));
     })
     .map_err(|error| eprintln!("voice: push-to-talk: {error}"))
     .ok()?;
@@ -135,6 +150,7 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     // For the outlines SAM 3.1 draws when a point is on nothing UI Automation lists, and
     // for signing in.
     app.manage(proxy.clone());
+    app.manage(TextQuestions(questions));
     tauri::async_runtime::spawn(run(app.clone(), proxy, receiver, silencer));
     Some(VoiceLoop { _driver: driver })
 }
@@ -249,10 +265,11 @@ struct Session {
 }
 
 impl Session {
-    fn abort(mut self) {
+    async fn abort(mut self) {
         self.transcript_abort.abort();
         if let Some(task) = self.answer.take() {
             task.abort();
+            let _ = task.await;
         }
         // Dropping the microphone without stop() ends it without its last frame; its
         // destructor joins the capture thread, so not on a runtime worker.
@@ -265,7 +282,7 @@ impl Session {
 async fn run(
     app: AppHandle,
     proxy: Proxy,
-    mut events: mpsc::UnboundedReceiver<PttEvent>,
+    mut events: mpsc::UnboundedReceiver<Input>,
     silencer: ptt::Silencer,
 ) {
     let phrases: Phrases = Arc::default();
@@ -273,7 +290,45 @@ async fn run(
     let stream = app.state::<AnswerStream>();
     let mut current: Option<Session> = None;
     let lessons: Lessons = Arc::default();
+    // Driver generations identify recordings (including VAD); answer generations also
+    // include tray questions and must never collide with a later press.
+    let mut next_generation = 0u64;
+    let mut recording = None;
     while let Some(event) = events.recv().await {
+        let (event, text) = match event {
+            Input::Text(text) => {
+                next_generation += 1;
+                recording = None;
+                (
+                    PttEvent::Start {
+                        generation: next_generation,
+                    },
+                    Some(text),
+                )
+            }
+            Input::Ptt(PttEvent::Start { generation }) => {
+                next_generation += 1;
+                recording = Some((generation, next_generation));
+                (
+                    PttEvent::Start {
+                        generation: next_generation,
+                    },
+                    None,
+                )
+            }
+            Input::Ptt(PttEvent::Stop { generation, reason }) => {
+                let Some((_, generation)) = recording.filter(|(raw, _)| *raw == generation) else {
+                    continue;
+                };
+                (PttEvent::Stop { generation, reason }, None)
+            }
+            Input::Ptt(PttEvent::Cancel { generation }) => {
+                let Some((_, generation)) = recording.filter(|(raw, _)| *raw == generation) else {
+                    continue;
+                };
+                (PttEvent::Cancel { generation }, None)
+            }
+        };
         match event {
             PttEvent::Start { generation } => {
                 let lesson = live_lesson(&lessons);
@@ -291,7 +346,7 @@ async fn run(
                             generation: previous.generation,
                         });
                     }
-                    previous.abort();
+                    previous.abort().await;
                 }
                 if let Some(lesson) = lesson {
                     // Playback needs a sentence-only interruption: Cancel permanently
@@ -303,6 +358,38 @@ async fn run(
                 } else {
                     stop_pointing(&app);
                 }
+                if let Some(text) = text {
+                    let transcript = tokio::spawn(async move {
+                        // The tray has closed; let Windows restore the person's foreground
+                        // window before the shared answer path takes its redacted look.
+                        tokio::time::sleep(Duration::from_millis(300)).await;
+                        Ok(Transcript {
+                            text,
+                            ended_at: None,
+                        })
+                    });
+                    let transcript_abort = transcript.abort_handle();
+                    stream.send(AnswerMsg::State {
+                        generation,
+                        state: "thinking",
+                    });
+                    current = Some(Session {
+                        generation,
+                        microphone: None,
+                        transcript: None,
+                        transcript_abort,
+                        answer: Some(tokio::spawn(answer(
+                            app.clone(),
+                            proxy.clone(),
+                            phrases.clone(),
+                            generation,
+                            tokio::time::Instant::now() + ACK_AFTER,
+                            transcript,
+                            Arc::clone(&lessons),
+                        ))),
+                    });
+                    continue;
+                }
                 stream.send(AnswerMsg::State {
                     generation,
                     state: "listening",
@@ -312,6 +399,7 @@ async fn run(
                 // ends the recording after the speech (ptt.rs ignores it when held).
                 let heard = app.clone();
                 let silencer = silencer.clone();
+                let driver_generation = recording.unwrap().0;
                 let mut detector = mm_core::vad::SilenceDetector::new();
                 let mut frame_ms = 0u64;
                 let on_level = move |level: f32| {
@@ -321,7 +409,7 @@ async fn run(
                     });
                     frame_ms += 80;
                     if detector.input(level, frame_ms).is_some() {
-                        silencer.silence(generation);
+                        silencer.silence(driver_generation);
                     }
                 };
                 let opened =
@@ -404,7 +492,7 @@ async fn run(
             }
             PttEvent::Cancel { generation } => {
                 if let Some(session) = current.take_if(|s| s.generation == generation) {
-                    session.abort();
+                    session.abort().await;
                     stream.send(AnswerMsg::State {
                         generation,
                         state: "idle",
@@ -701,6 +789,11 @@ async fn answer(
         let result = proxy
             .respond(CallKind::Answer, &body, |delta| emit(parser.push(delta)))
             .await;
+        if let Ok(answer) = &result
+            && let Some(model) = model_chip(answer.model.as_deref())
+        {
+            stream.send(AnswerMsg::Model { generation, model });
+        }
         emit(parser.finish());
         // The parser never invents `<end>` at EOF, and the model often omits it: the
         // timeline always ends here, so the player reaches `End` and Mate goes idle.

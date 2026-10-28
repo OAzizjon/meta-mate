@@ -169,17 +169,18 @@ pub fn run() {
 /// Tray menu ids.
 const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
+const TRY_QUESTIONS: [&str; 3] = ["tray.try_start", "tray.try_safe", "tray.try_bigger"];
 /// The settings window's label (capabilities/default.json) and page (src/settings.ts).
 const SETTINGS_WINDOW: &str = "settings";
 const SETTINGS_PAGE: &str = "settings.html";
 
-/// The tray icon (the app icon) with "Settings" and "Quit", in the UI locale Mate's window
-/// reports (its `navigator.language` follows the Windows display language): English until
+/// The tray icon (the app icon) with sample questions, "Settings" and "Quit", in the UI
+/// locale Mate's window reports (its `navigator.language` follows the Windows display language): English until
 /// that window subscribes, then relabelled once.
 fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     use std::time::{Duration, Instant};
     use tauri::Manager;
-    use tauri::menu::{Menu, MenuItem};
+    use tauri::menu::{Menu, MenuItem, Submenu};
     use tauri::tray::TrayIconBuilder;
 
     let locale = app.state::<answer_stream::AnswerStream>().locale();
@@ -197,7 +198,17 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
-    let menu = Menu::with_items(app, &[&settings_item, &quit_item])?;
+    let try_items = TRY_QUESTIONS
+        .iter()
+        .map(|key| MenuItem::with_id(app, *key, locale_text(&locale, key), true, None::<&str>))
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let try_menu = Submenu::with_items(
+        app,
+        locale_text(&locale, "tray.try_title"),
+        true,
+        &[&try_items[0], &try_items[1], &try_items[2]],
+    )?;
+    let menu = Menu::with_items(app, &[&try_menu, &settings_item, &quit_item])?;
     let mut builder = TrayIconBuilder::new()
         .menu(&menu)
         .tooltip(format!(
@@ -213,6 +224,12 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 tauri::async_runtime::spawn(async move { open_settings(&app) });
             }
             MENU_QUIT => app.exit(0),
+            #[cfg(windows)]
+            key if TRY_QUESTIONS.contains(&key) => {
+                let text = locale_text(&app.state::<answer_stream::AnswerStream>().locale(), key);
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move { voice::ask_text(&app, text) });
+            }
             _ => {}
         });
     if let Some(icon) = app.default_window_icon() {
@@ -230,6 +247,10 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         let locale = stream.locale();
         let _ = settings_item.set_text(locale_text(&locale, "tray.settings"));
         let _ = quit_item.set_text(locale_text(&locale, "tray.quit"));
+        let _ = try_menu.set_text(locale_text(&locale, "tray.try_title"));
+        for (item, key) in try_items.iter().zip(TRY_QUESTIONS) {
+            let _ = item.set_text(locale_text(&locale, key));
+        }
         let _ = tray.set_tooltip(Some(format!(
             "{}: {}",
             mm_core::constants::APP_NAME,
@@ -291,7 +312,10 @@ mod tests {
     #[test]
     fn the_tray_menu_has_both_languages() {
         for locale in ["en", "ru"] {
-            for key in ["tray.settings", "tray.quit"] {
+            for key in ["tray.settings", "tray.quit", "tray.try_title"]
+                .into_iter()
+                .chain(TRY_QUESTIONS)
+            {
                 let text = locale_text(locale, key);
                 assert!(!text.is_empty() && text != key, "{locale} {key}");
             }

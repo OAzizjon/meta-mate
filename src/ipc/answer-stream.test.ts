@@ -7,6 +7,7 @@ import { inspect } from "node:util";
 
 import {
   ANSWER_LINE_KEYS,
+  ANSWER_MODELS,
   ANSWER_STATES,
   decodePcm,
   parseAnswerMsg,
@@ -36,6 +37,7 @@ test("every message type parses into a fresh copy", () => {
     ...ANSWER_STATES.map((state) => ({ type: "state", generation: 0, state })),
     LEVEL,
     HEARD,
+    ...ANSWER_MODELS.map((model) => ({ type: "model", generation: 1, model })),
     { type: "level", generation: 0, level: 0 },
     { type: "level", generation: 2, level: 1 },
     ITEM,
@@ -195,6 +197,12 @@ const MALFORMED: unknown[] = [
   { ...PCM, text: "Hi." },
   { type: "pcm", generation: 2, sentence: 1, sample_rate: 16000, eos: true, samples_b64: "" },
   { type: "line", generation: 1 },
+  { type: "model", generation: 1 },
+  { type: "model", generation: 1, model: "muse-spark-1.3", extra: true },
+  ...NOT_IDS.map((generation) => ({ type: "model", generation, model: "muse-spark-1.3" })),
+  ...[null, 1, {}, "", "Muse Spark 1.3", "muse-spark-preview", "sam-3.1 "].map(
+    (model) => ({ type: "model", generation: 1, model }),
+  ),
   ...NOT_IDS.map((generation) => ({ ...CANCEL, generation })),
   ...NOT_IDS.map((generation) => ({ ...STATE, generation })),
   ...NOT_IDS.map((generation) => ({ ...LEVEL, generation })),
@@ -288,15 +296,17 @@ test("the subscription routes parsed messages and drops the rest without their t
   fake.send({ type: "Private words" });
   fake.send(STATE);
   fake.send(HEARD);
+  const model = { type: "model", generation: 1, model: "muse-spark-1.3" };
+  fake.send(model);
   fake.send({ ...HEARD, text: "Private words".repeat(30) });
-  assert.deepEqual(received, [CANCEL, STATE, HEARD]);
+  assert.deepEqual(received, [CANCEL, STATE, HEARD, model]);
   assert.equal(warn.mock.callCount(), 3);
   for (const call of warn.mock.calls) {
     assert.ok(!inspect(call.arguments).includes("Private"));
   }
   unsubscribe();
   fake.send(CANCEL);
-  assert.equal(received.length, 3);
+  assert.equal(received.length, 4);
 });
 
 test("messages that arrive while subscribing are delivered", async () => {

@@ -38,6 +38,20 @@ body {
   display: none;
 }
 
+.mate-model-chip {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #eeece5;
+  color: #666974;
+  font-size: 11px;
+}
+
+.mate-model-chip[hidden] {
+  display: none;
+}
+
 /* First-run onboarding prompt (src/onboarding.ts), below Mate; `hidden` removes it. */
 #mate-onboarding {
   position: fixed;

@@ -7,7 +7,8 @@ import { createAudioEngine } from "./audio";
 import { getLocale, setLocale, t } from "./i18n";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
-import type { AnswerMsg } from "./ipc/answer-stream";
+import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
+import type { LocaleKey } from "./i18n";
 import { mountOnboarding, setOnboardingTranslator, stopOnboarding } from "./onboarding";
 import { createTimelinePlayer } from "./player";
 import { isRobotMood, isRobotState, mountRobot } from "./robot";
@@ -29,6 +30,13 @@ const CANT_FIND_BUBBLE_MS = 3000;
 const DONE_BUBBLE_MS = 1500;
 const LESSON_INTERRUPT_EVENT = "lesson-interrupt";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+const MODEL_KEYS: Readonly<Record<AnswerModel, LocaleKey>> = {
+  "muse-spark-1.3": "model.muse_spark",
+  "muse-wonder-1.0": "model.muse_wonder",
+  "sam-3.1": "model.sam",
+  "muse-voice-transcribe-1.0": "model.voice_transcribe",
+};
 
 const tauriInvoke: SettingsInvoke = async (cmd, args) => {
   const { invoke } = await import("@tauri-apps/api/core");
@@ -76,6 +84,7 @@ function devHook(robot: RobotController, setUiLocale: (locale: LocaleCode) => vo
 }
 
 interface Bubble {
+  setModel(model: AnswerModel | null): void;
   /** Shows `text` (null hides the bubble), for `ms` when given. */
   show(text: string | null, ms?: number): void;
   /** Hides the bubble after `ms`, unless something else is shown first. */
@@ -83,16 +92,26 @@ interface Bubble {
 }
 
 function mountBubble(element: HTMLElement): Bubble {
+  const textElement = document.createElement("div");
+  const chip = document.createElement("span");
+  chip.className = "mate-model-chip";
+  chip.hidden = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const show = (text: string | null, ms?: number): void => {
     clearTimeout(timer);
     timer = undefined;
     // textContent only: answer text is never parsed as markup.
-    element.textContent = text ?? "";
+    textElement.textContent = text ?? "";
+    // Onboarding shares this element and may have replaced its children.
+    element.replaceChildren(textElement, chip);
     element.hidden = text === null;
     if (text !== null && ms !== undefined) timer = setTimeout(() => show(null), ms);
   };
   return {
+    setModel(model) {
+      chip.textContent = model === null ? "" : t(MODEL_KEYS[model]);
+      chip.hidden = model === null;
+    },
     show,
     hideAfter(ms) {
       clearTimeout(timer);
@@ -188,7 +207,11 @@ async function createRouter(
   let listening = false;
   let listeningGeneration: number | null = null;
   let showingHeard = false;
+  let generation = -1;
+  let idle = false;
   const setState = (state: RobotState): void => {
+    idle = state === "idle";
+    if (idle) bubble.setModel(null);
     if (listening && state !== "listening") {
       listening = false;
       listeningGeneration = null;
@@ -219,17 +242,27 @@ async function createRouter(
       bubble.show(t("robot.cant_find"), CANT_FIND_BUBBLE_MS);
       return new Promise<void>((resolve) => setTimeout(resolve, CANT_FIND_BUBBLE_MS));
     },
-    onDone(generation) {
+    onDone(doneGeneration) {
+      if (doneGeneration !== generation) return;
       setState("idle");
       bubble.hideAfter(DONE_BUBBLE_MS);
       // Every sentence before `End` was played out: the worklet reported its end.
-      void reportPlayback("done", generation);
+      void reportPlayback("done", doneGeneration);
     },
   });
   return (msg) => {
+    if (msg.generation < generation) return;
+    if (msg.generation > generation) {
+      generation = msg.generation;
+      idle = false;
+      bubble.setModel(null);
+    }
     // The first sign of a real answer ends the first-run examples.
     stopOnboarding();
     switch (msg.type) {
+      case "model":
+        if (!idle) bubble.setModel(msg.model);
+        return;
       case "state":
         setState(msg.state);
         if (msg.state === "listening") {

@@ -13,6 +13,11 @@ import type { TimelineItem } from "./timeline.ts";
 export const ANSWER_STATES = ["listening", "looking", "thinking", "idle"] as const;
 export type AnswerState = (typeof ANSWER_STATES)[number];
 
+export const ANSWER_MODELS = [
+  "muse-spark-1.3", "muse-wonder-1.0", "sam-3.1", "muse-voice-transcribe-1.0",
+] as const;
+export type AnswerModel = (typeof ANSWER_MODELS)[number];
+
 /** The locale lines Rust may show in the bubble (it may send their audio as sentence 0). */
 export const ANSWER_LINE_KEYS = [
   "robot.network_error",
@@ -43,6 +48,7 @@ export type AnswerLineKey = (typeof ANSWER_LINE_KEYS)[number];
 
 /** `AnswerMsg`, with the timeline item already validated. */
 export type AnswerMsg =
+  | { readonly type: "model"; readonly generation: number; readonly model: AnswerModel }
   | { readonly type: "state"; readonly generation: number; readonly state: AnswerState }
   | { readonly type: "level"; readonly generation: number; readonly level: number }
   | { readonly type: "heard"; readonly generation: number; readonly text: string }
@@ -66,6 +72,7 @@ type JsonObject = Readonly<Record<string, unknown>>;
 
 /** The exact keys of each message on the wire. */
 const KEYS: Readonly<Record<AnswerType, readonly string[]>> = {
+  model: ["type", "generation", "model"],
   state: ["type", "generation", "state"],
   level: ["type", "generation", "level"],
   heard: ["type", "generation", "text"],
@@ -100,6 +107,12 @@ function parseMsg(raw: unknown): AnswerMsg | null {
   const { generation } = msg;
   if (!isId(generation)) return null;
   switch (type) {
+    case "model": {
+      const { model } = msg;
+      return typeof model === "string" && (ANSWER_MODELS as readonly string[]).includes(model)
+        ? { type, generation, model: model as AnswerModel }
+        : null;
+    }
     case "state": {
       const { state } = msg;
       return isAnswerState(state) ? { type, generation, state } : null;

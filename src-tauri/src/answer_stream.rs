@@ -49,6 +49,11 @@ pub enum AnswerMsg {
         generation: u64,
         text: String,
     },
+    /// A closed display id, never the proxy's raw model header.
+    Model {
+        generation: u64,
+        model: &'static str,
+    },
     /// The microphone's RMS level (0..=1) while listening, ~12 Hz: Mate's ears move.
     Level {
         generation: u64,
@@ -80,6 +85,49 @@ const REPORTS: [&str; 7] = [
     "trace",
 ];
 const KEPT_REPORTS: usize = 64;
+
+/// Normalize the served model to a closed display id; absent/unknown headers stay hidden.
+pub fn model_chip(served: Option<&str>) -> Option<&'static str> {
+    match served {
+        Some(model) if model.starts_with("muse-spark") => Some("muse-spark-1.3"),
+        Some(model) if model.starts_with("muse-wonder") => Some("muse-wonder-1.0"),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod model_tests {
+    use super::{AnswerMsg, model_chip};
+
+    #[test]
+    fn model_message_uses_the_answer_wire_format() {
+        let message = AnswerMsg::Model {
+            generation: 7,
+            model: "muse-spark-1.3",
+        };
+        assert_eq!(
+            serde_json::to_value(message).unwrap(),
+            serde_json::json!({"type": "model", "generation": 7, "model": "muse-spark-1.3"})
+        );
+    }
+
+    #[test]
+    fn only_known_served_prefixes_become_chips() {
+        for (served, expected) in [
+            (Some("muse-spark-1.3"), Some("muse-spark-1.3")),
+            (Some("muse-spark-preview"), Some("muse-spark-1.3")),
+            (Some("muse-wonder-1.0"), Some("muse-wonder-1.0")),
+            (Some("muse-wonder-preview"), Some("muse-wonder-1.0")),
+            (None, None),
+            (Some(""), None),
+            (Some("other-muse-spark"), None),
+            (Some("sam-3.1"), None),
+            (Some("muse-voice-transcribe-1.0"), None),
+        ] {
+            assert_eq!(model_chip(served), expected);
+        }
+    }
+}
 
 impl AnswerStream {
     /// Whether `generation` was cancelled (a newer press): its work must not touch the
@@ -140,6 +188,7 @@ impl AnswerStream {
             | AnswerMsg::Pcm { generation, .. }
             | AnswerMsg::Line { generation, .. }
             | AnswerMsg::Heard { generation, .. }
+            | AnswerMsg::Model { generation, .. }
             | AnswerMsg::Level { generation, .. } => {
                 if cancelled.is_some_and(|through| *generation <= through) {
                     return;
