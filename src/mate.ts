@@ -264,7 +264,7 @@ async function createRouter(
     onDone(doneGeneration) {
       if (doneGeneration !== generations.answer) return;
       present("state", () => setState("idle"));
-      present("bubble", () => bubble.hideAfter(DONE_BUBBLE_MS));
+      present("bubble-hide", () => bubble.hideAfter(DONE_BUBBLE_MS));
       // Every sentence before `End` was played out: the worklet reported its end.
       void reportPlayback("done", doneGeneration);
     },

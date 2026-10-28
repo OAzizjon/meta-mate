@@ -456,6 +456,7 @@ fn look_once(
         return Err(LookFailure::Changed);
     }
     let painted = painted_areas(target.region, target.frame, &target.popups, &occluders);
+    require_visible_frame(target.frame, &painted)?;
     // Development builds: where a look's time goes (sizes and times only, never names).
     #[cfg(debug_assertions)]
     eprintln!(
@@ -620,6 +621,13 @@ pub fn probe() -> serde_json::Value {
     serde_json::json!({"popups": target.popup_hwnds.len(), "region": format!("{:?}", target.region), "runs": runs})
 }
 
+fn require_visible_frame(frame: PhysRect, painted: &[PhysRect]) -> Result<(), LookFailure> {
+    if mm_core::geom::uncovered(frame, painted).is_empty() {
+        return Err(LookFailure::NoWindow);
+    }
+    Ok(())
+}
+
 fn clip(rect: PhysRect, to: PhysRect) -> Option<PhysRect> {
     PhysRect::new(
         rect.left.max(to.left),
@@ -642,6 +650,19 @@ mod tests {
         right: 500,
         bottom: 350,
     };
+
+    #[test]
+    fn completely_covered_frame_fails_but_a_visible_strip_passes() {
+        let left = PhysRect::new(100, 50, 300, 350).unwrap();
+        let right = PhysRect::new(300, 50, 500, 350).unwrap();
+        assert!(matches!(
+            require_visible_frame(REGION, &[left, right]),
+            Err(LookFailure::NoWindow)
+        ));
+        let almost_right = PhysRect::new(300, 50, 499, 350).unwrap();
+        assert!(require_visible_frame(REGION, &[left, almost_right]).is_ok());
+        assert!(require_visible_frame(REGION, &[]).is_ok());
+    }
 
     fn element(id: &str, control_type: &str, name: &str, rect: PhysRect) -> UiElement {
         UiElement {

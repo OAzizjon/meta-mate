@@ -498,6 +498,7 @@ mod tests {
 
     fn key(vk: u32, down: bool, at: Instant) -> KeyEvent {
         KeyEvent {
+            foreground: None,
             vk,
             down,
             injected: false,

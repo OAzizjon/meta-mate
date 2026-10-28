@@ -96,3 +96,14 @@ test("superseding a lesson discards its held visual changes", () => {
   presentation.apply("bubble", false, () => shown.push("new answer"));
   assert.deepEqual(shown, ["new answer"]);
 });
+
+test("a held closing bubble shows before its hide timer starts", () => {
+  const presentation = new HeldPresentation();
+  const shown: string[] = [];
+  presentation.apply("bubble", true, () => shown.push("cached line"));
+  presentation.apply("bubble", true, () => shown.push("closing sentence"));
+  presentation.apply("bubble-hide", true, () => shown.push("hide after"));
+  assert.deepEqual(shown, []);
+  presentation.release();
+  assert.deepEqual(shown, ["closing sentence", "hide after"]);
+});

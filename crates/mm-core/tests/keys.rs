@@ -3,6 +3,7 @@ use mm_core::teacher::{ChordRecognizer, TeacherInput, canonical_key_name, vk_to_
 fn assert_chord(input: Option<TeacherInput>, expected: &[&str], injected: bool, now_ms: u64) {
     match input {
         Some(TeacherInput::KeyChord {
+            foreground: _,
             mut keys,
             injected: actual_injected,
             now_ms: actual_ms,
@@ -220,4 +221,34 @@ fn repeats_preserve_age_and_injection_and_backward_time_is_clamped() {
     keys.key(0x11, true, false, 200);
     keys.key(0x11, true, false, 2000);
     assert_chord(keys.key(0x41, true, false, 2201), &["a"], false, 2201);
+}
+
+#[test]
+fn chords_keep_the_key_down_window() {
+    use mm_core::teacher::KeyWindow;
+    let app = Some(KeyWindow {
+        handle: 12,
+        process_id: 34,
+    });
+    let other = Some(KeyWindow {
+        handle: 56,
+        process_id: 78,
+    });
+    let mut keys = ChordRecognizer::new();
+    keys.key_in_window(0xA2, true, false, 1, app);
+    // A solo modifier is emitted on release, after the app may have moved focus.
+    let tap = keys.key_in_window(0xA2, false, false, 2, other);
+    assert!(matches!(tap, Some(TeacherInput::KeyChord { foreground, .. }) if foreground == app));
+    keys.key_in_window(0xA2, true, false, 3, other);
+    // For a chord, the action key owns the window, rather than the modifier.
+    let chord = keys.key_in_window(0x4E, true, false, 4, app);
+    assert!(matches!(chord, Some(TeacherInput::KeyChord { foreground, .. }) if foreground == app));
+    let unknown = keys.key_in_window(0x1B, true, false, 5, None);
+    assert!(matches!(
+        unknown,
+        Some(TeacherInput::KeyChord {
+            foreground: None,
+            ..
+        })
+    ));
 }

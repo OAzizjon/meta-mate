@@ -29,6 +29,7 @@ export const ANSWER_LINE_KEYS = [
   "robot.other_monitor",
   "robot.window_closed",
   // The teacher (src-tauri/src/teacher.rs line_key) and its idle limit.
+  "robot.click_app_first",
   "robot.wrong_place",
   "robot.right_click",
   "robot.right_click_2",

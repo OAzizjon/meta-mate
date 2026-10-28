@@ -4,6 +4,13 @@ use crate::ptt::STALE_KEY_MS;
 
 use super::TeacherInput;
 
+/// The foreground window at key-down, before the app can react to the key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KeyWindow {
+    pub handle: u64,
+    pub process_id: u32,
+}
+
 /// Model key names from virtual-key codes, independent of the keyboard layout.
 pub fn vk_to_key_name(vk: u32) -> Option<&'static str> {
     const LETTERS: [&str; 26] = [
@@ -78,7 +85,7 @@ fn is_modifier(vk: u32) -> bool {
 pub struct ChordRecognizer {
     now_ms: u64,
     modifiers: BTreeMap<&'static str, (u64, bool)>,
-    pending_solo_modifier: Option<(&'static str, bool)>,
+    pending_solo_modifier: Option<(&'static str, bool, Option<KeyWindow>)>,
 }
 
 impl ChordRecognizer {
@@ -94,10 +101,21 @@ impl ChordRecognizer {
         injected: bool,
         now_ms: u64,
     ) -> Option<TeacherInput> {
+        self.key_in_window(vk, down, injected, now_ms, None)
+    }
+
+    pub fn key_in_window(
+        &mut self,
+        vk: u32,
+        down: bool,
+        injected: bool,
+        now_ms: u64,
+        foreground: Option<KeyWindow>,
+    ) -> Option<TeacherInput> {
         self.now_ms = self.now_ms.max(now_ms);
         self.modifiers
             .retain(|_, (at, _)| self.now_ms.saturating_sub(*at) <= STALE_KEY_MS);
-        if let Some((name, _)) = self.pending_solo_modifier
+        if let Some((name, _, _)) = self.pending_solo_modifier
             && !self.modifiers.contains_key(name)
         {
             self.pending_solo_modifier = None;
@@ -109,12 +127,12 @@ impl ChordRecognizer {
                 if let Some((_, was_injected)) = self.modifiers.get_mut(name) {
                     // Repeats preserve the original timestamp and software provenance.
                     *was_injected |= injected;
-                    if let Some((_, pending_injected)) = &mut self.pending_solo_modifier {
+                    if let Some((_, pending_injected, _)) = &mut self.pending_solo_modifier {
                         *pending_injected |= injected;
                     }
                 } else {
                     self.pending_solo_modifier = if self.modifiers.is_empty() {
-                        Some((name, injected))
+                        Some((name, injected, foreground))
                     } else {
                         None
                     };
@@ -122,11 +140,12 @@ impl ChordRecognizer {
                 }
             } else {
                 let (_, was_injected) = self.modifiers.remove(name)?;
-                if let Some((pending, pending_injected)) = self.pending_solo_modifier
+                if let Some((pending, pending_injected, foreground)) = self.pending_solo_modifier
                     && pending == name
                 {
                     self.pending_solo_modifier = None;
                     return Some(TeacherInput::KeyChord {
+                        foreground,
                         keys: vec![name.into()],
                         injected: injected || was_injected || pending_injected,
                         now_ms: self.now_ms,
@@ -144,6 +163,7 @@ impl ChordRecognizer {
         let mut keys: Vec<String> = self.modifiers.keys().map(|key| (*key).into()).collect();
         keys.push(name.into());
         Some(TeacherInput::KeyChord {
+            foreground,
             keys,
             injected: injected || self.modifiers.values().any(|(_, injected)| *injected),
             now_ms: self.now_ms,

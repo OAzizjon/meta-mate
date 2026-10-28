@@ -42,6 +42,7 @@ pub enum TeacherInput {
         now_ms: u64,
     },
     KeyChord {
+        foreground: Option<super::KeyWindow>,
         keys: Vec<String>,
         injected: bool,
         now_ms: u64,
@@ -120,6 +121,7 @@ impl fmt::Debug for TeacherInput {
                 keys,
                 injected,
                 now_ms,
+                ..
             } => f
                 .debug_struct("KeyChord")
                 .field("keys", &keys.len())

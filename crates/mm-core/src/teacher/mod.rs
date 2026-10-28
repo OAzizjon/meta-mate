@@ -21,7 +21,7 @@ pub use clicks::ClickRecognizer;
 pub use command::TeacherCommand;
 pub use config::TeacherConfig;
 pub use input::TeacherInput;
-pub use keys::{ChordRecognizer, canonical_key_name, vk_to_key_name};
+pub use keys::{ChordRecognizer, KeyWindow, canonical_key_name, vk_to_key_name};
 pub use line::LineKey;
 pub use model::ModelChoice;
 pub use refusal::RefusalReason;

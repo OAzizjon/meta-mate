@@ -233,6 +233,7 @@ fn double_click_and_key_chord_complete_in_order() {
     assert!(
         teacher
             .input(Input::KeyChord {
+                foreground: None,
                 keys: vec!["S".into()],
                 injected: false,
                 now_ms: 3
@@ -241,6 +242,7 @@ fn double_click_and_key_chord_complete_in_order() {
     );
     assert_eq!(
         teacher.input(Input::KeyChord {
+            foreground: None,
             keys: vec!["s".into(), "ctrl".into()],
             injected: false,
             now_ms: 4
@@ -371,6 +373,7 @@ fn passive_steps_and_speech_never_acknowledge_safety_checks() {
     assert!(
         teacher
             .input(Input::KeyChord {
+                foreground: None,
                 keys: vec!["Enter".into()],
                 injected: false,
                 now_ms: 602
@@ -494,7 +497,7 @@ proptest! {
                 0 => turn(vec![click_action()]),
                 1 => click(x, now_ms),
                 2 => Input::DoubleClick { at: PhysPoint { x, y: x }, left: x % 2 == 0, injected: x % 3 == 0, now_ms },
-                3 => Input::KeyChord { keys: vec![x.to_string()], injected: x % 5 == 0, now_ms },
+                3 => Input::KeyChord { foreground: None, keys: vec![x.to_string()], injected: x % 5 == 0, now_ms },
                 4 => Input::ValueChanged { text: x.to_string(), now_ms },
                 5 => Input::UserSaidNext { now_ms },
                 6 => Input::ScreenChangedUnexpectedly { now_ms },
@@ -586,6 +589,7 @@ fn right_and_injected_clicks_and_keys_never_complete_a_step() {
         keys: vec!["Enter".into()],
     }]));
     let injected = keys.input(Input::KeyChord {
+        foreground: None,
         keys: vec!["Enter".into()],
         injected: true,
         now_ms: 1,
@@ -921,6 +925,7 @@ fn debug_hides_typed_values_keys_and_spoken_lines() {
     let keys = format!(
         "{:?}",
         Input::KeyChord {
+            foreground: None,
             keys: vec!["secret".into()],
             injected: false,
             now_ms: 1
@@ -1198,4 +1203,38 @@ fn offers_are_opt_in_left_click_only_and_automatic_offer_is_once_per_step() {
     assert!(!custom.input(click(200, 1)).contains(&offer()));
     assert!(!custom.input(click(200, 2)).contains(&offer()));
     assert!(custom.input(click(200, 3)).contains(&offer()));
+}
+
+#[test]
+fn key_match_for_focus_hint_requires_the_active_human_chord() {
+    let mut teacher = Teacher::new(TeacherConfig {
+        keyboard_steps: true,
+        ..TeacherConfig::default()
+    });
+    let chord = Input::KeyChord {
+        foreground: None,
+        keys: vec!["control".into(), "+".into()],
+        injected: false,
+        now_ms: 10,
+    };
+    assert!(!teacher.matches_key_chord(&chord));
+    teacher.input(turn(vec![Action::Keypress {
+        keys: vec!["CTRL".into(), "plus".into()],
+    }]));
+    assert!(teacher.matches_key_chord(&chord));
+    assert!(teacher.matches_key_chord(&chord)); // Matching never consumes the step.
+    assert!(!teacher.matches_key_chord(&Input::KeyChord {
+        foreground: None,
+        keys: vec!["ctrl".into(), "plus".into()],
+        injected: true,
+        now_ms: 10,
+    }));
+    assert!(!teacher.matches_key_chord(&Input::KeyChord {
+        foreground: None,
+        keys: vec!["esc".into()],
+        injected: false,
+        now_ms: 10,
+    }));
+    teacher.input(chord.clone());
+    assert!(!teacher.matches_key_chord(&chord));
 }

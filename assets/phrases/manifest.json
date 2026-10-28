@@ -15,6 +15,11 @@
       "ms": 4064,
       "text_sha256": "563e90442fac0743ea3ea51b1fc4dca382699bf89ab185f39ab978a8da9c4f6d"
     },
+    "robot.click_app_first": {
+      "file": "en/robot.click_app_first.wav",
+      "ms": 2752,
+      "text_sha256": "8e36932bd3399eb481bb552cb4519b4389703b991a49384e2a2903aac3319018"
+    },
     "robot.do_it_for_me": {
       "file": "en/robot.do_it_for_me.wav",
       "ms": 4816,
@@ -171,6 +176,11 @@
       "file": "ru/robot.checking_safety.wav",
       "ms": 4752,
       "text_sha256": "4f945359fac424b7064110a2e40ff7b5409351f48e4816efb9e90f954c8a6c58"
+    },
+    "robot.click_app_first": {
+      "file": "ru/robot.click_app_first.wav",
+      "ms": 4800,
+      "text_sha256": "255ebca6e4fd5406cab467a661e696a74f7dff5b92a6630f67157be93369a78a"
     },
     "robot.do_it_for_me": {
       "file": "ru/robot.do_it_for_me.wav",

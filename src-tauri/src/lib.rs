@@ -169,7 +169,7 @@ pub fn run() {
 /// Tray menu ids.
 const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
-const TRY_QUESTIONS: [&str; 3] = ["tray.try_start", "tray.try_safe", "tray.try_bigger"];
+const TRY_QUESTIONS: [&str; 3] = ["tray.try_search", "tray.try_safe", "tray.try_bigger"];
 /// The settings window's label (capabilities/default.json) and page (src/settings.ts).
 const SETTINGS_WINDOW: &str = "settings";
 const SETTINGS_PAGE: &str = "settings.html";

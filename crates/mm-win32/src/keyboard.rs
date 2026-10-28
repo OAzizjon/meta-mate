@@ -17,9 +17,10 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_RCONTROL};
 use windows::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, GetMessageW, HHOOK, KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLKHF_LOWER_IL_INJECTED,
-    LLKHF_UP, MSG, PM_NOREMOVE, PeekMessageW, PostThreadMessageW, SetWindowsHookExW,
-    UnhookWindowsHookEx, WH_KEYBOARD_LL, WM_KEYUP, WM_QUIT, WM_SYSKEYUP, WM_USER,
+    CallNextHookEx, GetForegroundWindow, GetMessageW, GetWindowThreadProcessId, HHOOK,
+    KBDLLHOOKSTRUCT, LLKHF_INJECTED, LLKHF_LOWER_IL_INJECTED, LLKHF_UP, MSG, PM_NOREMOVE,
+    PeekMessageW, PostThreadMessageW, SetWindowsHookExW, UnhookWindowsHookEx, WH_KEYBOARD_LL,
+    WM_KEYUP, WM_QUIT, WM_SYSKEYUP, WM_USER,
 };
 use windows::core::PCWSTR;
 
@@ -29,6 +30,7 @@ pub const RIGHT_CTRL: u32 = VK_RCONTROL.0 as u32;
 /// One key transition as the hook saw it: the virtual-key code only, never a character.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KeyEvent {
+    pub foreground: Option<mm_core::teacher::KeyWindow>,
     pub vk: u32,
     pub down: bool,
     /// Either injected flag: software (`SendInput`, ours included) made it, not a person.
@@ -167,7 +169,18 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         let info = unsafe { &*(lparam.0 as *const KBDLLHOOKSTRUCT) };
         let up =
             (info.flags.0 & LLKHF_UP.0) != 0 || matches!(wparam.0 as u32, WM_KEYUP | WM_SYSKEYUP);
+        // SAFETY: plain window queries; the PID out pointer is local to this callback.
+        let foreground = unsafe {
+            let hwnd = GetForegroundWindow();
+            let mut process_id = 0;
+            let thread = GetWindowThreadProcessId(hwnd, Some(&mut process_id));
+            (thread != 0 && process_id != 0).then_some(mm_core::teacher::KeyWindow {
+                handle: hwnd.0 as u64,
+                process_id,
+            })
+        };
         let event = KeyEvent {
+            foreground,
             vk: info.vkCode,
             down: !up,
             injected: (info.flags.0 & (LLKHF_INJECTED.0 | LLKHF_LOWER_IL_INJECTED.0)) != 0,

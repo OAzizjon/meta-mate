@@ -243,8 +243,13 @@ fn listen_for_keys(started: Instant, inputs: mpsc::UnboundedSender<TeacherInput>
                 }
                 let now_ms =
                     u64::try_from(event.at.duration_since(started).as_millis()).unwrap_or(u64::MAX);
-                if let Some(input) = recognizer.key(event.vk, event.down, event.injected, now_ms)
-                    && inputs.send(input).is_err()
+                if let Some(input) = recognizer.key_in_window(
+                    event.vk,
+                    event.down,
+                    event.injected,
+                    now_ms,
+                    event.foreground,
+                ) && inputs.send(input).is_err()
                 {
                     return;
                 }
@@ -308,6 +313,7 @@ pub(crate) async fn teach(
     let model = ModelChoice::from(crate::settings::model(&app));
     let stream = app.state::<AnswerStream>();
     let started = Instant::now();
+    let mut asked_to_focus = false;
     let now = || u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let mut current = match look(&app, generation, own.clone(), target).await {
         Ok(look) => Arc::new(look),
@@ -707,18 +713,12 @@ pub(crate) async fn teach(
                         finish(&app, &stream, generation);
                         return;
                     };
-                    let stale = match &input {
-                        TeacherInput::KeyChord { now_ms, .. } => {
-                            *now_ms < pointed_ms
-                                || !mm_win32::window::foreground_target(&[])
-                                    .is_some_and(|front| front.window == current.snapshot.target)
-                        }
-                        TeacherInput::Click { now_ms, .. }
-                        | TeacherInput::DoubleClick { now_ms, .. } => {
-                            *now_ms < pointed_ms
-                        }
-                        _ => false,
-                    };
+                    let (stale, focus_only) =
+                        input_staleness(&input, pointed_ms, current.snapshot.target);
+                    if focus_only && !asked_to_focus && teacher.matches_key_chord(&input) {
+                        asked_to_focus = true;
+                        say_line(&stream, &phrases, &locale, generation, "robot.click_app_first");
+                    }
                     if !stale {
                         pending = teacher.input(input);
                         if pending.iter().any(|command| matches!(command,
@@ -741,6 +741,31 @@ pub(crate) async fn teach(
                 }
             }
         }
+    }
+}
+
+/// Whether input is stale, and whether window focus is its only stale condition.
+fn input_staleness(
+    input: &TeacherInput,
+    pointed_ms: u64,
+    target: mm_platform::TargetWindow,
+) -> (bool, bool) {
+    match input {
+        TeacherInput::KeyChord {
+            now_ms, foreground, ..
+        } => {
+            let in_front = foreground.is_some_and(|front| {
+                front.handle == target.handle && front.process_id == target.process_id
+            });
+            (
+                *now_ms < pointed_ms || !in_front,
+                *now_ms >= pointed_ms && !in_front,
+            )
+        }
+        TeacherInput::Click { now_ms, .. } | TeacherInput::DoubleClick { now_ms, .. } => {
+            (*now_ms < pointed_ms, false)
+        }
+        _ => (false, false),
     }
 }
 
@@ -856,6 +881,41 @@ fn finish(app: &AppHandle, stream: &AnswerStream, generation: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chord_staleness_uses_the_event_window_and_step_time() {
+        let target = mm_platform::TargetWindow {
+            handle: 12,
+            process_id: 34,
+        };
+        let chord = |handle, process_id, now_ms| TeacherInput::KeyChord {
+            foreground: Some(mm_core::teacher::KeyWindow { handle, process_id }),
+            keys: vec!["esc".into()],
+            injected: false,
+            now_ms,
+        };
+        // No live foreground query: closing/opening a dialog cannot invalidate this key.
+        assert_eq!(
+            input_staleness(&chord(12, 34, 20), 20, target),
+            (false, false)
+        );
+        assert_eq!(
+            input_staleness(&chord(13, 34, 20), 20, target),
+            (true, true)
+        );
+        assert_eq!(
+            input_staleness(&chord(12, 35, 20), 20, target),
+            (true, true)
+        );
+        assert_eq!(
+            input_staleness(&chord(12, 34, 19), 20, target),
+            (true, false)
+        );
+        assert_eq!(
+            input_staleness(&chord(13, 34, 19), 20, target),
+            (true, false)
+        );
+    }
 
     #[test]
     fn only_wonder_served_by_spark_is_a_fallback() {

@@ -50,6 +50,19 @@ impl Teacher {
         }
     }
 
+    /// Whether a human chord matches the active step, without advancing it.
+    pub fn matches_key_chord(&self, input: &TeacherInput) -> bool {
+        !self.terminal
+            && self.settled_from.is_none()
+            && self.do_it != DoItState::Pressing
+            && matches!(
+                (self.steps.get(self.index).map(|step| &step.action), input),
+                (Some(Action::Keypress { keys }), TeacherInput::KeyChord {
+                    keys: actual, injected: false, ..
+                }) if same_chord(keys, actual)
+            )
+    }
+
     /// Consume one event. Backward timestamps are clamped to the latest time.
     /// Terminal states ignore all later events.
     pub fn input(&mut self, input: TeacherInput) -> Vec<TeacherCommand> {
