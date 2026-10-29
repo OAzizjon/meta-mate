@@ -246,7 +246,8 @@ fn downscale(
     Ok((rgb, width, height))
 }
 
-/// Encode packed RGB8 to an ephemeral in-memory PNG, prioritizing latency.
+/// Encode packed RGB8 to an in-memory PNG with the encoder's default compression: the fast
+/// mode saved ~65 ms but made the upload up to 55x larger (WP113 measurement), a bad trade.
 pub fn encode_png_rgb(rgb: &[u8], width: u32, height: u32) -> Result<Vec<u8>, ShotError> {
     validate(rgb, width, height, 3)?;
     let mut bytes = Vec::new();
@@ -254,8 +255,6 @@ pub fn encode_png_rgb(rgb: &[u8], width: u32, height: u32) -> Result<Vec<u8>, Sh
         let mut encoder = png::Encoder::new(&mut bytes, width, height);
         encoder.set_color(png::ColorType::Rgb);
         encoder.set_depth(png::BitDepth::Eight);
-        encoder.set_compression(png::Compression::Fast);
-        encoder.set_filter(png::Filter::Sub);
         let mut writer = encoder.write_header().map_err(|_| ShotError::PngEncoding)?;
         writer
             .write_image_data(rgb)

@@ -287,7 +287,7 @@ fn default_png(rgb: &[u8], width: u32, height: u32) -> Vec<u8> {
 /// fixture construction, and make no timing assertions. Compare in one build.
 /// Local WP113 sample (test opt-level=3, dependencies=2): box 106.72 -> 92.57 ms;
 /// PNG 119.01 -> 53.41 ms, 62,602 -> 3,417,046 bytes. This high-frequency
-/// synthetic frame exposes Fast's size tradeoff. Unoptimized box timings were
+/// synthetic frame exposed Fast's size tradeoff, so encode_png_rgb keeps the default. Unoptimized box timings were
 /// 1089.01 -> 541.63 ms; PNG was slower unoptimized (119.54 -> 327.06 ms).
 #[test]
 #[ignore = "manual WP113 before/after timings and PNG byte sizes"]
