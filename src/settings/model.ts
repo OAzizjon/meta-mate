@@ -27,6 +27,7 @@ export interface Settings {
   robotSize: "S" | "M" | "L" | "XL";
   reduceMotion: boolean;
   startWithWindows: boolean;
+  showHomeAtStart: boolean;
 }
 
 export const SETTINGS_KEYS = [
@@ -37,6 +38,7 @@ export const SETTINGS_KEYS = [
   "robotSize",
   "reduceMotion",
   "startWithWindows",
+  "showHomeAtStart",
 ] as const satisfies readonly (keyof Settings)[];
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
@@ -47,6 +49,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   robotSize: "M",
   reduceMotion: false,
   startWithWindows: false,
+  showHomeAtStart: true,
 });
 
 /** Returns a fresh mutable copy of `DEFAULT_SETTINGS`. */
@@ -124,6 +127,7 @@ export function parseSettings(raw: unknown): Settings {
     const robotSize = readOwnField(raw, "robotSize");
     const reduceMotion = readOwnField(raw, "reduceMotion");
     const startWithWindows = readOwnField(raw, "startWithWindows");
+    const showHomeAtStart = readOwnField(raw, "showHomeAtStart");
 
     return {
       model: isModelChoice(model) ? model : DEFAULT_SETTINGS.model,
@@ -137,6 +141,8 @@ export function parseSettings(raw: unknown): Settings {
         typeof startWithWindows === "boolean"
           ? startWithWindows
           : DEFAULT_SETTINGS.startWithWindows,
+      showHomeAtStart:
+        typeof showHomeAtStart === "boolean" ? showHomeAtStart : DEFAULT_SETTINGS.showHomeAtStart,
     };
   } catch {
     return defaultSettings();

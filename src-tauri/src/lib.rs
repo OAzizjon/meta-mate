@@ -20,6 +20,7 @@ mod debug_view;
 mod flight;
 #[cfg(windows)]
 mod highlight;
+mod home;
 mod mic;
 mod overlay;
 #[cfg(windows)]
@@ -41,6 +42,8 @@ mod teacher;
 #[cfg(windows)]
 mod voice;
 mod voice_selftest;
+
+use home::TRY_QUESTIONS;
 
 /// Starts the app. Errors at startup are printed and end the process with code 1.
 pub fn run() {
@@ -82,6 +85,9 @@ pub fn run() {
             pointing::point_at,
             settings::load_settings,
             settings::save_settings,
+            home::open_home,
+            home::home_try,
+            open_settings_window,
             auth::auth_status,
             auth::sign_in,
             auth::sign_out
@@ -155,6 +161,21 @@ pub fn run() {
                 use tauri::Manager;
                 app.manage(voice);
             }
+            {
+                use tauri::Manager;
+                if app
+                    .state::<settings::SettingsStore>()
+                    .get()
+                    .show_home_at_start
+                {
+                    let app = app.handle().clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(error) = home::open(&app) {
+                            eprintln!("home: window: {error}");
+                        }
+                    });
+                }
+            }
             #[cfg(not(windows))]
             let _ = (overlays, selftest, control, s3);
             Ok(())
@@ -167,14 +188,14 @@ pub fn run() {
 }
 
 /// Tray menu ids.
+const MENU_HOME: &str = "tray.open_home";
 const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
-const TRY_QUESTIONS: [&str; 3] = ["tray.try_search", "tray.try_safe", "tray.try_bigger"];
 /// The settings window's label (capabilities/default.json) and page (src/settings.ts).
 const SETTINGS_WINDOW: &str = "settings";
 const SETTINGS_PAGE: &str = "settings.html";
 
-/// The tray icon (the app icon) with sample questions, "Settings" and "Quit", in the UI
+/// The tray icon (the app icon) with Home, sample questions, "Settings" and "Quit", in the UI
 /// locale Mate's window reports (its `navigator.language` follows the Windows display language): English until
 /// that window subscribes, then relabelled once.
 fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
@@ -184,6 +205,13 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     use tauri::tray::TrayIconBuilder;
 
     let locale = app.state::<answer_stream::AnswerStream>().locale();
+    let home_item = MenuItem::with_id(
+        app,
+        MENU_HOME,
+        locale_text(&locale, MENU_HOME),
+        true,
+        None::<&str>,
+    )?;
     let settings_item = MenuItem::with_id(
         app,
         MENU_SETTINGS,
@@ -211,7 +239,7 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             .map(|item| item as &dyn tauri::menu::IsMenuItem<_>)
             .collect::<Vec<_>>(),
     )?;
-    let menu = Menu::with_items(app, &[&try_menu, &settings_item, &quit_item])?;
+    let menu = Menu::with_items(app, &[&home_item, &try_menu, &settings_item, &quit_item])?;
     let mut builder = TrayIconBuilder::new()
         .menu(&menu)
         .tooltip(format!(
@@ -220,6 +248,14 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             locale_text(&locale, "tray.tooltip")
         ))
         .on_menu_event(|app, event| match event.id.as_ref() {
+            MENU_HOME => {
+                let app = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = home::open(&app) {
+                        eprintln!("home: window: {error}");
+                    }
+                });
+            }
             MENU_SETTINGS => {
                 // Building a window inside an event handler deadlocks on Windows (WebView2):
                 // the async runtime builds it.
@@ -247,6 +283,7 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
         let locale = stream.locale();
+        let _ = home_item.set_text(locale_text(&locale, MENU_HOME));
         let _ = settings_item.set_text(locale_text(&locale, "tray.settings"));
         let _ = quit_item.set_text(locale_text(&locale, "tray.quit"));
         let _ = try_menu.set_text(locale_text(&locale, "tray.try_title"));
@@ -260,6 +297,12 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         )));
     });
     Ok(())
+}
+
+/// Shares the tray's Settings action, building the WebView off the event thread.
+#[tauri::command]
+async fn open_settings_window(app: tauri::AppHandle) {
+    open_settings(&app);
 }
 
 /// Opens the settings window (560x720, centred), or brings it forward when it is open:
@@ -314,7 +357,7 @@ mod tests {
     #[test]
     fn the_tray_menu_has_both_languages() {
         for locale in ["en", "ru"] {
-            for key in ["tray.settings", "tray.quit", "tray.try_title"]
+            for key in [MENU_HOME, "tray.settings", "tray.quit", "tray.try_title"]
                 .into_iter()
                 .chain(TRY_QUESTIONS)
             {

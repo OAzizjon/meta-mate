@@ -20,6 +20,7 @@ export default defineConfig({
         debug: "debug.html",
         settings: "settings.html",
         card: "card.html",
+        home: "home.html",
       },
     },
   },

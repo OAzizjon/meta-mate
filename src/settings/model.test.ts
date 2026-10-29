@@ -35,9 +35,22 @@ test("defaultSettings returns a fresh copy of the expected defaults", () => {
     robotSize: "M",
     reduceMotion: false,
     startWithWindows: false,
+    showHomeAtStart: true,
   });
   assert.deepEqual(defaults, DEFAULT_SETTINGS);
   assert.notEqual(defaults, DEFAULT_SETTINGS);
+});
+
+test("showHomeAtStart defaults for older settings and preserves an explicit choice", () => {
+  assert.equal(parseSettings({ model: "thorough" }).showHomeAtStart, true);
+  for (const showHomeAtStart of [true, false]) {
+    assert.equal(parseSettings({ showHomeAtStart }).showHomeAtStart, showHomeAtStart);
+  }
+  for (const showHomeAtStart of [null, "false", 0]) {
+    assert.equal(parseSettings({ showHomeAtStart }).showHomeAtStart, true);
+  }
+  const updated = updateSettings(DEFAULT_SETTINGS, { showHomeAtStart: false });
+  assert.equal(updateSettings(updated, { sound: "fun" }).showHomeAtStart, false);
 });
 
 test("parseSettings accepts every valid enum combination and boundary voiceSpeed", () => {
@@ -54,6 +67,7 @@ test("parseSettings accepts every valid enum combination and boundary voiceSpeed
               robotSize,
               reduceMotion: model === "thorough",
               startWithWindows: ptt === "toggle",
+              showHomeAtStart: model === "quick",
             };
             const parsed = parseSettings(raw);
             assert.deepEqual(parsed, raw, inspect(raw));
@@ -88,6 +102,7 @@ test("parseSettings drops unknown fields and preserves valid ones", () => {
     robotSize: "XL",
     reduceMotion: true,
     startWithWindows: true,
+    showHomeAtStart: true,
   });
   assert.equal("unknownField" in parsed, false);
 });
@@ -111,6 +126,7 @@ test("parseSettings replaces out-of-range and wrong-type fields with defaults pe
       robotSize: DEFAULT_SETTINGS.robotSize,
       reduceMotion: true,
       startWithWindows: DEFAULT_SETTINGS.startWithWindows,
+      showHomeAtStart: DEFAULT_SETTINGS.showHomeAtStart,
     },
   );
 
@@ -269,6 +285,7 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
     robotSize: "L",
     reduceMotion: true,
     startWithWindows: false,
+    showHomeAtStart: true,
   });
 
   const saved = await tauriStore.update({ voiceSpeed: 1.2, startWithWindows: true });
@@ -328,6 +345,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
     robotSize: "XL",
     reduceMotion: true,
     startWithWindows: true,
+    showHomeAtStart: true,
   });
   assert.deepEqual(store.get(), refreshed[0]);
 

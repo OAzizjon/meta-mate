@@ -86,6 +86,7 @@ pub struct Settings {
     pub robot_size: RobotSize,
     pub reduce_motion: bool,
     pub start_with_windows: bool,
+    pub show_home_at_start: bool,
 }
 
 impl Default for Settings {
@@ -99,6 +100,7 @@ impl Default for Settings {
             robot_size: RobotSize::M,
             reduce_motion: false,
             start_with_windows: false,
+            show_home_at_start: true,
         }
     }
 }
@@ -257,6 +259,7 @@ mod tests {
             robot_size: RobotSize::XL,
             reduce_motion: true,
             start_with_windows: true,
+            show_home_at_start: false,
         }
     }
 
@@ -280,7 +283,8 @@ mod tests {
                 "voiceSpeed": 1.0,
                 "robotSize": "M",
                 "reduceMotion": false,
-                "startWithWindows": false
+                "startWithWindows": false,
+                "showHomeAtStart": true
             })
         );
     }
@@ -374,7 +378,8 @@ mod tests {
     #[test]
     fn the_window_payload_is_read_as_sent() {
         let sent = r#"{"model":"thorough","ptt":"toggle","sound":"fun","voiceSpeed":1.15,
-            "robotSize":"XL","reduceMotion":true,"startWithWindows":true}"#;
+            "robotSize":"XL","reduceMotion":true,"startWithWindows":true,
+            "showHomeAtStart":false}"#;
         assert_eq!(serde_json::from_str::<Settings>(sent).unwrap(), changed());
     }
 
@@ -390,6 +395,26 @@ mod tests {
             }
         );
         assert_eq!(parse("{}"), Settings::default());
+    }
+
+    #[test]
+    fn old_settings_show_home_and_the_new_preference_round_trips() {
+        // A saved file from before Home keeps every existing preference.
+        let old = r#"{"model":"thorough","ptt":"toggle","sound":"fun","voiceSpeed":1.15,
+            "robotSize":"XL","reduceMotion":true,"startWithWindows":true}"#;
+        assert_eq!(
+            parse(old),
+            Settings {
+                show_home_at_start: true,
+                ..changed()
+            }
+        );
+        for show in [true, false] {
+            let text = format!(r#"{{"showHomeAtStart":{show}}}"#);
+            let settings = parse(&text);
+            assert_eq!(settings.show_home_at_start, show);
+            assert_eq!(parse(&serde_json::to_string(&settings).unwrap()), settings);
+        }
     }
 
     #[test]
@@ -418,6 +443,8 @@ mod tests {
             r#"{"robotSize":"XXL"}"#,
             r#"{"voiceSpeed":"fast"}"#,
             r#"{"reduceMotion":"yes"}"#,
+            r#"{"showHomeAtStart":"yes"}"#,
+            r#"{"showHomeAtStart":null}"#,
             r#"{"model":null}"#,
             r#"{"model":"thorough"}garbage"#,
         ] {

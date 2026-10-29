@@ -229,6 +229,7 @@ test("startMateSettings loads once via invoke('load_settings') and listens for s
           robotSize: "XL",
           reduceMotion: true,
           startWithWindows: false,
+          showHomeAtStart: true,
         } satisfies Settings;
       },
       subscribe: async (onChanged) => {

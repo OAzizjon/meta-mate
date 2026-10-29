@@ -1,0 +1,523 @@
+<!doctype html>
+<!-- Home window (WP89a): the start page for older users, src/home.ts. Mate greets them
+     beside a big Right Ctrl keycap that shows how to talk to him; three "Try it"
+     questions; what Mate never does; where the keepsake cards are saved. Sized for the
+     720x640 window: the greeting, the keycap and the questions show without scrolling,
+     the rest scrolls above a footer that keeps the start-up checkbox, Settings and Close
+     in view. Supports dark mode, Windows contrast themes and reduced motion. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title></title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fffdf7;
+        --panel-bg: #ffffff;
+        --panel-border: #d0d8e5;
+        --text: #1f2a44;
+        --text-muted: #475569;
+        --accent: #1d4ed8;
+        --accent-hover: #1e40af;
+        --accent-contrast: #ffffff;
+        --accent-soft: #eff6ff;
+        --hero-bg: linear-gradient(135deg, #fff1c9 0%, #fffaf0 60%, #fffdf7 100%);
+        --hero-border: #f0d68a;
+        --glow: rgba(255, 200, 40, 0.38);
+        --keycap-bg: linear-gradient(#ffffff, #f4f1e6);
+        --keycap-border: #1f2a44;
+        --keycap-text: #1f2a44;
+        --safe-mark-bg: #dcfce7;
+        --safe-mark-text: #166534;
+        --error: #b91c1c;
+        --btn-secondary-bg: #f1f5f9;
+        --btn-secondary-border: #cbd5e1;
+        --btn-secondary-text: #1f2a44;
+        --btn-secondary-hover: #e2e8f0;
+        --shadow: 0 4px 18px rgba(31, 42, 68, 0.08);
+        --radius: 16px;
+        --pad-x: max(20px, calc((100% - 860px) / 2));
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #131722;
+          --panel-bg: #1c2230;
+          --panel-border: #2e384d;
+          --text: #f1f5f9;
+          --text-muted: #cbd5e1;
+          --accent: #ffd23f;
+          --accent-hover: #facc15;
+          --accent-contrast: #131722;
+          --accent-soft: #252f42;
+          --hero-bg: linear-gradient(135deg, #2e2814 0%, #1f2230 65%, #1c2230 100%);
+          --hero-border: #5a4d22;
+          --glow: rgba(255, 210, 63, 0.22);
+          --keycap-bg: linear-gradient(#f8fafc, #e2e8f0);
+          --keycap-border: #94a3b8;
+          --keycap-text: #131722;
+          --safe-mark-bg: #14532d;
+          --safe-mark-text: #bbf7d0;
+          --error: #fca5a5;
+          --btn-secondary-bg: #22293a;
+          --btn-secondary-border: #3b4760;
+          --btn-secondary-text: #f1f5f9;
+          --btn-secondary-hover: #2d374d;
+          --shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font: 19px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+
+      /* The content scrolls; the footer below it always stays in view. */
+      #home-app {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .home-content {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 14px var(--pad-x) 24px;
+      }
+
+      /* Header: Mate in a warm glow beside the greeting and the Right Ctrl keycap. */
+      .home-hero {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 18px;
+        align-items: center;
+        padding: 14px 20px 16px 14px;
+        background: var(--hero-bg);
+        border: 2px solid var(--hero-border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      /* Room for the L size (160x148, src/robot/types.ts); smaller boxes fit a smaller Mate. */
+      .home-mate {
+        width: 168px;
+        height: 156px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: radial-gradient(circle at 50% 45%, var(--glow) 0%, transparent 68%);
+      }
+
+      .home-hero-text {
+        min-width: 0;
+      }
+
+      .home-title {
+        margin: 0;
+        font-size: 30px;
+        font-weight: 800;
+        line-height: 1.2;
+        overflow-wrap: break-word;
+      }
+
+      .home-intro {
+        margin: 4px 0 0;
+        text-wrap: pretty;
+      }
+
+      .home-talk {
+        margin-top: 12px;
+      }
+
+      .home-section-title {
+        margin: 0 0 6px;
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.25;
+      }
+
+      .home-talk-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 18px;
+      }
+
+      /* A real key: a raised bottom edge like the first-launch keycap (styles.css), larger.
+         It presses down now and then, unless motion is reduced. */
+      .home-keycap {
+        flex: none;
+        display: inline-block;
+        min-width: 140px;
+        padding: 8px 20px;
+        border: 2px solid var(--keycap-border);
+        border-bottom-width: 6px;
+        border-radius: 12px;
+        background: var(--keycap-bg);
+        color: var(--keycap-text);
+        font: 800 22px/1.2 "Segoe UI", system-ui, sans-serif;
+        text-align: center;
+        white-space: nowrap;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+        animation: home-key-press 3.2s ease-in-out infinite;
+      }
+
+      /* Beside the keycap; its lines wrap there rather than dropping under it. */
+      .home-talk-steps {
+        flex: 1 1 180px;
+        min-width: 0;
+        margin: 0;
+        padding-left: 1.4em;
+        font-weight: 600;
+      }
+
+      .home-talk-step::marker {
+        font-weight: 800;
+      }
+
+      .home-talk-where {
+        margin: 6px 0 0;
+        font-size: 18px;
+        color: var(--text-muted);
+      }
+
+      .home-section-intro {
+        margin: 0;
+        font-size: 18px;
+        color: var(--text-muted);
+      }
+
+      /* The line beside a title, under it when there is no room. */
+      .home-section-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 16px;
+      }
+
+      .home-section-head .home-section-title {
+        margin-bottom: 0;
+      }
+
+      /* Try it: three cards side by side, each with its own big button. */
+      .home-try-list {
+        list-style: none;
+        margin: 10px 0 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .home-try-card {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 14px;
+        background: var(--panel-bg);
+        border: 2px solid var(--panel-border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+      }
+
+      .home-try-question {
+        margin: 0;
+        font-size: 19px;
+        font-weight: 700;
+        line-height: 1.3;
+        overflow-wrap: break-word;
+      }
+
+      /* Quoted as spoken, in the page language's quotes. */
+      .home-try-question {
+        quotes: "\201C" "\201D";
+      }
+
+      .home-try-question:lang(ru) {
+        quotes: "\00AB" "\00BB";
+      }
+
+      .home-try-question::before {
+        content: open-quote;
+      }
+
+      .home-try-question::after {
+        content: close-quote;
+      }
+
+      .home-try-hint {
+        flex: 1 1 auto;
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.35;
+        color: var(--text-muted);
+      }
+
+      .home-try-btn {
+        margin-top: 6px;
+      }
+
+      .home-try-btn.is-busy {
+        cursor: progress;
+      }
+
+      /* No display here when empty: nothing shifts until a line is shown. */
+      .home-try-status {
+        margin: 10px 0 0;
+        font-weight: 700;
+      }
+
+      .home-try-status:empty {
+        display: none;
+      }
+
+      .home-try-status.is-error {
+        color: var(--error);
+      }
+
+      /* What Mate never does: one calm green mark per line. */
+      .home-never-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .home-never-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        text-wrap: pretty;
+      }
+
+      .home-never-item::before {
+        content: "\2713" / "";
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        margin-top: -1px;
+        border-radius: 50%;
+        background: var(--safe-mark-bg);
+        color: var(--safe-mark-text);
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .home-never,
+      .home-cards {
+        padding: 16px 20px;
+        background: var(--panel-bg);
+        border: 2px solid var(--panel-border);
+        border-radius: var(--radius);
+      }
+
+      .home-cards-folder {
+        display: inline-block;
+        margin: 8px 0 0;
+        padding: 6px 14px;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        font-weight: 700;
+        overflow-wrap: anywhere;
+      }
+
+      .home-footer {
+        flex: none;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px 16px;
+        padding: 10px var(--pad-x);
+        background: var(--panel-bg);
+        border-top: 2px solid var(--panel-border);
+      }
+
+      .home-start-option {
+        flex: 1 1 260px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 52px;
+        padding: 6px 12px 6px 8px;
+        border-radius: 10px;
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.3;
+        cursor: pointer;
+      }
+
+      .home-start-input {
+        flex: none;
+        width: 26px;
+        height: 26px;
+        margin: 0;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+
+      .home-start-input:disabled,
+      .home-start-input:disabled + .home-start-text {
+        cursor: default;
+        opacity: 0.6;
+      }
+
+      .home-actions {
+        display: flex;
+        gap: 12px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 52px;
+        padding: 10px 24px;
+        font-family: inherit;
+        font-size: 20px;
+        font-weight: 700;
+        line-height: 1.2;
+        border-radius: 12px;
+        cursor: pointer;
+        user-select: none;
+        transition:
+          background-color 140ms ease-out,
+          border-color 140ms ease-out;
+      }
+
+      /* A press darkens the button but never shrinks it: a shaking hand stays on target. */
+      .btn:active {
+        filter: brightness(0.9);
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: var(--accent-contrast);
+        border: 2px solid var(--accent);
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+      }
+
+      .btn-secondary {
+        background: var(--btn-secondary-bg);
+        color: var(--btn-secondary-text);
+        border: 2px solid var(--btn-secondary-border);
+      }
+
+      .btn-secondary:hover {
+        background: var(--btn-secondary-hover);
+      }
+
+      .btn:focus-visible,
+      .home-start-option:focus-within {
+        outline: 4px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      .home-start-input:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* A short window: a smaller Mate (M fits) and tighter gaps keep the questions in view. */
+      @media (max-height: 600px) {
+        .home-content {
+          gap: 12px;
+          padding-top: 10px;
+        }
+
+        .home-mate {
+          width: 112px;
+          height: 104px;
+        }
+
+        .home-talk {
+          margin-top: 8px;
+        }
+      }
+
+      /* A narrow window: Mate above the greeting, one question per row. */
+      @media (max-width: 560px) {
+        .home-hero {
+          grid-template-columns: minmax(0, 1fr);
+          justify-items: start;
+        }
+
+        .home-try-list {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      /* Windows contrast themes drop the backgrounds: the keycap and the marks keep a ring. */
+      @media (forced-colors: active) {
+        .home-keycap,
+        .home-never-item::before {
+          border: 2px solid CanvasText;
+        }
+
+        .home-keycap {
+          border-bottom-width: 6px;
+        }
+      }
+
+      @keyframes home-key-press {
+        0%,
+        62%,
+        100% {
+          transform: translateY(0);
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+        }
+        72%,
+        86% {
+          transform: translateY(3px);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+        }
+      }
+
+      .reduce-motion *,
+      .reduce-motion *::before,
+      .reduce-motion *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="home-app"></main>
+    <script type="module" src="/src/home-page.ts"></script>
+  </body>
+</html>
