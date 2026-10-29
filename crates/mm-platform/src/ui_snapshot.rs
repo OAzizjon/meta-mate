@@ -50,9 +50,36 @@ pub struct UiSnapshot {
 /// would hide every text beside any password field.
 const TOGGLE_TYPES: [&str; 5] = ["Button", "CheckBox", "Hyperlink", "Custom", "Image"];
 
+fn authentication_code(name: &str) -> bool {
+    let name = name.to_lowercase();
+    [
+        "login code",
+        "email code",
+        "verification code",
+        "security code",
+        "one-time code",
+        "sms code",
+        "authentication code",
+    ]
+    .iter()
+    .any(|phrase| {
+        name.match_indices(phrase).any(|(start, matched)| {
+            let end = start + matched.len();
+            !name[..start]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_alphanumeric() || c == '_')
+                && !name[end..]
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_alphanumeric() || c == '_')
+        })
+    })
+}
+
 fn private_phrase(name: &str) -> bool {
     let name = name.to_lowercase();
-    if mm_core::privacy::password_words(&name) {
+    if mm_core::privacy::password_words(&name) || authentication_code(&name) {
         return true;
     }
     [
@@ -148,6 +175,7 @@ impl UiSnapshot {
             .filter(|edit| {
                 matches!(edit.control_type.as_str(), "Edit" | "ComboBox" | "Custom")
                     && (mm_core::privacy::password_words(&edit.name)
+                        || authentication_code(&edit.name)
                         || matches!(edit.name.to_lowercase().trim(), "code" | "код")
                         || (!non_secret_purpose(&edit.name)
                             && self.elements.iter().any(|phrase| {
@@ -230,36 +258,10 @@ impl UiSnapshot {
                         && matches!(e.control_type.as_str(), "Text" | "Hyperlink" | "Heading")
                         && !e.name.trim().is_empty()))
         });
-        let mut readable_page = BTreeSet::new();
-        for document in &documents {
-            let mut descendants = BTreeSet::from([*document]);
-            loop {
-                let before = descendants.len();
-                for e in &self.elements {
-                    if e.parent.as_deref().is_some_and(|p| descendants.contains(p)) {
-                        descendants.insert(e.id.as_str());
-                    }
-                }
-                if descendants.len() == before {
-                    break;
-                }
-            }
-            if self.elements.iter().any(|e| {
-                descendants.contains(e.id.as_str())
-                    && readable(&e)
-                    && matches!(e.control_type.as_str(), "Text" | "Hyperlink" | "Heading")
-                    && !e.name.trim().is_empty()
-            }) {
-                readable_page.extend(descendants);
-            }
-        }
         // A large opaque surface can sit beside a perfectly accessible toolbar.
         let opaque = self.elements.iter().any(|e| {
             !e.offscreen
                 && matches!(e.control_type.as_str(), "Custom" | "Pane" | "Image")
-                && !(e.control_type == "Image"
-                    && !e.interactive
-                    && readable_page.contains(e.id.as_str()))
                 && !parents.contains(e.id.as_str())
                 && e.rect.is_some_and(|r| mostly_inside(self.frame, r))
         });
@@ -468,6 +470,18 @@ impl fmt::Debug for UiElement {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn authentication_codes_override_benign_field_purposes_without_labels() {
+        for kind in ["Edit", "ComboBox", "Custom"] {
+            for name in ["Login code", "Email code", "Email verification code"] {
+                let mut input = element("input", kind, rect(10, 10, 50, 30));
+                input.name = name.into();
+                let page = snapshot(vec![input]);
+                assert!(page.hidden_ids().contains("input"), "{kind}: {name}");
+            }
+        }
+    }
 
     #[test]
     fn hidden_overlap_uses_the_elements_area_and_strict_half() {
@@ -708,7 +722,7 @@ mod tests {
     }
 
     #[test]
-    fn readable_article_with_large_hero_image_is_not_flat() {
+    fn readable_heading_cannot_certify_a_large_raster_surface() {
         let mut page = snapshot(vec![
             element("root", "Window", rect(0, 0, 100, 100)),
             child("document", "root", "Document"),
@@ -717,7 +731,7 @@ mod tests {
         ]);
         page.elements[1].rect = Some(page.frame);
         page.elements[3].rect = Some(rect(0, 20, 100, 100));
-        assert!(!page.flat());
+        assert!(page.flat());
         page.elements[3].interactive = true;
         assert!(page.flat(), "interactive surfaces still need consent");
         page.elements[3].interactive = false;

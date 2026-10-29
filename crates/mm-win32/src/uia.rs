@@ -195,7 +195,7 @@ impl UiaWalker {
             // Parent links are absent from FindAll. Search the label's surrounding
             // subtree as well, covering siblings with distant or missing bounds.
             if candidate.control_type == "Text" && candidate.private_label() {
-                self.siblings_of(element, &on_screen, &mut hide)?;
+                self.siblings_of(element, &on_screen, &mut hide, true)?;
             }
             if !(candidate.is_password || candidate.password_like) {
                 continue;
@@ -205,12 +205,14 @@ impl UiaWalker {
             described.password_like = true;
             // A show/hide-password toggle: the field beside it may hold the password in
             // plain text (D37), whatever it is called.
-            let toggle = !matches!(described.control_type.as_str(), "Edit" | "Document")
-                && !described.is_password;
+            let toggle = !matches!(
+                described.control_type.as_str(),
+                "Edit" | "Document" | "Text"
+            ) && !described.is_password;
             hide.push(described);
             self.descendants_of(element, &on_screen, &mut hide)?;
             if toggle {
-                self.siblings_of(element, &on_screen, &mut hide)?;
+                self.siblings_of(element, &on_screen, &mut hide, false)?;
             }
         }
         Some(hide)
@@ -235,18 +237,18 @@ impl UiaWalker {
         Some(())
     }
 
-    /// The fields near `toggle` (every on-screen Edit, Document, Custom and Text under the
-    /// nearest ancestor that holds an edit field, so their insides too), marked
-    /// password-like.
+    /// Fields under the nearest ancestor containing an edit. Context labels classify
+    /// field purposes; reveal toggles conservatively hide the surrounding content.
     fn siblings_of(
         &self,
         toggle: &UIElement,
         on_screen: &uiautomation::core::UICondition,
         hide: &mut Vec<UiElement>,
+        contextual: bool,
     ) -> Option<()> {
         // Web forms wrap the field and its toggle in separate boxes: climb from the toggle
         // until an ancestor holds an edit field (at most four levels), and hide what that
-        // ancestor holds. Hiding a little too much is safe; missing the field is not.
+        // ancestor holds. Context labels preserve explicitly non-secret field purposes.
         let automation = &self.automation;
         let mut fields = automation
             .create_property_condition(
@@ -294,10 +296,36 @@ impl UiaWalker {
                 break;
             }
         }
-        for element in &near {
-            let mut described = describe(element, &format!("s{}", hide.len()), None)?;
+        let mut candidates = UiSnapshot {
+            target: TargetWindow {
+                handle: 0,
+                process_id: 0,
+            },
+            frame: describe(toggle, "label", None)?.rect.unwrap_or(PhysRect {
+                left: 0,
+                top: 0,
+                right: 1,
+                bottom: 1,
+            }),
+            elements: near
+                .iter()
+                .enumerate()
+                .map(|(i, element)| describe(element, &format!("n{i}"), Some("context".into())))
+                .collect::<Option<Vec<_>>>()?,
+            truncated: false,
+        };
+        if contextual {
+            let label = describe(toggle, "label", Some("context".into()))?;
+            classify_contextual_subtree(&mut candidates, label);
+        }
+        for (element, mut described) in near.iter().zip(candidates.elements) {
+            if contextual && !(described.is_password || described.password_like) {
+                continue;
+            }
+            described.id = format!("s{}", hide.len());
             described.password_like = true;
             hide.push(described);
+            self.descendants_of(element, on_screen, hide)?;
         }
         Some(())
     }
@@ -398,6 +426,14 @@ fn mark_contextual_inputs(candidates: &mut UiSnapshot) {
     }
 }
 
+/// FindAll omits ancestry. The bounded ancestor query establishes a shared context,
+/// but only credential fields in it are sensitive; a label is not a reveal toggle.
+fn classify_contextual_subtree(candidates: &mut UiSnapshot, label: UiElement) {
+    candidates.elements.push(label);
+    mark_contextual_inputs(candidates);
+    candidates.elements.pop();
+}
+
 struct PropertyFlags {
     password_like: bool,
     is_password: bool,
@@ -482,6 +518,75 @@ fn target_window(hwnd: HWND) -> TargetWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn contextual_subtree_preserves_benign_purposes_but_masks_credentials() {
+        let bounds = PhysRect::new(0, 0, 100, 30).unwrap();
+        let node = |id: &str, kind: &str, name: &str| UiElement {
+            id: id.into(),
+            parent: Some("context".into()),
+            control_type: kind.into(),
+            name: name.into(),
+            rect: None, // Ancestor context also works without proximity evidence.
+            interactive: is_interactive_type(kind),
+            enabled: true,
+            offscreen: false,
+            is_password: false,
+            password_like: false,
+        };
+        for label in ["Payment", "Password", "Article about passwords"] {
+            let mut candidates = UiSnapshot {
+                target: TargetWindow {
+                    handle: 1,
+                    process_id: 1,
+                },
+                frame: bounds,
+                elements: vec![
+                    node("postal", "Edit", "Postal code"),
+                    node("search", "Edit", "Search settings"),
+                    node("compose", "Edit", "Email message"),
+                    node("document", "Document", "Document text"),
+                    node("plain_text", "Text", "Article paragraph"),
+                    node("secret", "Edit", "Enter here"),
+                    node("otp", "Edit", "Login code"),
+                ],
+                truncated: false,
+            };
+            candidates.elements[0].is_password = true;
+            classify_contextual_subtree(&mut candidates, node("label", "Text", label));
+            for id in ["search", "compose", "document", "plain_text"] {
+                assert!(
+                    !candidates.element(id).unwrap().password_like,
+                    "{label}: {id}"
+                );
+            }
+            for id in ["secret", "otp"] {
+                assert!(
+                    candidates.element(id).unwrap().password_like,
+                    "{label}: {id}"
+                );
+            }
+            assert!(candidates.element("postal").unwrap().is_password);
+            candidates.elements[0].is_password = false;
+            assert!(!candidates.elements[0].password_like);
+        }
+        for name in ["Login code", "Email code"] {
+            let mut candidates = UiSnapshot {
+                target: TargetWindow {
+                    handle: 1,
+                    process_id: 1,
+                },
+                frame: bounds,
+                elements: vec![node("otp", "Edit", name)],
+                truncated: false,
+            };
+            mark_contextual_inputs(&mut candidates);
+            assert!(
+                candidates.elements[0].password_like,
+                "{name}: no separate label"
+            );
+        }
+    }
 
     #[test]
     fn provider_scan_keeps_labels_and_classifies_plain_inputs_past_walk_limit() {

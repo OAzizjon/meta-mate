@@ -25,7 +25,7 @@ pub const MAX_LISTED: usize = 60;
 /// One look at the target, ready for a point request.
 pub struct Look {
     pub snapshot: UiSnapshot,
-    /// One-look consent or a known local app permits an unclassifiable snapshot.
+    /// One-look consent permits an unclassifiable snapshot.
     pub unclassified_allowed: bool,
     /// The walk was cut and a separate sensitive-field scan vouched for the picture.
     pub cut: bool,
@@ -562,7 +562,7 @@ fn look_once(
     remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
     // Check the actual walk before scan results can make a flat tree look complete.
     // Ambiguous private edits need no consent: they are always painted (`hidden_ids`).
-    let needs_consent = target.requires_consent || (snapshot.flat() && !target.normal_flat_app);
+    let needs_consent = target.requires_consent || snapshot.flat();
     if !consent && needs_consent {
         if !wanted() || !confirm(target.window) || !wanted() {
             return Err(LookFailure::Cancelled);
@@ -641,8 +641,7 @@ fn look_once(
     complete_with(&mut again, &second);
     // Both reads feed memory before comparing, including a newly revealed password.
     remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
-    let normal = target.normal_flat_app;
-    let unchanged = (!unclassifiable || consent || normal)
+    let unchanged = (!unclassifiable || consent)
         && signature(&scanned) == signature(&second)
         && same_hidden(&snapshot, &again);
     if !unchanged {
@@ -661,14 +660,8 @@ fn look_once(
         started.elapsed().as_millis(),
         painted.len()
     );
-    let mut look = prepare_at(
-        snapshot,
-        &capture,
-        &painted,
-        target.frame,
-        consent || normal,
-    )
-    .map_err(LookFailure::Prepare)?;
+    let mut look = prepare_at(snapshot, &capture, &painted, target.frame, consent)
+        .map_err(LookFailure::Prepare)?;
     look.cut = cut;
     look.window_frame = target.frame;
     Ok(look)
@@ -856,6 +849,81 @@ mod tests {
     };
 
     #[test]
+    fn opaque_telegram_and_raster_login_require_one_look_consent() {
+        for title in ["Telegram", "Telegram - Login code", "Bank - Microsoft Edge"] {
+            let mut page = snapshot();
+            page.elements = vec![element("root", "Window", title, REGION)];
+            complete_with(&mut page, &[]);
+            assert!(
+                page.flat(),
+                "an empty successful scan does not prove coverage"
+            );
+            assert!(prepare(page.clone(), &capture(), &[]).is_err());
+            assert!(prepare_at(page, &capture(), &[], REGION, true).is_ok());
+        }
+        let mut page = snapshot();
+        page.elements = vec![
+            element("root", "Window", "Login", REGION),
+            element("document", "Document", "", REGION),
+            element(
+                "heading",
+                "Text",
+                "Welcome",
+                PhysRect::new(110, 60, 200, 80).unwrap(),
+            ),
+            element(
+                "raster",
+                "Image",
+                "",
+                PhysRect::new(100, 90, 500, 350).unwrap(),
+            ),
+        ];
+        page.elements[1].parent = Some("root".into());
+        page.elements[2].parent = Some("document".into());
+        page.elements[3].parent = Some("document".into());
+        assert!(prepare(page, &capture(), &[]).is_err());
+    }
+
+    #[test]
+    fn contextual_payment_label_keeps_postal_code_pixels() {
+        let mut page = snapshot();
+        page.elements = vec![
+            element("e0", "Window", "Checkout", REGION),
+            element("e1", "Document", "", REGION),
+            element(
+                "e2",
+                "Text",
+                "Payment",
+                PhysRect::new(150, 170, 250, 190).unwrap(),
+            ),
+            element(
+                "e3",
+                "Edit",
+                "Postal code",
+                PhysRect::new(150, 200, 350, 230).unwrap(),
+            ),
+        ];
+        for element in &mut page.elements[2..] {
+            element.parent = Some("e1".into());
+        }
+        let look = prepare(page, &capture(), &[]).unwrap();
+        let expected = mm_core::shot::png_data_url(
+            &mm_core::shot::encode_png_rgb(&vec![200; 400 * 300 * 3], 400, 300).unwrap(),
+        );
+        let body = mm_core::api::sam::sam_point_request(
+            0,
+            0,
+            look.redacted.frame.sent_size(),
+            &look.redacted.image,
+        );
+        assert_eq!(
+            body["input"][0]["content"][1]["image_url"].as_str(),
+            Some(expected.as_str())
+        );
+        assert!(look.list.text.contains("Postal code"));
+    }
+
+    #[test]
     fn look_consent_requires_new_physical_keys_in_the_same_window() {
         use mm_core::teacher::KeyWindow;
         use mm_win32::keyboard::KeyEvent;
@@ -981,11 +1049,15 @@ mod tests {
         let expected_url = mm_core::shot::png_data_url(
             &mm_core::shot::encode_png_rgb(&expected, 400, 300).unwrap(),
         );
-        for (name, consent) in ["", "Enter here"]
+        for (name, consent) in ["", "Enter here", "Login code", "Email code"]
             .into_iter()
             .flat_map(|name| [false, true].map(|consent| (name, consent)))
         {
             page.elements[3].name = name.into();
+            if matches!(name, "Login code" | "Email code") {
+                // Authentication-code names alone must override login/email purposes.
+                page.elements[2].name = "Heading".into();
+            }
             let look = prepare_at(page.clone(), &capture(), &[], REGION, consent).unwrap();
             assert_eq!(look.redacted.painted, 1);
             assert!(look.list.text.contains("e3 Edit [hidden]"));

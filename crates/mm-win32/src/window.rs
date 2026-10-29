@@ -99,7 +99,7 @@ fn remote_executable(path: &str) -> bool {
 
 /// Class names vary by release and UI toolkit; also check the owning executable.
 /// An inaccessible process cannot establish that this is a safe local target.
-fn local_process(process_id: u32) -> Option<(bool, bool)> {
+fn local_process(process_id: u32) -> Option<bool> {
     // SAFETY: a read-only query handle; no memory in the other process is read.
     let Ok(process) =
         (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) })
@@ -124,14 +124,7 @@ fn local_process(process_id: u32) -> Option<(bool, bool)> {
     }
     let path = buffer.get(..len as usize)?;
     let path = String::from_utf16_lossy(path);
-    Some((!remote_executable(&path), normal_flat_app(&path)))
-}
-
-fn normal_flat_app(path: &str) -> bool {
-    let name = path.rsplit(['\\', '/']).next().unwrap_or("");
-    ["Telegram.exe", "notepad.exe", "SystemSettings.exe"]
-        .iter()
-        .any(|normal| name.eq_ignore_ascii_case(normal))
+    Some(!remote_executable(&path))
 }
 
 /// The user's window, its popups and the region to capture. Debug carries handles and
@@ -140,8 +133,6 @@ fn normal_flat_app(path: &str) -> bool {
 pub struct Target {
     /// Remote viewers need the person's permission for each capture.
     pub requires_consent: bool,
-    /// Local apps with deliberately sparse accessibility trees.
-    pub normal_flat_app: bool,
     pub window: TargetWindow,
     pub hwnd: HWND,
     /// The visible frame without the drop shadow (`DWMWA_EXTENDED_FRAME_BOUNDS`).
@@ -183,7 +174,7 @@ fn target_of(hwnd: HWND, own: &[HWND]) -> Option<Target> {
     if thread_id == 0 || process_id == std::process::id() {
         return None;
     }
-    let (local, normal_flat_app) = local_process(process_id)?;
+    let local = local_process(process_id)?;
     let requires_consent = !local || remote_class(&class);
     let frame = frame_of(hwnd)?;
     let (popup_hwnds, popups): (Vec<HWND>, Vec<PhysRect>) =
@@ -191,7 +182,6 @@ fn target_of(hwnd: HWND, own: &[HWND]) -> Option<Target> {
     let region = region_of(frame, &popups, monitor_of(frame)?)?;
     Some(Target {
         requires_consent,
-        normal_flat_app,
         window: TargetWindow {
             handle: hwnd.0 as usize as u64,
             process_id,
@@ -551,13 +541,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn only_known_local_apps_bypass_sparse_tree_confirmation() {
+    fn demo_apps_are_local_but_identity_does_not_certify_their_tree() {
         for name in [
             "C:\\Apps\\Telegram.exe",
             "NOTEPAD.EXE",
             "SystemSettings.exe",
         ] {
-            assert!(normal_flat_app(name), "{name}");
+            assert!(!remote_executable(name), "{name}");
         }
         for name in [
             "msedge.exe",
@@ -566,7 +556,11 @@ mod tests {
             "viewer.exe",
             "notepad.exe.bak",
         ] {
-            assert!(!normal_flat_app(name), "{name}");
+            assert_eq!(
+                remote_executable(name),
+                matches!(name, "RDCMan.exe" | "mRemoteNG.exe"),
+                "{name}"
+            );
         }
     }
 
