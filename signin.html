@@ -62,12 +62,13 @@
         background: var(--bg);
         color: var(--text);
         font: 19px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+        overflow-wrap: anywhere;
       }
 
       #signin-app {
-        max-width: 560px;
+        width: min(100%, 560px);
         margin: 0 auto;
-        padding: 24px 20px 28px;
+        padding: clamp(16px, 4vw, 24px) clamp(12px, 3vw, 20px) 28px;
         display: flex;
         flex-direction: column;
         gap: 18px;
@@ -77,7 +78,7 @@
         display: flex;
         align-items: center;
         gap: 16px;
-        padding: 16px 20px;
+        padding: 16px clamp(12px, 3vw, 20px);
         border: 2px solid var(--hero-border);
         border-radius: var(--radius);
         background: var(--hero-bg);
@@ -95,13 +96,17 @@
 
       .signin-title {
         margin: 0 0 6px;
-        font-size: 30px;
+        font-size: clamp(24px, 4vw, 30px);
         line-height: 1.2;
       }
 
       .signin-intro {
         margin: 0;
         font-size: 20px;
+      }
+
+      .signin-words {
+        min-width: 0;
       }
 
       .signin-buttons {
@@ -112,9 +117,13 @@
 
       .signin-btn {
         min-height: 64px;
-        padding: 12px 24px;
+        min-width: 0;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        padding: 12px clamp(12px, 3vw, 24px);
         font: inherit;
-        font-size: 22px;
+        font-size: clamp(20px, 3vw, 22px);
         font-weight: 700;
         border-radius: 14px;
         border: 2px solid var(--btn-border);

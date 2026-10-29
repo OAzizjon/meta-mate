@@ -76,11 +76,12 @@
         background: var(--bg);
         color: var(--text);
         font: 20px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
+        overflow-wrap: anywhere;
       }
 
       /* A wider window than 640px keeps the lines short enough to follow. */
       #card-app {
-        max-width: 820px;
+        width: min(100%, 820px);
         margin: 0 auto;
         padding: 16px;
       }
@@ -92,7 +93,7 @@
         background: var(--panel-bg);
         border: 2px solid var(--panel-border);
         border-radius: var(--radius);
-        padding: 24px 24px 8px;
+        padding: clamp(16px, 3vw, 24px) clamp(12px, 3vw, 24px) 8px;
         box-shadow: var(--shadow);
       }
 
@@ -144,6 +145,7 @@
       }
 
       .placeholder-bulb {
+        width: 100%;
         max-width: 220px;
         max-height: 220px;
         filter: drop-shadow(0 4px 12px rgba(255, 210, 63, 0.35));
@@ -158,6 +160,7 @@
       }
 
       .card-badge {
+        max-width: 100%;
         display: inline-block;
         padding: 6px 14px;
         border-radius: 9999px;
@@ -170,7 +173,7 @@
 
       .card-title {
         margin: 0;
-        font-size: 30px;
+        font-size: clamp(24px, 4vw, 30px);
         font-weight: 700;
         line-height: 1.25;
         color: var(--text);
@@ -205,11 +208,11 @@
       .card-step {
         display: flex;
         align-items: flex-start;
-        gap: 16px;
+        gap: clamp(10px, 2vw, 16px);
         background: var(--step-bg);
         border: 2px solid var(--step-border);
         border-radius: 12px;
-        padding: 14px 18px 14px 14px;
+        padding: 14px clamp(10px, 2vw, 18px);
       }
 
       .card-step-num {
@@ -221,7 +224,7 @@
         border-radius: 50%;
         background: var(--step-num-bg);
         color: var(--step-num-text);
-        font-size: 22px;
+        font-size: clamp(20px, 3vw, 22px);
         font-weight: 800;
         line-height: 1;
         flex-shrink: 0;
@@ -231,7 +234,7 @@
       .card-step-text {
         min-width: 0;
         padding-top: 6px;
-        font-size: 22px;
+        font-size: clamp(20px, 3vw, 22px);
         font-weight: 500;
         line-height: 1.45;
         color: var(--text);
@@ -266,7 +269,11 @@
         align-items: center;
         justify-content: center;
         min-height: 56px;
-        padding: 12px 28px;
+        min-width: 0;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        padding: 12px clamp(12px, 3vw, 28px);
         font-family: inherit;
         font-size: 21px;
         font-weight: 700;
@@ -359,6 +366,7 @@
         }
 
         #card-app {
+          width: auto;
           max-width: none;
           margin: 0;
           padding: 0;

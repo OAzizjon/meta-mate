@@ -73,12 +73,13 @@
         background: var(--bg);
         color: var(--text);
         font: 19px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+        overflow-wrap: anywhere;
       }
 
       #settings-app {
-        max-width: 640px;
+        width: min(100%, 640px);
         margin: 0 auto;
-        padding: 14px 20px 32px;
+        padding: 14px clamp(12px, 3vw, 20px) 32px;
       }
 
       /* The title in the Home window's warm header band. */
@@ -98,7 +99,7 @@
 
       .settings-title {
         margin: 0;
-        font-size: 30px;
+        font-size: clamp(24px, 4vw, 30px);
         font-weight: 800;
         line-height: 1.2;
         overflow-wrap: break-word;
@@ -119,7 +120,7 @@
       /* Each section is a card like the Home window's. */
       .settings-group {
         margin: 0;
-        padding: 16px 20px;
+        padding: 16px clamp(12px, 3vw, 20px);
         background: var(--panel-bg);
         border: 2px solid var(--panel-border);
         border-radius: var(--radius);
@@ -231,9 +232,9 @@
         gap: 12px;
       }
 
-      @media (min-width: 720px) {
+      @media (max-width: 520px) {
         .settings-size-grid {
-          grid-template-columns: repeat(4, minmax(0, 1fr));
+          grid-template-columns: minmax(0, 1fr);
         }
       }
 
@@ -262,6 +263,8 @@
       }
 
       .settings-range-input {
+        display: block;
+        min-width: 0;
         width: 100%;
         height: 44px;
         margin: 0;
@@ -304,6 +307,8 @@
 
       .settings-range-ends {
         display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
         justify-content: space-between;
         color: var(--text-muted);
         font-size: 18px;
@@ -329,6 +334,7 @@
       /* Stacked full width in the 560px window; side by side when there is room. */
       .settings-account-buttons {
         display: flex;
+        flex-wrap: wrap;
         flex-direction: column;
         gap: 12px;
         margin-top: 14px;
@@ -347,7 +353,11 @@
         align-items: center;
         justify-content: center;
         min-height: 52px;
-        padding: 10px 24px;
+        min-width: 0;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        padding: 10px clamp(12px, 3vw, 24px);
         font-family: inherit;
         font-size: 20px;
         font-weight: 700;
@@ -365,7 +375,7 @@
       }
 
       .settings-account-btn {
-        flex: 1;
+        flex: 1 1 auto;
       }
 
       .settings-account-btn:hover:not(:disabled),

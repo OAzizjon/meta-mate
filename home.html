@@ -39,7 +39,7 @@
         --btn-secondary-hover: #e2e8f0;
         --shadow: 0 4px 18px rgba(31, 42, 68, 0.08);
         --radius: 16px;
-        --pad-x: max(20px, calc((100% - 860px) / 2));
+        --pad-x: max(clamp(12px, 3vw, 20px), calc((100% - 860px) / 2));
       }
 
       @media (prefers-color-scheme: dark) {
@@ -85,7 +85,8 @@
         height: 100%;
         background: var(--bg);
         color: var(--text);
-        font: 19px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+        font: clamp(18px, 2.6vw, 19px)/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+        overflow-wrap: anywhere;
       }
 
       /* The content scrolls; the footer below it always stays in view. */
@@ -105,13 +106,18 @@
         padding: 14px var(--pad-x) 24px;
       }
 
+      .home-content > * {
+        flex-shrink: 0;
+        min-width: 0;
+      }
+
       /* Header: Mate in a warm glow beside the greeting and the Right Ctrl keycap. */
       .home-hero {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
         gap: 18px;
         align-items: center;
-        padding: 14px 20px 16px 14px;
+        padding: 14px clamp(12px, 3vw, 20px);
         background: var(--hero-bg);
         border: 2px solid var(--hero-border);
         border-radius: var(--radius);
@@ -120,8 +126,8 @@
 
       /* Room for the L size (160x148, src/robot/types.ts); smaller boxes fit a smaller Mate. */
       .home-mate {
-        width: 168px;
-        height: 156px;
+        width: clamp(112px, 20vw, 168px);
+        aspect-ratio: 168 / 156;
         display: grid;
         place-items: center;
         border-radius: 50%;
@@ -134,7 +140,7 @@
 
       .home-title {
         margin: 0;
-        font-size: 30px;
+        font-size: clamp(24px, 4vw, 30px);
         font-weight: 800;
         line-height: 1.2;
         overflow-wrap: break-word;
@@ -170,8 +176,9 @@
       .home-keycap {
         flex: none;
         display: inline-block;
-        min-width: 140px;
-        padding: 8px 20px;
+        min-width: min(140px, 100%);
+        max-width: 100%;
+        padding: 8px clamp(12px, 3vw, 20px);
         border: 2px solid var(--keycap-border);
         border-bottom-width: 6px;
         border-radius: 12px;
@@ -179,7 +186,7 @@
         color: var(--keycap-text);
         font: 800 22px/1.2 "Segoe UI", system-ui, sans-serif;
         text-align: center;
-        white-space: nowrap;
+        white-space: normal;
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
         animation: home-key-press 4s ease-in-out infinite;
       }
@@ -368,6 +375,7 @@
 
       .home-start-option {
         flex: 1 1 260px;
+        min-width: 0;
         display: flex;
         align-items: center;
         gap: 12px;
@@ -398,7 +406,17 @@
       .home-actions {
         display: flex;
         flex-wrap: wrap;
+        min-width: 0;
+        max-width: 100%;
         gap: 12px;
+      }
+
+      .home-actions .btn {
+        flex: 1 1 130px;
+      }
+
+      .home-start-text {
+        min-width: 0;
       }
 
       .btn {
@@ -406,7 +424,11 @@
         align-items: center;
         justify-content: center;
         min-height: 52px;
-        padding: 10px 24px;
+        min-width: 0;
+        max-width: 100%;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        padding: 10px clamp(12px, 3vw, 24px);
         font-family: inherit;
         font-size: 20px;
         font-weight: 700;
@@ -480,7 +502,7 @@
       }
 
       /* A narrow window: Mate above the greeting, one question per row. */
-      @media (max-width: 560px) {
+      @media (max-width: 600px) {
         .home-hero {
           grid-template-columns: minmax(0, 1fr);
           justify-items: start;
@@ -488,6 +510,19 @@
 
         .home-try-list {
           grid-template-columns: minmax(0, 1fr);
+        }
+
+        .home-talk-row {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .home-talk-steps {
+          flex: auto;
+        }
+
+        .home-actions {
+          flex: 1 1 100%;
         }
       }
 
