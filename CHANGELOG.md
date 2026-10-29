@@ -10,6 +10,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- Sign-in is required: the sign-in window appears at startup and when a question is asked; the proxy can enforce it with `PROXY_REQUIRE_SIGN_IN`.
 - The talk key is a setting: Right Ctrl, Right Alt, Caps Lock, Insert, F9 or F10, for laptops without Right Ctrl.
 - Quit MetaMate from the Home window; right-click Mate for Home, Settings, Hide for 1 hour and Quit.
 - Drag Mate with the mouse; he keeps the new spot as his home.
@@ -77,6 +78,10 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Changed
 
+- Privacy round 6: inputs beside private labels are painted unless their name shows a non-secret purpose; long pages are checked for them before truncation clears; article images no longer ask for consent.
+- Privacy round 5: consent never waives painting an unnamed edit beside a password label; short Edge articles no longer ask for consent.
+- First-minute guidance for older users: keycaps show the printed key and where to find it, instructions say to press and hold, and Settings cards and the voice-speed slider are clearer.
+- Mate's right-click menu is drawn in his own window and never takes focus; Hide shows him sleeping and when he'll return, the tray offers "Bring Mate back now", and Home steps aside before Try.
 - Privacy: browser chrome is no longer evidence that a canvas-only page can be read; such windows are looked at only after the user presses F8 twice in that window.
 - Mate's v1.1 design adds eyebrows and a filament, with a softer aura.
 - "Do it for me" re-checks the element and window at click time; yes counts only after the prompt was heard, and its blocklist covers more languages and money amounts.
