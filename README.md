@@ -67,6 +67,22 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 - **MateScript:** A lightweight streaming protocol that coordinates spoken sentences with pointing tags (`<point eNN>`), character moods (`<mood calm|surprised|sad>`), and sound effects (`<sfx ping soft>`). See the [MateScript specification](docs/matescript.md).
 - **Backend proxy:** A FastAPI service deployed on Modal manages daily allowance ledgers, streams model responses, and handles Google/GitHub OAuth with PKCE and Windows DPAPI credential sealing.
 
+## FAQ for judges
+
+**Do I need an account?** No. You can try MetaMate right away with 12 messages an hour as a guest (the count shows under Mate); sign in with Google for your own daily allowance.
+
+**What leaves my PC?** Only during a question: a screenshot of the window you are using, with password fields painted black first, and your words. Nothing is captured or sent between questions.
+
+**Does Mate click for me?** No. Mate lights up the button and guides you step by step; you click. He never clicks payment, delete or password actions.
+
+**No Right Ctrl on my laptop?** Pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings, or simply click Mate to start and stop talking. You can also type in the chat window.
+
+**Which Meta models?** Muse Voice Transcribe hears you while you talk, Muse Spark 1.3 answers and finds the button, Muse Wonder 1.0 takes over after two misses, SAM 3.1 outlines controls in apps without an accessibility tree, MMS-TTS (Meta open weights) speaks, and Muse Glimmer with Muse Image make the keepsake lesson card.
+
+**Languages?** English and Russian for speech, voice and the interface; it follows Windows, and you can switch in Settings > Language.
+
+**How do I quit?** Right-click Mate and choose Quit, or right-click the MetaMate icon in the notification area.
+
 ## Developer setup
 
 ### Prerequisites
