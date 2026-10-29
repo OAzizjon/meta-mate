@@ -8,6 +8,7 @@ import type { LocaleCode, LocaleKey } from "./i18n/index.ts";
 import {
   AUTH_CHANGED_EVENT,
   AUTH_PROVIDERS,
+  accountNotice,
   createAccountStore,
   isAuthProvider,
   isAuthStatus,
@@ -44,6 +45,7 @@ import {
   snapVoiceSpeed,
   subscribeSettingsChanged,
   updateSettings,
+  voiceSpeedPace,
 } from "./settings/model.ts";
 import type {
   ModelChoice,
@@ -54,6 +56,7 @@ import type {
   SettingsStore,
   SettingsSubscribe,
   SoundMode,
+  VoiceSpeedPace,
 } from "./settings/model.ts";
 
 export {
@@ -176,6 +179,13 @@ const SIZE_LABELS: Readonly<Record<RobotSize, LocaleKey>> = {
   M: "settings.size_m",
   L: "settings.size_l",
   XL: "settings.size_xl",
+};
+
+/** The voice speed in words for screen readers, e.g. "1.1×, faster than usual". */
+const SPEED_PACE_LABELS: Readonly<Record<VoiceSpeedPace, LocaleKey>> = {
+  slower: "settings.voice_speed_slower",
+  usual: "settings.voice_speed_usual",
+  faster: "settings.voice_speed_faster",
 };
 
 interface RadioSpec<V extends string> {
@@ -378,13 +388,18 @@ function buildAccountSection(accountStore: AccountStore): AccountSectionRefs {
 
   signedInView.append(userEl, signOutBtn);
 
-  // Accessible status line
+  // Accessible notice lines (`accountNotice`): waiting is read out politely, a failed
+  // sign-in at once. Both stay in the DOM so screen readers hear every change.
   const statusEl = document.createElement("div");
   statusEl.className = "settings-account-status";
   statusEl.setAttribute("role", "status");
   statusEl.setAttribute("aria-live", "polite");
 
-  section.append(headerDiv, signedOutView, signedInView, statusEl);
+  const alertEl = document.createElement("div");
+  alertEl.className = "settings-account-status is-error";
+  alertEl.setAttribute("role", "alert");
+
+  section.append(headerDiv, signedOutView, signedInView, statusEl, alertEl);
 
   const getProviderName = (provider?: AuthProvider): string => {
     if (provider === "github") {
@@ -401,8 +416,6 @@ function buildAccountSection(accountStore: AccountStore): AccountSectionRefs {
         name: state.name,
         provider: getProviderName(state.provider),
       });
-      statusEl.textContent = "";
-      statusEl.classList.remove("is-error");
       signOutBtn.disabled = false;
     } else if (state.status === "signing_in") {
       signedOutView.style.display = "block";
@@ -416,9 +429,6 @@ function buildAccountSection(accountStore: AccountStore): AccountSectionRefs {
 
       googleBtn.textContent = isGoogle ? t("auth.waiting") : t("auth.google");
       githubBtn.textContent = !isGoogle ? t("auth.waiting") : t("auth.github");
-
-      statusEl.textContent = t("auth.waiting");
-      statusEl.classList.remove("is-error");
     } else {
       // signed_out
       signedOutView.style.display = "block";
@@ -431,15 +441,11 @@ function buildAccountSection(accountStore: AccountStore): AccountSectionRefs {
       githubBtn.classList.remove("is-waiting");
       googleBtn.textContent = t("auth.google");
       githubBtn.textContent = t("auth.github");
-
-      if (state.error) {
-        statusEl.textContent = t(state.error as LocaleKey);
-        statusEl.classList.add("is-error");
-      } else {
-        statusEl.textContent = "";
-        statusEl.classList.remove("is-error");
-      }
     }
+
+    const notice = accountNotice(state);
+    statusEl.textContent = notice.status ? t(notice.status as LocaleKey) : "";
+    alertEl.textContent = notice.alert ? t(notice.alert as LocaleKey) : "";
   };
 
   const syncText = (): void => {
@@ -577,6 +583,7 @@ export function mountSettings(
   speedHeader.className = "settings-range-header";
 
   const speedLabel = document.createElement("label");
+  speedLabel.id = "settings-voice-speed-label";
   speedLabel.className = "settings-label";
   speedLabel.htmlFor = "settings-voice-speed";
 
@@ -594,11 +601,22 @@ export function mountSettings(
   speedInput.min = String(MIN_VOICE_SPEED);
   speedInput.max = String(MAX_VOICE_SPEED);
   speedInput.step = String(VOICE_SPEED_STEP);
+  speedInput.setAttribute("aria-labelledby", speedLabel.id);
+
+  // The value as shown, and in words for screen readers (a bare "1.1" says little).
+  const showVoiceSpeed = (voiceSpeed: number): void => {
+    const speed = formatVoiceSpeed(voiceSpeed);
+    speedOutput.textContent = speed;
+    speedInput.setAttribute(
+      "aria-valuetext",
+      t(SPEED_PACE_LABELS[voiceSpeedPace(voiceSpeed)], { speed }),
+    );
+  };
 
   const onSpeedUpdate = (): void => {
     const voiceSpeed = snapVoiceSpeed(Number(speedInput.value));
     speedInput.value = String(voiceSpeed);
-    speedOutput.textContent = formatVoiceSpeed(voiceSpeed);
+    showVoiceSpeed(voiceSpeed);
     if (voiceSpeed !== store.get().voiceSpeed) {
       void applyPatch({ voiceSpeed });
     }
@@ -646,14 +664,15 @@ export function mountSettings(
 
   togglesGroup.append(reduceMotionBox.wrapper, startWithWindowsBox.wrapper);
 
+  // The everyday choices first; the account, set once, comes last (WP85).
   form.append(
-    accountGroup.section,
     modelGroup.fieldset,
     pttGroup.fieldset,
     soundGroup.fieldset,
     speedGroup,
     sizeGroup.fieldset,
     togglesGroup,
+    accountGroup.section,
   );
 
   container.replaceChildren(header, form);
@@ -699,8 +718,15 @@ export function mountSettings(
         }
       }
     }
+    // The size radios also carry their names themselves, not only through the wrapping label.
+    for (const item of sizeGroup.items) {
+      if (item.labelKey) {
+        item.input.setAttribute("aria-label", t(item.labelKey));
+      }
+    }
 
     speedLabel.textContent = t("settings.voice_speed");
+    showVoiceSpeed(store.get().voiceSpeed);
     reduceMotionBox.titleEl.textContent = t(reduceMotionBox.labelKey);
     startWithWindowsBox.titleEl.textContent = t(startWithWindowsBox.labelKey);
     accountGroup.syncText();
@@ -724,7 +750,7 @@ export function mountSettings(
     syncRadioSelection(sizeGroup, settings.robotSize);
 
     speedInput.value = String(settings.voiceSpeed);
-    speedOutput.textContent = formatVoiceSpeed(settings.voiceSpeed);
+    showVoiceSpeed(settings.voiceSpeed);
 
     reduceMotionBox.input.checked = settings.reduceMotion;
     reduceMotionBox.wrapper.classList.toggle("is-selected", settings.reduceMotion);

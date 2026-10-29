@@ -276,12 +276,12 @@
         user-select: none;
         transition:
           background-color 140ms ease-out,
-          border-color 140ms ease-out,
-          transform 100ms ease-out;
+          border-color 140ms ease-out;
       }
 
+      /* A press darkens the button but never shrinks it: a shaking hand stays on target. */
       .btn:active {
-        transform: scale(0.98);
+        filter: brightness(0.9);
       }
 
       .btn-primary {
@@ -325,10 +325,6 @@
         scroll-behavior: auto !important;
       }
 
-      .reduce-motion .btn:active {
-        transform: none;
-      }
-
       @media (prefers-reduced-motion: reduce) {
         *,
         *::before,
@@ -336,10 +332,6 @@
           animation: none !important;
           transition: none !important;
           scroll-behavior: auto !important;
-        }
-
-        .btn:active {
-          transform: none;
         }
       }
 

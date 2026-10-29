@@ -159,6 +159,16 @@ export function formatVoiceSpeed(speed: number): string {
   return `${text}\u00d7`;
 }
 
+export type VoiceSpeedPace = "slower" | "usual" | "faster";
+
+/** Whether `voiceSpeed` (snapped like `formatVoiceSpeed`) is below, at or above the usual speed. */
+export function voiceSpeedPace(speed: number): VoiceSpeedPace {
+  const snapped = snapVoiceSpeed(speed);
+  if (snapped < DEFAULT_VOICE_SPEED) return "slower";
+  if (snapped > DEFAULT_VOICE_SPEED) return "faster";
+  return "usual";
+}
+
 /** Minimal IPC invoke signature matching `@tauri-apps/api/core`'s `invoke`. */
 export type SettingsInvoke = (
   cmd: string,

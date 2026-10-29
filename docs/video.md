@@ -62,7 +62,7 @@ Production rule: Show only what genuinely works in the codebase—never invent U
   4. Live speech bubble: as the user speaks, the exact transcribed text streams into Mate's on-screen bubble without delay.
   5. On key release, Mate plays `whoosh.ogg` and glides to the zoom slider, stopping 24 px away so the control remains fully visible.
   6. Mate shines his flashlight beam, and the highlight overlay draws a glowing rounded ring around the zoom slider.
-  7. Brief cut or overlay showing Settings (`settings.html`): model selection shows Quick (**Muse Spark 1.3**) and Thorough (**Muse Wonder 1.0**).
+  7. Brief cut or overlay showing Settings (`settings.html`): model selection shows Quick answers · **Muse Spark 1.3** and Think it through · **Muse Wonder 1.0**.
 * **Audio**:
   - User: *"Where is the zoom slider?"*
   - Mate (MMS-TTS): *"Here it is. Look where I'm pointing."* (`robot.found_it`)

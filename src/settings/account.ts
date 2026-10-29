@@ -129,6 +129,26 @@ export function accountReducer(state: AccountState, action: AccountAction): Acco
   }
 }
 
+/**
+ * The locale keys of the account section's two notice lines: `status` is read out politely
+ * (waiting for the browser), `alert` at once (a failed sign-in). At most one is set.
+ */
+export interface AccountNotice {
+  readonly status: string | null;
+  readonly alert: string | null;
+}
+
+/** The notice lines for `state`. */
+export function accountNotice(state: AccountState): AccountNotice {
+  if (state.status === "signing_in") {
+    return { status: "auth.waiting", alert: null };
+  }
+  if (state.status === "signed_out" && state.error) {
+    return { status: null, alert: state.error };
+  }
+  return { status: null, alert: null };
+}
+
 export type AccountInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
 export type AccountSubscribe = (
   onEvent: (payload: unknown) => void,

@@ -21,6 +21,7 @@ import {
   snapVoiceSpeed,
   subscribeSettingsChanged,
   updateSettings,
+  voiceSpeedPace,
 } from "./model.ts";
 import type { Settings } from "./model.ts";
 
@@ -216,6 +217,19 @@ test("parseSettings snaps voiceSpeed to the 0.05 step (rounded to 2 decimals) an
     assert.equal(parsed.voiceSpeed, expectedSpeed, inspect(input));
     assert.equal(snapVoiceSpeed(input), expectedSpeed, inspect(input));
     assert.equal(formatVoiceSpeed(parsed.voiceSpeed), expectedLabel, inspect(input));
+  }
+});
+
+test("voiceSpeedPace says slower, usual or faster for the snapped speed", () => {
+  assert.equal(voiceSpeedPace(MIN_VOICE_SPEED), "slower");
+  assert.equal(voiceSpeedPace(0.95), "slower");
+  assert.equal(voiceSpeedPace(1), "usual");
+  assert.equal(voiceSpeedPace(1.02), "usual");
+  assert.equal(voiceSpeedPace(1.05), "faster");
+  assert.equal(voiceSpeedPace(MAX_VOICE_SPEED), "faster");
+  // Out of range resets to the usual speed, as formatVoiceSpeed shows it.
+  for (const speed of [0.5, 2, Number.NaN]) {
+    assert.equal(voiceSpeedPace(speed), "usual", inspect(speed));
   }
 });
 

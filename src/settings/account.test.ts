@@ -6,6 +6,7 @@ import { test } from "node:test";
 import {
   AUTH_PROVIDERS,
   INITIAL_ACCOUNT_STATE,
+  accountNotice,
   accountReducer,
   createAccountStore,
   isAuthProvider,
@@ -165,6 +166,24 @@ test("accountReducer handles RESET_ERROR", () => {
     provider: "google",
   };
   assert.equal(accountReducer(signedIn, { type: "RESET_ERROR" }), signedIn);
+});
+
+test("accountNotice reads a failed sign-in out as an alert and waiting as a polite status", () => {
+  for (const error of ["auth.failed", "auth.cancelled", "auth.unavailable", "auth.busy"]) {
+    assert.deepEqual(accountNotice({ status: "signed_out", error }), { status: null, alert: error });
+  }
+  assert.deepEqual(accountNotice({ status: "signing_in", provider: "github" }), {
+    status: "auth.waiting",
+    alert: null,
+  });
+});
+
+test("accountNotice says nothing when signed in or signed out without an error", () => {
+  const quiet = { status: null, alert: null };
+  assert.deepEqual(accountNotice(INITIAL_ACCOUNT_STATE), quiet);
+  assert.deepEqual(accountNotice({ status: "signed_out" }), quiet);
+  assert.deepEqual(accountNotice({ status: "signed_out", error: "" }), quiet);
+  assert.deepEqual(accountNotice({ status: "signed_in", name: "Alex", provider: "google" }), quiet);
 });
 
 test("createAccountStore outside Tauri keeps sign in disabled", async () => {

@@ -4,6 +4,7 @@
 // and the UI language by hand, e.g.
 // __mate.setState("pointing"); __mate.aimAt({ left: 20, top: 20, right: 120, bottom: 60 }).
 import { createAudioEngine } from "./audio";
+import { BUBBLE_LINGER_MS, bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
 import { getLocale, setLocale, t } from "./i18n";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
@@ -25,10 +26,8 @@ import type {
   SettingsSubscribe,
 } from "./settings/apply";
 
-/** How long the bubble shows a line from Rust, the "can't find" line, and stays after `End`. */
-const LINE_BUBBLE_MS = 4000;
-const CANT_FIND_BUBBLE_MS = 3000;
-const DONE_BUBBLE_MS = 1500;
+/** How long the timeline holds on "can't find"; the bubble stays its reading time (WP85). */
+const CANT_FIND_HOLD_MS = 3000;
 const LESSON_INTERRUPT_EVENT = "lesson-interrupt";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
@@ -89,7 +88,10 @@ interface Bubble {
   setModel(model: AnswerModel | null): void;
   /** Shows `text` (null hides the bubble), for `ms` when given; the chip is left as it is. */
   show(text: string | null, ms?: number): void;
-  /** Hides the bubble after `ms`, unless something else is shown first. */
+  /**
+   * Hides the bubble once its text was on screen for its reading time, and no sooner than
+   * `ms` from now, unless something else is shown first.
+   */
   hideAfter(ms: number): void;
 }
 
@@ -99,6 +101,7 @@ function mountBubble(element: HTMLElement): Bubble {
   chip.className = "mate-model-chip";
   chip.hidden = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let shownAt = 0;
   const setModel = (model: AnswerModel | null): void => {
     chip.textContent = model === null ? "" : t(MODEL_KEYS[model]);
     chip.hidden = model === null;
@@ -106,6 +109,7 @@ function mountBubble(element: HTMLElement): Bubble {
   const show = (text: string | null, ms?: number): void => {
     clearTimeout(timer);
     timer = undefined;
+    if (text !== null) shownAt = performance.now();
     // textContent only: answer text is never parsed as markup.
     textElement.textContent = text ?? "";
     // Onboarding shares this element and may have replaced its children. Otherwise the
@@ -125,8 +129,12 @@ function mountBubble(element: HTMLElement): Bubble {
       clearTimeout(timer);
       timer = undefined;
       // Nothing lingers when the bubble is already hidden: the chip goes now.
-      if (element.hidden) setModel(null);
-      else timer = setTimeout(() => show(null), ms);
+      if (element.hidden) {
+        setModel(null);
+        return;
+      }
+      const text = textElement.textContent ?? "";
+      timer = setTimeout(() => show(null), bubbleLingerMs(text, performance.now() - shownAt, ms));
     },
   };
 }
@@ -257,14 +265,15 @@ async function createRouter(
       if (line !== "CantFind") return;
       present("bubble", () => {
         showingHeard = false;
-        bubble.show(t("robot.cant_find"), CANT_FIND_BUBBLE_MS);
+        const text = t("robot.cant_find");
+        bubble.show(text, bubbleReadMs(text));
       });
-      return new Promise<void>((resolve) => setTimeout(resolve, CANT_FIND_BUBBLE_MS));
+      return new Promise<void>((resolve) => setTimeout(resolve, CANT_FIND_HOLD_MS));
     },
     onDone(doneGeneration) {
       if (doneGeneration !== generations.answer) return;
       present("state", () => setState("idle"));
-      present("bubble-hide", () => bubble.hideAfter(DONE_BUBBLE_MS));
+      present("bubble-hide", () => bubble.hideAfter(BUBBLE_LINGER_MS));
       // Every sentence before `End` was played out: the worklet reported its end.
       void reportPlayback("done", doneGeneration);
     },
@@ -332,7 +341,8 @@ async function createRouter(
       case "line":
         present("bubble", () => {
           showingHeard = false;
-          bubble.show(t(msg.key), LINE_BUBBLE_MS);
+          const text = t(msg.key);
+          bubble.show(text, bubbleReadMs(text));
         });
         return;
     }

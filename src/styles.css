@@ -16,18 +16,32 @@ body {
   place-items: center;
 }
 
-/* Mate's speech bubble (src/mate.ts), above him; the `hidden` attribute removes it. */
+/* Mate's speech bubble (src/mate.ts) in large type for older eyes (WP85); the `hidden`
+   attribute removes it. It hangs from the top of his 220px window and grows down over him, so
+   a long line is never cut off above the window; if it is taller than the window, its start
+   goes, so the newest words heard stay in view. Insets with auto margins center it across the
+   whole window (`left: 50%` would wrap the text at half its width). The solid rim keeps it
+   apart from a white page, and Windows contrast themes keep the rim when they drop the shadow. */
 #mate-bubble {
   position: fixed;
-  left: 50%;
-  bottom: calc(50% + 56px);
-  transform: translateX(-50%);
-  max-width: min(320px, calc(100% - 16px));
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 320px;
+  max-height: calc(100% - 12px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
   padding: 8px 12px;
+  border: 2px solid #6b7280;
   border-radius: 12px;
   background: #fffdf5;
   color: #1f2430;
-  font: 15px/1.35 "Segoe UI", system-ui, sans-serif;
+  font: 18px/1.35 "Segoe UI", system-ui, sans-serif;
   text-align: center;
   overflow-wrap: anywhere;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
@@ -38,20 +52,21 @@ body {
   display: none;
 }
 
-/* The model that answered (src/mate.ts): a quiet pill on its own line, centered under the text.
-   It fades in when shown; the reduced-motion rules below turn that off. The bubble has no dark
-   variant, so neither has the chip. */
+/* The model that answered (src/mate.ts): a quiet pill on its own line, centered under the text,
+   smaller than the text but readable (13px, about 7:1 on the bubble, WP85). It fades in when
+   shown; the reduced-motion rules below turn that off. The bubble has no dark variant, so neither
+   has the chip. */
 .mate-model-chip {
   display: block;
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
   margin: 6px auto 0;
-  padding: 1px 8px;
+  padding: 2px 10px;
   border-radius: 999px;
   background: rgba(31, 36, 48, 0.06);
-  color: #646874;
-  font: 11px/1.4 "Segoe UI", system-ui, sans-serif;
+  color: #4b5060;
+  font: 13px/1.4 "Segoe UI", system-ui, sans-serif;
   letter-spacing: 0.01em;
   animation: mate-model-chip-in 240ms ease-out;
 }

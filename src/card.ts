@@ -239,10 +239,11 @@ export function mountLessonCard(
   const imgWrapper = document.createElement("div");
   imgWrapper.className = "card-image-wrapper";
 
+  // The alt text says what the picture shows: the title next to it is read out already.
   const img = document.createElement("img");
   img.id = "card-image";
   img.className = "card-image";
-  img.alt = currentCard.title;
+  img.alt = t("card.image_alt");
   img.style.display = "none";
 
   const placeholderArt = document.createElement("div");
@@ -351,7 +352,6 @@ export function mountLessonCard(
     }
 
     titleEl.textContent = card.title;
-    img.alt = card.title;
     renderSteps(card.steps);
     credits.textContent = t(creditsKey(card.wordsBy));
 
