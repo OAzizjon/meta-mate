@@ -1,6 +1,7 @@
 // OGG preloader/decoder cache (/sounds/<kind>/<name>.ogg), panned cue player, SFX player, and crossfading ambience loop.
 
 import { clampCuePan, type AudioMixer } from "./mixer.ts";
+import type { PlaybackLease } from "./idle.ts";
 import {
   AMBIENCE_NAMES,
   CUE_NAMES,
@@ -114,6 +115,7 @@ export function isSoundAllowedInMode(name: string, mode: SoundMode): boolean {
 }
 
 interface ActiveAmbienceBed {
+  readonly release: () => void;
   readonly name: string;
   readonly source: AudioBufferSourceNode;
   readonly gainNode: GainNode;
@@ -123,6 +125,7 @@ interface ActiveAmbienceBed {
 export interface SoundBankOptions {
   readonly basePath?: string;
   readonly fetcher?: typeof fetch;
+  readonly beginPlayback?: () => PlaybackLease;
 }
 
 export class SoundBank {
@@ -130,6 +133,7 @@ export class SoundBank {
   private readonly mixer: AudioMixer;
   private readonly basePath: string;
   private readonly fetcher: typeof fetch;
+  private readonly beginPlayback: () => PlaybackLease;
 
   private readonly cache = new Map<string, AudioBuffer>();
   private readonly inflight = new Map<string, Promise<AudioBuffer>>();
@@ -150,6 +154,7 @@ export class SoundBank {
     this.mixer = mixer;
     this.basePath = options?.basePath ?? SOUNDS_BASE_PATH;
     this.fetcher = options?.fetcher ?? globalThis.fetch.bind(globalThis);
+    this.beginPlayback = options?.beginPlayback ?? (() => ({ ready: Promise.resolve(), release() {} }));
     this.mixer.onModeChange(() => {
       // Stop old policy playback, including pending one-shots and fading beds.
       this.stopAllSfxAndCues();
@@ -232,6 +237,7 @@ export class SoundBank {
     }
 
     const shouldLoop = opts?.loop ?? name === "think";
+    const playback = this.beginPlayback();
     const panValue = clampCuePan(opts?.pan ?? 0);
 
     let cancelled = false;
@@ -243,6 +249,7 @@ export class SoundBank {
     });
 
     const cleanup = (): void => {
+      playback.release();
       this.activeStops.delete(stop);
       if (name === "think" && this.activeThinkStop === stop) {
         this.activeThinkStop = null;
@@ -275,8 +282,8 @@ export class SoundBank {
       this.activeThinkStop = stop;
     }
 
-    void this.load("cues", name)
-      .then((buffer) => {
+    void Promise.all([this.load("cues", name), playback.ready])
+      .then(([buffer]) => {
         if (cancelled) {
           cleanup();
           return;
@@ -331,6 +338,7 @@ export class SoundBank {
     }
     // Reserve before loading so concurrent requests share the same budget.
     this.sfxCount += 1;
+    const playback = this.beginPlayback();
 
     let cancelled = false;
     let activeSource: AudioBufferSourceNode | null = null;
@@ -341,6 +349,7 @@ export class SoundBank {
     });
 
     const cleanup = (): void => {
+      playback.release();
       this.activeStops.delete(stop);
       if (resolveFinished) {
         const r = resolveFinished;
@@ -379,8 +388,8 @@ export class SoundBank {
       }
     };
 
-    void loadBuffer()
-      .then((buffer) => {
+    void Promise.all([loadBuffer(), playback.ready])
+      .then(([buffer]) => {
         const currentMode = this.mixer.getMode();
         if (cancelled || !isSoundAllowedInMode(rawName, currentMode)) {
           cleanup();
@@ -461,8 +470,10 @@ export class SoundBank {
       this.currentAmbience = null;
     }
 
-    void this.load("amb", normalized)
-      .then((buffer) => {
+    const playback = this.beginPlayback();
+    let handedOff = false;
+    void Promise.all([this.load("amb", normalized), playback.ready])
+      .then(([buffer]) => {
         if (token !== this.ambienceRequestToken) {
           return;
         }
@@ -483,14 +494,18 @@ export class SoundBank {
         source.start(0);
 
         this.currentAmbience = {
+          release: playback.release,
           name: normalized,
           source,
           gainNode,
           stopTimer: null,
         };
+        handedOff = true;
       })
       .catch(() => {
         // Ignore missing ambience file in offline/test environments.
+      }).finally(() => {
+        if (!handedOff) playback.release();
       });
   }
 
@@ -516,6 +531,7 @@ export class SoundBank {
   }
 
   private stopAmbienceBed(bed: ActiveAmbienceBed): void {
+    bed.release();
     if (bed.stopTimer !== null) {
       clearTimeout(bed.stopTimer);
     }

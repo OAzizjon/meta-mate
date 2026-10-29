@@ -5,6 +5,7 @@
 // Web Animations.
 
 import type { BeamController } from "./beam.ts";
+import { createFrameUpdate } from "./frame-update.ts";
 import {
   BEAM_HALF_WIDTH,
   MOOD_FACES,
@@ -38,6 +39,7 @@ export interface StateAnimator {
   relayout(): void;
   setFunMode(fun: boolean): void;
   setReduceMotion(reduce: boolean): void;
+  setHidden(hidden: boolean): void;
   destroy(): void;
 }
 
@@ -127,11 +129,17 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   let cursor: CssPoint | null = null;
   let target: CssRect | null = null;
   let reduceMotion = false;
+  let hidden = false;
   let blinking = false;
   let overrideOn = false;
   let overrideTimer: ReturnType<typeof setTimeout> | undefined;
   let blinkTimer: ReturnType<typeof setTimeout> | undefined;
   let oneShots: Animation[] = [];
+  const voiceFrame = createFrameUpdate(() => {
+    if (hidden || state !== "speaking") return;
+    renderMouth();
+    renderAura();
+  });
 
   function isMotionReduced(): boolean {
     if (reduceMotion) return true;
@@ -167,16 +175,23 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   function renderFace(): void {
     const f = face();
     setEyes(refs, blinking && state !== "looking" && BLINKABLE.has(f.eyes) ? "closed" : f.eyes);
-    if (state === "speaking" && voice >= VOICE_OPEN) setMouthOpen(refs, voice);
-    else setMouth(refs, f.mouth);
+    renderMouth();
     setAttr(refs.svg, "data-cheeks", f.cheeks);
     setAttr(refs.svg, "data-brows", f.brows);
     setGaze(refs, BLINKABLE.has(f.eyes) ? gaze() : NO_GAZE);
   }
 
+  function renderMouth(): void {
+    if (state === "speaking" && voice >= VOICE_OPEN) setMouthOpen(refs, voice);
+    else setMouth(refs, face().mouth);
+  }
+
   function renderAura(): void {
     const aura = refs.layers.aura;
-    if (state === "speaking") aura.style.opacity = (AURA_REST + voice * AURA_VOICE).toFixed(3);
+    if (state === "speaking") {
+      const opacity = String(Math.round((AURA_REST + voice * AURA_VOICE) * 100) / 100);
+      if (aura.style.opacity !== opacity) aura.style.opacity = opacity;
+    }
     else aura.style.removeProperty("opacity");
   }
 
@@ -230,6 +245,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
 
   function playOneShots(): void {
     stopOneShots();
+    if (hidden || state === "sleeping") return;
     const reduced = isMotionReduced();
     const move = BODY_MOVES[state];
     if (move && !reduced) oneShots.push(refs.body.animate(move.keyframes, move.options));
@@ -239,6 +255,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   }
 
   function scheduleBlink(): void {
+    if (hidden || state === "sleeping") return;
     blinkTimer = setTimeout(blink, BLINK_MIN_GAP_MS + Math.random() * BLINK_GAP_SPREAD_MS);
   }
 
@@ -259,6 +276,10 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     setState(next) {
       // A repeated state replays its one-shot (a second oops tilts again).
       state = next;
+      voiceFrame.cancel();
+      clearTimeout(blinkTimer);
+      blinking = false;
+      scheduleBlink();
       voice = 0;
       startOverride();
       render();
@@ -270,10 +291,10 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       renderFace();
     },
     setVoiceLevel(rms) {
-      voice = clamp(rms, 0, 1);
-      if (state !== "speaking") return;
-      renderFace();
-      renderAura();
+      const next = Math.round(clamp(Number.isFinite(rms) ? rms : 0, 0, 1) * 100) / 100;
+      if (voice === next) return;
+      voice = next;
+      if (state === "speaking" && !hidden) voiceFrame.schedule();
     },
     setEyeTarget(next) {
       cursor = next && Number.isFinite(next.x) && Number.isFinite(next.y) ? next : null;
@@ -295,7 +316,21 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       if (isMotionReduced()) stopOneShots();
       renderPose();
     },
+    setHidden(next) {
+      if (hidden === next) return;
+      hidden = next;
+      clearTimeout(blinkTimer);
+      blinking = false;
+      voiceFrame.cancel();
+      if (hidden) stopOneShots();
+      else {
+        renderFace();
+        renderAura();
+        scheduleBlink();
+      }
+    },
     destroy() {
+      voiceFrame.cancel();
       clearTimeout(overrideTimer);
       clearTimeout(blinkTimer);
       stopOneShots();

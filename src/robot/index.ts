@@ -61,6 +61,7 @@ export function mountRobot(container: HTMLElement): RobotController {
     animator.setReduceMotion(reduced);
   };
   const relayout = (): void => animator.relayout();
+  const applyVisibility = (): void => animator.setHidden(document.hidden);
 
   function applySize(): void {
     const boxWidth = container.clientWidth || window.innerWidth;
@@ -82,6 +83,8 @@ export function mountRobot(container: HTMLElement): RobotController {
 
   setSize(DEFAULT_ROBOT_SIZE);
   applyMotion();
+  applyVisibility();
+  document.addEventListener("visibilitychange", applyVisibility);
   motionQuery.addEventListener("change", applyMotion);
   window.addEventListener("resize", applySize);
 
@@ -110,6 +113,7 @@ export function mountRobot(container: HTMLElement): RobotController {
     },
     setFunMode: (fun) => animator.setFunMode(fun),
     destroy() {
+      document.removeEventListener("visibilitychange", applyVisibility);
       motionQuery.removeEventListener("change", applyMotion);
       window.removeEventListener("resize", applySize);
       flight.cancel();

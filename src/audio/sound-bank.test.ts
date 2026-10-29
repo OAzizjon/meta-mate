@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AudioMixer, LEVEL_GAIN_TABLE } from "./mixer.ts";
 import { SoundBank } from "./sound-bank.ts";
+import type { SoundBankOptions } from "./sound-bank.ts";
 
 class FakeParam {
   value = 1;
@@ -33,7 +34,7 @@ class FakeNode {
   stop() { this.stopped = true; this.onended?.(); }
 }
 
-function setup() {
+function setup(options?: SoundBankOptions) {
   const sources: FakeNode[] = [];
   const gains: FakeNode[] = [];
   const ctx = {
@@ -46,7 +47,7 @@ function setup() {
     createBufferSource() { const node = new FakeNode(); sources.push(node); return node; },
   } as unknown as AudioContext;
   const mixer = new AudioMixer(ctx);
-  const bank = new SoundBank(ctx, mixer);
+  const bank = new SoundBank(ctx, mixer, options);
   // Bypass decoding only; exercise the real policy and playback lifecycle.
   bank.load = async () => ({} as AudioBuffer);
   return { bank, mixer, sources, gains };
@@ -124,4 +125,47 @@ test("immediate ambience stop also stops the bed fading during a switch", async 
   bank.stopAmbienceImmediately();
   assert.ok(sources.every((source) => source.stopped && source.disconnected));
   bank.stopAmbienceImmediately();
+});
+
+test("cue, SFX and ambience wait for resume before scheduling their first sample", async () => {
+  for (const kind of ["cue", "sfx", "ambience"] as const) {
+    let resume: () => void = () => {};
+    const ready = new Promise<void>((resolve) => { resume = resolve; });
+    let releases = 0;
+    const { bank, sources } = setup({
+      beginPlayback: () => ({ ready, release: () => { releases++; } }),
+    });
+    const handle = kind === "cue" ? bank.playCue("ping")
+      : kind === "sfx" ? bank.playSfx("cat") : null;
+    if (kind === "ambience") bank.setAmbience("forest");
+    await settle();
+    assert.equal(sources.length, 0, kind);
+    resume();
+    await settle();
+    assert.equal(sources.length, 1, kind);
+    assert.equal(sources[0].started, true, kind);
+    if (handle) {
+      sources[0].onended?.();
+      await handle.finished;
+    } else bank.stopAmbienceImmediately();
+    assert.equal(releases, 1, kind);
+  }
+});
+
+test("stopping a cue during resume never schedules it afterward", async () => {
+  let resume: () => void = () => {};
+  const ready = new Promise<void>((resolve) => { resume = resolve; });
+  let releases = 0;
+  let released = false;
+  const { bank, sources } = setup({ beginPlayback: () => ({
+    ready,
+    release() { if (!released) { released = true; releases++; } },
+  }) });
+  const handle = bank.playCue("ping");
+  handle.stop();
+  await handle.finished;
+  resume();
+  await settle();
+  assert.equal(sources.length, 0);
+  assert.equal(releases, 1);
 });

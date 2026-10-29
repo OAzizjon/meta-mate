@@ -165,7 +165,7 @@
   animation: mate-pulse 1.6s ease-in-out infinite;
 }
 
-/* The voice sets the aura's opacity inline every frame. */
+/* Voice rendering is coalesced to one update per animation frame. */
 .mate-svg[data-state="speaking"] .mate-layer-aura {
   transition: opacity 0.08s linear;
 }
@@ -212,6 +212,10 @@
 
 /* Reduce motion (the setting or the OS; styles.css also stops everything for the OS one):
    no loops and nothing moves, only fades remain. */
+.mate-svg[data-state="sleeping"] * {
+  animation-play-state: paused !important;
+}
+
 .mate-root.reduce-motion,
 .mate-root.reduce-motion *,
 .mate-svg.reduce-motion,

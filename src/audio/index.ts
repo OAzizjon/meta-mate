@@ -1,6 +1,8 @@
 // Public facade for MetaMate's WebView audio engine.
 
 import { SentenceCompletions } from "./sentence-completions.ts";
+import { AudioIdleController } from "./idle.ts";
+import type { PlaybackLease } from "./idle.ts";
 
 import {
   AUDIO_SAMPLE_RATE,
@@ -138,6 +140,8 @@ export interface AudioEngine {
   readonly state: AudioResumeState;
   readonly fallbackNeeded: boolean;
   ensureResumed(): Promise<boolean>;
+  setIdle(idle: boolean): void;
+  setInactive(inactive: boolean): void;
   pushPcm(chunk: PcmChunk): void;
   interrupt(generationId: number): void;
   cancel(generationId: number): void;
@@ -169,6 +173,15 @@ export async function createAudioEngine(
   options: AudioEngineOptions = {},
 ): Promise<AudioEngine> {
   const ctx = await initAudioContext();
+  const idleClock = new AudioIdleController(ctx);
+  const speech = new Map<string, { generation: number; lease: PlaybackLease }>();
+  const releaseSpeech = (through: number): void => {
+    for (const [key, entry] of speech) {
+      if (entry.generation > through) continue;
+      entry.lease.release();
+      speech.delete(key);
+    }
+  };
   const mixer = new AudioMixer(ctx);
   if (options.settings) {
     mixer.setSettings(options.settings);
@@ -177,6 +190,7 @@ export async function createAudioEngine(
   const soundBank = new SoundBank(ctx, mixer, {
     basePath: options.basePath,
     fetcher: options.fetcher,
+    beginPlayback: () => idleClock.begin(),
   });
 
   let resumeState: AudioResumeState = "fallback";
@@ -185,6 +199,7 @@ export async function createAudioEngine(
   const sentenceCompletions = new SentenceCompletions();
   let canceledThrough = -1;
   let activeGeneration = 0;
+  let pcmQueue: Promise<void> = Promise.resolve();
   let disposed = false;
 
   const updateResumeState = (next: AudioResumeState): void => {
@@ -216,6 +231,9 @@ export async function createAudioEngine(
         mixer.setSpeechActive(msg.active);
         options.onVoiceLevel?.(msg.rms);
       } else if (msg.type === "sentence-end") {
+        const key = `${msg.generationId}:${msg.sentenceId}`;
+        speech.get(key)?.lease.release();
+        speech.delete(key);
         sentenceCompletions.complete(msg.generationId, msg.sentenceId);
       }
       for (const listener of workletListeners) {
@@ -228,7 +246,7 @@ export async function createAudioEngine(
   resumeState = toResumeState(resumed);
   options.onFallbackStateChange?.(resumeState === "fallback");
 
-  const unbindAutoResume = bindAutoResume(ctx, updateResumeState);
+  const unbindAutoResume = bindAutoResume(ctx, updateResumeState, () => idleClock.wantsRunning);
 
   if (options.preload) {
     void soundBank.preload();
@@ -250,28 +268,48 @@ export async function createAudioEngine(
       updateResumeState(toResumeState(ok));
       return ok;
     },
+    setIdle: (idle) => idleClock.setIdle(idle),
+    setInactive: (inactive) => idleClock.setInactive(inactive),
     pushPcm(chunk: PcmChunk): void {
       if (disposed || chunk.generationId <= canceledThrough || chunk.generationId < activeGeneration) return;
       if (chunk.generationId > activeGeneration) {
+        releaseSpeech(chunk.generationId - 1);
         activeGeneration = chunk.generationId;
         soundBank.beginGeneration(activeGeneration);
       }
       if (!workletNode) {
         return;
       }
-      const pcm = toDetachedArrayBuffer(chunk.samples);
-      const msg: WorkletInboundMsg = {
-        type: "push",
-        generationId: chunk.generationId,
-        sentenceId: chunk.sentenceId,
-        sampleRate: chunk.sampleRate,
-        eos: chunk.eos,
-        pcm,
-      };
-      workletNode.port.postMessage(msg, [pcm]);
+      const key = `${chunk.generationId}:${chunk.sentenceId}`;
+      let entry = speech.get(key);
+      if (!entry) {
+        entry = { generation: chunk.generationId, lease: idleClock.begin() };
+        speech.set(key, entry);
+      }
+      const pending = entry;
+      // All chunks of a sentence share the resume barrier; callbacks retain wire order.
+      pcmQueue = pcmQueue.then(async () => {
+        await pending.lease.ready;
+        if (disposed || speech.get(key) !== pending || chunk.generationId <= canceledThrough || chunk.generationId < activeGeneration) return;
+        const pcm = toDetachedArrayBuffer(chunk.samples);
+        const msg: WorkletInboundMsg = {
+          type: "push",
+          generationId: chunk.generationId,
+          sentenceId: chunk.sentenceId,
+          sampleRate: chunk.sampleRate,
+          eos: chunk.eos,
+          pcm,
+        };
+        workletNode!.port.postMessage(msg, [pcm]);
+      }).catch(() => {
+        if (speech.get(key) === pending) speech.delete(key);
+        pending.lease.release();
+        updateResumeState("fallback");
+      });
     },
     interrupt(generationId: number): void {
       if (disposed || generationId <= canceledThrough) return;
+      releaseSpeech(generationId);
       if (workletNode) {
         const msg: WorkletInboundMsg = {
           type: "interrupt",
@@ -285,6 +323,7 @@ export async function createAudioEngine(
       }
     },
     cancel(generationId: number): void {
+      releaseSpeech(generationId);
       canceledThrough = Math.max(canceledThrough, generationId);
       if (workletNode) {
         const msg: WorkletInboundMsg = {
@@ -316,6 +355,7 @@ export async function createAudioEngine(
         return { stop: () => {}, finished: Promise.resolve() };
       }
       if (generationId > activeGeneration) {
+        releaseSpeech(generationId - 1);
         activeGeneration = generationId;
         soundBank.beginGeneration(generationId);
       }
@@ -341,6 +381,8 @@ export async function createAudioEngine(
     },
     async dispose(): Promise<void> {
       disposed = true;
+      idleClock.dispose();
+      releaseSpeech(Infinity);
       unbindAutoResume();
       soundBank.stopAllSfxAndCues();
       soundBank.stopAmbienceImmediately();

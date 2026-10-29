@@ -32,6 +32,7 @@ import type {
 const CANT_FIND_HOLD_MS = 3000;
 const LESSON_INTERRUPT_EVENT = "lesson-interrupt";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+const MATE_STATE_EVENT = "mate-state-changed";
 
 const MODEL_KEYS: Readonly<Record<AnswerModel, LocaleKey>> = {
   "muse-spark-1.3": "model.muse_spark",
@@ -193,6 +194,14 @@ async function createRouter(
     settings: toAudioSettings(settings.get()),
   });
   settings.setAudio(audio);
+  const updateAudioActivity = (): void => {
+    const state = document.documentElement.dataset.mateState;
+    audio.setIdle(state === "idle" || state === "sleeping");
+    audio.setInactive(document.hidden || state === "sleeping");
+  };
+  document.addEventListener("visibilitychange", updateAudioActivity);
+  document.addEventListener(MATE_STATE_EVENT, updateAudioActivity);
+  updateAudioActivity();
   // The window runs with --autoplay-policy=no-user-gesture-required, so this should pass.
   const running = await audio.ensureResumed();
   if (!running) {
@@ -372,8 +381,18 @@ if (container) {
   let sleeping = false;
   const robot: RobotController = {
     ...mountedRobot,
-    setState: (state) => mountedRobot.setState(sleeping ? "sleeping" : state),
+    setState: (state) => {
+      const shown = sleeping ? "sleeping" : state;
+      mountedRobot.setState(shown);
+      document.documentElement.dataset.mateState = shown;
+      document.dispatchEvent(new Event(MATE_STATE_EVENT));
+    },
   };
+  const updateVisibility = (): void => {
+    document.documentElement.classList.toggle("mate-page-hidden", document.hidden);
+  };
+  document.addEventListener("visibilitychange", updateVisibility);
+  updateVisibility();
   robot.setMood("calm");
   robot.setState("idle");
   const bubble = document.getElementById("mate-bubble");

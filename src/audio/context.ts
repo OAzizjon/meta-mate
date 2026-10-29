@@ -66,17 +66,18 @@ export function toResumeState(resumed: boolean): AudioResumeState {
 }
 
 /**
- * Keeps `ctx` resumed across `statechange` events and opportunistic DOM gestures,
+ * Recovers unexpected suspension while playback is requested,
  * notifying `onStateChange` whenever the engine transitions between `"running"` and `"fallback"`.
  */
 export function bindAutoResume(
   ctx: AudioContext,
   onStateChange?: (state: AudioResumeState) => void,
+  shouldResume: () => boolean = () => true,
 ): () => void {
   let disposed = false;
 
   const tryResume = (): void => {
-    if (disposed || ctx.state === "closed") {
+    if (disposed || ctx.state === "closed" || !shouldResume()) {
       return;
     }
     if (ctx.state === "running") {

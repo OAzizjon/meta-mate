@@ -195,6 +195,16 @@ body {
   pointer-events: none;
 }
 
+/* Pause all page loops, including onboarding, while Mate is hidden or asleep. */
+html.mate-page-hidden *,
+html.mate-page-hidden *::before,
+html.mate-page-hidden *::after,
+html[data-mate-state="sleeping"] *,
+html[data-mate-state="sleeping"] *::before,
+html[data-mate-state="sleeping"] *::after {
+  animation-play-state: paused !important;
+}
+
 html.reduce-motion *,
 .reduce-motion,
 .reduce-motion * {

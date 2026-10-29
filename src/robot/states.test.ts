@@ -367,3 +367,43 @@ test("robot.css poses every brow style, warms the filament in listening and spea
   assert.match(ROBOT_CSS, /\.mate-brow\s*\{[^}]*transition:\s*transform\b/);
   assert.match(ROBOT_CSS, /\.mate-svg\.reduce-motion\s+\*\s*\{[^}]*transition-property:\s*opacity\s*!important/);
 });
+
+test("speaking RMS bursts update mouth and aura once per frame and cancel on hide/state change", (t) => {
+  const h = createHarness();
+  t.after(() => h.cleanup());
+  const originalRequest = globalThis.requestAnimationFrame;
+  const originalCancel = globalThis.cancelAnimationFrame;
+  const frames = new Map<number, FrameRequestCallback>();
+  let id = 0;
+  globalThis.requestAnimationFrame = (callback) => { frames.set(++id, callback); return id; };
+  globalThis.cancelAnimationFrame = (frame) => { frames.delete(frame); };
+  t.after(() => {
+    globalThis.requestAnimationFrame = originalRequest;
+    globalThis.cancelAnimationFrame = originalCancel;
+  });
+  h.animator.setState("speaking");
+  const rest = h.refs.layers.aura.style.opacity;
+  h.animator.setVoiceLevel(0.2);
+  h.animator.setVoiceLevel(0.8);
+  assert.equal(frames.size, 1);
+  assert.equal(h.refs.layers.aura.style.opacity, rest);
+  const flush = frames.get(id)!;
+  frames.delete(id);
+  flush(0);
+  assert.equal(h.refs.layers.aura.style.opacity, "0.73");
+  assert.equal(h.refs.mouth.getAttribute("data-shape"), "open");
+  assert.equal(frames.size, 0);
+  h.animator.setVoiceLevel(0.8001);
+  assert.equal(frames.size, 0); // Same quantized level.
+  h.animator.setVoiceLevel(0.4);
+  h.animator.setHidden(true);
+  assert.equal(frames.size, 0);
+  h.animator.setVoiceLevel(0.5);
+  assert.equal(frames.size, 0);
+  h.animator.setHidden(false);
+  assert.equal(h.refs.layers.aura.style.opacity, "0.63");
+  h.animator.setVoiceLevel(0.7);
+  h.animator.setState("idle");
+  assert.equal(frames.size, 0);
+  assert.equal(h.refs.layers.aura.style.opacity, "");
+});
