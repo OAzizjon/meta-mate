@@ -49,9 +49,8 @@ pub(crate) fn spawn_timed(
     settings: PttSettings,
     mut on_event: impl FnMut(PttEvent, Option<Instant>) + Send + 'static,
 ) -> Result<PttDriver, HookError> {
-    // PttSettings already supplies the startup mode; preserve the spawn API used
-    // by voice.rs. Later changes arrive through set_ptt_mode.
-    TOGGLE_MODE.store(settings.mode == Mode::Toggle, Ordering::Relaxed);
+    // The mode belongs to the settings owner (`set_ptt_mode`, called when settings load,
+    // before this runs): storing `settings.mode` here reset a saved Toggle to Hold.
     let started = Instant::now();
     let (events, keys) = mpsc::channel();
     let hook = keyboard::start_mapped(events.clone(), DriverInput::Key)?;

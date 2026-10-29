@@ -548,6 +548,9 @@ async fn run(
                 let heard = app.clone();
                 let silencer = silencer.clone();
                 let driver_generation = recording.unwrap().0;
+                // A microphone that fails must also end the driver's click/toggle recording,
+                // or the next click would only stop this stale one.
+                let release = (silencer.clone(), driver_generation);
                 let mut detector = mm_core::vad::SilenceDetector::new();
                 let mut frame_ms = 0u64;
                 let on_level = move |level: f32| {
@@ -566,6 +569,7 @@ async fn run(
                     Ok(Ok(microphone)) => microphone,
                     Ok(Err(error)) => {
                         eprintln!("voice: microphone: {error}");
+                        release.0.silence(release.1);
                         recording = None;
                         say_line(
                             &stream,
@@ -581,6 +585,7 @@ async fn run(
                         continue;
                     }
                     Err(_) => {
+                        release.0.silence(release.1);
                         recording = None;
                         say_line(
                             &stream,
