@@ -2,6 +2,68 @@
 
 Each decision records what we chose, why, and what we rejected. Add new entries at the bottom; don't rewrite old ones. If a decision changes, add a new entry linking to the old one.
 
+## Index
+
+| ID | Title | Date |
+|---|---|---|
+| D1 | Language and stack: Rust + Tauri v2, TypeScript frontend | 2026-10-24 |
+| D2 | Custom language: no compiler, build MateScript | 2026-10-24 |
+| D3 | Main demo feature: pointing robot | 2026-10-24 |
+| D4 | Platforms: Windows first, Linux X11 fallback | 2026-10-24 |
+| D5 | Languages: automatic language detection | 2026-10-24 |
+| D6 | Demo video format: older adult in English over Zoom | 2026-10-24 |
+| D7 | Demo scenarios: Windows text size and browser | 2026-10-24 |
+| D8 | Speech recognition: Muse Voice Transcribe | 2026-10-24 |
+| D9 | Speech synthesis: Meta MMS-TTS on Modal | 2026-10-24 |
+| D10 | Access: website installer and server proxy for API keys | 2026-10-24 |
+| D11 | Screenshots: active window only with password masking | 2026-10-24 |
+| D12 | Owner time commitment (8+ hours a day) | 2026-10-24 |
+| D13 | Product name: MetaMate working name in single constant | 2026-10-24 |
+| D14 | Robot style: cute vector art / animated SVG | 2026-10-24 |
+| D15 | Clicks: show + "do it for me" with confirmation | 2026-10-24 |
+| D16 | Right Ctrl PTT filter and press-speak-pause mode | 2026-10-24 |
+| D17 | No mic pre-recording before key press | 2026-10-24 |
+| D18 | Capture window plus popups; hide overlay per frame | 2026-10-24 |
+| D19 | Fail-closed password masking | 2026-10-24 |
+| D20 | Computer-use substeps with completion rules | 2026-10-24 |
+| D21 | Spoken lines outside computer_call + pre-recorded phrases | 2026-10-24 |
+| D22 | MateScript v0.2: timeline and recovery rules | 2026-10-24 |
+| D23 | Plan v2 schedule, checkpoints, and demo freeze | 2026-10-24 |
+| D24 | Linux X11 decision deferred to Nov 3 gate | 2026-10-24 |
+| D25 | Robot character named Mate (male) | 2026-10-24 |
+| D26 | English docs in repo; Russian communication with owner | 2026-10-24 |
+| D27 | Pre-kickoff foundation limited to tooling | 2026-10-24 |
+| D28 | Windows development toolchain setup | 2026-10-24 |
+| D29 | Mate design: light bulb variant B1 "classic glow" | 2026-10-24 |
+| D30 | Sound library: custom synthesized cues + CC0 sounds | 2026-10-24 |
+| D31 | No commits before official rules; full disclosure | 2026-10-24 |
+| D32 | Placement modeling: prioritize reliability over features | 2026-10-24 |
+| D33 | Kickoff schedule adjustment and Day 1 reordering | 2026-10-25 |
+| D34 | Tauri framework pinned to v2 | 2026-10-25 |
+| D35 | Dev fallback keys and DeepSeek as draft-team agent | 2026-10-25 |
+| D36 | Competitive strategy: first 60s, real testers, accessibility | 2026-10-25 |
+| D37 | Revealed password redaction heuristic | 2026-10-25 |
+| D38 | Kickoff timetable confirmation (22:00 Tashkent) | 2026-10-26 |
+| D39 | Feature cuts: Linux cut, Wonder manual, fun mode trim | 2026-10-26 |
+| D40 | Settings model choice (Quick / Thorough) and proxy quotas | 2026-10-26 |
+| D41 | Meta API probe (S4): Spark minimal reasoning and computer use | 2026-10-26 |
+| D42 | Private repository start after kickoff rules review | 2026-10-26 |
+| D43 | Windows layer stays Rust + Tauri (S1 & S3 pass) | 2026-10-27 |
+| D44 | Voice path latency: ASR socket at key-down, TTS to Modal GPU | 2026-10-27 |
+| D45 | Voice path end-to-end verified; proxy security rules | 2026-10-27 |
+| D46 | Live voice loop wired (S7 passes); audio playback rules | 2026-10-27 |
+| D47 | Single-turn pointing ("Where's the button?") works live | 2026-10-27 |
+| D48 | Multi-step guidance ("How do I...?") wired to teacher | 2026-10-27 |
+| D49 | Strict capture redaction and "do it for me" safety rules | 2026-10-27 |
+| D50 | Browser UIA handling: partial walk + provider search | 2026-10-28 |
+| D51 | Release build configuration with baked demo invite | 2026-10-28 |
+| D52 | Official hackathon rules analysis and prize strategy | 2026-10-28 |
+| D53 | Modal deployments: MMS-TTS on T4 and Muse Glimmer on L4 | 2026-10-28 |
+| D54 | Public auth: OAuth (Google/GitHub) with PKCE and DPAPI storage | 2026-10-28 |
+| D55 | Lesson keepsake card: Muse Glimmer text and Muse Image art | 2026-10-28 |
+| D56 | Lesson escalation to Muse Wonder after two misses | 2026-10-28 |
+| D57 | Production proxy hosted on Modal serverless | 2026-10-28 |
+
 ## 2026-10-24: decisions before the start (conversation with the owner)
 
 | # | Question | Decision | Why | Rejected |

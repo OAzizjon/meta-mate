@@ -11,163 +11,125 @@ Windows 10/11 x64 (the video can be watched anywhere).
 
 ## Links
 
-- [Download](https://github.com/OAzizjon/meta-mate/releases/latest)
+- [Download release](https://github.com/OAzizjon/meta-mate/releases/latest)
 - Demo video: TBD before Nov 4
 - [Decisions log](docs/decisions.md)
 - [Architecture](docs/architecture.md)
 - [Submission notes](docs/submission.md)
+- [MateScript specification](docs/matescript.md)
+- [Day-by-day roadmap](docs/plan.md)
+- [Changelog](CHANGELOG.md)
 
-MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl for push-to-talk voice, and he answers aloud, flies next to the right button, and teaches you step by step.
-
-- **Push-to-talk voice:** Hold Right Ctrl, speak, and release; Mate answers aloud with a live transcript in the bubble.
-- **Mate's beam:** "Where is the button?" works live in any app—Mate flies beside the target and shines his beam right on it.
-- **Step-by-step lessons:** For "how do I..." requests, Mate guides you step by step where you click each target yourself (escalating to Muse Wonder after two misses on Quick).
-- **"Is this safe?" scam check:** Gives an instant verdict, lists red flags, and shines a beam on the worst one—never telling anyone to click, call, or pay.
-- **Keepsake lesson card:** Muse Glimmer words (when its GPU answers) and a Muse Image picture (without text) that you can print.
-- **Privacy by design:** Only captures the target window during a request, paints password fields black before sending, and fails closed.
-
-<!-- demo GIF here -->
-
-![Mate concept art](assets/art/mate-sheet.png)
-
-> **Project status:** Hackathon build in progress (October 26 - November 4, 2026). Windows only.
-
-## What it does
+## What Mate does
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
-- Hold **Right Ctrl** for push-to-talk voice with a live transcript in the bubble (or use hands-free mode).
-- Mate points his beam at the right button in any app, and guides you step by step in lessons where you click each target (escalating to Muse Wonder after two misses on Quick).
-- SAM 3.1 outlines targets in apps without an accessibility tree, including Qt apps such as Telegram Desktop and games.
-- "Is this safe?" scam check: inspects the active window, delivers a verdict, highlights red flags, and shines a beam on the worst one—never telling anyone to click, call, or pay.
-- Keepsake lesson card: Muse Glimmer writes the steps in simple words (when its GPU answers) and Muse Image paints a soft gouache picture without text, ready to Print.
-- A tray icon opens Settings (optional Google sign-in for individual allowances, with GitHub sign-in not in the judges' build yet; model selection between Quick and Thorough).
-- Hear helpful sound cues, or use calm mode designed for older users.
+MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Hold **Right Ctrl** for push-to-talk voice in English or Russian, and Mate answers aloud with a live transcript in his bubble.
 
-## Why it is different
-
-Mate is a **teacher, not an autonomous agent**: he guides one step at a time instead of taking over. He checks that you clicked the right target before moving on, and says when he cannot find something rather than guessing. Screen capture is limited to the active window and its popups, only for a request; password fields are blacked out before anything is sent. Provider keys stay out of the desktop app.
-
-## How it works
-
-```text
-Voice: hold to talk → Muse Voice Transcribe → Muse Spark → MateScript → MMS-TTS
-Screen: active window → UI Automation (UIA) + computer use → SAM 3.1 fallback
-                                                    ↓
-                                   Mate points; you click each step in a lesson
-```
-
-UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 3.1 outlines targets when accessibility data is missing, including in Qt apps and games. In a lesson, the person clicks each verified target themselves (Mate escalates to Muse Wonder after two misses on Quick); Mate never touches Pay, Delete or password buttons.
-
-## Safety and privacy
-
-- Mate's windows never take focus away from your app.
-- A screenshot is taken only during a question and includes only the app you are asking about and its popups. Password fields, gaps, and every other app's window are painted black before it leaves your computer; if this cannot be guaranteed, Mate fails closed.
-- Mate never clicks Pay, Delete or password buttons.
-- In a lesson, the person clicks each verified target themselves.
-- "Is this safe?" scam check evaluates only the active window and never tells anyone to click, call, or pay.
-- If Mate cannot find something, he says "I can't find it" rather than pointing at a guess.
-- Provider keys live only on the proxy server, never in the app.
+- **Home window:** An accessible starting hub (`home.html`) featuring an animated Right Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
+- **Scam check ("Is this safe?"):** Evaluates suspicious emails, pop-ups, and websites in the active window. Muse Spark 1.3 delivers an immediate verdict via Mate's expression (`<mood calm>`, `<mood surprised>`, or `<mood sad>`), explains the specific red flags detected (mismatched domains, artificial urgency, fake security warnings), and shines a beam on the worst one—without ever telling the user to click, call, or pay.
+- **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it.
+- **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and automatically escalates to Muse Wonder 1.0 after two misses on Quick.
+- **Keepsake lesson cards:** After completing a lesson, Mate produces a printable recap card saved in `Pictures\MetaMate` with steps rewritten into plain language by Muse Glimmer 30B and illustrated in a soft gouache style by Muse Image.
 
 ## Built with Meta
 
 | Meta model | Role in MetaMate | Measured performance |
 |---|---|---|
 | **Muse Spark 1.3** | Spoken answers, pointing beam, step-by-step lessons, and "Is this safe?" scam check | First token in 1.4–2.6 s at reasoning effort `minimal` (D41, D45) |
-| **Muse Wonder 1.0** | Thorough answers; lessons escalate to Wonder after two misses on Quick | High-reasoning model for complex guidance and fallback escalation |
+| **Muse Wonder 1.0** | Thorough answers; lessons escalate to Wonder after two misses on Quick | High-reasoning model for complex guidance and fallback escalation (D56) |
 | **Muse Voice Transcribe** | Realtime push-to-talk speech recognition (Right Ctrl) | Final transcript 250–360 ms after key-up (socket opens at key-down) (D44, D45) |
-| **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
-| **Muse Glimmer 30B** | Keepsake lesson card text: rewrites lesson steps in simple words (Meta open weights on Modal) | Q4_K_M ~15 tokens/s on an L4 GPU (D53) |
+| **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal GPU) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
+| **Muse Glimmer 30B** | Keepsake lesson card text: rewrites lesson steps in simple words (Meta open weights on Modal GPU) | Q4_K_M ~15 tokens/s on a Modal L4 / A10G GPU (D53, D57) |
 | **Muse Image** | Keepsake lesson card illustration (soft gouache art with Mate, without text; printable) | Generates custom scene illustration for completed lessons (D55) |
 | **SAM 3.1** | Outlines UI targets where the accessibility tree has nothing (canvas, Qt apps, games) | Target segmentation masks and boundary guidance |
 
-## MateScript in 10 lines
+## Privacy and safety
 
-MateScript is a small streaming format for speech, pointing, mood, and sound cues. [Read the draft specification](docs/matescript.md).
+- **Never steals focus:** Overlay windows use `WS_EX_NOACTIVATE` and `SWP_NOACTIVATE`, never taking focus away from the user's active application.
+- **Target window only:** Captures exclusively the foreground window and its owned popups, only during an active request. Background windows and occluded gaps are painted black.
+- **Automatic password redaction:** UI Automation identifies password fields (`IsPassword`, password-like labels, and reveal toggle siblings). They are painted solid black before transmission; if redaction cannot be guaranteed, Mate fails closed.
+- **Teacher, not an autonomous agent:** The human performs each action; Mate never clicks Pay, Delete, money transfer, or password buttons. Gated "Do it for me" assistance requires spoken voice confirmation and strictly enforces an action blocklist.
+- **Safe advice:** The scam check evaluates the active window and never advises clicking suspicious links, calling phone numbers, or sending payments.
+- **Honest limits:** "I can't find it" beats pointing at a guess.
+- **Key security:** Meta API credentials reside exclusively on the proxy backend; no secrets or private keys are shipped in the client binary.
+
+## How it's built
+
+MetaMate is built in **Rust + Tauri v2** with a TypeScript WebView (SVG character animations, multi-monitor highlight overlays, and Web Audio API engine).
 
 ```text
-<lang en>
-<mood calm>
-I can show you how to make the text bigger.
-<step 1/2 e3>
-Open Accessibility.
-<wait click>
-<step 2/2 e8>
-Choose Text size.
-<wait click>
-<sfx success soft><mood proud>That's it. Well done!
+Voice:  Right Ctrl (WH_KEYBOARD_LL) → Muse Voice Transcribe (WSS) → Muse Spark / Wonder → MateScript → MMS-TTS (Modal GPU)
+Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + computer use → SAM 3.1 fallback → Beam & flight
 ```
 
-## Repository map
+- **MateScript:** A lightweight streaming protocol that coordinates spoken sentences with pointing tags (`<point eNN>`), character moods (`<mood calm|surprised|sad>`), and sound effects (`<sfx ping soft>`). See the [MateScript specification](docs/matescript.md).
+- **Backend proxy:** A FastAPI service deployed on Modal manages daily allowance ledgers, streams model responses, and handles Google/GitHub OAuth with PKCE and Windows DPAPI credential sealing.
 
-| Path | Contents |
-|---|---|
-| [`docs/`](docs/) | Strategy, architecture, plan, MateScript, safety, and design |
-| [`tools/`](tools/) | Project checks, tests, and developer utilities |
-| [`assets/art/`](assets/art/) | Mate concepts and artwork |
-| `crates/`, `src-tauri/`, `src/` | Planned Rust core, Tauri shell, and TypeScript interface |
-| `server/`, `tts/` | Planned API proxy and MMS-TTS service |
+## Developer setup
 
-The `mm` helper is available from Git Bash as `./mm <command>` or PowerShell as `.\mm <command>`. Common commands:
+### Prerequisites
 
-| Command | Purpose |
-|---|---|
-| `mm doctor` | Check development tools |
-| `mm status` | Show project and schedule status |
-| `mm check` | Run fast project checks |
-| `mm test` | Run available unit tests |
+- Windows 10/11 x64
+- Rust 1.99+ with `rustup` and the `stable-msvc` toolchain
+- Node.js 24
 
-## Build from source (Windows)
+### Build from source
 
-1. Install Rust 1.99+ with rustup and the `stable-msvc` toolchain, and install Node.js 24.
-2. Run `npm install`.
-3. Run `npm run build`.
-4. Run `cargo build -p metamate --features custom-protocol`.
-5. Run `target/debug/metamate.exe`.
+```powershell
+npm install
+npm run build
+cargo build -p metamate --features custom-protocol
+.\target\debug\metamate.exe
+```
 
-Self-tests of the Windows layer: `metamate --s1-selftest` (overlay windows never take focus, DPI per monitor) and `metamate --s3-selftest` (UI Automation and password detection on a test page).
-
-Checks and tests: `./mm check` and `./mm test`.
-
-## Run it as a developer
+### Run it as a developer
 
 Start the development proxy and MMS-TTS server in one terminal:
 
 ```powershell
-C:/mmw/py-proxy/Scripts/python.exe server/run_dev.py --tts        # or --tts-modal: MMS-TTS on a Modal GPU, after tts/deploy_modal.py
+python server/run_dev.py --tts        # or --tts-modal for Modal GPU TTS
 ```
 
-The proxy reads the configured Meta provider credentials, creates a development invite for the app, and listens on `127.0.0.1:8787`; with `--tts`, the MMS-TTS server listens on `127.0.0.1:8788`.
-
-In another terminal, build the WebView and run the app:
+In another terminal, build the WebView and launch the app:
 
 ```powershell
 npm run build
 cargo run -p metamate --features custom-protocol
 ```
 
-Hold **Right Ctrl** and speak. To test the same answer path without the microphone, run `cargo run -p metamate --features custom-protocol -- --ask "question"`; it plays the answer and prints a JSON report with subscription, audio, answer, and playback details.
-
-The voice self-test streams a WAV file through speech recognition, the answer path, and speech synthesis:
+Hold **Right Ctrl** and speak. You can also test speech headless:
 
 ```powershell
-cargo run -p metamate --features custom-protocol -- --voice-selftest FILE.wav
+cargo run -p metamate --features custom-protocol -- --ask "Where is the text size slider?"
 ```
 
-It prints a JSON report with timings and sentence results, and writes each spoken sentence next to the input as `NAME.answer-N.wav` (NAME is the WAV without `.wav`). To inspect push-to-talk events without opening a window, run `cargo run -p metamate --features custom-protocol -- --ptt-probe`; it prints a prompt and each event with its elapsed time, then exits after 60 seconds.
+### Self-tests and verification
 
-## Status, roadmap, and privacy
+- `metamate --s1-selftest`: Verifies overlay windows never take focus and Per-Monitor DPI v2 behavior.
+- `metamate --s3-selftest`: Tests UI Automation walking and password redaction on a test fixture.
+- `metamate --voice-selftest FILE.wav`: Runs end-to-end speech recognition, answer streaming, and TTS synthesis.
+- `metamate --ptt-probe`: Monitors push-to-talk keyboard hook events.
+- Project checks and tests: `./mm check` and `./mm test`.
 
-The hackathon build started at kickoff on October 26, 2026 and ends November 4, 2026. See the [day-by-day roadmap](docs/plan.md).
+### Repository map
 
-Privacy principles: inspect only the active window and its popups, and only during a request; black out password fields before sending a screenshot; keep provider keys out of the app. The proxy is designed not to store request or response content.
+| Path | Contents |
+|---|---|
+| [`docs/`](docs/) | Architecture, decisions log, MateScript spec, safety, and submission checklist |
+| [`crates/`](crates/) | Rust core crates: `mm-core` (pure models/geometry), `mm-platform` (traits), `mm-win32` (OS integration) |
+| [`src-tauri/`](src-tauri/) | Tauri shell: voice loop, screen capture, teacher state machine, and overlay management |
+| [`src/`](src/) | Frontend WebView: Mate SVG robot, audio mixer, highlight canvas, settings, and Home window |
+| [`server/`](server/) | FastAPI proxy backend for Meta Model API routing, allowances, and authentication |
+| [`tts/`](tts/) | MMS-TTS service and Modal deployment scripts |
+| [`tools/`](tools/) | Developer CLI (`mm`), project checks, phrase generation, and sound utilities |
+| [`assets/`](assets/) | Robot artwork, audio cues, sound effects, and pre-recorded voice phrases |
+| [`fixtures/`](fixtures/) | UI Automation replays and synthetic test fixtures |
 
-## Prepared before the kickoff
+### Prepared before the kickoff
 
-The hackathon build runs from October 26 to November 4, 2026. Before the kickoff we prepared only non-product material, in the open: the design documents in `docs/`, the developer tooling in `tools/` (project CLI, checks, UI Automation dump, sound synthesis and licence-checked sound fetching), the concept art in `assets/art/` and the synthesized cue sounds in `assets/sounds/`. No application code existed before the kickoff; the git history starts after it.
+The hackathon build runs from October 26 to November 4, 2026. Prior to kickoff, only non-product scaffolding was prepared in the open: design documentation in [`docs/`](docs/), developer utilities in [`tools/`](tools/), concept art in [`assets/art/`](assets/art/), and sound cues in [`assets/sounds/`](assets/sounds/). No application code existed before kickoff (see [CHANGELOG.md](CHANGELOG.md)).
 
-See [CHANGELOG.md](CHANGELOG.md) for the pre-kickoff preparation record.
+### License
 
-## License
-
-Project license: **TBD**. The MMS-TTS model weights are licensed **CC-BY-NC-4.0**; see the [architecture notes](docs/architecture.md) for details.
+Project license: **TBD**. The MMS-TTS model weights are licensed **CC-BY-NC-4.0**; see [architecture notes](docs/architecture.md) for details.
