@@ -160,7 +160,9 @@
       }
 
       /* A real key: a raised bottom edge like the first-launch keycap (styles.css), larger.
-         It presses down now and then, unless motion is reduced. */
+         It presses down now and then, unless motion is reduced. Only transform animates:
+         a shadow in the keyframes kept the key's own layer repainting every frame, and
+         WebView2 showed a pale square over part of its label while it caught up. */
       .home-keycap {
         flex: none;
         display: inline-block;
@@ -488,12 +490,10 @@
         62%,
         100% {
           transform: translateY(0);
-          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
         }
         72%,
         86% {
           transform: translateY(3px);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
         }
       }
 
