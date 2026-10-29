@@ -27,6 +27,7 @@ mod mic;
 mod overlay;
 #[cfg(windows)]
 mod pointing;
+mod presence;
 mod proxy;
 #[cfg(windows)]
 mod ptt;
@@ -81,6 +82,8 @@ pub fn run() {
         .manage(answer_stream::AnswerStream::default())
         .manage(pointing::Pointing::default())
         .manage(auth::Auth::default())
+        .manage(presence::Presence::default())
+        .on_menu_event(handle_menu)
         .invoke_handler(tauri::generate_handler![
             answer_stream::subscribe_answer_stream,
             answer_stream::report_playback,
@@ -90,6 +93,8 @@ pub fn run() {
             settings::save_settings,
             home::open_home,
             home::home_try,
+            presence::quit_app,
+            presence::mate_context_menu,
             open_settings_window,
             auth::auth_status,
             auth::sign_in,
@@ -194,11 +199,12 @@ pub fn run() {
 const MENU_HOME: &str = "tray.open_home";
 const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
+const MENU_HIDE: &str = "hide_hour";
 /// The settings window's label (capabilities/default.json) and page (src/settings.ts).
 const SETTINGS_WINDOW: &str = "settings";
 const SETTINGS_PAGE: &str = "settings.html";
 
-/// The tray icon (the app icon) with Home, sample questions, "Settings" and "Quit", in the UI
+/// The tray icon with Home, sample questions, Settings, temporary hide and Quit, in the UI
 /// locale Mate's window reports (its `navigator.language` follows the Windows display language): English until
 /// that window subscribes, then relabelled once.
 fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
@@ -229,6 +235,13 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
+    let hide_item = MenuItem::with_id(
+        app,
+        MENU_HIDE,
+        locale_text(&locale, "tray.hide_hour"),
+        true,
+        None::<&str>,
+    )?;
     let try_items = TRY_QUESTIONS
         .iter()
         .map(|key| MenuItem::with_id(app, *key, locale_text(&locale, key), true, None::<&str>))
@@ -242,37 +255,21 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             .map(|item| item as &dyn tauri::menu::IsMenuItem<_>)
             .collect::<Vec<_>>(),
     )?;
-    let menu = Menu::with_items(app, &[&home_item, &try_menu, &settings_item, &quit_item])?;
-    let mut builder = TrayIconBuilder::new()
-        .menu(&menu)
-        .tooltip(format!(
-            "{}: {}",
-            mm_core::constants::APP_NAME,
-            locale_text(&locale, "tray.tooltip")
-        ))
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            MENU_HOME => {
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    if let Err(error) = home::open(&app) {
-                        eprintln!("home: window: {error}");
-                    }
-                });
-            }
-            MENU_SETTINGS => {
-                // Building a window inside an event handler deadlocks on Windows (WebView2):
-                // the async runtime builds it.
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move { open_settings(&app) });
-            }
-            MENU_QUIT => app.exit(0),
-            #[cfg(windows)]
-            key if TRY_QUESTIONS.contains(&key) => {
-                let text = locale_text(&app.state::<answer_stream::AnswerStream>().locale(), key);
-                voice::ask_text(app, text);
-            }
-            _ => {}
-        });
+    let menu = Menu::with_items(
+        app,
+        &[
+            &home_item,
+            &try_menu,
+            &settings_item,
+            &hide_item,
+            &quit_item,
+        ],
+    )?;
+    let mut builder = TrayIconBuilder::new().menu(&menu).tooltip(format!(
+        "{}: {}",
+        mm_core::constants::APP_NAME,
+        locale_text(&locale, "tray.tooltip")
+    ));
     if let Some(icon) = app.default_window_icon() {
         builder = builder.icon(icon.clone());
     }
@@ -288,6 +285,7 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         let locale = stream.locale();
         let _ = home_item.set_text(locale_text(&locale, MENU_HOME));
         let _ = settings_item.set_text(locale_text(&locale, "tray.settings"));
+        let _ = hide_item.set_text(locale_text(&locale, "tray.hide_hour"));
         let _ = quit_item.set_text(locale_text(&locale, "tray.quit"));
         let _ = try_menu.set_text(locale_text(&locale, "tray.try_title"));
         for (item, key) in try_items.iter().zip(TRY_QUESTIONS) {
@@ -300,6 +298,35 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         )));
     });
     Ok(())
+}
+
+/// Shared by the tray and Mate's native popup.
+fn handle_menu(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
+    use tauri::Manager;
+    match event.id.as_ref() {
+        MENU_HOME => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = home::open(&app) {
+                    eprintln!("home: window: {error}");
+                }
+            });
+        }
+        MENU_SETTINGS => {
+            // Building a window inside an event handler deadlocks on Windows (WebView2):
+            // the async runtime builds it.
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move { open_settings(&app) });
+        }
+        MENU_QUIT => app.exit(0),
+        MENU_HIDE => presence::hide(app),
+        #[cfg(windows)]
+        key if TRY_QUESTIONS.contains(&key) => {
+            let text = locale_text(&app.state::<answer_stream::AnswerStream>().locale(), key);
+            voice::ask_text(app, text);
+        }
+        _ => {}
+    }
 }
 
 /// Shares the tray's Settings action, building the WebView off the event thread.
@@ -360,9 +387,17 @@ mod tests {
     #[test]
     fn the_tray_menu_has_both_languages() {
         for locale in ["en", "ru"] {
-            for key in [MENU_HOME, "tray.settings", "tray.quit", "tray.try_title"]
-                .into_iter()
-                .chain(TRY_QUESTIONS)
+            for key in [
+                MENU_HOME,
+                "tray.settings",
+                "tray.quit",
+                "tray.try_title",
+                "tray.hide_hour",
+                "home.quit",
+                "home.closed_hint",
+            ]
+            .into_iter()
+            .chain(TRY_QUESTIONS)
             {
                 let text = locale_text(locale, key);
                 assert!(!text.is_empty() && text != key, "{locale} {key}");

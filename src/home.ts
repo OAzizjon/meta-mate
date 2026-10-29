@@ -265,7 +265,7 @@ function section(id: string, className: string, title: string, intro?: string): 
 
 /**
  * Mounts the Home page inside `container`: the content scrolls, the checkbox and the
- * Settings and Close buttons stay in view at the bottom (home.html).
+ * Settings, Close and Quit buttons stay in view at the bottom (home.html).
  */
 export function mountHome(container: HTMLElement, options: MountHomeOptions = {}): HomeController {
   const invoke = options.invoke ?? null;
@@ -407,7 +407,16 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   closeBtn.addEventListener("click", () => {
     void close();
   });
-  actions.append(settingsBtn, closeBtn);
+  const quitBtn = el("button", "btn btn-secondary", t("home.quit"));
+  quitBtn.type = "button";
+  quitBtn.id = "home-quit-btn";
+  quitBtn.disabled = !invoke;
+  quitBtn.addEventListener("click", () => {
+    void invoke?.("quit_app").catch((error: unknown) => {
+      console.error("[home] could not quit:", error);
+    });
+  });
+  actions.append(settingsBtn, closeBtn, quitBtn);
   footer.append(startOption, actions);
 
   container.replaceChildren(content, footer);

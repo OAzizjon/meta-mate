@@ -343,6 +343,7 @@ async fn run(
                 )
             }
             Input::Ptt(PttEvent::Start { generation }, _) => {
+                crate::presence::wake(&app, false);
                 next_generation += 1;
                 recording = Some((generation, next_generation));
                 (

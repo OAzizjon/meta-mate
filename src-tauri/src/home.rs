@@ -21,6 +21,21 @@ pub(crate) fn open(app: &AppHandle) -> tauri::Result<()> {
             .additional_browser_args(crate::overlay::BROWSER_ARGS)
             .build()?,
     };
+    let handle = app.clone();
+    window.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+            let first = handle
+                .state::<crate::presence::Presence>()
+                .0
+                .lock()
+                .unwrap()
+                .close_home();
+            if first {
+                use tauri::Emitter;
+                let _ = handle.emit_to("mate", "home-closed-hint", ());
+            }
+        }
+    });
     #[cfg(windows)]
     mm_win32::overlay::show(window.hwnd()?);
     #[cfg(not(windows))]

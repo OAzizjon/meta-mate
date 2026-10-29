@@ -403,21 +403,26 @@ fn was_password(target: mm_platform::TargetWindow, frame: PhysRect, element: &Ui
         .contains(target, frame, element)
 }
 
-/// Our windows hidden while the screen is copied, shown again however the copy ends.
-struct Hidden<'a>(&'a [mm_win32::HWND]);
+/// Restore only windows that were visible: Mate may be sleeping for an hour.
+struct Hidden(Vec<mm_win32::HWND>);
 
-impl<'a> Hidden<'a> {
-    fn new(windows: &'a [mm_win32::HWND]) -> Self {
-        for &hwnd in windows {
+impl Hidden {
+    fn new(windows: &[mm_win32::HWND]) -> Self {
+        let visible: Vec<_> = windows
+            .iter()
+            .copied()
+            .filter(|&hwnd| !mm_win32::overlay::is_hidden(hwnd))
+            .collect();
+        for &hwnd in &visible {
             mm_win32::overlay::hide_for_capture(hwnd);
         }
-        Self(windows)
+        Self(visible)
     }
 }
 
-impl Drop for Hidden<'_> {
+impl Drop for Hidden {
     fn drop(&mut self) {
-        for &hwnd in self.0 {
+        for &hwnd in &self.0 {
             mm_win32::overlay::show_after_capture(hwnd);
         }
     }

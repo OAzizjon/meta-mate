@@ -358,6 +358,14 @@ if (container) {
   setOnboardingTranslator((key) => t(key));
   mountOnboarding();
   const inTauri = "__TAURI_INTERNALS__" in window;
+  container.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    if (inTauri) {
+      void tauriInvoke("mate_context_menu").catch((error: unknown) => {
+        console.error("mate: context menu:", error);
+      });
+    }
+  });
   container.querySelector(".mate-svg")?.addEventListener("pointerdown", (event) => {
     if (!(event instanceof PointerEvent) || event.button !== 0 || !inTauri) return;
     event.preventDefault();
@@ -387,8 +395,20 @@ if (container) {
   };
   motionQuery?.addEventListener("change", onEnvironmentChange);
   window.addEventListener("resize", onEnvironmentChange);
+  const mountedBubble = bubble ? mountBubble(bubble) : null;
   const live =
-    bubble && inTauri ? startLiveAnswers(robot, mountBubble(bubble), settings) : null;
+    mountedBubble && inTauri ? startLiveAnswers(robot, mountedBubble, settings) : null;
+  if (mountedBubble && inTauri) {
+    void import("@tauri-apps/api/event").then(({ listen }) =>
+      listen("home-closed-hint", () => {
+        const text = t("home.closed_hint");
+        mountedBubble.setModel(null);
+        mountedBubble.show(text, bubbleReadMs(text));
+      }),
+    ).catch((error: unknown) => {
+      console.error("mate: home hint:", error);
+    });
+  }
   if (import.meta.env.DEV) {
     window.__mate = devHook(robot, (locale) => {
       if (live) live.setUiLocale(locale);

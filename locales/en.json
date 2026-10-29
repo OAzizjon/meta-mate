@@ -136,5 +136,8 @@
   "home.cards_text": "After a lesson, {name} makes a picture card of the steps for you to keep or print.",
   "home.cards_folder": "They are saved in Pictures\\MetaMate.",
   "home.show_at_start": "Show this window when MetaMate starts",
-  "home.close": "Close"
+  "home.close": "Close",
+  "home.quit": "Quit MetaMate",
+  "home.closed_hint": "I'm still here in the corner. Right-click me or use the tray icon to quit.",
+  "tray.hide_hour": "Hide Mate for 1 hour"
 }
