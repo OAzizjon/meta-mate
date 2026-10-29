@@ -5,9 +5,9 @@ Windows 10/11 x64 (the video can be watched anywhere).
 ## Try it in 60 seconds
 
 1. **Download:** Get the release installer (built for our hosted proxy with a capped judge invite — no account, invite codes, or API keys needed).
-2. **SmartScreen:** The installer is not code-signed yet. When Windows SmartScreen displays *"Windows protected your PC"*, click **More info**, then **Run anyway**.
-3. **Ask:** Press **Win+I** to open Windows Settings, then hold **Right Ctrl**, ask aloud *"How do I make the text bigger?"*, and release. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
-4. **Sign-in (optional):** Right-click the tray icon to open **Settings**. Google sign-in is completely optional (GitHub sign-in is not in the judges' build yet) and gives you your own daily allowance.
+2. **SmartScreen:** If SmartScreen shows "Windows protected your PC", click the small **More info** link, then **Run anyway** (the installer is not code-signed yet).
+3. **Ask:** Press **Win+I** to open Windows Settings. Hold **Right Ctrl** while you speak, ask *"How do I make the text bigger?"*, then let go. Hold only **Right Ctrl**: pressing any other key cancels the question. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
+4. **Sign-in (optional):** Right-click the tray icon > **Settings** > **Sign in with Google**: you get your own daily allowance of questions instead of the shared judges' one.
 
 ## Links
 
@@ -57,13 +57,13 @@ Screen: active window → UI Automation (UIA) + computer use → SAM 3.1 fallbac
                                    Mate points; you click each step in a lesson
 ```
 
-UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 3.1 outlines targets when accessibility data is missing, including in Qt apps and games. In a lesson, the person clicks each verified target themselves (Mate escalates to Muse Wonder after two misses on Quick); Mate never touches Pay, Delete, or password actions.
+UIA grounds suggestions in app controls; computer use helps plan steps, and SAM 3.1 outlines targets when accessibility data is missing, including in Qt apps and games. In a lesson, the person clicks each verified target themselves (Mate escalates to Muse Wonder after two misses on Quick); Mate never touches Pay, Delete or password buttons.
 
 ## Safety and privacy
 
 - Mate's windows never take focus away from your app.
 - A screenshot is taken only during a question and includes only the app you are asking about and its popups. Password fields, gaps, and every other app's window are painted black before it leaves your computer; if this cannot be guaranteed, Mate fails closed.
-- Mate never clicks Pay, Delete, or password actions.
+- Mate never clicks Pay, Delete or password buttons.
 - In a lesson, the person clicks each verified target themselves.
 - "Is this safe?" scam check evaluates only the active window and never tells anyone to click, call, or pay.
 - If Mate cannot find something, he says "I can't find it" rather than pointing at a guess.
