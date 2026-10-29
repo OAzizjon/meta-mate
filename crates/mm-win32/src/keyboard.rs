@@ -1,13 +1,14 @@
 //! The push-to-talk key from a low-level keyboard hook (spike S2). `RegisterHotKey` has
 //! no key-up, so `WH_KEYBOARD_LL` runs on a thread of its own with a message pump.
 //! Windows silently removes a slow hook, so the hook procedure only queues a `KeyEvent`
-//! and passes every key on: nothing is suppressed, nothing locked or logged.
-//! `right_ctrl_down` is the release watchdog for a key-up that never arrived
+//! and passes keys on, except Caps Lock when selected as the talk key.
+//! `key_down` is the release watchdog for a key-up that never arrived
 //! (docs/edge.md section 5).
 
 use std::cell::OnceCell;
 use std::fmt;
 use std::io;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::thread::JoinHandle;
 use std::time::Instant;
@@ -26,6 +27,11 @@ use windows::core::PCWSTR;
 
 /// Right Ctrl's virtual-key code as a low-level hook reports it (`VK_RCONTROL`, 0xA3).
 pub const RIGHT_CTRL: u32 = VK_RCONTROL.0 as u32;
+static PTT_KEY: AtomicU32 = AtomicU32::new(RIGHT_CTRL);
+
+pub fn set_ptt_key(vk: u32) {
+    PTT_KEY.store(vk, Ordering::Relaxed);
+}
 
 /// One key transition as the hook saw it: the virtual-key code only, never a character.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -111,11 +117,11 @@ pub fn start(events: Sender<KeyEvent>) -> Result<KeyboardHook, HookError> {
     }
 }
 
-/// Whether Right Ctrl is down right now (the high bit of `GetAsyncKeyState`). Reads up
+/// Whether the chosen virtual key is down right now (the high bit of `GetAsyncKeyState`). Reads up
 /// while another desktop (UAC, the lock screen) is active.
-pub fn right_ctrl_down() -> bool {
+pub fn key_down(vk: u32) -> bool {
     // SAFETY: a plain virtual-key code, no pointers.
-    let state = unsafe { GetAsyncKeyState(i32::from(VK_RCONTROL.0)) };
+    let state = unsafe { GetAsyncKeyState(vk as i32) };
     state < 0
 }
 
@@ -191,6 +197,15 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
                 let _ = events.send(event);
             }
         });
+        // Keep Caps Lock's state and light unchanged while it is the talk key.
+        // Still queue both transitions above for PTT and its release watchdog.
+        if mm_core::ptt::suppress_lock_key(
+            event.vk,
+            PTT_KEY.load(Ordering::Relaxed),
+            event.injected,
+        ) {
+            return LRESULT(1);
+        }
     }
     // SAFETY: this call's own arguments, unchanged; the hook handle is ignored by Windows.
     unsafe { CallNextHookEx(None, code, wparam, lparam) }

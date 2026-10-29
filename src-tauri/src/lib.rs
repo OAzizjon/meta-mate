@@ -265,16 +265,14 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             &quit_item,
         ],
     )?;
-    let mut builder = TrayIconBuilder::new().menu(&menu).tooltip(format!(
-        "{}: {}",
-        mm_core::constants::APP_NAME,
-        locale_text(&locale, "tray.tooltip")
-    ));
+    let mut builder = TrayIconBuilder::with_id("main")
+        .menu(&menu)
+        .tooltip(tray_tooltip(app));
     if let Some(icon) = app.default_window_icon() {
         builder = builder.icon(icon.clone());
     }
     // The app keeps the icon; this handle relabels its tooltip below.
-    let tray = builder.build(app)?;
+    let _tray = builder.build(app)?;
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let stream = app.state::<answer_stream::AnswerStream>();
@@ -291,13 +289,27 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         for (item, key) in try_items.iter().zip(TRY_QUESTIONS) {
             let _ = item.set_text(locale_text(&locale, key));
         }
-        let _ = tray.set_tooltip(Some(format!(
-            "{}: {}",
-            mm_core::constants::APP_NAME,
-            locale_text(&locale, "tray.tooltip")
-        )));
+        refresh_tray_tooltip(&app);
     });
     Ok(())
+}
+
+fn tray_tooltip(app: &tauri::AppHandle) -> String {
+    use tauri::Manager;
+    let locale = app.state::<answer_stream::AnswerStream>().locale();
+    let key = app.state::<settings::SettingsStore>().get().ptt_key;
+    format!(
+        "{}: {}",
+        mm_core::constants::APP_NAME,
+        locale_text(&locale, "tray.tooltip")
+            .replace("{key}", &locale_text(&locale, key.locale_key()))
+    )
+}
+
+pub(crate) fn refresh_tray_tooltip(app: &tauri::AppHandle) {
+    if let Some(tray) = app.tray_by_id("main") {
+        let _ = tray.set_tooltip(Some(tray_tooltip(app)));
+    }
 }
 
 /// Shared by the tray and Mate's native popup.

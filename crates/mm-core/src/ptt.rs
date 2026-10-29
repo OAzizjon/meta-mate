@@ -3,14 +3,30 @@
 
 use std::collections::BTreeMap;
 
-/// A key "held" longer than this before Right Ctrl went down no longer makes a chord:
+/// A key "held" longer than this before the talk key went down no longer makes a chord:
 /// its key-up was most likely lost while Windows dropped a slow hook.
 pub const STALE_KEY_MS: u64 = 2_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
-    RightCtrl,
+    Talk,
     Other(u32),
+}
+
+impl Key {
+    /// Classify the configured virtual key before chord detection.
+    pub fn from_virtual_key(vk: u32, talk_key: u32) -> Self {
+        if vk == talk_key {
+            Self::Talk
+        } else {
+            Self::Other(vk)
+        }
+    }
+}
+
+/// A lock key used for talking must not change the keyboard's lock state.
+pub fn suppress_lock_key(vk: u32, talk_key: u32, injected: bool) -> bool {
+    vk == 0x14 && vk == talk_key && !injected
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -131,10 +147,7 @@ impl Ptt {
         }
 
         match input {
-            PttInput::KeyDown {
-                key: Key::RightCtrl,
-                ..
-            } => {
+            PttInput::KeyDown { key: Key::Talk, .. } => {
                 if self.pressed_at.is_none() {
                     self.pressed_at = Some(self.now_ms);
                     // A key pressed just before is a chord (D16); one "held" for long lost
@@ -158,10 +171,7 @@ impl Ptt {
                     }
                 }
             }
-            PttInput::KeyUp {
-                key: Key::RightCtrl,
-                ..
-            } => {
+            PttInput::KeyUp { key: Key::Talk, .. } => {
                 if let Some(pressed) = self.pressed_at.take() {
                     match self.settings.mode {
                         Mode::Hold => self.stop(StopReason::Released, &mut out),

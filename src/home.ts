@@ -1,5 +1,5 @@
 // Home window controller (WP89a): the friendly start page for older users.
-// Greets them with Mate, shows how to talk to him (hold Right Ctrl), offers three
+// Greets them with Mate, shows how to talk to him (hold the configured talk key), offers three
 // "Try it" questions (`invoke("home_try", { key })`), says what Mate never does and where
 // the keepsake cards are saved, and opens Settings (`invoke("open_settings_window")`).
 // The "Show this window when MetaMate starts" checkbox saves `showHomeAtStart` through
@@ -8,6 +8,7 @@
 // All user-facing strings come from `src/i18n` (invariant 7).
 
 import type { LocaleKey } from "./i18n/index.ts";
+import { withPttKey } from "./settings/ptt-key.ts";
 import { createSettingsStore, subscribeSettingsChanged } from "./settings/model.ts";
 import type { Settings, SettingsInvoke, SettingsSubscribe } from "./settings/model.ts";
 
@@ -292,17 +293,18 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   const talk = el("div", "home-talk");
   talk.setAttribute("role", "group");
   talk.setAttribute("aria-labelledby", "home-talk-title");
-  const talkTitle = el("h2", "home-section-title", t("home.talk_title"));
+  const keyedDefault = (key: LocaleKey): string => withPttKey(t(key), "rightCtrl", t);
+  const talkTitle = el("h2", "home-section-title", keyedDefault("home.talk_title"));
   talkTitle.id = "home-talk-title";
   const talkRow = el("div", "home-talk-row");
-  const keycap = el("kbd", "home-keycap", t("onboarding.key_right_ctrl"));
+  const keycap = el("kbd", "home-keycap", keyedDefault("onboarding.key_right_ctrl"));
   const talkSteps = el("ol", "home-talk-steps");
   talkSteps.append(
-    el("li", "home-talk-step", t("home.talk_hold")),
-    el("li", "home-talk-step", t("home.talk_release")),
+    el("li", "home-talk-step", keyedDefault("home.talk_hold")),
+    el("li", "home-talk-step", keyedDefault("home.talk_release")),
   );
   talkRow.append(keycap, talkSteps);
-  const talkWhere = el("p", "home-talk-where", t("home.talk_where"));
+  const talkWhere = el("p", "home-talk-where", keyedDefault("home.talk_where"));
   talk.append(talkTitle, talkRow, talkWhere);
 
   heroText.append(title, intro, talk);
@@ -458,6 +460,13 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   motionQuery?.addEventListener("change", syncMotion);
 
   const settings = startHomeSettings(invoke, options.subscribe ?? null, (updated, canSave) => {
+    const keyed = (key: LocaleKey): string => withPttKey(t(key), updated.pttKey, t);
+    keycap.textContent = keyed("onboarding.key_right_ctrl");
+    talkTitle.textContent = keyed("home.talk_title");
+    const steps = talkSteps.children;
+    steps[0].textContent = keyed("home.talk_hold");
+    steps[1].textContent = keyed("home.talk_release");
+    talkWhere.textContent = keyed("home.talk_where");
     startInput.checked = updated.showHomeAtStart;
     startInput.disabled = !canSave;
     reduceSetting = updated.reduceMotion;

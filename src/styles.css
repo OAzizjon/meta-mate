@@ -106,7 +106,7 @@ body {
   display: none;
 }
 
-/* First-launch Right Ctrl keycap (src/onboarding.ts); gently pulses unless motion is reduced. */
+/* First-launch talk-key keycap (src/onboarding.ts); gently pulses unless motion is reduced. */
 #mate-keycap {
   position: fixed;
   left: 50%;

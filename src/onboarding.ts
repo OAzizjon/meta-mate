@@ -6,6 +6,15 @@
 // a fake clock and without DOM or Tauri dependencies.
 
 import type { LocaleKey } from "./i18n/index.ts";
+import type { PttKey } from "./settings/model.ts";
+import { withPttKey } from "./settings/ptt-key.ts";
+
+let pttKey: PttKey = "rightCtrl";
+let refreshKey: (() => void) | null = null;
+export function setOnboardingPttKey(key: PttKey): void {
+  pttKey = key;
+  refreshKey?.();
+}
 
 export const ONBOARDING_STORAGE_KEY = "metamate.onboarded";
 
@@ -204,6 +213,7 @@ export function startOnboarding(
   };
 
   const hideAll = (): void => {
+    refreshKey = null;
     sink.showBubble(null);
     if (sink.showExample) {
       sink.showExample(null);
@@ -212,6 +222,7 @@ export function startOnboarding(
   };
 
   const advance = (): void => {
+    refreshKey = null;
     timer = undefined;
     if (!active) return;
 
@@ -237,12 +248,15 @@ export function startOnboarding(
     }
   };
 
-  // Initial step: show `robot.first_launch` and the Right Ctrl keycap immediately.
+  // Initial step: show `robot.first_launch` and the talk-key keycap immediately.
   if (sink.showExample) {
     sink.showExample(null);
   }
-  sink.showBubble(translate("robot.first_launch"));
-  sink.showKeycap?.(translate(ONBOARDING_KEYCAP_KEY));
+  refreshKey = () => {
+    sink.showBubble(withPttKey(translate("robot.first_launch"), pttKey, translate));
+    sink.showKeycap?.(withPttKey(translate(ONBOARDING_KEYCAP_KEY), pttKey, translate));
+  };
+  refreshKey();
   timer = clock.setTimeout(advance, stepMs);
 
   const controller: OnboardingController = {

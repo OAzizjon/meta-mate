@@ -1,14 +1,14 @@
 //! The push-to-talk driver (spike S2): one thread feeds the keyboard hook's events to
 //! `mm_core::ptt::Ptt` and wakes at least every 33 ms for its Tick. One clock for
 //! everything: milliseconds since the driver started, for a hook event taken from the
-//! event's own `Instant`. While a session is on, Right Ctrl's async key state is the
+//! event's own `Instant`. While a session is on, the talk key's async key state is the
 //! release watchdog: Chrome can swallow a key-up and Windows silently drops a slow
 //! hook (CLAUDE.md "Known pitfalls", docs/edge.md section 5).
 //!
-//! `--ptt-probe` prints the events for 60 s without any window, to try Right Ctrl in
+//! `--ptt-probe` prints the events for 60 s without any window, to try the talk key in
 //! Chrome, Telegram and Notepad.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread::JoinHandle;
@@ -20,7 +20,7 @@ use mm_win32::keyboard::{self, HookError, KeyEvent, KeyboardHook, RIGHT_CTRL};
 /// The longest wait between two wake-ups: the Tick and the ~30 Hz watchdog.
 const WAKE: Duration = Duration::from_millis(33);
 const PROBE: Duration = Duration::from_secs(60);
-/// Right Ctrl held this long while the hook reported nothing of it: Windows removed the
+/// The talk key held this long while the hook reported nothing of it: Windows removed the
 /// hook (a slow one is dropped silently), so it is installed again, at most every
 /// `REINSTALL_EVERY`.
 const HOOK_SILENT: Duration = Duration::from_millis(500);
@@ -29,6 +29,13 @@ const REINSTALL_EVERY: Duration = Duration::from_secs(5);
 // Published only by a running driver; subscribers never keep the driver alive.
 static KEY_TAP: Mutex<Weak<KeyTap>> = Mutex::new(Weak::new());
 static TOGGLE_MODE: AtomicBool = AtomicBool::new(false);
+static PTT_KEY: AtomicU32 = AtomicU32::new(RIGHT_CTRL);
+
+pub fn set_ptt_key(key: crate::settings::PttKey) {
+    let vk = key.virtual_key();
+    keyboard::set_ptt_key(vk);
+    PTT_KEY.store(vk, Ordering::Relaxed);
+}
 const TAP_MS: u64 = 400;
 const TOGGLE_MAX_MS: u64 = 30_000;
 
@@ -197,16 +204,18 @@ fn run(
             on_event(event, pressed_at);
         }
     };
-    // The last Right Ctrl event the hook delivered, and the last reinstall.
+    // The last talk-key event the hook delivered, and the last reinstall.
     let mut last_ctrl = Instant::now();
     let mut reinstalled = Instant::now()
         .checked_sub(REINSTALL_EVERY)
         .unwrap_or_else(Instant::now);
     while !stop.load(Ordering::Relaxed) {
+        let changed = feed.set_key(PTT_KEY.load(Ordering::Relaxed));
+        emit(changed, feed.pressed_at);
         match keys.recv_timeout(WAKE) {
             Ok(event) => {
                 tap.send(event);
-                if event.vk == RIGHT_CTRL {
+                if event.vk == feed.vk {
                     last_ctrl = event.at;
                 }
                 let events = feed.driver_key(event);
@@ -224,19 +233,19 @@ fn run(
             emit(events, feed.pressed_at);
         }
         // Windows updates the async key state only after the hook returns: polled right
-        // after a Right Ctrl event it can still read the old state. One WAKE later it has
+        // after a talk-key event it can still read the old state. One WAKE later it has
         // caught up; other keys' events do not matter.
         let silent = now.saturating_duration_since(last_ctrl);
         if silent < WAKE {
             continue;
         }
-        let down = keyboard::right_ctrl_down();
+        let down = keyboard::key_down(feed.vk);
         if feed.needs_poll() {
             // An event queued meanwhile goes first; the next wake polls again.
             match keys.try_recv() {
                 Ok(event) => {
                     tap.send(event);
-                    if event.vk == RIGHT_CTRL {
+                    if event.vk == feed.vk {
                         last_ctrl = event.at;
                     }
                     let events = feed.driver_key(event);
@@ -264,6 +273,7 @@ fn run(
 /// Hook events and wake-ups as `PttInput`s on one clock, and whether a session is on
 /// (between Start and Stop or Cancel). Pure: the caller passes every `Instant`.
 struct Feed {
+    vk: u32,
     pressed_at: Option<Instant>,
     ptt: Ptt,
     settings: PttSettings,
@@ -280,6 +290,7 @@ struct Feed {
 impl Feed {
     fn new(settings: PttSettings, started: Instant) -> Self {
         Self {
+            vk: RIGHT_CTRL,
             pressed_at: None,
             ptt: Ptt::new(Self::core_settings(settings)),
             settings,
@@ -301,6 +312,19 @@ impl Feed {
         settings
     }
 
+    fn set_key(&mut self, vk: u32) -> Vec<PttEvent> {
+        if self.vk == vk {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        self.end(StopReason::Cancelled, &mut out);
+        self.vk = vk;
+        self.ptt = Ptt::new(Self::core_settings(self.settings));
+        self.gesture = None;
+        self.pressed_at = None;
+        out
+    }
+
     fn driver_key(&mut self, event: KeyEvent) -> Vec<PttEvent> {
         let mode = if TOGGLE_MODE.load(Ordering::Relaxed) {
             Mode::Toggle
@@ -312,7 +336,7 @@ impl Feed {
 
     fn key_in_mode(&mut self, event: KeyEvent, mode: Mode) -> Vec<PttEvent> {
         let mut out = Vec::new();
-        if event.vk == RIGHT_CTRL
+        if event.vk == self.vk
             && event.down
             && !event.injected
             && !self.ptt.key_pressed()
@@ -352,14 +376,10 @@ impl Feed {
     }
 
     fn key(&mut self, event: KeyEvent) -> Vec<PttEvent> {
-        if event.vk == RIGHT_CTRL && event.down && !event.injected && !self.ptt.key_pressed() {
+        if event.vk == self.vk && event.down && !event.injected && !self.ptt.key_pressed() {
             self.pressed_at = Some(event.at);
         }
-        let key = if event.vk == RIGHT_CTRL {
-            Key::RightCtrl
-        } else {
-            Key::Other(event.vk)
-        };
+        let key = Key::from_virtual_key(event.vk, self.vk);
         let (injected, now_ms) = (event.injected, self.ms(event.at));
         self.input(if event.down {
             PttInput::KeyDown {
@@ -493,7 +513,7 @@ pub fn probe_if_requested(args: &[String]) -> Option<i32> {
     if !args.iter().any(|arg| arg == "--ptt-probe") {
         return None;
     }
-    println!("PTT probe: hold Right Ctrl in any app; ends in 60 s");
+    println!("PTT probe: hold the configured talk key in any app; ends in 60 s");
     let started = Instant::now();
     let driver = spawn(PttSettings::default(), move |event| {
         println!("{:>6} ms  {event:?}", started.elapsed().as_millis());
@@ -513,6 +533,42 @@ pub fn probe_if_requested(args: &[String]) -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn chosen_keys_drive_holds_chords_and_release_watchdog() {
+        for vk in [RIGHT_CTRL, 0xA5, 0x14, 0x2D, 0x78, 0x79] {
+            let t0 = Instant::now();
+            let mut feed = Feed::new(PttSettings::default(), t0);
+            feed.set_key(vk);
+            assert_eq!(feed.key(key(vk, true, t0)), nothing());
+            assert_eq!(feed.tick(at(t0, 250)), start(1));
+            assert_eq!(feed.poll(false, at(t0, 300)), stop(1, StopReason::Watchdog));
+            feed.key(key(vk, true, at(t0, 400)));
+            assert_eq!(feed.tick(at(t0, 650)), start(2));
+            assert_eq!(
+                feed.key(key(A, true, at(t0, 700))),
+                vec![PttEvent::Cancel { generation: 2 }]
+            );
+            assert_eq!(feed.key(key(vk, false, at(t0, 750))), nothing());
+        }
+    }
+
+    #[test]
+    fn changing_key_cancels_and_old_key_becomes_an_other_key() {
+        let t0 = Instant::now();
+        let mut feed = Feed::new(PttSettings::default(), t0);
+        feed.key(key(RIGHT_CTRL, true, t0));
+        assert_eq!(feed.tick(at(t0, 250)), start(1));
+        assert_eq!(feed.set_key(0x78), stop(1, StopReason::Cancelled));
+        assert!(!feed.needs_poll());
+        feed.key(key(RIGHT_CTRL, false, at(t0, 300)));
+        feed.key(key(0x78, true, at(t0, 400)));
+        assert_eq!(feed.tick(at(t0, 650)), start(2));
+        assert_eq!(
+            feed.key(key(RIGHT_CTRL, true, at(t0, 700))),
+            vec![PttEvent::Cancel { generation: 2 }]
+        );
+    }
 
     /// Any other key; only its code matters.
     const A: u32 = 0x41;
@@ -646,7 +702,7 @@ mod tests {
             feed.key(key(A, true, at(t0, 300))),
             vec![PttEvent::Cancel { generation: 1 }]
         );
-        // The session is over, but Right Ctrl's key-up was lost: polling goes on.
+        // The session is over, but the talk key's key-up was lost: polling goes on.
         assert!(!feed.active());
         assert!(feed.needs_poll());
         assert_eq!(feed.key(key(A, false, at(t0, 350))), nothing());

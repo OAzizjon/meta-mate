@@ -5,8 +5,23 @@
 import type { LocaleKey } from "../i18n/index.ts";
 import { buildCheckbox, buildRadioGroup } from "./controls.ts";
 import type { CheckboxRefs, RadioGroupRefs } from "./controls.ts";
-import { ROBOT_SIZES } from "./model.ts";
-import type { ModelChoice, PttMode, RobotSize, SoundMode } from "./model.ts";
+import { PTT_KEYS, ROBOT_SIZES } from "./model.ts";
+import type { ModelChoice, PttKey, PttMode, RobotSize, SoundMode } from "./model.ts";
+
+export function buildPttKeyGroup(onSelect: (key: PttKey) => void): RadioGroupRefs<PttKey> {
+  return buildRadioGroup<PttKey>(
+    "pttKey",
+    "settings.ptt_key",
+    PTT_KEYS.map((key) => ({
+      id: `settings-ptt-key-${key}`,
+      value: key,
+      labelKey: `settings.key_${key}` as LocaleKey,
+    })),
+    "settings-options",
+    "settings-radio-option",
+    onSelect,
+  );
+}
 
 /** The robot size choices as people read them (the stored values stay S, M, L, XL). */
 const SIZE_LABELS: Readonly<Record<RobotSize, LocaleKey>> = {

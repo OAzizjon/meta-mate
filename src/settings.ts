@@ -11,6 +11,7 @@ import { buildAccountSection } from "./settings/account-view.ts";
 import {
   buildModelGroup,
   buildPttGroup,
+  buildPttKeyGroup,
   buildSizeGroup,
   buildSoundGroup,
   buildToggles,
@@ -40,6 +41,7 @@ import {
   MIN_VOICE_SPEED,
   MODEL_CHOICES,
   PTT_MODES,
+  PTT_KEYS,
   ROBOT_SIZES,
   SETTINGS_CHANGED_EVENT,
   SETTINGS_KEYS,
@@ -50,6 +52,7 @@ import {
   formatVoiceSpeed,
   isModelChoice,
   isPttMode,
+  isPttKey,
   isRobotSize,
   isSoundMode,
   isValidVoiceSpeed,
@@ -60,6 +63,7 @@ import {
 } from "./settings/model.ts";
 import type {
   ModelChoice,
+  PttKey,
   PttMode,
   RobotSize,
   Settings,
@@ -80,6 +84,7 @@ export {
   MIN_VOICE_SPEED,
   MODEL_CHOICES,
   PTT_MODES,
+  PTT_KEYS,
   ROBOT_SIZES,
   SETTINGS_CHANGED_EVENT,
   SETTINGS_KEYS,
@@ -90,6 +95,7 @@ export {
   formatVoiceSpeed,
   isModelChoice,
   isPttMode,
+  isPttKey,
   isRobotSize,
   isSoundMode,
   isValidVoiceSpeed,
@@ -107,6 +113,7 @@ export type {
   AuthProvider,
   AuthStatus,
   ModelChoice,
+  PttKey,
   PttMode,
   RobotSize,
   Settings,
@@ -230,6 +237,9 @@ export function mountSettings(
   const pttGroup = buildPttGroup((ptt) => {
     void applyPatch({ ptt });
   });
+  const pttKeyGroup = buildPttKeyGroup((pttKey) => {
+    void applyPatch({ pttKey });
+  });
 
   const soundGroup = buildSoundGroup((sound) => {
     void applyPatch({ sound });
@@ -268,6 +278,7 @@ export function mountSettings(
   form.append(
     modelGroup.fieldset,
     pttGroup.fieldset,
+    pttKeyGroup.fieldset,
     soundGroup.fieldset,
     speedGroup,
     sizeGroup.fieldset,
@@ -306,6 +317,7 @@ export function mountSettings(
     const radioGroups: readonly RadioGroupRefs<string>[] = [
       modelGroup,
       pttGroup,
+      pttKeyGroup,
       soundGroup,
       sizeGroup,
     ];
@@ -335,6 +347,7 @@ export function mountSettings(
   const syncControls = (settings: Settings): void => {
     syncRadioSelection(modelGroup, settings.model);
     syncRadioSelection(pttGroup, settings.ptt);
+    syncRadioSelection(pttKeyGroup, settings.pttKey);
     syncRadioSelection(soundGroup, settings.sound);
     syncRadioSelection(sizeGroup, settings.robotSize);
 

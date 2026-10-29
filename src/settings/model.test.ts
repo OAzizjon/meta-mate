@@ -10,6 +10,7 @@ import {
   MIN_VOICE_SPEED,
   MODEL_CHOICES,
   PTT_MODES,
+  PTT_KEYS,
   ROBOT_SIZES,
   SETTINGS_CHANGED_EVENT,
   SETTINGS_KEYS,
@@ -25,11 +26,24 @@ import {
 } from "./model.ts";
 import type { Settings } from "./model.ts";
 
+test("talk keys parse independently and older settings retain their preferences", () => {
+  for (const pttKey of PTT_KEYS) {
+    assert.equal(parseSettings({ pttKey, sound: "fun" }).pttKey, pttKey);
+    assert.equal(updateSettings(DEFAULT_SETTINGS, { pttKey }).pttKey, pttKey);
+  }
+  for (const pttKey of [undefined, null, "future", "RightCtrl", 0, {}]) {
+    const settings = parseSettings({ pttKey, sound: "fun" });
+    assert.equal(settings.pttKey, "rightCtrl");
+    assert.equal(settings.sound, "fun");
+  }
+});
+
 test("defaultSettings returns a fresh copy of the expected defaults", () => {
   const defaults = defaultSettings();
   assert.deepEqual(defaults, {
     model: "quick",
     ptt: "hold",
+    pttKey: "rightCtrl",
     sound: "calm",
     voiceSpeed: 1,
     robotSize: "M",
@@ -62,6 +76,7 @@ test("parseSettings accepts every valid enum combination and boundary voiceSpeed
             const raw: Settings = {
               model,
               ptt,
+              pttKey: "rightCtrl",
               sound,
               voiceSpeed,
               robotSize,
@@ -83,6 +98,7 @@ test("parseSettings drops unknown fields and preserves valid ones", () => {
   const raw = {
     model: "thorough",
     ptt: "toggle",
+    pttKey: "rightCtrl",
     sound: "fun",
     voiceSpeed: 1.25,
     robotSize: "XL",
@@ -97,6 +113,7 @@ test("parseSettings drops unknown fields and preserves valid ones", () => {
   assert.deepEqual(parsed, {
     model: "thorough",
     ptt: "toggle",
+    pttKey: "rightCtrl",
     sound: "fun",
     voiceSpeed: 1.25,
     robotSize: "XL",
@@ -121,6 +138,7 @@ test("parseSettings replaces out-of-range and wrong-type fields with defaults pe
     {
       model: "thorough",
       ptt: DEFAULT_SETTINGS.ptt,
+      pttKey: "rightCtrl",
       sound: "fun",
       voiceSpeed: DEFAULT_SETTINGS.voiceSpeed,
       robotSize: DEFAULT_SETTINGS.robotSize,
@@ -170,6 +188,7 @@ test("parseSettings ignores inherited properties and never throws on non-objects
   const inherited = Object.create({
     model: "thorough",
     ptt: "toggle",
+    pttKey: "rightCtrl",
     sound: "fun",
     voiceSpeed: 1.2,
     robotSize: "L",
@@ -263,6 +282,7 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
       return {
         model: "thorough",
         ptt: "toggle",
+    pttKey: "rightCtrl",
         sound: "fun",
         voiceSpeed: 2.5, // out of range -> default 1
         robotSize: "L",
@@ -280,6 +300,7 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
   assert.deepEqual(loaded, {
     model: "thorough",
     ptt: "toggle",
+    pttKey: "rightCtrl",
     sound: "fun",
     voiceSpeed: 1,
     robotSize: "L",
@@ -328,6 +349,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
   emitChanged!({
     model: "thorough",
     ptt: "toggle",
+    pttKey: "rightCtrl",
     sound: "fun",
     voiceSpeed: 1.03,
     robotSize: "XL",
@@ -340,6 +362,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
   assert.deepEqual(refreshed[0], {
     model: "thorough",
     ptt: "toggle",
+    pttKey: "rightCtrl",
     sound: "fun",
     voiceSpeed: 1.05,
     robotSize: "XL",

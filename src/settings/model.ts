@@ -7,6 +7,13 @@ export type ModelChoice = (typeof MODEL_CHOICES)[number];
 export const PTT_MODES = ["hold", "toggle"] as const;
 export type PttMode = (typeof PTT_MODES)[number];
 
+export const PTT_KEYS = ["rightCtrl", "rightAlt", "capsLock", "insert", "f9", "f10"] as const;
+export type PttKey = (typeof PTT_KEYS)[number];
+
+export function isPttKey(value: unknown): value is PttKey {
+  return typeof value === "string" && (PTT_KEYS as readonly string[]).includes(value);
+}
+
 export const SOUND_MODES = ["calm", "fun"] as const;
 export type SoundMode = (typeof SOUND_MODES)[number];
 
@@ -22,6 +29,7 @@ export const SETTINGS_CHANGED_EVENT = "settings-changed" as const;
 export interface Settings {
   model: "quick" | "thorough";
   ptt: "hold" | "toggle";
+  pttKey: PttKey;
   sound: "calm" | "fun";
   voiceSpeed: number /* 0.8..1.3 */;
   robotSize: "S" | "M" | "L" | "XL";
@@ -33,6 +41,7 @@ export interface Settings {
 export const SETTINGS_KEYS = [
   "model",
   "ptt",
+  "pttKey",
   "sound",
   "voiceSpeed",
   "robotSize",
@@ -44,6 +53,7 @@ export const SETTINGS_KEYS = [
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   model: "quick",
   ptt: "hold",
+  pttKey: "rightCtrl",
   sound: "calm",
   voiceSpeed: DEFAULT_VOICE_SPEED,
   robotSize: "M",
@@ -109,7 +119,7 @@ function readOwnField(obj: Readonly<Record<string, unknown>>, key: string): unkn
 
 /**
  * Strictly validates an untrusted settings payload:
- * - Drops unknown fields (returns only the 7 `Settings` keys).
+ * - Drops unknown fields (returns only `Settings` keys).
  * - Replaces missing, wrong-type, or out-of-range fields with their defaults.
  * - Snaps `voiceSpeed` to `VOICE_SPEED_STEP` (0.05), rounded to 2 decimals.
  * - Never throws (even on throwing getters or proxies).
@@ -122,6 +132,7 @@ export function parseSettings(raw: unknown): Settings {
 
     const model = readOwnField(raw, "model");
     const ptt = readOwnField(raw, "ptt");
+    const pttKey = readOwnField(raw, "pttKey");
     const sound = readOwnField(raw, "sound");
     const voiceSpeed = readOwnField(raw, "voiceSpeed");
     const robotSize = readOwnField(raw, "robotSize");
@@ -132,6 +143,7 @@ export function parseSettings(raw: unknown): Settings {
     return {
       model: isModelChoice(model) ? model : DEFAULT_SETTINGS.model,
       ptt: isPttMode(ptt) ? ptt : DEFAULT_SETTINGS.ptt,
+      pttKey: isPttKey(pttKey) ? pttKey : DEFAULT_SETTINGS.pttKey,
       sound: isSoundMode(sound) ? sound : DEFAULT_SETTINGS.sound,
       voiceSpeed: snapVoiceSpeed(voiceSpeed),
       robotSize: isRobotSize(robotSize) ? robotSize : DEFAULT_SETTINGS.robotSize,

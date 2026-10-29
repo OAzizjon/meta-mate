@@ -193,6 +193,7 @@ export function applySettingsToMate(
 }
 
 export interface MateSettingsBindingOptions {
+  readonly onChange?: (settings: Settings) => void;
   readonly store?: SettingsStore;
   readonly invoke?: SettingsInvoke | null;
   readonly subscribe?: SettingsSubscribe | null;
@@ -230,8 +231,10 @@ export function startMateSettings(
     audio: audioTarget,
   });
 
-  const applyCurrent = (settings: Settings): AppliedMateSettings =>
-    applySettingsToMate(settings, currentTarget());
+  const applyCurrent = (settings: Settings): AppliedMateSettings => {
+    options.onChange?.(settings);
+    return applySettingsToMate(settings, currentTarget());
+  };
 
   // Apply defaults (or initial store state) synchronously before IPC settles.
   applyCurrent(store.get());

@@ -20,7 +20,7 @@ function setLocale(locale: string): void {
   current = locale;
 }
 function t(key: string): string {
-  return (LOCALES[current]?.[key] ?? key).replaceAll("{name}", "Mate");
+  return (LOCALES[current]?.[key] ?? key).replaceAll("{name}", "Mate").replaceAll("{key}", LOCALES[current]["settings.key_rightCtrl"]);
 }
 import {
   ONBOARDING_EXAMPLE_COUNT,
@@ -36,9 +36,32 @@ import {
   stopOnboarding,
 } from "./onboarding.ts";
 import type { OnboardingClock, StorageLike } from "./onboarding.ts";
-import { setOnboardingTranslator } from "./onboarding.ts";
+import { setOnboardingTranslator, setOnboardingPttKey } from "./onboarding.ts";
 
 setOnboardingTranslator((key) => t(key));
+
+test("the greeting and keycap follow live key changes without restarting examples", () => {
+  resetOnboardingSession();
+  const clock = createFakeClock();
+  const shown: (string | null)[] = [];
+  const caps: (string | null)[] = [];
+  setOnboardingPttKey("f9");
+  const controller = startOnboarding(
+    { showBubble: (text) => shown.push(text), showKeycap: (text) => caps.push(text) },
+    { clock, storage: createMemoryStorage(), translate: (key) => LOCALES.en[key] },
+  );
+  assert.equal(caps.at(-1), "F9");
+  assert.ok(shown.at(-1)?.includes("F9"));
+  setOnboardingPttKey("insert");
+  assert.equal(caps.at(-1), "Insert");
+  clock.advance(ONBOARDING_STEP_MS);
+  const count = shown.length;
+  setOnboardingPttKey("f10");
+  assert.equal(caps.at(-1), null);
+  assert.equal(shown.length, count);
+  controller.stop();
+  setOnboardingPttKey("rightCtrl");
+});
 
 interface ScheduledTask {
   readonly id: number;
@@ -148,7 +171,7 @@ test("onboarding.example_1..6 exist in both English and Russian locales", () => 
   setLocale("en");
   assert.equal(t(ONBOARDING_KEYCAP_KEY), "Right Ctrl");
   setLocale("ru");
-  assert.equal(t(ONBOARDING_KEYCAP_KEY), "правый Ctrl");
+  assert.equal(t(ONBOARDING_KEYCAP_KEY), "Клавиша правый Ctrl");
 });
 
 test("first launch shows robot.first_launch then 3 examples every 6 s, then hides", () => {
@@ -358,15 +381,15 @@ test("keycap shows during robot.first_launch and hides when examples start or st
   );
 
   // Shown immediately at t = 0 with translated Russian label
-  assert.deepEqual(keycaps, ["правый Ctrl"]);
+  assert.deepEqual(keycaps, ["Клавиша правый Ctrl"]);
 
   // Still shown just before 6 s
   clock.advance(ONBOARDING_STEP_MS - 1);
-  assert.deepEqual(keycaps, ["правый Ctrl"]);
+  assert.deepEqual(keycaps, ["Клавиша правый Ctrl"]);
 
   // Hides at 6 s when robot.first_launch finishes
   clock.advance(1);
-  assert.deepEqual(keycaps, ["правый Ctrl", null]);
+  assert.deepEqual(keycaps, ["Клавиша правый Ctrl", null]);
 
   // Stopping early during robot.first_launch also hides the keycap immediately
   resetOnboardingSession();
@@ -379,7 +402,7 @@ test("keycap shows during robot.first_launch and hides when examples start or st
     storage: createMemoryStorage(),
   });
   assert.equal(fakeKeycap.hidden, false);
-  assert.equal(fakeKeycap.textContent, "правый Ctrl");
+  assert.equal(fakeKeycap.textContent, "Клавиша правый Ctrl");
 
   clock.advance(2000);
   stopOnboarding();

@@ -11,7 +11,7 @@ import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
 import { AnswerGenerations, HeldPresentation } from "./ipc/answer-generation";
 import type { LocaleKey } from "./i18n";
-import { mountOnboarding, setOnboardingTranslator, stopOnboarding } from "./onboarding";
+import { mountOnboarding, setOnboardingTranslator, setOnboardingPttKey, stopOnboarding } from "./onboarding";
 import { createTimelinePlayer } from "./player";
 import { isRobotMood, isRobotState, mountRobot } from "./robot";
 import type { CssRect, RobotController, RobotState } from "./robot";
@@ -356,7 +356,6 @@ if (container) {
   robot.setState("idle");
   const bubble = document.getElementById("mate-bubble");
   setOnboardingTranslator((key) => t(key));
-  mountOnboarding();
   const inTauri = "__TAURI_INTERNALS__" in window;
   container.addEventListener("contextmenu", (event) => {
     event.preventDefault();
@@ -388,8 +387,10 @@ if (container) {
     {
       invoke: inTauri ? tauriInvoke : null,
       subscribe: inTauri ? tauriSubscribe : null,
+      onChange: (updated) => setOnboardingPttKey(updated.pttKey),
     },
   );
+  void settings.ready.then(() => mountOnboarding());
   const onEnvironmentChange = (): void => {
     settings.reapply();
   };

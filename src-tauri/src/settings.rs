@@ -57,6 +57,49 @@ pub enum Ptt {
     Toggle,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum PttKey {
+    #[default]
+    RightCtrl,
+    RightAlt,
+    CapsLock,
+    Insert,
+    F9,
+    F10,
+}
+
+impl PttKey {
+    pub fn virtual_key(self) -> u32 {
+        match self {
+            Self::RightCtrl => 0xA3,
+            Self::RightAlt => 0xA5,
+            Self::CapsLock => 0x14,
+            Self::Insert => 0x2D,
+            Self::F9 => 0x78,
+            Self::F10 => 0x79,
+        }
+    }
+
+    pub fn locale_key(self) -> &'static str {
+        match self {
+            Self::RightCtrl => "settings.key_rightCtrl",
+            Self::RightAlt => "settings.key_rightAlt",
+            Self::CapsLock => "settings.key_capsLock",
+            Self::Insert => "settings.key_insert",
+            Self::F9 => "settings.key_f9",
+            Self::F10 => "settings.key_f10",
+        }
+    }
+}
+
+fn deserialize_ptt_key<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<PttKey, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_default())
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Sound {
@@ -88,6 +131,8 @@ pub struct MateHome {
 pub struct Settings {
     pub model: Model,
     pub ptt: Ptt,
+    #[serde(default, deserialize_with = "deserialize_ptt_key")]
+    pub ptt_key: PttKey,
     pub sound: Sound,
     /// `MIN_VOICE_SPEED..=MAX_VOICE_SPEED`.
     pub voice_speed: f64,
@@ -105,6 +150,7 @@ impl Default for Settings {
         Self {
             model: Model::Quick,
             ptt: Ptt::Hold,
+            ptt_key: PttKey::RightCtrl,
             sound: Sound::Calm,
             voice_speed: DEFAULT_VOICE_SPEED,
             robot_size: RobotSize::M,
@@ -145,6 +191,8 @@ impl SettingsStore {
         VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
         #[cfg(windows)]
         crate::ptt::set_ptt_mode(settings.ptt);
+        #[cfg(windows)]
+        crate::ptt::set_ptt_key(settings.ptt_key);
         Self(Mutex::new(settings))
     }
 
@@ -181,10 +229,13 @@ pub fn save_settings(
         VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
         #[cfg(windows)]
         crate::ptt::set_ptt_mode(settings.ptt);
+        #[cfg(windows)]
+        crate::ptt::set_ptt_key(settings.ptt_key);
         // Written under the lock: two saves cannot interleave and the file ends as the last.
         persist(&app, &current)
     };
     // Sent after the lock is released: a listener may read the store.
+    crate::refresh_tray_tooltip(&app);
     if let Err(error) = app.emit(CHANGED_EVENT, settings) {
         eprintln!("settings: could not tell the windows: {error}");
     }
@@ -284,6 +335,7 @@ mod tests {
         Settings {
             model: Model::Thorough,
             ptt: Ptt::Toggle,
+            ptt_key: PttKey::RightCtrl,
             sound: Sound::Fun,
             voice_speed: 1.15,
             robot_size: RobotSize::XL,
@@ -310,6 +362,7 @@ mod tests {
             json!({
                 "model": "quick",
                 "ptt": "hold",
+                "pttKey": "rightCtrl",
                 "sound": "calm",
                 "voiceSpeed": 1.0,
                 "robotSize": "M",
@@ -318,6 +371,35 @@ mod tests {
                 "showHomeAtStart": true
             })
         );
+    }
+
+    #[test]
+    fn talk_keys_parse_and_old_or_unknown_keys_keep_other_preferences() {
+        for (key, vk) in [
+            (PttKey::RightCtrl, 0xA3),
+            (PttKey::RightAlt, 0xA5),
+            (PttKey::CapsLock, 0x14),
+            (PttKey::Insert, 0x2D),
+            (PttKey::F9, 0x78),
+            (PttKey::F10, 0x79),
+        ] {
+            let value = serde_json::to_value(key).unwrap();
+            let text = json!({"pttKey": value, "sound": "fun"}).to_string();
+            let settings = parse(&text);
+            assert_eq!(settings.ptt_key, key);
+            assert_eq!(key.virtual_key(), vk);
+            assert_eq!(settings.sound, Sound::Fun);
+        }
+        for text in [
+            r#"{"sound":"fun"}"#,
+            r#"{"sound":"fun","pttKey":"future"}"#,
+            r#"{"sound":"fun","pttKey":null}"#,
+            r#"{"sound":"fun","pttKey":4}"#,
+        ] {
+            let settings = parse(text);
+            assert_eq!(settings.ptt_key, PttKey::RightCtrl);
+            assert_eq!(settings.sound, Sound::Fun);
+        }
     }
 
     #[test]
