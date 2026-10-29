@@ -1,6 +1,6 @@
 // Shared drawing helpers for the Mate art pages (rendered to PNG by `mm art`).
-// mate(opts) returns Mate (the classic light bulb, chosen 2026-10-24) as an SVG string; mateOrb() is the
-// earlier round-robot look. The pixel helpers draw crisp pixel art on a canvas.
+// mate(opts) returns Mate (the classic light bulb, chosen 2026-10-24, v1.1 refresh 2026-10-29) as an SVG
+// string; mateOrb() is the earlier round-robot look. The pixel helpers draw crisp pixel art on a canvas.
 
 const INK = '#1F2A44';
 
@@ -50,20 +50,30 @@ function mateOrb({ eyes = 'open', arm = 'point', mouth = 'smile', glow = false, 
 }
 
 const GLASS = 'M110 20 C160 20 186 56 180 96 C176 122 156 138 148 166 L72 166 C64 138 44 122 40 96 C34 56 60 20 110 20 Z';
+const FILAMENT = 'M100 161 L98 148 L102 142 L106 148 L110 142 L114 148 L118 142 L122 148 L120 161';
 
-function bulbMate(variant = 'classic', { arm = 'none', eyes = 'open', mouth = 'smile', glow = false, size = 300 } = {}) {
+// v1.1 brows, as src/robot/robot.css poses them; without `brows` they follow the eyes.
+const BROWS_FOR_EYES = { open: 'rest', wide: 'up', happy: 'up', squint: 'raised' };
+
+function bulbMate(variant = 'classic', { arm = 'none', eyes = 'open', mouth = 'smile', glow = false, size = 300, brows } = {}) {
   // Gradient ids are document-wide: give every drawing its own prefix (Codex review #261).
   const gid = `g${variant}${++bulbMate.seq}`;
   const screen = variant === 'screen';
+  const classic = variant === 'classic';       // only B1 has the v1.1 refresh; B2 and B3 stay as compared
   const face = screen ? '#8FF5E9' : INK;       // B2 draws the face on a dark screen
   const glassStops = screen
     ? '<stop offset="0" stop-color="#FFFEF6"/><stop offset=".75" stop-color="#FFF4C9"/><stop offset="1" stop-color="#FFE59A"/>'
     : '<stop offset="0" stop-color="#FFFDF0"/><stop offset=".68" stop-color="#FFEFAE"/><stop offset="1" stop-color="#FFD866"/>';
+  const metalStops = classic
+    ? '<stop offset="0" stop-color="#4A7899"/><stop offset=".45" stop-color="#3B6688"/><stop offset="1" stop-color="#2E5070"/>'
+    : '<stop offset="0" stop-color="#AEBACB"/><stop offset="1" stop-color="#8C9AAE"/>';
   const defs = `
     <radialGradient id="${gid}Glass" cx="42%" cy="32%" r="74%">${glassStops}</radialGradient>
     <radialGradient id="${gid}Aura"><stop offset="0" stop-color="#FFE08A" stop-opacity="${glow ? 0.8 : 0.45}"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${gid}Haze"><stop offset="0" stop-color="#FFE08A" stop-opacity=".55"/><stop offset=".6" stop-color="#FFE08A" stop-opacity=".26"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${gid}Core"><stop offset="0" stop-color="#FFF1B8" stop-opacity=".7"/><stop offset=".8" stop-color="#FFE6A0" stop-opacity=".38"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></radialGradient>
     <linearGradient id="${gid}Beam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFE08A" stop-opacity=".95"/><stop offset="1" stop-color="#FFE08A" stop-opacity="0"/></linearGradient>
-    <linearGradient id="${gid}Metal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${variant === 'classic' ? '#3B6688' : '#AEBACB'}"/><stop offset="1" stop-color="${variant === 'classic' ? '#2E5070' : '#8C9AAE'}"/></linearGradient>`;
+    <linearGradient id="${gid}Metal" x1="0" y1="0" x2="0" y2="1">${metalStops}</linearGradient>`;
 
   // Face coordinates: on the glass (B1, B3) or on the inner screen (B2).
   const ey = screen ? 96 : 96, ex1 = 89, ex2 = 131;
@@ -78,6 +88,31 @@ function bulbMate(variant = 'classic', { arm = 'none', eyes = 'open', mouth = 's
     squint: `<path d="M${ex1 - 9} ${ey - 8} L${ex1 + 8} ${ey} L${ex1 - 9} ${ey + 8}" stroke="${face}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
              <path d="M${ex2 + 9} ${ey - 8} L${ex2 - 8} ${ey} L${ex2 + 9} ${ey + 8}" stroke="${face}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`,
   };
+  if (classic) {
+    // v1.1: slightly larger eyes, each with a big and a tiny catch-light.
+    Object.assign(eyeSet, {
+      open: `<ellipse cx="${ex1}" cy="${ey}" rx="11" ry="14" fill="${face}"/><ellipse cx="${ex2}" cy="${ey}" rx="11" ry="14" fill="${face}"/>
+             <circle cx="${ex1 + 3.5}" cy="${ey - 5.5}" r="4.2" fill="#fff"/><circle cx="${ex2 + 3.5}" cy="${ey - 5.5}" r="4.2" fill="#fff"/>
+             <circle cx="${ex1 - 3.5}" cy="${ey + 5.5}" r="2" fill="#fff" opacity=".85"/><circle cx="${ex2 - 3.5}" cy="${ey + 5.5}" r="2" fill="#fff" opacity=".85"/>`,
+      wide: `<ellipse cx="${ex1}" cy="${ey - 1}" rx="13" ry="17" fill="${face}"/><ellipse cx="${ex2}" cy="${ey - 1}" rx="13" ry="17" fill="${face}"/>
+             <circle cx="${ex1 + 4.5}" cy="${ey - 8}" r="5.2" fill="#fff"/><circle cx="${ex2 + 4.5}" cy="${ey - 8}" r="5.2" fill="#fff"/>
+             <circle cx="${ex1 - 4}" cy="${ey + 6}" r="2.2" fill="#fff" opacity=".85"/><circle cx="${ex2 - 4}" cy="${ey + 6}" r="2.2" fill="#fff" opacity=".85"/>`,
+    });
+  }
+  // v1.1 brows: thin arcs whose ends sit at browY; the transforms are robot.css's, turned around
+  // each arc's box centre (browY - 1.75) like its transform-box: fill-box.
+  const browY = ey - 24, browCy = browY - 1.75;
+  const browPoses = {
+    rest: ['', ''],
+    up: ['translate(0 -4)', 'translate(0 -4)'],
+    high: ['translate(0 -7)', 'translate(0 -7)'],
+    low: ['translate(0 2)', 'translate(0 2)'],
+    raised: ['', `translate(0 -5) rotate(-6 ${ex2} ${browCy})`],
+    tilted: [`translate(0 -1) rotate(-12 ${ex1} ${browCy})`, `translate(0 -1) rotate(12 ${ex2} ${browCy})`],
+  };
+  const brow = (cx, t) => `<path d="M${cx - 10} ${browY} Q${cx} ${browY - 7} ${cx + 10} ${browY}"${t ? ` transform="${t}"` : ''} stroke="${face}" stroke-width="4" stroke-linecap="round" fill="none"/>`;
+  const [browL, browR] = browPoses[brows || BROWS_FOR_EYES[eyes]] || browPoses.rest;
+  const browSet = classic ? brow(ex1, browL) + brow(ex2, browR) : '';
   const my = ey + 21;
   const mouthSet = {
     smile: `<path d="M98 ${my} Q110 ${my + 10} 122 ${my}" stroke="${face}" stroke-width="4.5" stroke-linecap="round" fill="none"/>`,
@@ -124,10 +159,30 @@ function bulbMate(variant = 'classic', { arm = 'none', eyes = 'open', mouth = 's
     <rect x="80" y="166" width="60" height="15" rx="6" fill="url(#${gid}Metal)" stroke="${INK}" stroke-width="5"/>
     <rect x="84" y="179" width="52" height="14" rx="6" fill="url(#${gid}Metal)" stroke="${INK}" stroke-width="5"/>
     <path d="M96 192 Q110 208 124 192 Z" fill="${INK}"/>
-    ${variant === 'classic' ? '<circle cx="128" cy="173" r="3" fill="#8FF5E9"/>' : ''}`;
+    ${classic ? '<circle cx="128" cy="173" r="3" fill="#8FF5E9"/><circle cx="127" cy="172" r="1.1" fill="#fff" opacity=".9"/>' : ''}`;
 
+  // v1.1 aura: a soft haze and a warm core that hugs the glass. The group opacity is the glow strength
+  // and `glow` grows it by 1.12, as robot.css's listening state does.
+  const auraScale = glow ? 1.12 : 1;
+  const aura = classic
+    ? `<g opacity="${glow ? 0.8 : 0.45}">
+         <circle cx="110" cy="96" r="${(104 * auraScale).toFixed(1)}" fill="url(#${gid}Haze)"/>
+         <circle cx="110" cy="96" r="${(86 * auraScale).toFixed(1)}" fill="url(#${gid}Core)"/>
+       </g>`
+    : `<circle cx="110" cy="96" r="${glow ? 112 : 100}" fill="url(#${gid}Aura)"/>`;
+
+  // v1.1 glass: a dim filament that warms up with `glow` (listening, speaking) and a crisper highlight.
+  const wire = 'fill="none" stroke-linecap="round" stroke-linejoin="round"';
+  const filament = `<g opacity="${glow ? 0.9 : 0.45}">
+      ${glow ? `<path d="${FILAMENT}" stroke="#FFC94A" stroke-width="8" opacity=".5" ${wire}/>` : ''}
+      <path d="${FILAMENT}" stroke="#F28C28" stroke-width="3" ${wire}/>
+    </g>`;
   const glass = `<path d="${GLASS}" fill="url(#${gid}Glass)" stroke="${INK}" stroke-width="6"/>
-                 <path d="M62 70 Q66 46 88 38" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none" opacity=".9"/>`;
+                 ${classic
+                   ? `${filament}
+                      <path d="M62 72 Q64 47 88 38" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none"/>
+                      <circle cx="61" cy="85" r="3.2" fill="#fff"/>`
+                   : '<path d="M62 70 Q66 46 88 38" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none" opacity=".9"/>'}`;
   const inner = screen
     ? `<path d="M100 40 q4 -8 8 0 t8 0 t8 0" stroke="#FFC94A" stroke-width="4" stroke-linecap="round" fill="none"/>
        <rect x="58" y="64" width="104" height="70" rx="28" fill="#22394F" stroke="${INK}" stroke-width="5"/>`
@@ -137,12 +192,12 @@ function bulbMate(variant = 'classic', { arm = 'none', eyes = 'open', mouth = 's
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 240" width="${size}" height="${size * 240 / 260}">
   <defs>${defs}</defs>
   <ellipse cx="112" cy="${shadowY}" rx="50" ry="7" fill="${INK}" opacity=".13"/>
-  <circle cx="110" cy="96" r="${glow ? 112 : 100}" fill="url(#${gid}Aura)"/>
+  ${aura}
   ${jets}${halo ? ringBack + haloBeam : ''}
   ${armL}${armR}
   ${base}
   ${glass}${inner}
-  ${eyeSet[eyes]}${mouthSet[mouth]}${screen ? '' : cheeks}
+  ${browSet}${eyeSet[eyes]}${mouthSet[mouth]}${screen ? '' : cheeks}
   ${halo ? ringFront : ''}
 </svg>`;
 }

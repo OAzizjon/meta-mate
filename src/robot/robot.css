@@ -1,5 +1,6 @@
 /* Mate's looks in motion (src/robot). Only transform and opacity animate. states.ts sets
-   data-state, data-mood and data-cheeks on .mate-svg; one-shot moves are Web Animations. */
+   data-state, data-mood, data-cheeks and data-brows on .mate-svg; one-shot moves are Web
+   Animations. */
 
 /* Positioned like the fixed beam layer before it, so Mate paints over his beam. */
 .mate-box {
@@ -66,6 +67,18 @@
   transition: transform 0.3s ease-out;
 }
 
+/* The filament's rest opacity is on its nodes (geometry.ts glassNodes). */
+.mate-filament,
+.mate-filament-glow {
+  transition: opacity 0.3s ease-out;
+}
+
+.mate-brow {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.25s ease-out;
+}
+
 .mate-layer-z {
   display: none;
 }
@@ -88,6 +101,32 @@
   transform: scale(1.15);
 }
 
+/* Brows follow the face too (geometry.ts BrowStyle); mate-lib.js draws the same poses. */
+.mate-svg[data-brows="up"] .mate-brow {
+  transform: translateY(-4px);
+}
+
+.mate-svg[data-brows="high"] .mate-brow {
+  transform: translateY(-7px);
+}
+
+.mate-svg[data-brows="low"] .mate-brow {
+  transform: translateY(2px);
+}
+
+.mate-svg[data-brows="raised"] .mate-brow-r {
+  transform: translateY(-5px) rotate(-6deg);
+}
+
+/* Inner ends up: a kind, worried look. */
+.mate-svg[data-brows="tilted"] .mate-brow-l {
+  transform: translateY(-1px) rotate(-12deg);
+}
+
+.mate-svg[data-brows="tilted"] .mate-brow-r {
+  transform: translateY(-1px) rotate(12deg);
+}
+
 /* States (docs/robot.md). */
 .mate-svg[data-state="idle"] .mate-body {
   animation: mate-bob 2.8s ease-in-out infinite;
@@ -104,6 +143,16 @@
 .mate-svg[data-state="listening"] .mate-layer-aura {
   opacity: 0.8;
   transform: scale(1.12);
+}
+
+.mate-svg[data-state="listening"] .mate-filament,
+.mate-svg[data-state="speaking"] .mate-filament {
+  opacity: 0.9;
+}
+
+.mate-svg[data-state="listening"] .mate-filament-glow,
+.mate-svg[data-state="speaking"] .mate-filament-glow {
+  opacity: 0.5;
 }
 
 .mate-svg[data-state="looking"] .mate-eyes {
@@ -129,6 +178,11 @@
 
 .mate-svg[data-state="sleeping"] .mate-layer-aura {
   opacity: 0;
+  transition-duration: 1.2s;
+}
+
+.mate-svg[data-state="sleeping"] .mate-filament {
+  opacity: 0.15;
   transition-duration: 1.2s;
 }
 

@@ -17,6 +17,16 @@ Why a bulb: **his light is the highlight**. He points by shining a beam on the r
 - Two small arms; the right one holds a little **flashlight** whose beam is the pointing gesture.
 - He hovers (no legs) above a soft shadow.
 
+### v1.1 refresh (2026-10-29)
+
+A subtle polish asked for by the owner (WP79). The identity, colours, states, moods, public API and beam geometry stay the same; the app (`src/robot/`) and `mate()` in `assets/art/src/mate-lib.js` match (B2/B3 in `bulb-options` are unchanged).
+
+- Aura: two radial layers, a warm core that hugs the glass and a wider, softer haze; the layer's opacity is still the glow strength.
+- Glass: a crisper highlight (a curved stroke plus a small dot) and a thin warm-orange filament zigzag low in the glass (opacity .45) that brightens with a soft glow in listening and speaking and dims in sleeping (`mate({ glow: true })` in the art).
+- Eyes: slightly larger (open 11 × 14, wide 13 × 17), both shapes with a big and a tiny catch-light.
+- Brows: thin navy arcs set by the face (`data-brows`): calm rest, happy and proud up, thinking one raised, sad tilted (inner ends up), surprised high, sleepy low. States lend a pose: listening and success up, thinking and oops one raised, can't find tilted, sleeping low, looking rest. They glide in 0.25 s and jump with reduced motion. In the art `mate({ brows })` takes the same names and defaults from the eyes.
+- Base: a three-stop gradient on the rings (a soft sheen on top) and a tiny shine on the status light.
+
 Production: the SVG in `assets/art/src/mate-lib.js` (`mate()` = `bulbMate('classic')`) is the reference. For the app, split it into layers (aura, glass, face, cheeks, base, status light, arms, flashlight, beam, shadow) → animate with CSS/Web Animations (or Rive if we need a state machine with blends). Muse Image is used for extra concept art and stickers in the same style (prompts below).
 
 ## States (each one an animation)

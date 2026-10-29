@@ -1,7 +1,7 @@
-// Mate's locked B1 "classic glow" look (D29), ported from bulbMate('classic') in
-// assets/art/src/mate-lib.js as plain data: the same 260 x 240 viewBox, paths and colours.
-// svg.ts turns the nodes into elements. The functions at the end map the viewBox to CSS
-// pixels and aim the arm, the beam and the eyes.
+// Mate's locked B1 "classic glow" look (D29) with the v1.1 refresh (docs/robot.md), ported from
+// bulbMate('classic') in assets/art/src/mate-lib.js as plain data: the same 260 x 240 viewBox,
+// paths and colours. svg.ts turns the nodes into elements. The functions at the end map the
+// viewBox to CSS pixels and aim the arm, the beam and the eyes.
 
 import type { CssPoint, CssRect, RobotMood } from "./types.ts";
 
@@ -46,22 +46,36 @@ export const GLASS_GRADIENT: GradientSpec = {
   ],
 };
 
-// The art bakes the glow strength into stop-opacity (.45, or .8 with `glow`). Here the stop is
-// full and the aura layer's CSS opacity carries the strength: it renders the same and animates.
+// The aura has two radial layers: a wide soft haze and a warm core that hugs the glass. Their
+// stops only shape the falloff; the strength is the aura layer's CSS opacity (the art's group
+// opacity: .45, or .8 with `glow`), so it renders the same and animates.
 export const AURA_GRADIENT: GradientSpec = {
   tag: "radialGradient",
   attrs: {},
   stops: [
-    { offset: 0, "stop-color": "#FFE08A", "stop-opacity": 1 },
+    { offset: 0, "stop-color": "#FFE08A", "stop-opacity": 0.55 },
+    { offset: 0.6, "stop-color": "#FFE08A", "stop-opacity": 0.26 },
     { offset: 1, "stop-color": "#FFE08A", "stop-opacity": 0 },
   ],
 };
 
+export const AURA_CORE_GRADIENT: GradientSpec = {
+  tag: "radialGradient",
+  attrs: {},
+  stops: [
+    { offset: 0, "stop-color": "#FFF1B8", "stop-opacity": 0.7 },
+    { offset: 0.8, "stop-color": "#FFE6A0", "stop-opacity": 0.38 },
+    { offset: 1, "stop-color": "#FFE08A", "stop-opacity": 0 },
+  ],
+};
+
+// A soft sheen on top of each ring.
 export const METAL_GRADIENT: GradientSpec = {
   tag: "linearGradient",
   attrs: { x1: 0, y1: 0, x2: 0, y2: 1 },
   stops: [
-    { offset: 0, "stop-color": "#3B6688" },
+    { offset: 0, "stop-color": "#4A7899" },
+    { offset: 0.45, "stop-color": "#3B6688" },
     { offset: 1, "stop-color": "#2E5070" },
   ],
 };
@@ -81,8 +95,11 @@ export const SHADOW: readonly SvgNode[] = [
   { tag: "ellipse", attrs: { cx: 112, cy: 226, rx: 50, ry: 7, fill: INK, opacity: 0.13 } },
 ];
 
-export function auraNodes(fill: string): readonly SvgNode[] {
-  return [{ tag: "circle", attrs: { cx: 110, cy: 96, r: 100, fill } }];
+export function auraNodes(haze: string, core: string): readonly SvgNode[] {
+  return [
+    { tag: "circle", attrs: { cx: 110, cy: 96, r: 104, fill: haze } },
+    { tag: "circle", attrs: { cx: 110, cy: 96, r: 86, fill: core } },
+  ];
 }
 
 export function baseNodes(metal: string): readonly SvgNode[] {
@@ -93,15 +110,29 @@ export function baseNodes(metal: string): readonly SvgNode[] {
   ];
 }
 
-export const STATUS_LIGHT: readonly SvgNode[] = [{ tag: "circle", attrs: { cx: 128, cy: 173, r: 3, fill: "#8FF5E9" } }];
+export const STATUS_LIGHT: readonly SvgNode[] = [
+  { tag: "circle", attrs: { cx: 128, cy: 173, r: 3, fill: "#8FF5E9" } },
+  { tag: "circle", attrs: { cx: 127, cy: 172, r: 1.1, fill: "#fff", opacity: 0.9 } },
+];
+
+/** A zigzag on two supports, low in the glass under the face. */
+const FILAMENT_PATH = "M100 161 L98 148 L102 142 L106 148 L110 142 L114 148 L118 142 L122 148 L120 161";
 
 export function glassNodes(fill: string): readonly SvgNode[] {
+  const wire = { d: FILAMENT_PATH, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" };
   return [
     { tag: "path", attrs: { d: GLASS_PATH, fill, stroke: INK, "stroke-width": 6 } },
+    // Dim at rest; robot.css brightens it and its glow in listening and speaking.
     {
-      tag: "path",
-      attrs: { d: "M62 70 Q66 46 88 38", stroke: "#fff", "stroke-width": 7, "stroke-linecap": "round", fill: "none", opacity: 0.9 },
+      tag: "g",
+      attrs: { class: "mate-filament", opacity: 0.45 },
+      children: [
+        { tag: "path", attrs: { ...wire, class: "mate-filament-glow", stroke: "#FFC94A", "stroke-width": 8, opacity: 0 } },
+        { tag: "path", attrs: { ...wire, stroke: "#F28C28", "stroke-width": 3 } },
+      ],
     },
+    { tag: "path", attrs: { d: "M62 72 Q64 47 88 38", stroke: "#fff", "stroke-width": 6, "stroke-linecap": "round", fill: "none" } },
+    { tag: "circle", attrs: { cx: 61, cy: 85, r: 3.2, fill: "#fff" } },
   ];
 }
 
@@ -124,11 +155,14 @@ const MY = EY + 21;
 export type EyeShape = "open" | "wide" | "happy" | "squint" | "closed";
 export type MouthShape = "smile" | "grin" | "flat" | "o" | "sad" | "small" | "open";
 export type CheekStyle = "normal" | "faded" | "puffed";
+/** robot.css moves the brows for each style: `raised` lifts the right one, `tilted` lifts the inner ends. */
+export type BrowStyle = "rest" | "up" | "raised" | "tilted" | "high" | "low";
 
 export interface Face {
   readonly eyes: EyeShape;
   readonly mouth: MouthShape;
   readonly cheeks: CheekStyle;
+  readonly brows: BrowStyle;
 }
 
 function line(d: string, width: number, join?: "round"): SvgNode {
@@ -138,18 +172,20 @@ function line(d: string, width: number, join?: "round"): SvgNode {
 
 export const EYES: Readonly<Record<EyeShape, readonly SvgNode[]>> = {
   open: [
-    { tag: "ellipse", attrs: { cx: EX1, cy: EY, rx: 10, ry: 13, fill: INK } },
-    { tag: "ellipse", attrs: { cx: EX2, cy: EY, rx: 10, ry: 13, fill: INK } },
-    { tag: "circle", attrs: { cx: EX1 + 3.5, cy: EY - 5, r: 4, fill: "#fff" } },
-    { tag: "circle", attrs: { cx: EX2 + 3.5, cy: EY - 5, r: 4, fill: "#fff" } },
-    { tag: "circle", attrs: { cx: EX1 - 3, cy: EY + 5, r: 1.8, fill: "#fff", opacity: 0.8 } },
-    { tag: "circle", attrs: { cx: EX2 - 3, cy: EY + 5, r: 1.8, fill: "#fff", opacity: 0.8 } },
+    { tag: "ellipse", attrs: { cx: EX1, cy: EY, rx: 11, ry: 14, fill: INK } },
+    { tag: "ellipse", attrs: { cx: EX2, cy: EY, rx: 11, ry: 14, fill: INK } },
+    { tag: "circle", attrs: { cx: EX1 + 3.5, cy: EY - 5.5, r: 4.2, fill: "#fff" } },
+    { tag: "circle", attrs: { cx: EX2 + 3.5, cy: EY - 5.5, r: 4.2, fill: "#fff" } },
+    { tag: "circle", attrs: { cx: EX1 - 3.5, cy: EY + 5.5, r: 2, fill: "#fff", opacity: 0.85 } },
+    { tag: "circle", attrs: { cx: EX2 - 3.5, cy: EY + 5.5, r: 2, fill: "#fff", opacity: 0.85 } },
   ],
   wide: [
-    { tag: "ellipse", attrs: { cx: EX1, cy: EY - 1, rx: 12, ry: 16, fill: INK } },
-    { tag: "ellipse", attrs: { cx: EX2, cy: EY - 1, rx: 12, ry: 16, fill: INK } },
-    { tag: "circle", attrs: { cx: EX1 + 4, cy: EY - 7, r: 5, fill: "#fff" } },
-    { tag: "circle", attrs: { cx: EX2 + 4, cy: EY - 7, r: 5, fill: "#fff" } },
+    { tag: "ellipse", attrs: { cx: EX1, cy: EY - 1, rx: 13, ry: 17, fill: INK } },
+    { tag: "ellipse", attrs: { cx: EX2, cy: EY - 1, rx: 13, ry: 17, fill: INK } },
+    { tag: "circle", attrs: { cx: EX1 + 4.5, cy: EY - 8, r: 5.2, fill: "#fff" } },
+    { tag: "circle", attrs: { cx: EX2 + 4.5, cy: EY - 8, r: 5.2, fill: "#fff" } },
+    { tag: "circle", attrs: { cx: EX1 - 4, cy: EY + 6, r: 2.2, fill: "#fff", opacity: 0.85 } },
+    { tag: "circle", attrs: { cx: EX2 - 4, cy: EY + 6, r: 2.2, fill: "#fff", opacity: 0.85 } },
   ],
   happy: [
     line(`M${EX1 - 11} ${EY + 5} Q${EX1} ${EY - 13} ${EX1 + 11} ${EY + 5}`, 6),
@@ -165,6 +201,17 @@ export const EYES: Readonly<Record<EyeShape, readonly SvgNode[]>> = {
     line(`M${EX2 - 11} ${EY} Q${EX2} ${EY + 10} ${EX2 + 11} ${EY}`, 6),
   ],
 };
+
+/** The brows' ends; each arc peaks 3.5 units higher. */
+const BROW_Y = EY - 24;
+
+// No transform attribute: robot.css moves the brows (data-brows), as the art's transforms do.
+function brow(cx: number, side: "l" | "r"): SvgNode {
+  const { attrs } = line(`M${cx - 10} ${BROW_Y} Q${cx} ${BROW_Y - 7} ${cx + 10} ${BROW_Y}`, 4);
+  return { tag: "path", attrs: { ...attrs, class: `mate-brow mate-brow-${side}` } };
+}
+
+export const BROWS: readonly SvgNode[] = [brow(EX1, "l"), brow(EX2, "r")];
 
 const OPEN_MOUTH_RY = 3;
 const OPEN_MOUTH_RANGE = 9;
@@ -186,13 +233,13 @@ export const CHEEKS: readonly SvgNode[] = [
 ];
 
 export const MOOD_FACES: Readonly<Record<RobotMood, Face>> = {
-  calm: { eyes: "open", mouth: "smile", cheeks: "normal" },
-  happy: { eyes: "happy", mouth: "grin", cheeks: "normal" },
-  thinking: { eyes: "open", mouth: "flat", cheeks: "normal" },
-  surprised: { eyes: "wide", mouth: "o", cheeks: "normal" },
-  sad: { eyes: "open", mouth: "sad", cheeks: "faded" },
-  proud: { eyes: "happy", mouth: "grin", cheeks: "puffed" },
-  sleepy: { eyes: "closed", mouth: "small", cheeks: "normal" },
+  calm: { eyes: "open", mouth: "smile", cheeks: "normal", brows: "rest" },
+  happy: { eyes: "happy", mouth: "grin", cheeks: "normal", brows: "up" },
+  thinking: { eyes: "open", mouth: "flat", cheeks: "normal", brows: "raised" },
+  surprised: { eyes: "wide", mouth: "o", cheeks: "normal", brows: "high" },
+  sad: { eyes: "open", mouth: "sad", cheeks: "faded", brows: "tilted" },
+  proud: { eyes: "happy", mouth: "grin", cheeks: "puffed", brows: "up" },
+  sleepy: { eyes: "closed", mouth: "small", cheeks: "normal", brows: "low" },
 };
 
 // --- arms and flashlight ------------------------------------------------------------

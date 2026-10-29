@@ -1,7 +1,8 @@
 // Mate's two channels (docs/robot.md "States"): the state (what he is doing, set by the app)
 // and the mood (his face, set by MateScript <mood>). A state may override the face, some only
 // briefly (oops, success), then the mood returns. Loops live in robot.css, keyed on the
-// data-state / data-mood / data-cheeks attributes set here; one-shot moves use Web Animations.
+// data-state / data-mood / data-cheeks / data-brows attributes set here; one-shot moves use
+// Web Animations.
 
 import type { BeamController } from "./beam.ts";
 import {
@@ -17,7 +18,7 @@ import {
   viewScale,
   viewToCss,
 } from "./geometry.ts";
-import type { CheekStyle, EyeShape, Face, MouthShape, ViewPoint } from "./geometry.ts";
+import type { BrowStyle, CheekStyle, EyeShape, Face, MouthShape, ViewPoint } from "./geometry.ts";
 import { setArmPose, setAttr, setEyes, setGaze, setMouth, setMouthOpen } from "./svg.ts";
 import type { MateSvgRefs } from "./svg.ts";
 import type { CssPoint, CssRect, RobotMood, RobotState } from "./types.ts";
@@ -44,16 +45,19 @@ interface FaceOverride {
   readonly eyes?: EyeShape;
   readonly mouth?: MouthShape;
   readonly cheeks?: CheekStyle;
+  readonly brows?: BrowStyle;
   /** Shown this long after entering the state, then the mood's face returns. */
   readonly ms?: number;
 }
 
 const STATE_FACES: Partial<Record<RobotState, FaceOverride>> = {
-  listening: { eyes: "wide" },
-  looking: { eyes: "open" },
-  success: { eyes: "happy", mouth: "grin", ms: 1200 },
-  oops: { eyes: "squint", ms: 600 },
-  sleeping: { eyes: "closed", mouth: "small" },
+  listening: { eyes: "wide", brows: "up" },
+  looking: { eyes: "open", brows: "rest" },
+  thinking: { brows: "raised" },
+  success: { eyes: "happy", mouth: "grin", brows: "up", ms: 1200 },
+  oops: { eyes: "squint", brows: "raised", ms: 600 },
+  cant_find: { brows: "tilted" },
+  sleeping: { eyes: "closed", mouth: "small", brows: "low" },
 };
 
 interface OneShot {
@@ -144,7 +148,12 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     const base = MOOD_FACES[mood];
     const own = STATE_FACES[state];
     if (!own || (own.ms !== undefined && !overrideOn)) return base;
-    return { eyes: own.eyes ?? base.eyes, mouth: own.mouth ?? base.mouth, cheeks: own.cheeks ?? base.cheeks };
+    return {
+      eyes: own.eyes ?? base.eyes,
+      mouth: own.mouth ?? base.mouth,
+      cheeks: own.cheeks ?? base.cheeks,
+      brows: own.brows ?? base.brows,
+    };
   }
 
   function gaze(): ViewPoint {
@@ -161,6 +170,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     if (state === "speaking" && voice >= VOICE_OPEN) setMouthOpen(refs, voice);
     else setMouth(refs, f.mouth);
     setAttr(refs.svg, "data-cheeks", f.cheeks);
+    setAttr(refs.svg, "data-brows", f.brows);
     setGaze(refs, BLINKABLE.has(f.eyes) ? gaze() : NO_GAZE);
   }
 

@@ -1,15 +1,18 @@
 // Run with `npm test` (Node's own test runner; Node 24 strips the types).
-// Unit tests for Mate's state vocabulary and state animator (`looking` sweep and reduce-motion).
+// Unit tests for Mate's state vocabulary and state animator (`looking` sweep, reduce-motion and
+// the v1.1 brows and filament).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import type { BeamController } from "./beam.ts";
-import { THINKING_GAZE } from "./geometry.ts";
+import { MOOD_FACES, THINKING_GAZE } from "./geometry.ts";
+import type { BrowStyle } from "./geometry.ts";
 import { LOOKING_SWEEP_MS, createStateAnimator } from "./states.ts";
 import { buildMateSvg } from "./svg.ts";
 import type { MateSvgRefs } from "./svg.ts";
 import { ROBOT_MOODS, ROBOT_STATES, isRobotMood, isRobotState } from "./types.ts";
+import type { RobotMood } from "./types.ts";
 
 const ROBOT_CSS = readFileSync(new URL("./robot.css", import.meta.url), "utf8");
 
@@ -281,4 +284,86 @@ test("robot.css defines the 'looking' eye sweep and disables it under .reduce-mo
   );
   assert.match(ROBOT_CSS, /@keyframes\s+mate-look\s*\{/);
   assert.match(ROBOT_CSS, /\.mate-svg\.reduce-motion\s+\*\s*\{[^}]*animation:\s*none\s*!important/);
+});
+
+test("v1.1 layers: two aura circles, a dim filament in the glass, brows beside the eyes", (t) => {
+  const h = createHarness();
+  t.after(() => h.cleanup());
+
+  assert.equal(h.refs.layers.aura.children.length, 2);
+  const filament = h.refs.layers.glass.children.find((child) => child.classList.contains("mate-filament"));
+  assert.ok(filament);
+  assert.equal(filament.getAttribute("opacity"), "0.45");
+
+  const [brows, eyes, mouth] = h.refs.layers.face.children;
+  assert.equal(brows.classList.contains("mate-brows"), true);
+  assert.equal(eyes, h.refs.eyes);
+  assert.equal(mouth, h.refs.mouth);
+  assert.deepEqual(
+    brows.children.map((b) => b.getAttribute("class")),
+    ["mate-brow mate-brow-l", "mate-brow mate-brow-r"],
+  );
+  // robot.css moves the brows; a transform attribute would be overridden by it.
+  for (const b of brows.children) assert.equal(b.getAttribute("transform"), null);
+});
+
+test("moods move the brows: happy up, thinking one raised, sad tilted, surprised high", (t) => {
+  const h = createHarness();
+  t.after(() => h.cleanup());
+
+  assert.equal(h.refs.svg.getAttribute("data-brows"), "rest");
+  const expected: Record<RobotMood, BrowStyle> = {
+    calm: "rest",
+    happy: "up",
+    thinking: "raised",
+    surprised: "high",
+    sad: "tilted",
+    proud: "up",
+    sleepy: "low",
+  };
+  for (const mood of ROBOT_MOODS) {
+    assert.equal(MOOD_FACES[mood].brows, expected[mood], mood);
+    h.animator.setMood(mood);
+    assert.equal(h.refs.svg.getAttribute("data-brows"), expected[mood], mood);
+  }
+});
+
+test("states lend the brows a pose, then the mood's brows return", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const h = createHarness();
+  t.after(() => h.cleanup());
+  const brows = () => h.refs.svg.getAttribute("data-brows");
+
+  h.animator.setState("listening");
+  assert.equal(brows(), "up");
+  h.animator.setState("thinking");
+  assert.equal(brows(), "raised");
+  h.animator.setState("cant_find");
+  assert.equal(brows(), "tilted");
+  h.animator.setState("sleeping");
+  assert.equal(brows(), "low");
+  h.animator.setState("idle");
+  assert.equal(brows(), "rest");
+
+  // oops raises one brow only as long as its squint (600 ms).
+  h.animator.setMood("happy");
+  h.animator.setState("oops");
+  assert.equal(brows(), "raised");
+  assert.equal(h.refs.eyes.getAttribute("data-shape"), "squint");
+  t.mock.timers.tick(600);
+  assert.equal(brows(), "up");
+  assert.equal(h.refs.eyes.getAttribute("data-shape"), "happy");
+});
+
+test("robot.css poses every brow style, warms the filament in listening and speaking, and keeps reduce-motion", () => {
+  const poses: readonly BrowStyle[] = ["up", "high", "low", "raised", "tilted"];
+  for (const pose of poses) {
+    assert.match(ROBOT_CSS, new RegExp(`\\.mate-svg\\[data-brows="${pose}"\\]\\s+\\.mate-brow(-[lr])?\\s*\\{[^}]*transform:`), pose);
+  }
+  for (const state of ["listening", "speaking"]) {
+    assert.match(ROBOT_CSS, new RegExp(`\\.mate-svg\\[data-state="${state}"\\]\\s+\\.mate-filament\\s*[,{]`), state);
+  }
+  // The brows only transition transform, which the reduce-motion rule cuts back to opacity.
+  assert.match(ROBOT_CSS, /\.mate-brow\s*\{[^}]*transition:\s*transform\b/);
+  assert.match(ROBOT_CSS, /\.mate-svg\.reduce-motion\s+\*\s*\{[^}]*transition-property:\s*opacity\s*!important/);
 });

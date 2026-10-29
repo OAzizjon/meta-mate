@@ -4,7 +4,9 @@
 import {
   ARM_L,
   ARM_R,
+  AURA_CORE_GRADIENT,
   AURA_GRADIENT,
+  BROWS,
   CHEEKS,
   EYES,
   FLASHLIGHT,
@@ -103,7 +105,7 @@ function layer(name: LayerName, nodes: readonly SvgNode[] = []): SVGGElement {
 }
 
 export function buildMateSvg(idPrefix: string = uniqueId("mate")): MateSvgRefs {
-  const ids = { glass: `${idPrefix}Glass`, aura: `${idPrefix}Aura`, metal: `${idPrefix}Metal` };
+  const ids = { glass: `${idPrefix}Glass`, aura: `${idPrefix}Aura`, core: `${idPrefix}AuraCore`, metal: `${idPrefix}Metal` };
   const svg = svgEl("svg", {
     viewBox: `0 0 ${VIEW_W} ${VIEW_H}`,
     class: "mate-svg",
@@ -111,11 +113,16 @@ export function buildMateSvg(idPrefix: string = uniqueId("mate")): MateSvgRefs {
     "aria-hidden": "true",
   });
   const defs = svgEl("defs");
-  defs.append(gradient(GLASS_GRADIENT, ids.glass), gradient(AURA_GRADIENT, ids.aura), gradient(METAL_GRADIENT, ids.metal));
+  defs.append(
+    gradient(GLASS_GRADIENT, ids.glass),
+    gradient(AURA_GRADIENT, ids.aura),
+    gradient(AURA_CORE_GRADIENT, ids.core),
+    gradient(METAL_GRADIENT, ids.metal),
+  );
 
   const layers: Record<LayerName, SVGGElement> = {
     shadow: layer("shadow", SHADOW),
-    aura: layer("aura", auraNodes(`url(#${ids.aura})`)),
+    aura: layer("aura", auraNodes(`url(#${ids.aura})`, `url(#${ids.core})`)),
     "arm-l": layer("arm-l"),
     "arm-r": layer("arm-r"),
     flashlight: layer("flashlight", FLASHLIGHT),
@@ -126,9 +133,12 @@ export function buildMateSvg(idPrefix: string = uniqueId("mate")): MateSvgRefs {
     cheeks: layer("cheeks", CHEEKS),
     z: layer("z", SLEEP_Z),
   };
+  // The brows stay put when the eyes look around; states.ts poses them through data-brows.
+  const brows = svgEl("g", { class: "mate-brows" });
+  brows.append(...BROWS.map(build));
   const eyes = svgEl("g", { class: "mate-eyes" });
   const mouth = svgEl("g", { class: "mate-mouth" });
-  layers.face.append(eyes, mouth);
+  layers.face.append(brows, eyes, mouth);
   const aim = svgEl("g", { class: "mate-aim" });
   aim.append(layers["arm-r"], layers.flashlight);
   const arms = svgEl("g", { class: "mate-arms" });
