@@ -155,6 +155,51 @@ const FORBIDDEN_WORD_STARTS: [&str; 9] = [
     "сброс",
 ];
 
+const FORBIDDEN_EXTRA: &[&str] = &[
+    "discard",
+    "subscribe",
+    "subscription",
+    "preorder",
+    "gpay",
+    "google pay",
+    "apple pay",
+    "lösch",
+    "bezahl",
+    "kauf",
+    "überweis",
+    "supprim",
+    "payer",
+    "achet",
+    "virement",
+    "elimin",
+    "borr",
+    "pag",
+    "compr",
+    "transferir",
+    "o'chir",
+    "to'la",
+    "sotib ol",
+    "o'tkaz",
+    "sil",
+    "öde",
+    "satın al",
+    "havale",
+    "жою",
+    "жой",
+    "төле",
+    "сатып ал",
+    "аудар",
+];
+
+static FORBIDDEN_PHRASES: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(concat!(
+        r"(?i)\bclear\b.*\b(?:data|history|now|browsing)\b|",
+        r"\bempty\s+(?:recycle\s+)?bin\b|",
+        r"\bmove\s+to\s+(?:the\s+)?(?:bin|trash)\b|",
+        r"\bsend\s+(?:\p{Sc}|[0-9]|(?:usd|eur|gbp|rub|uzs|kzt|try|dollars?|euros?|pounds?|roubles?|tenge|som)\b)",
+    )).expect("constant forbidden phrase regex must compile")
+});
+
 /// Whether clicking a control labelled `name` could pay, buy, order, delete, move money or
 /// touch a password (invariant 4). `control_type` is the UIA control type name: short
 /// tokens such as "PIN" only count in an edit field, as in `password_like`. Callers check
@@ -167,9 +212,13 @@ pub fn forbidden(name: &str, control_type: &str) -> bool {
         return true;
     }
     let text = separated(name);
-    FORBIDDEN_STEMS
-        .into_iter()
-        .any(|stem| contains_stem(&text, stem))
+    FORBIDDEN_PHRASES.is_match(&text)
+        || FORBIDDEN_EXTRA
+            .iter()
+            .any(|stem| contains_stem(&text, stem))
+        || FORBIDDEN_STEMS
+            .into_iter()
+            .any(|stem| contains_stem(&text, stem))
         || FORBIDDEN_WORD_STARTS
             .into_iter()
             .any(|stem| contains_word_start(&text, stem))
@@ -189,7 +238,11 @@ fn separated(name: &str) -> String {
             text.push(' ');
         }
         gap = false;
-        text.push(c);
+        text.push(if matches!(c, '’' | '‘' | 'ʻ' | 'ʼ') {
+            '\''
+        } else {
+            c
+        });
     }
     text
 }
@@ -323,7 +376,6 @@ mod tests {
             "Отправить по расписанию",
             "Подпись",
             "Подписаться на канал",
-            "Subscribe",
         ] {
             assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
         }
@@ -338,6 +390,69 @@ mod tests {
             assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
         }
         assert!(forbidden("Password", "Text"));
+    }
+
+    #[test]
+    fn destructive_phrases_subscriptions_and_multilingual_actions_are_forbidden() {
+        for name in [
+            "Clear browsing data",
+            "Clear now",
+            "Clear all history",
+            "Clear saved data",
+            "Empty Recycle Bin",
+            "Empty bin",
+            "Discard",
+            "Move to Bin",
+            "Move to the trash",
+            "Send $20",
+            "Send 20",
+            "Send €5",
+            "Send USD 20",
+            "Subscribe",
+            "Subscription",
+            "Preorder",
+            "GPay",
+            "Google Pay",
+            "Apple Pay",
+            "Löschen",
+            "Bezahlen",
+            "Kaufen",
+            "Überweisen",
+            "Supprimer",
+            "Payer",
+            "Acheter",
+            "Virement",
+            "Eliminar",
+            "Borrar",
+            "Pagar",
+            "Comprar",
+            "Transferir",
+            "O'chirish",
+            "To'lash",
+            "Sotib olish",
+            "O'tkazma",
+            "O‘chirish",
+            "Toʻlash",
+            "Sil",
+            "Öde",
+            "Satın al",
+            "Havale",
+            "Жою",
+            "Төлеу",
+            "Сатып алу",
+            "Аудару",
+        ] {
+            assert!(forbidden(name, "Button"), "expected forbidden: {name}");
+        }
+        for name in [
+            "Clear selection",
+            "Send feedback",
+            "Open calendar",
+            "Find next",
+            "Help",
+        ] {
+            assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
+        }
     }
 
     #[test]

@@ -452,9 +452,13 @@ impl Teacher {
     }
 
     fn pressable(&self) -> bool {
-        self.steps.get(self.index).is_some_and(
-            |step| matches!(&step.action, Action::Click { button, .. } if button == "left"),
-        )
+        self.steps.get(self.index).is_some_and(|step| {
+            matches!(&step.action, Action::Click { button, .. } if button == "left")
+                && self
+                    .confirmations
+                    .get(step.call)
+                    .is_some_and(|call| call.ids.is_empty())
+        })
     }
 
     fn offer_do_it(&mut self, out: &mut Vec<TeacherCommand>) {

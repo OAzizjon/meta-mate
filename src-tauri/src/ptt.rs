@@ -137,6 +137,14 @@ pub fn spawn(
     settings: PttSettings,
     mut on_event: impl FnMut(PttEvent) + Send + 'static,
 ) -> Result<PttDriver, HookError> {
+    spawn_timed(settings, move |event, _| on_event(event))
+}
+
+/// Carries the genuine key-down time, before hold detection or queueing delays.
+pub(crate) fn spawn_timed(
+    settings: PttSettings,
+    mut on_event: impl FnMut(PttEvent, Option<Instant>) + Send + 'static,
+) -> Result<PttDriver, HookError> {
     // PttSettings already supplies the startup mode; preserve the spawn API used
     // by voice.rs. Later changes arrive through set_ptt_mode.
     TOGGLE_MODE.store(settings.mode == Mode::Toggle, Ordering::Relaxed);
@@ -181,10 +189,14 @@ fn run(
     mut hook: KeyboardHook, // unhooks when the loop ends
     tap: Arc<KeyTap>,
     stop: &AtomicBool,
-    on_event: &mut impl FnMut(PttEvent),
+    on_event: &mut impl FnMut(PttEvent, Option<Instant>),
 ) {
     let (keys, silences) = inputs;
-    let mut emit = |events: Vec<PttEvent>| events.into_iter().for_each(&mut *on_event);
+    let mut emit = |events: Vec<PttEvent>, pressed_at| {
+        for event in events {
+            on_event(event, pressed_at);
+        }
+    };
     // The last Right Ctrl event the hook delivered, and the last reinstall.
     let mut last_ctrl = Instant::now();
     let mut reinstalled = Instant::now()
@@ -197,15 +209,19 @@ fn run(
                 if event.vk == RIGHT_CTRL {
                     last_ctrl = event.at;
                 }
-                emit(feed.driver_key(event));
+                let events = feed.driver_key(event);
+                emit(events, feed.pressed_at);
             }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
         }
         let now = Instant::now();
-        emit(feed.tick(now));
+        // Not `events`: that name is the hook's sender, needed for a reinstall below.
+        let ticked = feed.tick(now);
+        emit(ticked, feed.pressed_at);
         for generation in silences.try_iter() {
-            emit(feed.silence(generation));
+            let events = feed.silence(generation);
+            emit(events, feed.pressed_at);
         }
         // Windows updates the async key state only after the hook returns: polled right
         // after a Right Ctrl event it can still read the old state. One WAKE later it has
@@ -223,9 +239,13 @@ fn run(
                     if event.vk == RIGHT_CTRL {
                         last_ctrl = event.at;
                     }
-                    emit(feed.driver_key(event));
+                    let events = feed.driver_key(event);
+                    emit(events, feed.pressed_at);
                 }
-                Err(_) => emit(feed.poll(down, now)),
+                Err(_) => {
+                    let events = feed.poll(down, now);
+                    emit(events, feed.pressed_at);
+                }
             }
         } else if down
             && silent >= HOOK_SILENT
@@ -244,6 +264,7 @@ fn run(
 /// Hook events and wake-ups as `PttInput`s on one clock, and whether a session is on
 /// (between Start and Stop or Cancel). Pure: the caller passes every `Instant`.
 struct Feed {
+    pressed_at: Option<Instant>,
     ptt: Ptt,
     settings: PttSettings,
     started: Instant,
@@ -259,6 +280,7 @@ struct Feed {
 impl Feed {
     fn new(settings: PttSettings, started: Instant) -> Self {
         Self {
+            pressed_at: None,
             ptt: Ptt::new(Self::core_settings(settings)),
             settings,
             started,
@@ -330,6 +352,9 @@ impl Feed {
     }
 
     fn key(&mut self, event: KeyEvent) -> Vec<PttEvent> {
+        if event.vk == RIGHT_CTRL && event.down && !event.injected && !self.ptt.key_pressed() {
+            self.pressed_at = Some(event.at);
+        }
         let key = if event.vk == RIGHT_CTRL {
             Key::RightCtrl
         } else {
@@ -526,6 +551,21 @@ mod tests {
         assert_eq!(received.try_recv(), Ok(event));
         drop(guard);
         assert_eq!(received.try_recv(), Err(mpsc::TryRecvError::Disconnected));
+    }
+
+    #[test]
+    fn press_time_precedes_hold_start_and_survives_repeats_and_release() {
+        let t0 = Instant::now();
+        let mut feed = Feed::new(PttSettings::default(), t0);
+        assert_eq!(feed.key(key(RIGHT_CTRL, true, t0)), nothing());
+        assert_eq!(feed.tick(at(t0, 250)), start(1));
+        feed.key(key(RIGHT_CTRL, true, at(t0, 300)));
+        feed.key(injected(RIGHT_CTRL, true, at(t0, 350)));
+        assert_eq!(feed.pressed_at, Some(t0));
+        feed.key(key(RIGHT_CTRL, false, at(t0, 400)));
+        assert_eq!(feed.pressed_at, Some(t0));
+        feed.key(key(RIGHT_CTRL, true, at(t0, 500)));
+        assert_eq!(feed.pressed_at, Some(at(t0, 500)));
     }
 
     #[test]

@@ -172,6 +172,7 @@ mod tests {
 
     fn confirmed(target: TargetWindow, action: InputAction) -> HumanConfirmation {
         let element = crate::ConfirmedElement {
+            runtime_id: vec![1, 42],
             process_id: target.process_id,
             name: "Open".into(),
             control_type: "Button".into(),

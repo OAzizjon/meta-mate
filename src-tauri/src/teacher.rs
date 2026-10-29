@@ -50,6 +50,7 @@ const RETRY_PAUSE: Duration = Duration::from_millis(700);
 
 /// Recognized speech and a reply indicating whether the lesson consumed it.
 pub(crate) struct Words {
+    pub pressed_at: Option<Instant>,
     pub text: String,
     pub taken: oneshot::Sender<bool>,
 }
@@ -76,6 +77,7 @@ fn pressable(snapshot: &mm_platform::UiSnapshot, rect: PhysRect) -> bool {
     {
         return false;
     }
+    let child_type = element.control_type.clone();
     let mut named = false;
     for level in 0..snapshot.elements.len() {
         if hidden.contains(&element.id)
@@ -83,7 +85,10 @@ fn pressable(snapshot: &mm_platform::UiSnapshot, rect: PhysRect) -> bool {
         {
             return false;
         }
-        if level == 0 || !["Window", "Pane", "Document"].contains(&element.control_type.as_str()) {
+        if level == 0
+            || (level == 1
+                && mm_platform::can_borrow_click_name(&child_type, &element.control_type))
+        {
             named |= !element.name.trim().is_empty();
         }
         if element.control_type == "Window"
@@ -564,8 +569,18 @@ pub(crate) async fn teach(
                         } else {
                             None
                         };
-                        if let Some(element) = element.filter(|_| !stream.is_cancelled(generation))
-                        {
+                        if let Some(element) = element.filter(|live| {
+                            !stream.is_cancelled(generation)
+                                && current.snapshot.target_at(at).is_some_and(|expected| {
+                                    expected.rect.is_some_and(|bounds| {
+                                        live.matches_target(
+                                            &expected.name,
+                                            &expected.control_type,
+                                            bounds,
+                                        )
+                                    })
+                                })
+                        }) {
                             let action = InputAction::Click {
                                 at,
                                 button: MouseButton::Left,
@@ -716,7 +731,7 @@ pub(crate) async fn teach(
                         continue;
                     }
                     expire_offer(&mut teacher, &mut offered_at, now());
-                    let input = if offered_at.is_some() {
+                    let input = if fresh_answer(words.pressed_at, offered_at) {
                         parse_yes_no(&words.text).map(|yes| TeacherInput::DoItAnswer {
                             yes,
                             now_ms: now(),
@@ -810,6 +825,10 @@ fn expire_offer(teacher: &mut Teacher, offered_at: &mut Option<Instant>, now_ms:
         // Reset Awaiting without speaking. A later explicit request can offer again.
         let _ = teacher.input(TeacherInput::DoItUnavailable { now_ms });
     }
+}
+
+fn fresh_answer(pressed_at: Option<Instant>, offered_at: Option<Instant>) -> bool {
+    matches!((pressed_at, offered_at), (Some(pressed), Some(offered)) if pressed > offered)
 }
 
 /// Resolve unlisted clicks live after a cut walk, then try SAM's outline when allowed.
@@ -916,6 +935,22 @@ fn finish(app: &AppHandle, stream: &AnswerStream, generation: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_ptt_press_strictly_after_the_offer_can_answer() {
+        let offered = Instant::now();
+        assert!(!fresh_answer(None, Some(offered)));
+        assert!(!fresh_answer(Some(offered), None));
+        assert!(!fresh_answer(Some(offered), Some(offered)));
+        assert!(!fresh_answer(
+            Some(offered - Duration::from_millis(1)),
+            Some(offered)
+        ));
+        assert!(fresh_answer(
+            Some(offered + Duration::from_millis(1)),
+            Some(offered)
+        ));
+    }
 
     #[test]
     fn chord_staleness_uses_the_event_window_and_step_time() {
@@ -1124,7 +1159,13 @@ mod tests {
         snapshot.elements[2].name.clear();
         assert!(!pressable(&snapshot, rect));
         snapshot.elements[1].control_type = "Button".into();
+        assert!(!pressable(&snapshot, rect));
+        snapshot.elements[2].control_type = "Image".into();
         assert!(pressable(&snapshot, rect));
+        for parent in ["ListItem", "ToolBar", "Custom"] {
+            snapshot.elements[1].control_type = parent.into();
+            assert!(!pressable(&snapshot, rect));
+        }
     }
 
     #[test]

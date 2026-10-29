@@ -17,23 +17,23 @@ use mm_platform::{
 };
 use uiautomation::types::{Handle, Point};
 use uiautomation::{UIAutomation, UIElement};
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{HWND, POINT};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    INPUT, INPUT_0, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN,
-    MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_VIRTUALDESK, MOUSEINPUT, SendInput,
+    GetAsyncKeyState, INPUT, INPUT_0, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_ABSOLUTE,
+    MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEEVENTF_VIRTUALDESK,
+    MOUSEINPUT, SendInput, VK_CONTROL, VK_LBUTTON, VK_LWIN, VK_MBUTTON, VK_MENU, VK_RBUTTON,
+    VK_RWIN, VK_SHIFT, VK_XBUTTON1, VK_XBUTTON2,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetSystemMetrics, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN,
+    GA_ROOTOWNER, GetAncestor, GetForegroundWindow, GetSystemMetrics, GetWindowThreadProcessId,
+    IsHungAppWindow, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_SWAPBUTTON, SM_XVIRTUALSCREEN,
+    SM_YVIRTUALSCREEN, WindowFromPoint,
 };
 
 /// How many levels above the element under the point the blocklist reads, up to the first
 /// window: an icon inside a button has no label of its own, and a dialog's title says what
 /// its "Yes" does.
 const MAX_ANCESTORS: usize = 12;
-
-/// Control types whose names are window or page titles, not what a click does: their names
-/// are checked against the blocklist but never count as the control's own name.
-const CONTAINERS: [&str; 3] = ["Window", "Pane", "Document"];
 
 /// Performs one confirmed left click with `SendInput`; every other action is refused.
 #[derive(Debug, Default, Clone, Copy)]
@@ -55,9 +55,7 @@ impl InputInjector for Win32Injector {
             } => *at,
             _ => return Err(PlatformError::SafetyBlocked),
         };
-        let absolute = virtual_screen()
-            .and_then(|screen| normalize(at, screen))
-            .ok_or(PlatformError::WindowNotFound)?;
+        let before = virtual_screen().ok_or(PlatformError::WindowNotFound)?;
         let live = confirmation_element(target, at)?;
         // Last, right before the click (the UIA reads above can take a while): the window
         // the person said yes in is still in front and the point is in it or its popups.
@@ -66,7 +64,58 @@ impl InputInjector for Win32Injector {
             return Err(PlatformError::WindowNotFound);
         }
         recheck_element(target, front.window, at, &confirmed, &live)?;
+        let after = virtual_screen().ok_or(PlatformError::WindowNotFound)?;
+        let absolute = stable_coordinates(at, before, after).ok_or(PlatformError::SafetyBlocked)?;
+        injection_guard(target, at, &front.popup_hwnds)?;
         click(absolute)
+    }
+}
+
+fn stable_coordinates(at: PhysPoint, before: PhysRect, after: PhysRect) -> Option<(i32, i32)> {
+    (before == after).then(|| normalize(at, after)).flatten()
+}
+
+/// Only cheap Win32 reads here: no UIA or window enumeration after this guard.
+fn injection_guard(
+    target: TargetWindow,
+    at: PhysPoint,
+    popups: &[HWND],
+) -> Result<(), PlatformError> {
+    let hwnd = HWND(target.handle as usize as *mut std::ffi::c_void);
+    let mut process_id = 0;
+    // SAFETY: handles and coordinates are values; the only output pointer is local.
+    let safe = unsafe {
+        let front = GetForegroundWindow();
+        let thread = GetWindowThreadProcessId(front, Some(&mut process_id));
+        let hit = WindowFromPoint(POINT { x: at.x, y: at.y });
+        let owner = GetAncestor(hit, GA_ROOTOWNER);
+        front == hwnd
+            && thread != 0
+            && process_id == target.process_id
+            && !hit.is_invalid()
+            && !owner.is_invalid()
+            && (owner == hwnd || popups.contains(&owner))
+            && !IsHungAppWindow(hwnd).as_bool()
+            && GetSystemMetrics(SM_SWAPBUTTON) == 0
+            && [
+                VK_CONTROL,
+                VK_SHIFT,
+                VK_MENU,
+                VK_LWIN,
+                VK_RWIN,
+                VK_LBUTTON,
+                VK_RBUTTON,
+                VK_MBUTTON,
+                VK_XBUTTON1,
+                VK_XBUTTON2,
+            ]
+            .iter()
+            .all(|key| GetAsyncKeyState(i32::from(key.0)) >= 0)
+    };
+    if safe {
+        Ok(())
+    } else {
+        Err(PlatformError::SafetyBlocked)
     }
 }
 
@@ -117,8 +166,8 @@ pub fn confirmation_element(
         let labels = [
             name.clone(),
             element.get_automation_id().map_err(unanswered)?,
-            element.get_classname().unwrap_or_default(),
-            element.get_help_text().unwrap_or_default(),
+            element.get_classname().map_err(unanswered)?,
+            element.get_help_text().map_err(unanswered)?,
         ];
         // A container's own title counts too ("Checkout - Shop"): on such a page Mate
         // presses nothing, the person does.
@@ -132,7 +181,10 @@ pub fn confirmation_element(
             break;
         }
         // A container's title names the page, not what the click does.
-        if level == 0 || !CONTAINERS.contains(&control_type.as_str()) {
+        if level == 0
+            || (level == 1
+                && mm_platform::can_borrow_click_name(&snapshot.control_type, &control_type))
+        {
             named |= !name.trim().is_empty();
         }
         if level < MAX_ANCESTORS {
@@ -171,10 +223,11 @@ fn describe_click(element: &UIElement) -> Result<ConfirmedElement, PlatformError
     let labels = [
         name.clone(),
         element.get_automation_id().map_err(unanswered)?,
-        element.get_classname().unwrap_or_default(),
-        element.get_help_text().unwrap_or_default(),
+        element.get_classname().map_err(unanswered)?,
+        element.get_help_text().map_err(unanswered)?,
     ];
     Ok(ConfirmedElement {
+        runtime_id: element.get_runtime_id().map_err(unanswered)?,
         process_id: element.get_process_id().map_err(unanswered)?,
         blocked: element.is_password().unwrap_or(true)
             || labels.iter().any(|label| forbidden(label, &control_type)),
@@ -307,6 +360,22 @@ mod tests {
             assert!(!inside_target(point, frame, &popups));
         }
         assert!(!inside_target(at(120, 10), frame, &[]));
+    }
+
+    #[test]
+    fn layout_change_during_uia_reads_refuses_coordinates() {
+        let before = rect(0, 0, 1920, 1080);
+        assert_eq!(
+            stable_coordinates(at(1800, 500), before, before),
+            normalize(at(1800, 500), before)
+        );
+        for after in [
+            rect(-1920, 0, 1920, 1080),
+            rect(0, 0, 3840, 1080),
+            rect(0, -200, 1920, 1080),
+        ] {
+            assert_eq!(stable_coordinates(at(1800, 500), before, after), None);
+        }
     }
 
     /// The pixel Windows maps an absolute coordinate back to, with either divisor seen in

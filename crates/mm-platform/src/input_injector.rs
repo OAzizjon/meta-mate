@@ -38,9 +38,10 @@ impl HumanConfirmation {
 }
 
 /// A UIA hit-test result, including the safety result of reading its ancestors and owner.
-/// Identity uses the exact name and type plus a rectangle tolerance of three pixels.
+/// Identity uses the exact runtime id, name and type plus a rectangle tolerance of three pixels.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfirmedElement {
+    pub runtime_id: Vec<i32>,
     pub process_id: u32,
     pub name: String,
     pub control_type: String,
@@ -48,6 +49,28 @@ pub struct ConfirmedElement {
     pub enabled: bool,
     pub offscreen: bool,
     pub blocked: bool,
+}
+
+impl ConfirmedElement {
+    /// Snapshot identity at the step's click point; runtime identity is checked separately.
+    pub fn matches_target(&self, name: &str, control_type: &str, rect: PhysRect) -> bool {
+        let close = |a: i32, b: i32| (i64::from(a) - i64::from(b)).abs() <= 3;
+        self.name == name
+            && self.control_type == control_type
+            && close(self.rect.left, rect.left)
+            && close(self.rect.top, rect.top)
+            && close(self.rect.right, rect.right)
+            && close(self.rect.bottom, rect.bottom)
+    }
+}
+
+/// Only decorative children can use their direct action parent's label.
+pub fn can_borrow_click_name(child_type: &str, parent_type: &str) -> bool {
+    matches!(child_type, "Image" | "Text" | "Custom")
+        && matches!(
+            parent_type,
+            "Button" | "MenuItem" | "Hyperlink" | "SplitButton" | "TabItem"
+        )
 }
 
 /// A displayed offer, consumed by one answer from the person's speech handler.
@@ -101,6 +124,7 @@ pub fn recheck_element(
     }
     for element in [confirmed, live] {
         if !element.enabled
+            || element.runtime_id.is_empty()
             || element.offscreen
             || element.blocked
             || forbidden(&element.name, &element.control_type)
@@ -109,13 +133,8 @@ pub fn recheck_element(
             return Err(PlatformError::SafetyBlocked);
         }
     }
-    let close = |a: i32, b: i32| (i64::from(a) - i64::from(b)).abs() <= 3;
-    if confirmed.name != live.name
-        || confirmed.control_type != live.control_type
-        || !close(confirmed.rect.left, live.rect.left)
-        || !close(confirmed.rect.top, live.rect.top)
-        || !close(confirmed.rect.right, live.rect.right)
-        || !close(confirmed.rect.bottom, live.rect.bottom)
+    if confirmed.runtime_id != live.runtime_id
+        || !confirmed.matches_target(&live.name, &live.control_type, live.rect)
     {
         return Err(PlatformError::SafetyBlocked);
     }
@@ -152,6 +171,7 @@ pub trait InputInjector {
 #[cfg(test)]
 fn test_element() -> ConfirmedElement {
     ConfirmedElement {
+        runtime_id: vec![1, 42],
         process_id: 42,
         name: "Open".into(),
         control_type: "Button".into(),
@@ -182,6 +202,40 @@ mod tests {
         assert_eq!(check(&live), Ok(()));
         live.rect = PhysRect::new(3, -3, 43, 37).unwrap();
         assert_eq!(check(&live), Ok(()));
+    }
+
+    #[test]
+    fn replacement_with_identical_label_and_bounds_is_refused() {
+        let mut live = test_element();
+        live.runtime_id = vec![1, 43];
+        assert_eq!(check(&live), Err(PlatformError::SafetyBlocked));
+        live.runtime_id.clear();
+        assert_eq!(check(&live), Err(PlatformError::SafetyBlocked));
+        assert!(
+            ask_confirmation(
+                TARGET,
+                &InputAction::Click {
+                    at: AT,
+                    button: MouseButton::Left,
+                },
+                live,
+                || panic!("unknown identity")
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn decorative_children_only_borrow_direct_action_parent_names() {
+        for child in ["Image", "Text", "Custom"] {
+            for parent in ["Button", "MenuItem", "Hyperlink", "SplitButton", "TabItem"] {
+                assert!(can_borrow_click_name(child, parent));
+            }
+            for parent in ["ListItem", "ToolBar", "Pane", "Window"] {
+                assert!(!can_borrow_click_name(child, parent));
+            }
+        }
+        assert!(!can_borrow_click_name("Button", "Button"));
     }
 
     #[test]

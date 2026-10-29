@@ -943,12 +943,46 @@ fn do_it_teacher(actions: Vec<Action>) -> Teacher {
         keyboard_steps: true,
         ..Default::default()
     });
-    teacher.input(turn(actions));
+    teacher.input(do_it_turn(actions));
     teacher
+}
+
+fn do_it_turn(actions: Vec<Action>) -> Input {
+    let targets = vec![Some(rect()); actions.len()];
+    let mut response = response(actions);
+    response.computer_calls[0].safety_checks.clear();
+    Input::ModelTurn {
+        targets,
+        response,
+        frame: frame(),
+    }
 }
 
 fn offer() -> Command {
     Command::OfferDoIt { rect: rect() }
+}
+
+#[test]
+fn pending_safety_checks_never_offer_or_inject_even_after_yes() {
+    let mut teacher = Teacher::new(TeacherConfig {
+        do_it_for_me: true,
+        ..Default::default()
+    });
+    teacher.input(turn(vec![click_action()]));
+    let mut out = teacher.input(Input::DoItRequested { now_ms: 1 });
+    out.extend(teacher.input(click(200, 2)));
+    out.extend(teacher.input(click(200, 3)));
+    out.extend(teacher.input(Input::DoItAnswer {
+        yes: true,
+        now_ms: 4,
+    }));
+    assert!(!out.iter().any(|command| matches!(
+        command,
+        Command::OfferDoIt { .. }
+            | Command::PerformClick { .. }
+            | Command::AcknowledgeSafetyChecks(_)
+    )));
+    assert!(ack(&teacher.input(click(110, 5))));
 }
 
 #[test]
@@ -1040,7 +1074,7 @@ fn one_yes_performs_only_one_current_click_and_done_uses_human_completion() {
     let mut expected = human.input(click(110, 10_007));
     expected.retain(|command| *command != Command::Say(LineKey::RightClick));
     assert_eq!(out, expected);
-    assert!(ack(&out));
+    assert!(!ack(&out));
     assert!(teacher.input(Input::Tick { now_ms: 10_606 }).is_empty());
     assert_eq!(
         teacher.input(Input::Tick { now_ms: 10_607 }),
@@ -1101,7 +1135,7 @@ fn declined_unavailable_and_failed_presses_keep_the_step_without_acknowledgement
                 .is_empty()
         );
         assert!(teacher.input(Input::Tick { now_ms: 1000 }).is_empty());
-        assert!(ack(&teacher.input(click(110, 1001))));
+        assert!(!ack(&teacher.input(click(110, 1001))));
     }
 }
 
@@ -1149,7 +1183,7 @@ fn offers_are_opt_in_left_click_only_and_automatic_offer_is_once_per_step() {
     assert!(!TeacherConfig::default().do_it_for_me);
     assert_eq!(TeacherConfig::default().offer_after_failures, 2);
     let mut disabled = Teacher::new(TeacherConfig::default());
-    disabled.input(turn(vec![click_action()]));
+    disabled.input(do_it_turn(vec![click_action()]));
     assert!(
         disabled
             .input(Input::DoItRequested { now_ms: 1 })
@@ -1199,7 +1233,7 @@ fn offers_are_opt_in_left_click_only_and_automatic_offer_is_once_per_step() {
         offer_after_failures: 3,
         ..Default::default()
     });
-    custom.input(turn(vec![click_action()]));
+    custom.input(do_it_turn(vec![click_action()]));
     assert!(!custom.input(click(200, 1)).contains(&offer()));
     assert!(!custom.input(click(200, 2)).contains(&offer()));
     assert!(custom.input(click(200, 3)).contains(&offer()));

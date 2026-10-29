@@ -101,6 +101,14 @@ fn has_no(words: &[&str]) -> bool {
 pub fn parse_yes_no(text: &str) -> Option<bool> {
     let lower = spoken_words(text);
     let words: Vec<_> = words(&lower).collect();
+    if text.contains('?')
+        || words.len() > 4
+        || words
+            .iter()
+            .any(|word| matches!(*word, "where" | "what" | "how" | "где" | "что" | "как"))
+    {
+        return None;
+    }
     let yes = contains_spoken(
         &words,
         &[

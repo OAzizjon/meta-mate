@@ -117,7 +117,7 @@ pub struct VoiceLoop {
 }
 
 enum Input {
-    Ptt(PttEvent),
+    Ptt(PttEvent, Option<Instant>),
     Text(String, Option<mm_platform::TargetWindow>),
 }
 
@@ -146,8 +146,8 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
         .ok()?;
     let (events, receiver) = mpsc::unbounded_channel();
     let questions = events.clone();
-    let driver = ptt::spawn(PttSettings::default(), move |event| {
-        let _ = events.send(Input::Ptt(event));
+    let driver = ptt::spawn_timed(PttSettings::default(), move |event, pressed_at| {
+        let _ = events.send(Input::Ptt(event, pressed_at));
     })
     .map_err(|error| eprintln!("voice: push-to-talk: {error}"))
     .ok()?;
@@ -200,6 +200,7 @@ pub fn ask(app: &AppHandle, question: String) {
             1,
             ack_at,
             transcript,
+            None,
             Arc::default(),
             None,
         )
@@ -266,6 +267,7 @@ fn dev_invite() -> Option<String> {
 
 /// One press: the microphone while the key is held, then the answer.
 struct Session {
+    pressed_at: Option<Instant>,
     generation: u64,
     microphone: Option<Microphone>,
     transcript: Option<JoinHandle<Result<Transcript, ProxyError>>>,
@@ -325,6 +327,10 @@ async fn run(
                 continue;
             }
         };
+        let pressed_at = match &event {
+            Input::Ptt(PttEvent::Start { .. }, pressed_at) => *pressed_at,
+            _ => None,
+        };
         let (event, text) = match event {
             Input::Text(text, target) => {
                 next_generation += 1;
@@ -336,7 +342,7 @@ async fn run(
                     Some((text, target)),
                 )
             }
-            Input::Ptt(PttEvent::Start { generation }) => {
+            Input::Ptt(PttEvent::Start { generation }, _) => {
                 next_generation += 1;
                 recording = Some((generation, next_generation));
                 (
@@ -346,13 +352,13 @@ async fn run(
                     None,
                 )
             }
-            Input::Ptt(PttEvent::Stop { generation, reason }) => {
+            Input::Ptt(PttEvent::Stop { generation, reason }, _) => {
                 let Some((_, generation)) = recording.filter(|(raw, _)| *raw == generation) else {
                     continue;
                 };
                 (PttEvent::Stop { generation, reason }, None)
             }
-            Input::Ptt(PttEvent::Cancel { generation }) => {
+            Input::Ptt(PttEvent::Cancel { generation }, _) => {
                 let Some((_, generation)) = recording.filter(|(raw, _)| *raw == generation) else {
                     continue;
                 };
@@ -401,6 +407,7 @@ async fn run(
                         state: "thinking",
                     });
                     current = Some(Session {
+                        pressed_at: None,
                         generation,
                         microphone: None,
                         transcript: None,
@@ -412,6 +419,7 @@ async fn run(
                             generation,
                             tokio::time::Instant::now() + ACK_AFTER,
                             transcript,
+                            None,
                             Arc::clone(&lessons),
                             Some(target),
                         ))),
@@ -485,6 +493,7 @@ async fn run(
                         async move { transcriber.transcribe(received, on_progress).await },
                     );
                 current = Some(Session {
+                    pressed_at,
                     generation,
                     microphone: Some(microphone),
                     transcript_abort: transcript.abort_handle(),
@@ -514,6 +523,7 @@ async fn run(
                         generation,
                         ack_at,
                         transcript,
+                        session.pressed_at,
                         Arc::clone(&lessons),
                         None,
                     )));
@@ -546,6 +556,7 @@ async fn answer(
     generation: u64,
     ack_at: tokio::time::Instant,
     transcript: JoinHandle<Result<Transcript, ProxyError>>,
+    pressed_at: Option<Instant>,
     lessons: Lessons,
     tray_target: Option<Option<mm_platform::TargetWindow>>,
 ) {
@@ -572,6 +583,7 @@ async fn answer(
     if let Some(lesson) = live_lesson(&lessons) {
         let (taken, reply) = oneshot::channel();
         let sent = lesson.words.send(crate::teacher::Words {
+            pressed_at,
             text: question.clone(),
             taken,
         });

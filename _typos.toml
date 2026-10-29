@@ -15,3 +15,5 @@ hel = "hel"
 # "they're" without its apostrophe, as spoken_words() in crates/mm-core/src/api/intent.rs
 # leaves it
 theyre = "theyre"
+# "som", the Uzbek and Kyrgyz currency, in the money words of crates/mm-core/src/privacy.rs
+som = "som"

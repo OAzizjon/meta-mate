@@ -20,7 +20,7 @@ pub use error::PlatformError;
 pub use input_hooks::{InputEvent, InputHooks, MouseButton};
 pub use input_injector::{
     ConfirmedElement, HumanConfirmation, InputAction, InputInjector, PendingConfirmation,
-    ask_confirmation, check_confirmation, recheck_element,
+    ask_confirmation, can_borrow_click_name, check_confirmation, recheck_element,
 };
 pub use mock::MockBackend;
 pub use overlay::{Overlay, RobotPose, RobotState};
