@@ -26,6 +26,8 @@ mod highlight;
 mod home;
 mod mic;
 mod overlay;
+#[cfg(debug_assertions)]
+mod perf;
 #[cfg(windows)]
 mod pointing;
 mod presence;
@@ -135,76 +137,62 @@ pub fn run() {
                 card::selftest(app.handle(), russian);
                 return Ok(());
             }
-            #[cfg(debug_assertions)]
-            {
-                use tauri::Manager;
-                // `--debug-window`: the live timeline, timings and looks (debug.html).
-                app.state::<answer_stream::AnswerStream>()
-                    .attach_debug(app.handle().clone());
-                debug_view::open(app.handle());
-            }
-            let overlays = overlay::create(app.handle())?;
-            #[cfg(windows)]
-            if selftest {
-                selftest::spawn(app.handle().clone(), overlays, before, per_monitor_v2);
-                return Ok(());
-            }
+            let overlays = overlay::create_mate(app.handle())?;
             #[cfg(windows)]
             {
                 use tauri::Manager;
-                // Mate flies beside a target (pointing.rs); each monitor's highlight window
-                // is shown once, empty: transparent, click-through, never activated
-                // (invariant 1).
                 let home = overlay::starting_home(app.handle(), &mm_win32::monitors::monitors());
                 if let (Ok(mate), Some(home)) = (overlays.mate.hwnd(), home) {
                     app.manage(flight::Flight::new(mate, home));
                 }
-                for (highlight, monitor) in &overlays.highlights {
-                    if let Ok(highlight) = highlight.hwnd() {
-                        mm_win32::overlay::show(highlight);
-                        // Placed again once shown, in case the scale change of its monitor
-                        // only arrived now (overlay.rs).
-                        let _ = mm_win32::overlay::place(highlight, monitor.area);
+                let handle = app.handle().clone();
+                let before = before.0 as isize;
+                tauri::async_runtime::spawn(async move {
+                    let mut overlays = overlays;
+                    match overlay::create_highlights(&handle) {
+                        Ok(highlights) => overlays.highlights = highlights,
+                        Err(error) => {
+                            eprintln!("overlay: highlights: {error}");
+                            handle.exit(1);
+                            return;
+                        }
                     }
-                }
+                    if selftest {
+                        selftest::spawn(
+                            handle,
+                            overlays,
+                            mm_win32::HWND(before as *mut std::ffi::c_void),
+                            per_monitor_v2,
+                        );
+                        return;
+                    }
+                    for (highlight, monitor) in &overlays.highlights {
+                        if let Ok(hwnd) = highlight.hwnd() {
+                            mm_win32::overlay::show(hwnd);
+                            // A delayed DPI notification may arrive only after showing.
+                            let _ = mm_win32::overlay::place(hwnd, monitor.area);
+                        }
+                    }
+                    #[cfg(debug_assertions)]
+                    {
+                        handle
+                            .state::<answer_stream::AnswerStream>()
+                            .attach_debug(handle.clone());
+                        debug_view::open(&handle);
+                    }
+                    if let Some(question) = ask {
+                        voice::ask(&handle, question);
+                        return;
+                    }
+                    finish_startup(&handle);
+                });
             }
             #[cfg(windows)]
-            if let Some(question) = ask {
-                voice::ask(app.handle(), question);
+            if selftest {
                 return Ok(());
             }
-            // Without the tray Mate still works: no reason to stop.
-            if let Err(error) = tray(app.handle()) {
-                eprintln!("tray: {error}");
-            }
-            #[cfg(windows)]
-            if let Some(voice) = voice::start(app.handle()) {
-                use tauri::Manager;
-                app.manage(voice);
-            }
-            {
-                use tauri::Manager;
-                // Signing in is required: before Mate answers, the sign-in window opens
-                // (after Home, so it is the one on top).
-                let sign_in = signin::required() && !app.state::<auth::Auth>().signed_in();
-                if app
-                    .state::<settings::SettingsStore>()
-                    .get()
-                    .show_home_at_start
-                {
-                    let app = app.handle().clone();
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(error) = home::open(&app) {
-                            eprintln!("home: window: {error}");
-                        }
-                        if sign_in && let Err(error) = signin::open(&app) {
-                            eprintln!("signin: window: {error}");
-                        }
-                    });
-                } else if sign_in {
-                    signin::open_later(app.handle());
-                }
-            }
+            #[cfg(not(windows))]
+            finish_startup(app.handle());
             #[cfg(not(windows))]
             let _ = (overlays, selftest, control, s3);
             Ok(())
@@ -213,6 +201,43 @@ pub fn run() {
     if let Err(error) = result {
         eprintln!("{}: could not start: {error}", mm_core::constants::APP_NAME);
         std::process::exit(1);
+    }
+}
+
+/// Normal startup follows prepared highlights, so early Home/tray requests use
+/// the same fully initialized voice and capture paths as later requests.
+fn finish_startup(app: &tauri::AppHandle) {
+    // Without the tray Mate still works: no reason to stop.
+    if let Err(error) = tray(app) {
+        eprintln!("tray: {error}");
+    }
+    #[cfg(windows)]
+    if let Some(voice) = voice::start(app) {
+        use tauri::Manager;
+        app.manage(voice);
+    }
+    {
+        use tauri::Manager;
+        // Signing in is required: before Mate answers, the sign-in window opens
+        // (after Home, so it is the one on top).
+        let sign_in = signin::required() && !app.state::<auth::Auth>().signed_in();
+        if app
+            .state::<settings::SettingsStore>()
+            .get()
+            .show_home_at_start
+        {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = home::open(&app) {
+                    eprintln!("home: window: {error}");
+                }
+                if sign_in && let Err(error) = signin::open(&app) {
+                    eprintln!("signin: window: {error}");
+                }
+            });
+        } else if sign_in {
+            signin::open_later(app);
+        }
     }
 }
 

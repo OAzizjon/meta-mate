@@ -185,7 +185,7 @@ pub fn mate_menu_size(window: tauri::WebviewWindow, open: bool) -> Result<(), St
             let handle = app.clone();
             tauri::async_runtime::spawn(async move {
                 loop {
-                    tokio::time::sleep(Duration::from_millis(50)).await;
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                     if handle.state::<Presence>().1.lock().unwrap().is_none() {
                         break;
                     }

@@ -108,10 +108,27 @@ impl Feed {
         self.active
     }
 
-    /// Polling is due during a session and while a press the hook reported is pending
+    /// Polling is due while a press the hook reported is pending
     /// (after TooLong or a chord too): a lost key-up must never wedge the next press.
     pub(super) fn needs_poll(&self) -> bool {
-        self.active || self.ptt.key_pressed() || self.suppress_key
+        self.ptt.key_pressed() || self.suppress_key
+    }
+
+    /// Keep the release watchdog and recording deadlines responsive; idle still
+    /// checks for a silently removed hook at most four times per second.
+    pub(super) fn wake_interval(&self, now: Instant) -> Duration {
+        if self.needs_poll() || self.click_active {
+            WAKE
+        } else if self.active {
+            // A released toggle recording has no key-up to watch, but still has
+            // exactly the same maximum recording deadline.
+            let remaining = TOGGLE_MAX_MS
+                .min(self.settings.max_ms)
+                .saturating_sub(self.ms(now).saturating_sub(self.active_since));
+            IDLE_WAKE.min(Duration::from_millis(remaining))
+        } else {
+            IDLE_WAKE
+        }
     }
 
     pub(super) fn key(&mut self, event: KeyEvent) -> Vec<PttEvent> {

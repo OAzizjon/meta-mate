@@ -13,6 +13,14 @@ pub const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartSc
 /// Mate's size in CSS pixels at 100 %; Windows scales it with the monitor.
 pub const MATE_SIZE: f64 = 220.0;
 
+#[cfg(windows)]
+static HIGHLIGHTS_READY: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(windows)]
+pub(crate) fn highlights_ready() -> bool {
+    HIGHLIGHTS_READY.load(std::sync::atomic::Ordering::Acquire)
+}
+
 pub struct Overlays {
     pub mate: WebviewWindow,
     /// One highlight window per monitor, in `mm_win32::monitors::monitors()` order:
@@ -22,14 +30,15 @@ pub struct Overlays {
     pub highlights: Vec<(WebviewWindow, mm_win32::monitors::Monitor)>,
 }
 
-pub fn create(app: &AppHandle) -> Result<Overlays, Box<dyn std::error::Error>> {
+/// Builds and shows only Mate; monitor WebViews are deferred until setup returns.
+pub fn create_mate(app: &AppHandle) -> Result<Overlays, Box<dyn std::error::Error>> {
     let mate = builder(app, "mate", "mate.html")
         .inner_size(MATE_SIZE, MATE_SIZE)
         .build()?;
-
     #[cfg(windows)]
-    let highlights = {
+    {
         use mm_win32::overlay::{self, OverlayKind};
+        crate::voice::overlays_changed(&mate);
         let mate_hwnd = mate.hwnd()?;
         overlay::prepare(mate_hwnd, OverlayKind::Robot)?;
         let monitors = mm_win32::monitors::monitors();
@@ -37,30 +46,42 @@ pub fn create(app: &AppHandle) -> Result<Overlays, Box<dyn std::error::Error>> {
         let area = starting_home(app, &monitors).ok_or("no monitor to place Mate on")?;
         overlay::place(mate_hwnd, area)?;
         overlay::place(mate_hwnd, area)?;
-        let mut highlights = Vec::with_capacity(monitors.len());
-        for (index, monitor) in monitors.into_iter().enumerate() {
-            let label = crate::highlight::label(index);
-            let highlight = builder(app, &label, "highlight.html")
-                .inner_size(400.0, 300.0)
-                .build()?;
-            // The highlight never takes a click: everything goes to the app underneath.
-            highlight.set_ignore_cursor_events(true)?;
-            let highlight_hwnd = highlight.hwnd()?;
-            overlay::prepare(highlight_hwnd, OverlayKind::Highlight)?;
-            // Twice: a first move onto a monitor of another scale makes tao keep the
-            // window's logical size (WM_DPICHANGED); the second sets the exact area.
-            overlay::place(highlight_hwnd, monitor.area)?;
-            overlay::place(highlight_hwnd, monitor.area)?;
-            highlights.push((highlight, monitor));
-        }
         overlay::show(mate_hwnd);
-        highlights
-    };
+    }
     Ok(Overlays {
         mate,
         #[cfg(windows)]
-        highlights,
+        highlights: Vec::new(),
     })
+}
+
+/// Called off the event thread, after Mate is visible. Each window is prepared
+/// before its first show; no Tauri show setter may rewrite its no-activate styles.
+#[cfg(windows)]
+pub fn create_highlights(
+    app: &AppHandle,
+) -> Result<Vec<(WebviewWindow, mm_win32::monitors::Monitor)>, Box<dyn std::error::Error>> {
+    use mm_win32::overlay::{self, OverlayKind};
+    let monitors = mm_win32::monitors::monitors();
+    let mut highlights = Vec::with_capacity(monitors.len());
+    for (index, monitor) in monitors.into_iter().enumerate() {
+        let label = crate::highlight::label(index);
+        let highlight = builder(app, &label, "highlight.html")
+            .inner_size(400.0, 300.0)
+            .build()?;
+        crate::voice::overlays_changed(&highlight);
+        // The highlight never takes a click: everything goes to the app underneath.
+        highlight.set_ignore_cursor_events(true)?;
+        let hwnd = highlight.hwnd()?;
+        overlay::prepare(hwnd, OverlayKind::Highlight)?;
+        // A scale change can preserve logical size; restore exact physical bounds.
+        overlay::place(hwnd, monitor.area)?;
+        overlay::place(hwnd, monitor.area)?;
+        highlights.push((highlight, monitor));
+    }
+    HIGHLIGHTS_READY.store(true, std::sync::atomic::Ordering::Release);
+    crate::voice::invalidate_overlays();
+    Ok(highlights)
 }
 
 /// Hidden, unfocusable, transparent, undecorated, topmost, not in the taskbar.

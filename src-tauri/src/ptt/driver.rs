@@ -3,7 +3,7 @@ use super::*;
 /// The running driver. Dropping it stops the thread within one wake-up and unhooks.
 pub struct PttDriver {
     stop: Arc<AtomicBool>,
-    silence: Sender<u64>,
+    silence: Sender<DriverInput>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -16,18 +16,19 @@ impl PttDriver {
 
 /// Ends one hands-free recording ("press, talk, pause") after the speech ends.
 #[derive(Clone)]
-pub struct Silencer(Sender<u64>);
+pub struct Silencer(Sender<DriverInput>);
 
 impl Silencer {
     /// End only this recording, so a delayed VAD result cannot stop a newer one.
     pub fn silence(&self, generation: u64) {
-        let _ = self.0.send(generation);
+        let _ = self.0.send(DriverInput::Silence(generation));
     }
 }
 
 impl Drop for PttDriver {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Relaxed);
+        let _ = self.silence.send(DriverInput::Wake);
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
@@ -53,12 +54,12 @@ pub(crate) fn spawn_timed(
     TOGGLE_MODE.store(settings.mode == Mode::Toggle, Ordering::Relaxed);
     let started = Instant::now();
     let (events, keys) = mpsc::channel();
-    let hook = keyboard::start(events.clone())?;
+    let hook = keyboard::start_mapped(events.clone(), DriverInput::Key)?;
     let tap = Arc::new(KeyTap::default());
     let published = Arc::downgrade(&tap);
     let stop = Arc::new(AtomicBool::new(false));
-    let (silence, silences) = mpsc::channel();
-    let (clicks, clicked) = mpsc::channel();
+    let silence = events.clone();
+    let clicks = events.clone();
     let thread = std::thread::Builder::new()
         .name("mm-ptt".into())
         .spawn({
@@ -66,7 +67,7 @@ pub(crate) fn spawn_timed(
             move || {
                 run(
                     Feed::new(settings, started),
-                    (keys, silences, clicked),
+                    keys,
                     events,
                     hook,
                     tap,
@@ -91,14 +92,15 @@ pub(crate) fn spawn_timed(
 
 fn run(
     mut feed: Feed,
-    inputs: (Receiver<KeyEvent>, Receiver<u64>, Receiver<Instant>),
-    events: Sender<KeyEvent>,
+    inputs: Receiver<DriverInput>,
+    events: Sender<DriverInput>,
     mut hook: KeyboardHook, // unhooks when the loop ends
     tap: Arc<KeyTap>,
     stop: &AtomicBool,
     on_event: &mut impl FnMut(PttEvent, Option<Instant>),
 ) {
-    let (keys, silences, clicks) = inputs;
+    #[cfg(debug_assertions)]
+    let mut wakes = crate::perf::Wakes::new("ptt");
     let mut emit = |events: Vec<PttEvent>, pressed_at| {
         for event in events {
             on_event(event, pressed_at);
@@ -109,11 +111,12 @@ fn run(
     let mut reinstalled = Instant::now()
         .checked_sub(REINSTALL_EVERY)
         .unwrap_or_else(Instant::now);
+    let mut idle_polled = Instant::now();
     while !stop.load(Ordering::Relaxed) {
         let changed = feed.set_key(PTT_KEY.load(Ordering::Relaxed));
         emit(changed, feed.pressed_at);
-        match keys.recv_timeout(WAKE) {
-            Ok(event) => {
+        match inputs.recv_timeout(feed.wake_interval(Instant::now())) {
+            Ok(DriverInput::Key(event)) => {
                 tap.send(event);
                 if event.vk == feed.vk {
                     last_ctrl = event.at;
@@ -121,21 +124,24 @@ fn run(
                 let events = feed.driver_key(event);
                 emit(events, feed.pressed_at);
             }
-            Err(RecvTimeoutError::Timeout) => {}
+            Ok(DriverInput::Click(at)) => {
+                let events = feed.click(at);
+                emit(events, feed.pressed_at);
+            }
+            Ok(DriverInput::Silence(generation)) => {
+                let events = feed.silence(generation);
+                emit(events, feed.pressed_at);
+            }
+            Ok(DriverInput::Wake) | Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
         }
         let now = Instant::now();
-        for at in clicks.try_iter() {
-            let events = feed.click(at);
-            emit(events, feed.pressed_at);
-        }
+        #[cfg(debug_assertions)]
+        wakes.wake();
         // Not `events`: that name is the hook's sender, needed for a reinstall below.
         let ticked = feed.tick(now);
         emit(ticked, feed.pressed_at);
-        for generation in silences.try_iter() {
-            let events = feed.silence(generation);
-            emit(events, feed.pressed_at);
-        }
+
         // Windows updates the async key state only after the hook returns: polled right
         // after a talk-key event it can still read the old state. One WAKE later it has
         // caught up; other keys' events do not matter.
@@ -143,11 +149,17 @@ fn run(
         if silent < WAKE {
             continue;
         }
+        if !feed.needs_poll() {
+            if now.saturating_duration_since(idle_polled) < IDLE_WAKE {
+                continue;
+            }
+            idle_polled = now;
+        }
         let down = keyboard::key_down(feed.vk);
         if feed.needs_poll() {
             // An event queued meanwhile goes first; the next wake polls again.
-            match keys.try_recv() {
-                Ok(event) => {
+            match inputs.try_recv() {
+                Ok(DriverInput::Key(event)) => {
                     tap.send(event);
                     if event.vk == feed.vk {
                         last_ctrl = event.at;
@@ -155,6 +167,15 @@ fn run(
                     let events = feed.driver_key(event);
                     emit(events, feed.pressed_at);
                 }
+                Ok(DriverInput::Click(at)) => {
+                    let events = feed.click(at);
+                    emit(events, feed.pressed_at);
+                }
+                Ok(DriverInput::Silence(generation)) => {
+                    let events = feed.silence(generation);
+                    emit(events, feed.pressed_at);
+                }
+                Ok(DriverInput::Wake) => {}
                 Err(_) => {
                     let events = feed.poll(down, now);
                     emit(events, feed.pressed_at);
@@ -166,7 +187,7 @@ fn run(
         {
             // Held, yet the hook never said so: Windows removed it.
             reinstalled = now;
-            if let Ok(fresh) = keyboard::start(events.clone()) {
+            if let Ok(fresh) = keyboard::start_mapped(events.clone(), DriverInput::Key) {
                 hook = fresh;
             }
         }

@@ -51,12 +51,14 @@ pub async fn mate_drag_start(app: AppHandle, window: WebviewWindow, x: f64, y: f
     };
     let drag = Drag::new(start, cursor);
     let mut gesture = ClickGesture::new(cursor);
+    let monitors = std::sync::Arc::new(mm_win32::monitors::monitors());
     loop {
+        let monitors = monitors.clone();
         let ui = app.clone();
         let (sent, received) = tokio::sync::oneshot::channel();
         if app
             .run_on_main_thread(move || {
-                let keep_going = frame(&ui, drag, &mut gesture);
+                let keep_going = frame(&ui, drag, &mut gesture, &monitors);
                 let _ = sent.send((keep_going, gesture));
             })
             .is_err()
@@ -72,7 +74,12 @@ pub async fn mate_drag_start(app: AppHandle, window: WebviewWindow, x: f64, y: f
     flight.end_drag();
 }
 
-fn frame(app: &AppHandle, drag: Drag, gesture: &mut ClickGesture) -> bool {
+fn frame(
+    app: &AppHandle,
+    drag: Drag,
+    gesture: &mut ClickGesture,
+    monitors: &[mm_win32::monitors::Monitor],
+) -> bool {
     let flight = app.state::<Flight>();
     // A pending flight or a new look takes priority. Its worker waits until end_drag.
     if !flight.drag_allowed() || app.state::<Pointing>().generation().is_some() {
@@ -85,7 +92,6 @@ fn frame(app: &AppHandle, drag: Drag, gesture: &mut ClickGesture) -> bool {
         crate::ptt::click();
         return false;
     }
-    let monitors = mm_win32::monitors::monitors();
     // Nearest work area handles taskbars and gaps between connected monitors too.
     let Some(monitor) = monitors.iter().min_by(|a, b| {
         a.work_area
@@ -103,11 +109,12 @@ fn frame(app: &AppHandle, drag: Drag, gesture: &mut ClickGesture) -> bool {
     let Ok(hwnd) = window.hwnd() else {
         return false;
     };
+    let dpi = mm_win32::dpi::dpi_for_window(hwnd);
     if mm_win32::overlay::place(hwnd, rect).is_err() {
         return false;
     }
     // A monitor scale transition can resize the window; enforce physical bounds again.
-    if mm_win32::overlay::place(hwnd, rect).is_err() {
+    if mm_win32::dpi::dpi_for_window(hwnd) != dpi && mm_win32::overlay::place(hwnd, rect).is_err() {
         return false;
     }
     flight.dragged(rect);

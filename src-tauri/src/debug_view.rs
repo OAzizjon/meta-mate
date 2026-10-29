@@ -97,8 +97,12 @@ pub fn open(app: &AppHandle) {
         .focused(false)
         .additional_browser_args(crate::overlay::BROWSER_ARGS)
         .build();
-    if let Err(error) = result {
-        eprintln!("debug: window: {error}");
+    match result {
+        #[cfg(windows)]
+        Ok(window) => crate::voice::overlays_changed(&window),
+        #[cfg(not(windows))]
+        Ok(_) => {}
+        Err(error) => eprintln!("debug: window: {error}"),
     }
 }
 

@@ -467,3 +467,36 @@ fn mode_is_sampled_on_a_fresh_press_and_generations_remain_unique() {
     );
     assert_eq!(feed.key(key(RIGHT_CTRL, false, at(t0, 800))), start(3));
 }
+
+#[test]
+fn idle_wait_preserves_pending_release_and_click_deadlines() {
+    let t0 = Instant::now();
+    let mut feed = Feed::new(PttSettings::default(), t0);
+    assert_eq!(feed.wake_interval(t0), IDLE_WAKE);
+    feed.key(key(RIGHT_CTRL, true, t0));
+    assert_eq!(feed.wake_interval(t0), WAKE);
+    feed.tick(at(t0, 250));
+    // TooLong stops recording but a lost key-up must still be polled quickly.
+    feed.tick(at(t0, 60_000));
+    assert_eq!(feed.wake_interval(at(t0, 60_000)), WAKE);
+    feed.poll(false, at(t0, 60_033));
+    assert_eq!(feed.wake_interval(at(t0, 60_033)), IDLE_WAKE);
+    feed.click(at(t0, 60_100));
+    assert_eq!(feed.wake_interval(at(t0, 60_100)), WAKE);
+}
+
+#[test]
+fn released_toggle_uses_idle_wait_without_delaying_its_deadline() {
+    let t0 = Instant::now();
+    let mut feed = toggle(t0);
+    feed.key(key(RIGHT_CTRL, true, t0));
+    feed.key(key(RIGHT_CTRL, false, at(t0, 100)));
+    assert!(feed.active());
+    assert!(!feed.needs_poll());
+    assert_eq!(feed.wake_interval(at(t0, 100)), IDLE_WAKE);
+    assert_eq!(
+        feed.wake_interval(at(t0, 30_090)),
+        Duration::from_millis(10)
+    );
+    assert_eq!(feed.tick(at(t0, 30_100)), stop(1, StopReason::TooLong));
+}

@@ -335,6 +335,8 @@ async fn run(
     let mut next_generation = 0u64;
     let mut recording = None;
     let mut sampling = tokio::time::interval(Duration::from_millis(100));
+    #[cfg(debug_assertions)]
+    let mut sampling_wakes = crate::perf::Wakes::new("voice sampling");
     loop {
         let event = tokio::select! {
             event = events.recv() => {
@@ -342,15 +344,9 @@ async fn run(
                 event
             }
             _ = sampling.tick() => {
-                let own = own_windows(&app)
-                    .into_iter()
-                    .map(|handle| mm_win32::HWND(handle as *mut std::ffi::c_void))
-                    .collect::<Vec<_>>();
-                if let Some(target) = mm_win32::window::foreground_target(&own)
-                    && let Ok(mut last) = app.state::<TextQuestions>().target.lock()
-                {
-                    last.remember(target.window);
-                }
+                #[cfg(debug_assertions)]
+                sampling_wakes.wake();
+                sample_target(&app);
                 continue;
             }
         };
@@ -1036,8 +1032,54 @@ fn outline_pixels(look: &crate::screen::Look, say: &mm_core::matescript::Say) ->
         .collect()
 }
 
+// Incremented only when overlay HWNDs are created or destroyed. Each runtime
+// thread keeps a native-handle snapshot, never held across an await (HWND is !Send).
+static OVERLAY_GENERATION: AtomicU64 = AtomicU64::new(1);
+
+pub(crate) fn invalidate_overlays() {
+    OVERLAY_GENERATION.fetch_add(1, Ordering::Release);
+}
+
+pub(crate) fn overlays_changed(window: &tauri::WebviewWindow) {
+    invalidate_overlays();
+    window.on_window_event(|event| {
+        if matches!(event, tauri::WindowEvent::Destroyed) {
+            invalidate_overlays();
+        }
+    });
+}
+
+fn sample_target(app: &AppHandle) {
+    std::thread_local! {
+        static OWN: std::cell::RefCell<(u64, Vec<mm_win32::HWND>)> = const {
+            std::cell::RefCell::new((0, Vec::new()))
+        };
+    }
+    OWN.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        let generation = OVERLAY_GENERATION.load(Ordering::Acquire);
+        if cache.0 != generation {
+            cache.1 = own_windows(app)
+                .into_iter()
+                .map(|handle| mm_win32::HWND(handle as *mut std::ffi::c_void))
+                .collect();
+            cache.0 = generation;
+        }
+        if let Some(target) = mm_win32::window::foreground_target(&cache.1)
+            && let Ok(mut last) = app.state::<TextQuestions>().target.lock()
+        {
+            last.remember(target.window);
+        }
+    });
+}
+
 /// Overlay handles: never a target, hidden while capturing. Settings is a normal window.
 fn own_windows(app: &AppHandle) -> Vec<isize> {
+    // Startup is deferred: even on several monitors, no capture may restore a
+    // partly prepared overlay or accept an incomplete set of highlight handles.
+    if !crate::overlay::highlights_ready() {
+        return Vec::new();
+    }
     // All overlays or nothing: with one handle unreadable the others would still pass the
     // count check (several monitors) and that overlay would be in the picture. An empty
     // list makes the look refuse (screen.rs).
@@ -1091,7 +1133,10 @@ pub(crate) fn voice_of(locale: &str) -> &'static str {
 
 /// Synthesizes the cached phrase in both voices once, at startup.
 async fn cache_phrases(proxy: Proxy, phrases: Phrases) {
-    load_built_phrases(&phrases);
+    let built = phrases.clone();
+    if let Err(error) = tokio::task::spawn_blocking(move || load_built_phrases(&built)).await {
+        eprintln!("voice: built phrases: {error}");
+    }
     // Wait phrases the build does not have yet: synthesized once through the proxy.
     for key in THINKING.into_iter().chain([
         LOOKING,

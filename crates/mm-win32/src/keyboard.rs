@@ -90,16 +90,32 @@ impl Drop for KeyboardHook {
 thread_local! {
     /// Where the hook procedure queues events: set once on the hook thread, read without
     /// a lock or a borrow flag.
-    static EVENTS: OnceCell<Sender<KeyEvent>> = const { OnceCell::new() };
+    static EVENTS: OnceCell<Box<dyn Fn(KeyEvent)>> = const { OnceCell::new() };
 }
 
 /// Installs the hook on a new thread and returns once it is in place. Every key
 /// transition anywhere is sent to `events`, injected ones included (flagged).
 pub fn start(events: Sender<KeyEvent>) -> Result<KeyboardHook, HookError> {
+    start_mapped(events, |event| event)
+}
+
+/// Queues a mapped event directly, without a forwarding thread. The mapper must stay
+/// trivial: it runs inside the low-level hook, before Windows updates async key state.
+pub fn start_mapped<T: Send + 'static>(
+    events: Sender<T>,
+    map: fn(KeyEvent) -> T,
+) -> Result<KeyboardHook, HookError> {
     let (ready, installed) = mpsc::channel();
     let thread = std::thread::Builder::new()
         .name("mm-keyboard-hook".into())
-        .spawn(move || pump(events, ready))
+        .spawn(move || {
+            pump(
+                Box::new(move |event| {
+                    let _ = events.send(map(event));
+                }),
+                ready,
+            )
+        })
         .map_err(HookError::Thread)?;
     match installed.recv() {
         Ok(Ok(thread_id)) => Ok(KeyboardHook {
@@ -126,7 +142,7 @@ pub fn key_down(vk: u32) -> bool {
 }
 
 /// The hook thread: installs the hook, reports, pumps messages until WM_QUIT, unhooks.
-fn pump(events: Sender<KeyEvent>, ready: Sender<windows::core::Result<u32>>) {
+fn pump(events: Box<dyn Fn(KeyEvent)>, ready: Sender<windows::core::Result<u32>>) {
     let _ = EVENTS.with(|cell| cell.set(events));
     let mut msg = MSG::default();
     // SAFETY: `msg` is a writable MSG on our stack. Peeking without removing anything
@@ -194,7 +210,7 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         };
         let _ = EVENTS.try_with(|events| {
             if let Some(events) = events.get() {
-                let _ = events.send(event);
+                events(event);
             }
         });
         // Keep Caps Lock's state and light unchanged while it is the talk key.

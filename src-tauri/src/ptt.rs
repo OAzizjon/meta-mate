@@ -1,5 +1,6 @@
 //! The push-to-talk driver (spike S2): one thread feeds the keyboard hook's events to
-//! `mm_core::ptt::Ptt` and wakes at least every 33 ms for its Tick. One clock for
+//! `mm_core::ptt::Ptt` and wakes every 33 ms while a press or recording is pending.
+//! Idle watchdog recovery runs every 250 ms. One clock for
 //! everything: milliseconds since the driver started, for a hook event taken from the
 //! event's own `Instant`. While a session is on, the talk key's async key state is the
 //! release watchdog: Chrome can swallow a key-up and Windows silently drops a slow
@@ -17,8 +18,9 @@ use std::time::{Duration, Instant};
 use mm_core::ptt::{Key, Mode, Ptt, PttEvent, PttInput, PttSettings, StopReason};
 use mm_win32::keyboard::{self, HookError, KeyEvent, KeyboardHook, RIGHT_CTRL};
 
-/// The longest wait between two wake-ups: the Tick and the ~30 Hz watchdog.
+/// The active wait between two wake-ups: the Tick and the ~30 Hz watchdog.
 const WAKE: Duration = Duration::from_millis(33);
+const IDLE_WAKE: Duration = Duration::from_millis(250);
 const PROBE: Duration = Duration::from_secs(60);
 /// The talk key held this long while the hook reported nothing of it: Windows removed the
 /// hook (a slow one is dropped silently), so it is installed again, at most every
@@ -30,14 +32,21 @@ const REINSTALL_EVERY: Duration = Duration::from_secs(5);
 static KEY_TAP: Mutex<Weak<KeyTap>> = Mutex::new(Weak::new());
 static TOGGLE_MODE: AtomicBool = AtomicBool::new(false);
 static PTT_KEY: AtomicU32 = AtomicU32::new(RIGHT_CTRL);
-static CLICKS: Mutex<Option<Sender<Instant>>> = Mutex::new(None);
+static CLICKS: Mutex<Option<Sender<DriverInput>>> = Mutex::new(None);
+
+enum DriverInput {
+    Key(KeyEvent),
+    Click(Instant),
+    Silence(u64),
+    Wake,
+}
 
 /// Native drag release uses the same serialized driver as the keyboard, without focus.
 pub(crate) fn click() {
     if let Ok(sender) = CLICKS.lock()
         && let Some(sender) = sender.as_ref()
     {
-        let _ = sender.send(Instant::now());
+        let _ = sender.send(DriverInput::Click(Instant::now()));
     }
 }
 
