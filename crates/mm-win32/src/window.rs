@@ -37,7 +37,7 @@ const SHELL_CLASSES: [&str; 6] = [
 const MENU_CLASS: &str = "#32768";
 
 fn eligible_class(class: &str) -> bool {
-    !SHELL_CLASSES.contains(&class) && class != MENU_CLASS && !remote_class(class)
+    !SHELL_CLASSES.contains(&class) && class != MENU_CLASS
 }
 
 /// Known RDP, VMware, VirtualBox, TeamViewer, AnyDesk and Hyper-V viewer classes.
@@ -75,6 +75,8 @@ fn remote_executable(path: &str) -> bool {
         .to_ascii_lowercase();
     [
         "mstsc.exe",
+        "rdcman.exe",
+        "mremoteng.exe",
         "msrdc.exe",
         "vmconnect.exe",
         "virtualbox.exe",
@@ -97,12 +99,12 @@ fn remote_executable(path: &str) -> bool {
 
 /// Class names vary by release and UI toolkit; also check the owning executable.
 /// An inaccessible process cannot establish that this is a safe local target.
-fn local_process(process_id: u32) -> bool {
+fn local_process(process_id: u32) -> Option<(bool, bool)> {
     // SAFETY: a read-only query handle; no memory in the other process is read.
     let Ok(process) =
         (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) })
     else {
-        return false;
+        return None;
     };
     let mut buffer = [0u16; 32768];
     let mut len = buffer.len() as u32;
@@ -117,17 +119,29 @@ fn local_process(process_id: u32) -> bool {
     };
     // SAFETY: this is the handle acquired above, closed once after its last query.
     let _ = unsafe { CloseHandle(process) };
-    read.is_ok()
-        && len > 0
-        && buffer
-            .get(..len as usize)
-            .is_some_and(|path| !remote_executable(&String::from_utf16_lossy(path)))
+    if read.is_err() || len == 0 {
+        return None;
+    }
+    let path = buffer.get(..len as usize)?;
+    let path = String::from_utf16_lossy(path);
+    Some((!remote_executable(&path), normal_flat_app(&path)))
+}
+
+fn normal_flat_app(path: &str) -> bool {
+    let name = path.rsplit(['\\', '/']).next().unwrap_or("");
+    ["Telegram.exe", "notepad.exe", "SystemSettings.exe"]
+        .iter()
+        .any(|normal| name.eq_ignore_ascii_case(normal))
 }
 
 /// The user's window, its popups and the region to capture. Debug carries handles and
 /// rectangles only, never a title (convention 3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
+    /// Remote viewers need the person's permission for each capture.
+    pub requires_consent: bool,
+    /// Local apps with deliberately sparse accessibility trees.
+    pub normal_flat_app: bool,
     pub window: TargetWindow,
     pub hwnd: HWND,
     /// The visible frame without the drop shadow (`DWMWA_EXTENDED_FRAME_BOUNDS`).
@@ -166,14 +180,18 @@ fn target_of(hwnd: HWND, own: &[HWND]) -> Option<Target> {
     // SAFETY: the out pointer is a local u32 that outlives the call.
     let thread_id = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process_id)) };
     // Never one of our own windows, even one `own` does not list.
-    if thread_id == 0 || process_id == std::process::id() || !local_process(process_id) {
+    if thread_id == 0 || process_id == std::process::id() {
         return None;
     }
+    let (local, normal_flat_app) = local_process(process_id)?;
+    let requires_consent = !local || remote_class(&class);
     let frame = frame_of(hwnd)?;
     let (popup_hwnds, popups): (Vec<HWND>, Vec<PhysRect>) =
         popups_of(hwnd, thread_id, own).into_iter().unzip();
     let region = region_of(frame, &popups, monitor_of(frame)?)?;
     Some(Target {
+        requires_consent,
+        normal_flat_app,
         window: TargetWindow {
             handle: hwnd.0 as usize as u64,
             process_id,
@@ -533,6 +551,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn only_known_local_apps_bypass_sparse_tree_confirmation() {
+        for name in [
+            "C:\\Apps\\Telegram.exe",
+            "NOTEPAD.EXE",
+            "SystemSettings.exe",
+        ] {
+            assert!(normal_flat_app(name), "{name}");
+        }
+        for name in [
+            "msedge.exe",
+            "RDCMan.exe",
+            "mRemoteNG.exe",
+            "viewer.exe",
+            "notepad.exe.bak",
+        ] {
+            assert!(!normal_flat_app(name), "{name}");
+        }
+    }
+
+    #[test]
     fn lesson_follows_only_its_window_or_a_new_owned_dialog() {
         let lesson = TargetWindow {
             handle: 1,
@@ -602,7 +640,7 @@ mod tests {
     }
 
     #[test]
-    fn remote_viewers_are_never_targets() {
+    fn remote_viewers_require_consent_without_blocking_local_toolkits() {
         for class in [
             "TscShellContainerClass",
             "TscAxHostClass",
@@ -614,10 +652,13 @@ mod tests {
             "AnyDesk",
             "vmconnect",
         ] {
-            assert!(!eligible_class(class), "{class}");
+            assert!(eligible_class(class), "{class}");
+            assert!(remote_class(class), "{class}");
         }
         for name in [
             "mstsc.exe",
+            "RDCMan.exe",
+            "mRemoteNG.exe",
             "VMConnect.exe",
             "VirtualBoxVM.exe",
             "vmware.exe",
@@ -630,6 +671,9 @@ mod tests {
             assert!(remote_executable(&format!("C:\\Apps\\{name}")));
         }
         assert!(!remote_executable("C:\\Apps\\notepad.exe"));
+        for name in ["SystemSettings.exe", "msedge.exe", "Telegram.exe"] {
+            assert!(!remote_executable(name), "{name}");
+        }
         for class in [
             "Qt5QWindowIcon",
             "Qt6QWindowIcon",

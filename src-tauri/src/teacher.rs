@@ -285,7 +285,8 @@ async fn look(
             generation,
             state: "looking",
         });
-        let look = crate::screen::take_look_at(&own, &wanted, target);
+        let confirm = |target| crate::screen::confirm_look(&looker, generation, target, &wanted);
+        let look = crate::screen::take_look_at(&own, &wanted, target, &confirm);
         looker.state::<AnswerStream>().send(AnswerMsg::State {
             generation,
             state: "thinking",
@@ -696,8 +697,18 @@ pub(crate) async fn teach(
                             return;
                         };
                         let mut asked = false;
+                        let waiting = Instant::now();
                         let next_target = loop {
                             if cancelled() {
+                                return;
+                            }
+                            if screenshot_wait_expired(
+                                waiting.elapsed(),
+                                progress.elapsed(),
+                                started.elapsed(),
+                            ) {
+                                say_line(&stream, &phrases, &locale, generation, "robot.sleep");
+                                finish(&app, &stream, generation);
                                 return;
                             }
                             if let Some(front) = mm_win32::window::foreground_target(&[])
@@ -875,6 +886,10 @@ pub(crate) async fn teach(
     }
 }
 
+fn screenshot_wait_expired(waiting: Duration, idle: Duration, lesson: Duration) -> bool {
+    waiting >= OFFER_LIMIT || idle >= IDLE_LIMIT || lesson >= LESSON_LIMIT
+}
+
 /// Whether input is stale, and whether window focus is its only stale condition.
 fn input_staleness(
     input: &TeacherInput,
@@ -1032,6 +1047,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn screenshot_wait_has_its_own_deadline_and_keeps_lesson_limits() {
+        assert!(!screenshot_wait_expired(
+            Duration::ZERO,
+            Duration::ZERO,
+            Duration::ZERO,
+        ));
+        assert!(screenshot_wait_expired(
+            OFFER_LIMIT,
+            Duration::ZERO,
+            Duration::ZERO,
+        ));
+        assert!(screenshot_wait_expired(
+            Duration::ZERO,
+            IDLE_LIMIT,
+            Duration::ZERO,
+        ));
+        assert!(screenshot_wait_expired(
+            Duration::ZERO,
+            Duration::ZERO,
+            LESSON_LIMIT,
+        ));
+    }
+
+    #[test]
     fn only_a_ptt_press_strictly_after_the_offer_can_answer() {
         let offered = Instant::now();
         assert!(!fresh_answer(None, Some(offered)));
@@ -1109,6 +1148,40 @@ mod tests {
                 is_password: false,
                 password_like: false,
             };
+        let mut elements = vec![
+            element("window", None, "Window", "Settings", frame),
+            element("pane", Some("window"), "Document", "Options", frame),
+            element(
+                "button",
+                Some("pane"),
+                "Button",
+                "Open",
+                PhysRect::new(10, 10, 30, 30).unwrap(),
+            ),
+        ];
+        // A real options page has readable content around its button. Keep these lines
+        // clear of the button and of the box the drag test paints.
+        for (i, line) in [
+            "Open files in this app",
+            "Show recent files",
+            "Start where you left off",
+            "Theme: use system setting",
+            "Language: English",
+            "Check for updates automatically",
+            "Version 2.3.1",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let top = 10 + 5 * i32::try_from(i).unwrap();
+            elements.push(element(
+                &format!("text{i}"),
+                Some("pane"),
+                "Text",
+                line,
+                PhysRect::new(40, top, 95, top + 4).unwrap(),
+            ));
+        }
         mm_platform::UiSnapshot {
             target: mm_platform::TargetWindow {
                 handle: 1,
@@ -1116,17 +1189,7 @@ mod tests {
             },
             frame,
             truncated: false,
-            elements: vec![
-                element("window", None, "Window", "Settings", frame),
-                element("pane", Some("window"), "Document", "Options", frame),
-                element(
-                    "button",
-                    Some("pane"),
-                    "Button",
-                    "Open",
-                    PhysRect::new(10, 10, 30, 30).unwrap(),
-                ),
-            ],
+            elements,
         }
     }
 

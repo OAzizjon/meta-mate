@@ -57,6 +57,8 @@ fn private_phrase(name: &str) -> bool {
         "log in",
         "sign in to",
         "password",
+        "пароль",
+        "вход",
         "payment",
         "pay now",
         "card number",
@@ -95,6 +97,27 @@ fn nearby(a: PhysRect, b: PhysRect) -> bool {
 impl UiSnapshot {
     /// Fewer than eight content nodes provide too little evidence to classify safely.
     pub fn unclassifiable(&self) -> bool {
+        self.flat() || self.unlabelled_private_edit()
+    }
+
+    /// A private form with an unnamed edit cannot be reliably redacted.
+    pub fn unlabelled_private_edit(&self) -> bool {
+        self.elements.iter().any(|phrase| {
+            private_phrase(&phrase.name)
+                && self.elements.iter().any(|edit| {
+                    edit.control_type == "Edit"
+                        && edit.name.trim().is_empty()
+                        && ((edit.parent.is_some() && edit.parent == phrase.parent)
+                            || edit
+                                .rect
+                                .zip(phrase.rect)
+                                .is_some_and(|(a, b)| nearby(a, b)))
+                })
+        })
+    }
+
+    /// Browser chrome is never evidence that a canvas page can be inspected.
+    pub fn flat(&self) -> bool {
         let mut chrome: BTreeSet<&str> = self
             .elements
             .iter()
@@ -118,34 +141,53 @@ impl UiSnapshot {
             .iter()
             .filter_map(|e| e.parent.as_deref())
             .collect();
-        let content = self
+        // Only a visible page-sized document scopes the content walk. Native apps can
+        // expose small rich-edit documents or hidden help panes beside their controls.
+        let documents: BTreeSet<&str> = self
             .elements
             .iter()
             .filter(|e| {
-                e.control_type != "Window"
-                    && !chrome.contains(e.id.as_str())
-                    && (e.control_type != "Pane" || parents.contains(e.id.as_str()))
+                e.control_type == "Document"
+                    && !e.offscreen
+                    && e.rect.is_some_and(|r| mostly_inside(self.frame, r))
             })
-            .count();
-        // UIA that exposes a text field, or a document with something inside it, is
-        // reading the content; a bare pane of a canvas, game or remote screen is not.
-        let reads_content = self.elements.iter().any(|e| {
-            (e.control_type == "Edit" && content >= 3)
-                || (e.control_type == "Document" && parents.contains(e.id.as_str()))
+            .map(|e| e.id.as_str())
+            .collect();
+        let mut page = documents.clone();
+        loop {
+            let before = page.len();
+            for e in &self.elements {
+                if e.parent.as_deref().is_some_and(|p| page.contains(p)) {
+                    page.insert(&e.id);
+                }
+            }
+            if page.len() == before {
+                break;
+            }
+        }
+        let readable = |e: &&UiElement| {
+            !e.offscreen
+                && !chrome.contains(e.id.as_str())
+                && (documents.is_empty() || page.contains(e.id.as_str()))
+                && !matches!(
+                    e.control_type.as_str(),
+                    "Window" | "Document" | "Custom" | "Image"
+                )
+                && (e.control_type != "Pane" || parents.contains(e.id.as_str()))
+        };
+        let content = self.elements.iter().filter(readable).count();
+        let reads_content = self
+            .elements
+            .iter()
+            .any(|e| readable(&e) && e.control_type == "Edit" && content >= 3);
+        // A large opaque surface can sit beside a perfectly accessible toolbar.
+        let opaque = self.elements.iter().any(|e| {
+            !e.offscreen
+                && matches!(e.control_type.as_str(), "Custom" | "Pane" | "Image")
+                && !parents.contains(e.id.as_str())
+                && e.rect.is_some_and(|r| mostly_inside(self.frame, r))
         });
-        (content < 8 && !reads_content)
-            || self.elements.iter().any(|phrase| {
-                private_phrase(&phrase.name)
-                    && self.elements.iter().any(|edit| {
-                        edit.control_type == "Edit"
-                            && edit.name.trim().is_empty()
-                            && ((edit.parent.is_some() && edit.parent == phrase.parent)
-                                || edit
-                                    .rect
-                                    .zip(phrase.rect)
-                                    .is_some_and(|(a, b)| nearby(a, b)))
-                    })
-            })
+        opaque || (content < 8 && !reads_content)
     }
 
     /// Ids whose pixels and names must be hidden, including revealed password siblings
@@ -392,6 +434,8 @@ mod tests {
             "Log in",
             "Sign in to your account",
             "Password",
+            "Пароль",
+            "Вход",
             "Payment",
             "Pay now",
             "Card number",
@@ -462,6 +506,60 @@ mod tests {
         for kind in ["Edit", "Document", "Custom"] {
             snapshot.elements = vec![element("one", kind, rect(0, 0, 100, 100))];
             assert!(snapshot.unclassifiable());
+        }
+    }
+
+    #[test]
+    fn browser_chrome_cannot_vouch_for_canvas_or_remote_page() {
+        let mut nodes = vec![
+            element("root", "Window", rect(0, 0, 100, 100)),
+            child("address", "root", "Edit"),
+            child("document", "root", "Document"),
+            child("canvas", "document", "Custom"),
+        ];
+        nodes[2].rect = Some(rect(0, 10, 100, 100));
+        for i in 0..12 {
+            nodes.push(child(&format!("toolbar{i}"), "root", "Button"));
+        }
+        let mut page = snapshot(nodes);
+        assert!(page.flat());
+        for i in 0..8 {
+            page.elements
+                .push(child(&format!("text{i}"), "document", "Text"));
+        }
+        assert!(!page.flat(), "normal accessible Edge page");
+        page.elements
+            .iter_mut()
+            .find(|e| e.id == "canvas")
+            .unwrap()
+            .rect = Some(page.frame);
+        assert!(
+            page.flat(),
+            "opaque remote surface beside accessible controls"
+        );
+    }
+
+    #[test]
+    fn ordinary_settings_and_local_edits_are_readable() {
+        for title in ["Settings", "Notepad", "Telegram"] {
+            let mut nodes = vec![element("root", "Window", rect(0, 0, 100, 100))];
+            nodes[0].name = title.into();
+            nodes.extend([
+                child("edit", "root", "Edit"),
+                child("label", "root", "Text"),
+                child("save", "root", "Button"),
+            ]);
+            let mut app = snapshot(nodes);
+            assert!(!app.unclassifiable(), "{title}");
+            let mut help = child("help", "root", "Document");
+            help.rect = Some(app.frame);
+            help.offscreen = true;
+            app.elements.push(help);
+            assert!(!app.unclassifiable(), "{title}: hidden help document");
+            let help = app.elements.last_mut().unwrap();
+            help.offscreen = false;
+            help.rect = Some(rect(10, 10, 20, 20));
+            assert!(!app.unclassifiable(), "{title}: small rich-edit document");
         }
     }
 

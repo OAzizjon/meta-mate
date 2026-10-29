@@ -691,7 +691,9 @@ async fn answer(
                 generation,
                 state: "looking",
             });
-            let look = crate::screen::take_look_at(&own, &wanted, target);
+            let confirm =
+                |target| crate::screen::confirm_look(&looker, generation, target, &wanted);
+            let look = crate::screen::take_look_at(&own, &wanted, target, &confirm);
             looker.state::<AnswerStream>().send(AnswerMsg::State {
                 generation,
                 state: "thinking",

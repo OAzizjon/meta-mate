@@ -43,7 +43,7 @@ pub fn tree_is_flat(snapshot: &UiSnapshot) -> bool {
 /// does not make a canvas page "rich".
 pub fn outline_allowed(look: &Look, x: u32, y: u32) -> bool {
     let snapshot = &look.snapshot;
-    if snapshot.unclassifiable() {
+    if snapshot.unclassifiable() && !look.unclassified_allowed {
         return false;
     }
     let Some(phys) = mm_core::geom::ShotPoint::new(f64::from(x) + 0.5, f64::from(y) + 0.5)
@@ -93,7 +93,7 @@ fn descends_from(snapshot: &UiSnapshot, element: &mm_platform::UiElement, ancest
 /// `look`, returning its physical screen rectangle when a valid box arrives within 6 s,
 /// lies inside `look.snapshot.frame`, and does not touch `look.painted`.
 pub async fn sam_outline(proxy: &Proxy, look: &Look, x: u32, y: u32) -> Option<PhysRect> {
-    if look.snapshot.unclassifiable() {
+    if look.snapshot.unclassifiable() && !look.unclassified_allowed {
         return None;
     }
     let sent = look.redacted.frame.sent_size();
@@ -219,16 +219,37 @@ mod tests {
             window("e2", "Button", "Maximize", Some("e0"), chrome),
             window("e3", "Button", "Close", Some("e0"), chrome),
             window("e4", "Document", "Postcard Maker", Some("e0"), canvas),
-            // A page's document has something inside it: UIA reads this window.
             window("e5", "Text", "Draw here", Some("e4"), canvas),
         ];
+        // Eight readable page nodes establish coverage; browser buttons do not count.
+        for (i, line) in [
+            "Make a postcard",
+            "Pick a picture",
+            "Write a greeting",
+            "Add a stamp",
+            "Choose a frame",
+            "Your postcard is saved",
+            "Made with Postcard Maker",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let top = 140 + 20 * i32::try_from(i).unwrap();
+            elements.push(window(
+                &format!("e{}", i + 6),
+                "Text",
+                line,
+                Some("e4"),
+                PhysRect::new(110, top, 190, top + 15).unwrap(),
+            ));
+        }
         let look = prepare(snapshot_with(elements.clone()), &canvas_capture(), &[]).unwrap();
         // The capture is the frame at 1:1: pixel (300, 200) is physical (400, 250).
         assert!(!tree_is_flat(&look.snapshot));
         assert!(outline_allowed(&look, 300, 200));
         // A button inside the document: the document is a rich area now.
         elements.push(window(
-            "e5",
+            "send",
             "Button",
             "Send",
             Some("e4"),
@@ -281,17 +302,26 @@ mod tests {
     fn outline_maps_to_physical_pixels_and_refuses_painted_or_out_of_frame_boxes() {
         let capture = CapturedImage::new(400, 300, vec![200; 400 * 300 * 4]).unwrap();
         let occluded = PhysRect::new(350, 250, 500, 350).unwrap();
-        let mut look = prepare(
-            snapshot_with(vec![el("doc", "Document", "Canvas"), {
-                // Something inside the document: UIA reads this window.
-                let mut text = el("text", "Text", "Draw here");
-                text.parent = Some("doc".into());
-                text
-            }]),
-            &capture,
-            &[occluded],
-        )
-        .unwrap();
+        // Eight readable lines make a realistic classifiable page.
+        let mut elements = vec![el("doc", "Document", "Canvas")];
+        for (i, line) in [
+            "Draw here",
+            "Untitled drawing",
+            "Saved a minute ago",
+            "Page 1 of 1",
+            "Zoom 100%",
+            "Hold Shift for straight lines",
+            "Drop a picture to trace it",
+            "Made with Canvas",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut text = el(&format!("text{i}"), "Text", line);
+            text.parent = Some("doc".into());
+            elements.push(text);
+        }
+        let mut look = prepare(snapshot_with(elements), &capture, &[occluded]).unwrap();
 
         let clear = SamBox {
             left: 20,

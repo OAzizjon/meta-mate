@@ -25,6 +25,8 @@ pub const MAX_LISTED: usize = 60;
 /// One look at the target, ready for a point request.
 pub struct Look {
     pub snapshot: UiSnapshot,
+    /// One-look consent or a known local app permits an unclassifiable snapshot.
+    pub unclassified_allowed: bool,
     /// The walk was cut and a separate sensitive-field scan vouched for the picture.
     pub cut: bool,
     pub redacted: Redacted,
@@ -82,7 +84,7 @@ pub fn prepare(
     painted: &[PhysRect],
 ) -> Result<Look, LookError> {
     let frame = snapshot.frame;
-    prepare_at(snapshot, capture, painted, frame)
+    prepare_at(snapshot, capture, painted, frame, false)
 }
 
 fn prepare_at(
@@ -90,6 +92,7 @@ fn prepare_at(
     capture: &CapturedImage,
     painted: &[PhysRect],
     window_frame: PhysRect,
+    consent: bool,
 ) -> Result<Look, LookError> {
     for element in &mut snapshot.elements {
         if was_password(snapshot.target, window_frame, element) {
@@ -140,7 +143,7 @@ fn prepare_at(
         snapshot_region: snapshot.frame,
         fields: &fields,
         snapshot_truncated: snapshot.truncated,
-        unclassified_sensitive_field: snapshot.unclassifiable(),
+        unclassified_sensitive_field: snapshot.unclassifiable() && !consent,
         max_edge: MAX_EDGE,
     })
     .map_err(LookError::Redaction)?;
@@ -169,6 +172,7 @@ fn prepare_at(
     let window_frame = snapshot.frame;
     Ok(Look {
         snapshot,
+        unclassified_allowed: consent,
         cut: false,
         redacted,
         list,
@@ -325,8 +329,8 @@ const HIDDEN_FRAME: std::time::Duration = std::time::Duration::from_millis(50);
 /// other's copy.
 static LOOKING: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// Session-only geometry, never names or values. Relative coordinates survive moving
-/// the window; retaining old locations also hides fields that later move back.
+/// Session-only geometry, never names or values. Without stable UIA RuntimeIds,
+/// any same-type field in this window may be the password after a layout change.
 /// A field seen as a password: its window, control type and rect relative to the frame.
 type PasswordField = (mm_platform::TargetWindow, String, (i64, i64, i64, i64));
 
@@ -351,12 +355,12 @@ impl PasswordMemory {
         frame: PhysRect,
         element: &UiElement,
     ) -> bool {
-        let Some(position) = Self::position(frame, element) else {
+        let Some(_) = Self::position(frame, element) else {
             return false;
         };
-        self.0.iter().any(|(window, kind, rect)| {
-            *window == target && *kind == element.control_type && *rect == position
-        })
+        self.0
+            .iter()
+            .any(|(window, kind, _)| *window == target && *kind == element.control_type)
     }
 
     fn observe(
@@ -440,6 +444,7 @@ pub fn take_look_at(
     own: &[isize],
     wanted: &dyn Fn() -> bool,
     target: Option<mm_platform::TargetWindow>,
+    confirm: &dyn Fn(mm_platform::TargetWindow) -> bool,
 ) -> Result<Look, LookFailure> {
     use mm_win32::HWND;
 
@@ -453,16 +458,82 @@ pub fn take_look_at(
     let _one = LOOKING
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    match look_once(&own, wanted, target) {
-        Err(LookFailure::Changed) => look_once(&own, wanted, target),
+    match look_once(&own, wanted, target, confirm, false) {
+        Err(LookFailure::Changed) => look_once(&own, wanted, target, confirm, false),
         result => result,
     }
+}
+
+/// Ask without taking focus. Only a fresh physical F8 in the target grants one look.
+pub(crate) fn confirm_look(
+    app: &tauri::AppHandle,
+    generation: u64,
+    target: mm_platform::TargetWindow,
+    wanted: &dyn Fn() -> bool,
+) -> bool {
+    use std::time::{Duration, Instant};
+    use tauri::Manager;
+
+    use crate::answer_stream::{AnswerMsg, AnswerStream};
+    let (send, receive) = std::sync::mpsc::channel();
+    let Ok(_hook) = mm_win32::keyboard::start(send) else {
+        return false;
+    };
+    let stream = app.state::<AnswerStream>();
+    stream.send(AnswerMsg::Line {
+        generation,
+        key: "robot.look_consent",
+    });
+    let offered = Instant::now();
+    let mut released = false;
+    while wanted() && offered.elapsed() < Duration::from_secs(30) {
+        let front = mm_win32::window::foreground_target(&[]);
+        if !front.is_some_and(|front| front.window == target) {
+            return false;
+        }
+        if let Ok(event) = receive.recv_timeout(Duration::from_millis(50))
+            && let Some(answer) = consent_key_answer(target, offered, event, &mut released)
+        {
+            return answer;
+        }
+    }
+    false
+}
+
+fn consent_key_answer(
+    target: mm_platform::TargetWindow,
+    offered: std::time::Instant,
+    event: mm_win32::keyboard::KeyEvent,
+    released: &mut bool,
+) -> Option<bool> {
+    if event.injected || event.at <= offered {
+        return None;
+    }
+    let Some(front) = event.foreground else {
+        return Some(false);
+    };
+    if front.handle != target.handle || front.process_id != target.process_id {
+        return Some(false);
+    }
+    if event.vk == 0x1b && event.down {
+        return Some(false);
+    }
+    if event.vk == 0x77 {
+        if !event.down {
+            *released = true;
+        } else if *released {
+            return Some(true);
+        }
+    }
+    None
 }
 
 fn look_once(
     own: &[mm_win32::HWND],
     wanted: &dyn Fn() -> bool,
     remembered: Option<mm_platform::TargetWindow>,
+    confirm: &dyn Fn(mm_platform::TargetWindow) -> bool,
+    consent: bool,
 ) -> Result<Look, LookFailure> {
     use mm_platform::same_hidden;
     use mm_win32::{capture, overlay, uia, window};
@@ -485,10 +556,18 @@ fn look_once(
         .map_err(|_| LookFailure::Uia)?;
     remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
     // Check the actual walk before scan results can make a flat tree look complete.
-    if snapshot.unclassifiable() {
-        return Err(LookFailure::Prepare(LookError::Redaction(
-            RedactionError::UnclassifiedSensitiveField,
-        )));
+    let needs_consent = target.requires_consent
+        || snapshot.unlabelled_private_edit()
+        || (snapshot.flat() && !target.normal_flat_app);
+    if !consent && needs_consent {
+        if !wanted() || !confirm(target.window) || !wanted() {
+            return Err(LookFailure::Cancelled);
+        }
+        if target_now().as_ref() != Some(&target) {
+            return Err(LookFailure::Changed);
+        }
+        // Rewalk after the answer: permission never makes an old mask current.
+        return look_once(own, wanted, Some(target.window), confirm, true);
     }
     let cut = snapshot.truncated;
     let scanned = scan(&walker, &target).ok_or(LookFailure::Uia)?;
@@ -496,6 +575,10 @@ fn look_once(
     let occluders = window::occluders(&target, own);
     if !wanted() {
         return Err(LookFailure::Cancelled);
+    }
+    if consent && !window::foreground_target(own).is_some_and(|front| front.window == target.window)
+    {
+        return Err(LookFailure::Changed);
     }
     let copied = {
         let hidden = Hidden::new(own);
@@ -554,7 +637,8 @@ fn look_once(
     complete_with(&mut again, &second);
     // Both reads feed memory before comparing, including a newly revealed password.
     remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
-    let unchanged = !unclassifiable
+    let normal = target.normal_flat_app && !again.unlabelled_private_edit();
+    let unchanged = (!unclassifiable || consent || normal)
         && signature(&scanned) == signature(&second)
         && same_hidden(&snapshot, &again);
     if !unchanged {
@@ -573,8 +657,14 @@ fn look_once(
         started.elapsed().as_millis(),
         painted.len()
     );
-    let mut look =
-        prepare_at(snapshot, &capture, &painted, target.frame).map_err(LookFailure::Prepare)?;
+    let mut look = prepare_at(
+        snapshot,
+        &capture,
+        &painted,
+        target.frame,
+        consent || normal,
+    )
+    .map_err(LookFailure::Prepare)?;
     look.cut = cut;
     look.window_frame = target.frame;
     Ok(look)
@@ -761,6 +851,111 @@ mod tests {
     };
 
     #[test]
+    fn look_consent_requires_new_physical_keys_in_the_same_window() {
+        use mm_core::teacher::KeyWindow;
+        use mm_win32::keyboard::KeyEvent;
+        use std::time::{Duration, Instant};
+        let target = TargetWindow {
+            handle: 8,
+            process_id: 9,
+        };
+        let offered = Instant::now();
+        let mut event = KeyEvent {
+            foreground: Some(KeyWindow {
+                handle: 8,
+                process_id: 9,
+            }),
+            vk: 0x77,
+            down: true,
+            injected: false,
+            at: offered + Duration::from_millis(1),
+        };
+        let mut released = false;
+        assert_eq!(
+            consent_key_answer(target, offered, event, &mut released),
+            None
+        );
+        event.down = false;
+        event.injected = true;
+        assert_eq!(
+            consent_key_answer(target, offered, event, &mut released),
+            None
+        );
+        assert!(!released);
+        event.injected = false;
+        event.at = offered;
+        assert_eq!(
+            consent_key_answer(target, offered, event, &mut released),
+            None
+        );
+        assert!(!released);
+        event.at += Duration::from_millis(1);
+        assert_eq!(
+            consent_key_answer(target, offered, event, &mut released),
+            None
+        );
+        assert!(released);
+        event.down = true;
+        assert_eq!(
+            consent_key_answer(target, offered, event, &mut released),
+            Some(true)
+        );
+        event.foreground.as_mut().unwrap().process_id += 1;
+        assert_eq!(
+            consent_key_answer(target, offered, event, &mut released),
+            Some(false)
+        );
+        event.foreground.as_mut().unwrap().process_id -= 1;
+        event.vk = 0x1b;
+        assert_eq!(
+            consent_key_answer(target, offered, event, &mut released),
+            Some(false)
+        );
+        event.foreground = None;
+        assert_eq!(
+            consent_key_answer(target, offered, event, &mut released),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn permission_keeps_password_masks_and_fail_closed_redaction_checks() {
+        let mut page = snapshot();
+        page.elements
+            .retain(|element| element.id == "e0" || element.id == "e3");
+        assert!(page.unclassifiable());
+        let look = prepare_at(page.clone(), &capture(), &[], REGION, true).unwrap();
+        assert_eq!(look.redacted.painted, 1);
+        assert!(!look.list.text.contains("Password"));
+        assert!(prepare(page.clone(), &capture(), &[]).is_err());
+        page.elements
+            .iter_mut()
+            .find(|e| e.id == "e3")
+            .unwrap()
+            .rect = None;
+        assert!(matches!(
+            prepare_at(page, &capture(), &[], REGION, true),
+            Err(LookError::UnlocatedSensitive)
+        ));
+        let mut page = snapshot();
+        page.truncated = true;
+        assert!(prepare_at(page, &capture(), &[], REGION, true).is_err());
+    }
+
+    #[test]
+    fn approved_sparse_windows_can_use_sam_away_from_masks() {
+        let mut page = snapshot();
+        page.elements.retain(|element| element.id == "e0");
+        assert!(page.unclassifiable());
+        let painted = PhysRect::new(100, 50, 150, 100).unwrap();
+        let mut look = prepare_at(page, &capture(), &[painted], REGION, true).unwrap();
+        assert!(crate::sam::outline_allowed(&look, 200, 150));
+        assert!(!crate::sam::outline_allowed(&look, 10, 10));
+        look.unclassified_allowed = false;
+        assert!(!crate::sam::outline_allowed(&look, 200, 150));
+    }
+
+    #[test]
     fn password_memory_survives_reveal_and_window_movement_but_is_scoped() {
         let mut memory = PasswordMemory::default();
         let mut snapshot = snapshot();
@@ -791,6 +986,9 @@ mod tests {
             ..snapshot.frame
         };
         assert!(memory.contains(snapshot.target, frame, &shifted));
+        // Reflow and resizing move the field within an unchanged window too.
+        shifted.rect = Some(PhysRect::new(200, 100, 450, 140).unwrap());
+        assert!(memory.contains(snapshot.target, snapshot.frame, &shifted));
         let mut other = snapshot.target;
         other.handle += 1;
         assert!(!memory.contains(other, frame, &shifted));
