@@ -209,6 +209,42 @@ class FlowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Settings.from_env(dict(AUTH_ENV, PROXY_PUBLIC_URL='http://example.com'))
 
+    def test_guest_trial_counts_answers_per_device_and_hour(self):
+        client = client_for(FakeProviders(), dict(AUTH_ENV, PROXY_REQUIRE_SIGN_IN='1'))
+        self.assertEqual(client.post('/auth/guest', content='{"device": "short"}').status_code, 400)
+        issued = client.post('/auth/guest', content=json.dumps({'device': 'd' * 32}))
+        self.assertEqual(issued.status_code, 200)
+        body = issued.json()
+        self.assertEqual((body['limit'], body['left']), (12, 12))
+        bearer = {'Authorization': f'Bearer {body["token"]}'}
+        ask = {'model': 'muse-spark-1.3', 'input': 'hi'}
+        for left in range(11, -1, -1):
+            answered = client.post('/v1/responses', headers=bearer, json=ask)
+            self.assertEqual(answered.headers['x-metamate-guest-left'], str(left))
+        refused = client.post('/v1/responses', headers=bearer, json=ask)
+        self.assertEqual(refused.status_code, 429)
+        self.assertIn('guest_limit', refused.text)
+        self.assertEqual(refused.headers['x-metamate-guest-left'], '0')
+        self.assertGreater(int(refused.headers['x-metamate-guest-reset']), 0)
+        # Other calls of a question (speech) are not counted; a new token for the same device
+        # does not reset the hour.
+        again = client.post('/auth/guest', content=json.dumps({'device': 'd' * 32})).json()
+        self.assertEqual(again['left'], 0)
+        # Ten guest tokens per address and hour.
+        for i in range(8):
+            client.post('/auth/guest', content=json.dumps({'device': f'{i}' * 32}))
+        self.assertEqual(client.post('/auth/guest', content=json.dumps({'device': 'z' * 32})).status_code, 429)
+
+    def test_guest_tokens_verify_and_never_count_as_sign_in(self):
+        token = auth.sign_guest('g' * 32, SECRET, now=1000)
+        claims = auth.read_session(token, SECRET, now=1001)
+        self.assertEqual((claims['p'], claims['t']), ('guest', 'guest'))
+        forged = auth.sign_session(auth.Identity('guest', 'g' * 32, '', 'x'), 'judge', SECRET, now=1000)
+        self.assertIsNone(auth.read_session(forged, SECRET, now=1001))
+        hits = [0.0, 10.0, 3700.0]
+        self.assertEqual(auth.guest_left(hits, 3700.0), (11, 3601))
+        self.assertEqual(hits, [3700.0])
+
     def test_required_sign_in_refuses_invite_codes(self):
         self.assertTrue(Settings.from_env(AUTH_ENV).invites)
         self.assertEqual(Settings.from_env(dict(AUTH_ENV, PROXY_REQUIRE_SIGN_IN='1')).invites, {})

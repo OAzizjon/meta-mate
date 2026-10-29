@@ -6,6 +6,8 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
 
+use serde::Serialize;
+
 use base64::Engine;
 use std::time::{Duration, Instant};
 
@@ -178,6 +180,35 @@ pub struct Proxy {
     /// The session token after signing in (D54), shared by every clone: it replaces the
     /// invite for every call until the person signs out.
     session: Arc<RwLock<Option<String>>>,
+    /// The guest trial's token (no account) and its latest count, shared by every clone.
+    guest: Arc<RwLock<Option<String>>>,
+    guest_usage: tokio::sync::watch::Sender<Option<GuestUsage>>,
+}
+
+/// The guest trial's answers for this hour, from the proxy's `X-MetaMate-Guest-*` headers.
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct GuestUsage {
+    pub left: u32,
+    pub limit: u32,
+    /// Seconds until the oldest counted answer leaves the hour (0: none counted).
+    pub reset: u32,
+}
+
+impl GuestUsage {
+    fn from_headers(headers: &reqwest::header::HeaderMap) -> Option<Self> {
+        let number = |name: &str| {
+            headers
+                .get(name)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.trim().parse::<u32>().ok())
+        };
+        Some(Self {
+            left: number("x-metamate-guest-left")?,
+            limit: number("x-metamate-guest-limit")?,
+            reset: number("x-metamate-guest-reset").unwrap_or(0),
+        })
+    }
 }
 
 impl fmt::Debug for Proxy {
@@ -221,6 +252,8 @@ impl Proxy {
             base: base.to_owned(),
             invite: invite.to_owned(),
             session: Arc::default(),
+            guest: Arc::default(),
+            guest_usage: tokio::sync::watch::channel(None).0,
         })
     }
 
@@ -236,13 +269,69 @@ impl Proxy {
         }
     }
 
-    /// What each call carries: the session token, else the invite.
+    /// The guest trial's token (`None` drops it).
+    pub fn set_guest(&self, token: Option<String>) {
+        if let Ok(mut guest) = self.guest.write() {
+            *guest = token;
+        }
+    }
+
+    pub fn has_guest(&self) -> bool {
+        self.guest.read().is_ok_and(|guest| guest.is_some())
+    }
+
+    /// The latest guest count (`None` until the proxy has sent one).
+    pub fn guest_usage(&self) -> Option<GuestUsage> {
+        *self.guest_usage.borrow()
+    }
+
+    pub fn watch_guest_usage(&self) -> tokio::sync::watch::Receiver<Option<GuestUsage>> {
+        self.guest_usage.subscribe()
+    }
+
+    fn note_guest_usage(&self, usage: Option<GuestUsage>) {
+        if let Some(usage) = usage {
+            self.guest_usage.send_replace(Some(usage));
+        }
+    }
+
+    /// What each call carries: the session token, else the guest token, else the invite.
     fn credential(&self) -> String {
         self.session
             .read()
             .ok()
             .and_then(|session| session.clone())
+            .or_else(|| self.guest.read().ok().and_then(|guest| guest.clone()))
             .unwrap_or_else(|| self.invite.clone())
+    }
+
+    /// A guest token for this device (`/auth/guest`): the trial without an account.
+    pub async fn guest_token(&self, device: &str) -> Result<String, ProxyError> {
+        let response = self
+            .http
+            .post(format!("{}/auth/guest", self.base))
+            .timeout(Duration::from_secs(20))
+            .json(&json!({ "device": device }))
+            .send()
+            .await
+            .map_err(network)?;
+        let response = accepted(response).await?;
+        let raw = capped_body(response, JSON_MAX_BYTES).await?;
+        let value: Value = serde_json::from_slice(&raw)
+            .map_err(|_| ProxyError::Protocol("the guest answer is not JSON"))?;
+        let number = |name: &str| value[name].as_u64().and_then(|n| u32::try_from(n).ok());
+        if let (Some(left), Some(limit)) = (number("left"), number("limit")) {
+            self.note_guest_usage(Some(GuestUsage {
+                left,
+                limit,
+                reset: number("reset").unwrap_or(0),
+            }));
+        }
+        value["token"]
+            .as_str()
+            .filter(|token| token.starts_with("mms1.") && token.len() <= 1024)
+            .map(str::to_owned)
+            .ok_or(ProxyError::Protocol("no guest token"))
     }
 
     /// Trades the one-time login code the browser brought back for a session (D54).
@@ -278,6 +367,7 @@ impl Proxy {
             .send()
             .await
             .map_err(network)?;
+        self.note_guest_usage(GuestUsage::from_headers(response.headers()));
         let model = response
             .headers()
             .get("x-metamate-model")

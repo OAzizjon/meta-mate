@@ -27,6 +27,9 @@ class State:
     in_flight: dict[str, int] = field(default_factory=dict)
     tts_in_flight: dict[str, int] = field(default_factory=dict)
     flows: auth.Flows = field(default_factory=auth.Flows)
+    # Guest trial: answer times per guest device, and guest tokens issued per client address.
+    guest_hits: dict[str, list[float]] = field(default_factory=dict)
+    guest_issued: dict[str, list[float]] = field(default_factory=dict)
 
 
 def today() -> 'datetime.date':

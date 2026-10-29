@@ -131,6 +131,8 @@ pub async fn sign_in(app: AppHandle, provider: String) -> Result<AuthStatus, Str
         return Err("auth.cancelled".into());
     }
     proxy.set_session(Some(session.token.clone()));
+    // Signed in: the trial's token is not needed any more.
+    proxy.set_guest(None);
     if let Err(error) = save(&app, &session) {
         // Signed in for this run all the same; the next start asks again.
         eprintln!("auth: could not keep the session: {error}");
@@ -165,8 +167,11 @@ pub fn sign_out(app: AppHandle, auth: State<'_, Auth>) {
         }
         let _ = app.emit(CHANGED_EVENT, status_of(None));
     }
-    // Signing in is required: the way back in opens at once.
+    // Signing in is required: the way back in opens at once, with the guest trial.
     if crate::signin::required() {
+        if let Some(proxy) = app.try_state::<Proxy>() {
+            crate::signin::start_guest(&app, proxy.inner());
+        }
         crate::signin::open_later(&app);
     }
 }
@@ -330,7 +335,7 @@ fn page(text: &str) -> String {
     )
 }
 
-fn random_url_safe<const N: usize>() -> Option<String> {
+pub(crate) fn random_url_safe<const N: usize>() -> Option<String> {
     let mut bytes = [0u8; N];
     getrandom::fill(&mut bytes).ok()?;
     Some(URL_SAFE_NO_PAD.encode(bytes))

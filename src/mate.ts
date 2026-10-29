@@ -6,7 +6,7 @@
 import { createAudioEngine } from "./audio";
 import { BUBBLE_LINGER_MS, bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
 import { getLocale, setLocale, t } from "./i18n";
-import { hideReturnTime, mountMateMenu } from "./mate-menu";
+import { guestUsageOf, hideReturnTime, mountMateMenu } from "./mate-menu";
 import { pttKeyLabel } from "./settings/ptt-key";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
@@ -442,6 +442,23 @@ if (container) {
         mountedBubble.show(null);
         robot.setState("idle");
       });
+      // The guest trial's count (src-tauri/src/signin.rs): always in view while it runs.
+      const trial = document.getElementById("mate-trial");
+      const showTrial = (usage: unknown): void => {
+        if (!trial) return;
+        const counted = guestUsageOf(usage);
+        trial.hidden = counted === null;
+        if (counted) {
+          trial.textContent = t("mate.trial", { left: String(counted.left), limit: String(counted.limit) });
+          trial.classList.toggle("is-empty", counted.left === 0);
+        }
+      };
+      await listen<unknown>("guest-usage", (event) => showTrial(event.payload));
+      await listen<unknown>("auth-changed", (event) => {
+        if ((event.payload as { signedIn?: unknown } | null)?.signedIn === true) showTrial(null);
+      });
+      const { invoke } = await import("@tauri-apps/api/core");
+      showTrial(await invoke("guest_usage").catch(() => null));
     }).catch((error: unknown) => {
       console.error("mate: presence events:", error);
     });

@@ -100,7 +100,9 @@ pub fn run() {
             open_settings_window,
             auth::auth_status,
             auth::sign_in,
-            auth::sign_out
+            auth::sign_out,
+            signin::guest_usage,
+            signin::try_as_guest
         ])
         .setup(move |app| {
             {

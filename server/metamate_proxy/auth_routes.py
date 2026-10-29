@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from .app import Settings
 
 AUTH_SECONDS = 15
+# Guest tokens one client address may take per hour.
+GUEST_TOKENS_PER_HOUR = 10
 
 
 def auth_page(title: str, status: int = 200) -> HTMLResponse:
@@ -94,6 +96,31 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
         back = httpx.URL(f'http://127.0.0.1:{flow["port"]}/callback',
                          params={'code': login, 'state': flow['app_state']})
         return RedirectResponse(str(back), status_code=302)
+
+    @app.post('/auth/guest')
+    async def auth_guest(request: Request) -> Response:
+        """The guest trial: a token for this device without an account. Few per address, so a
+        new device id per question is not a way around the hourly limit."""
+        if not settings.session_secret:
+            return error(503, 'the guest trial is not available')
+        raw = await read_body(request, 1024)
+        try:
+            body = json.loads(raw) if raw is not None else None
+        except (ValueError, RecursionError):
+            body = None
+        device = body.get('device') if isinstance(body, dict) else None
+        if not isinstance(device, str) or not auth.GUEST_DEVICE.fullmatch(device):
+            return error(400, 'send {"device"}: 22-64 URL-safe characters')
+        now = datetime.now(timezone.utc).timestamp()
+        address = request.client.host if request.client else 'unknown'
+        issued = [at for at in state.guest_issued.get(address, []) if now - at < 3600]
+        if len(issued) >= GUEST_TOKENS_PER_HOUR:
+            return error(429, 'too many guest sessions from this address')
+        issued.append(now)
+        state.guest_issued[address] = issued
+        left, reset = auth.guest_left(state.guest_hits.setdefault(f'user:guest:{device}', []), now)
+        return JSONResponse({'token': auth.sign_guest(device, settings.session_secret, now),
+                             'limit': auth.GUEST_ANSWERS_PER_HOUR, 'left': left, 'reset': reset})
 
     @app.post('/auth/token')
     async def auth_token(request: Request) -> Response:

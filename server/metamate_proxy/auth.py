@@ -18,6 +18,9 @@ import secrets
 
 TOKEN_PREFIX = 'mms1.'
 SESSION_SECONDS = 30 * 24 * 3600
+# The guest trial (owner, 2026-10-29): answers per hour for a device that has not signed in.
+GUEST_ANSWERS_PER_HOUR = 12
+GUEST_DEVICE = re.compile(r'[A-Za-z0-9_-]{22,64}')
 PENDING_SECONDS = 600
 CODE_SECONDS = 120
 MAX_PENDING = 10_000
@@ -111,11 +114,28 @@ def read_session(token: str, secret: str, now: float) -> dict | None:
         claims = json.loads(_unb64url(body))
     except (ValueError, UnicodeDecodeError):
         return None
-    if (not isinstance(claims, dict) or claims.get('p') not in PROVIDERS or not isinstance(claims.get('s'), str)
-            or claims.get('t') not in ('judge', 'user') or not isinstance(claims.get('exp'), int)
-            or claims['exp'] < now):
+    if not isinstance(claims, dict):
+        return None
+    guest = claims.get('p') == 'guest' and claims.get('t') == 'guest'
+    signed_in = claims.get('p') in PROVIDERS and claims.get('t') in ('judge', 'user')
+    if (not (guest or signed_in) or not isinstance(claims.get('s'), str)
+            or not isinstance(claims.get('exp'), int) or claims['exp'] < now):
         return None
     return claims
+
+
+def sign_guest(device: str, secret: str, now: float) -> str:
+    """A guest token for one device: no account, the guest trial's hourly answers only."""
+    return sign_session(Identity('guest', device, '', 'Guest'), 'guest', secret, now)
+
+
+def guest_left(hits: list[float], now: float) -> tuple[int, int]:
+    """Drops answers older than an hour from `hits` (in place); the answers left now and the
+    seconds until the oldest counted one expires (0 when none is counted)."""
+    hits[:] = [hit for hit in hits if now - hit < 3600]
+    left = max(0, GUEST_ANSWERS_PER_HOUR - len(hits))
+    reset = int(3600 - (now - hits[0])) + 1 if hits else 0
+    return left, reset
 
 
 def google_identity(info: object) -> Identity | None:

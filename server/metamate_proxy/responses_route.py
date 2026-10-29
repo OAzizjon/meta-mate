@@ -3,13 +3,14 @@
 
 import asyncio
 import json
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from . import policy
+from . import auth, policy
 from .common import State, error, invite_of, read_body, scrub, scrub_key, today, upstream_error
 
 if TYPE_CHECKING:
@@ -50,6 +51,11 @@ class Relay(StreamingResponse):
             await self.cleanup()
 
 
+def guest_headers(left: int, reset: int) -> dict[str, str]:
+    return {'X-MetaMate-Guest-Left': str(left), 'X-MetaMate-Guest-Limit': str(auth.GUEST_ANSWERS_PER_HOUR),
+            'X-MetaMate-Guest-Reset': str(reset)}
+
+
 def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.AsyncClient) -> None:
     @app.post('/v1/responses')
     async def responses(request: Request) -> Response:
@@ -62,6 +68,20 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
             return error(400, 'unknown call kind')
         if state.in_flight.get(invite, 0) >= RESPONSES_IN_FLIGHT_PER_INVITE:
             return error(429, 'too many requests at once')
+        # The guest trial counts answers (one per question) per device and hour.
+        guest = None
+        if invite.startswith('user:guest:'):
+            hits = state.guest_hits.setdefault(invite, [])
+            now = datetime.now(timezone.utc).timestamp()
+            left, reset = auth.guest_left(hits, now)
+            if kind is policy.CallKind.ANSWER:
+                if left == 0:
+                    refused = error(429, 'guest_limit')
+                    refused.headers.update(guest_headers(0, reset))
+                    return refused
+                hits.append(now)
+                left, reset = auth.guest_left(hits, now)
+            guest = guest_headers(left, reset)
         state.in_flight[invite] = state.in_flight.get(invite, 0) + 1
         released = False
 
@@ -72,7 +92,10 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
                 state.in_flight[invite] = max(0, state.in_flight.get(invite, 0) - 1)
 
         try:
-            return await handle(request, invite, limits, kind, release)
+            response = await handle(request, invite, limits, kind, release)
+            if guest is not None:
+                response.headers.update(guest)
+            return response
         except BaseException:
             release()
             raise

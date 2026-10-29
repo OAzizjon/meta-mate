@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { hideReturnTime, MATE_MENU_ITEMS } from "./mate-menu.ts";
+import { guestUsageOf, hideReturnTime, MATE_MENU_ITEMS } from "./mate-menu.ts";
 
 test("menu dispatches existing commands with separators around temporary hide", () => {
   assert.deepEqual(MATE_MENU_ITEMS.map((item) => item?.command ?? null), [
@@ -16,4 +16,12 @@ test("return time adds the full hour from the click and crosses midnight", () =>
       hour: "2-digit", minute: "2-digit",
     }));
   }
+});
+
+test("guest usage: only a well-formed count shows", () => {
+  assert.deepEqual(guestUsageOf({ left: 9, limit: 12, reset: 100 }), { left: 9, limit: 12 });
+  assert.deepEqual(guestUsageOf({ left: 20, limit: 12 }), { left: 12, limit: 12 });
+  assert.equal(guestUsageOf(null), null);
+  assert.equal(guestUsageOf({ left: "9", limit: 12 }), null);
+  assert.equal(guestUsageOf({ left: 1, limit: 0 }), null);
 });

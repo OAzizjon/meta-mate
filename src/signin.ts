@@ -3,6 +3,7 @@
 // (src/settings/account.ts) does the rest, and Rust closes the window once signed in.
 import { getAppName, t } from "./i18n/index.ts";
 import type { LocaleKey } from "./i18n/index.ts";
+import { guestUsageOf } from "./mate-menu.ts";
 import { mountRobot } from "./robot/index.ts";
 import { AUTH_CHANGED_EVENT, accountNotice, createAccountStore } from "./settings/account.ts";
 import type {
@@ -68,6 +69,35 @@ function mount(root: HTMLElement): void {
   });
 
   const browser = el("p", "signin-browser", t("signin.browser"));
+
+  // The guest trial: up to 12 messages an hour without an account.
+  const guest = el("section", "signin-guest");
+  guest.hidden = true;
+  const guestLine = el("p", "signin-guest-line");
+  guestLine.setAttribute("role", "status");
+  const guestButton = el("button", "signin-btn signin-btn-quiet", t("signin.guest_try"));
+  guestButton.type = "button";
+  guest.append(guestLine, guestButton);
+  const showGuest = (raw: unknown): void => {
+    const usage = guestUsageOf(raw);
+    guest.hidden = usage === null;
+    if (!usage) return;
+    guestLine.textContent =
+      usage.left > 0
+        ? t("signin.guest_left", { left: String(usage.left), limit: String(usage.limit) })
+        : t("signin.guest_none");
+    guestButton.disabled = usage.left === 0;
+  };
+  guestButton.addEventListener("click", () => {
+    if (!isTauri) return;
+    void tauriInvoke("try_as_guest").catch(() => showGuest({ left: 0, limit: 12 }));
+  });
+  if (isTauri) {
+    void tauriInvoke("guest_usage").then(showGuest, () => undefined);
+    void import("@tauri-apps/api/event").then(({ listen }) =>
+      listen<unknown>("guest-usage", (event) => showGuest(event.payload)),
+    );
+  }
   // Waiting is read out politely, a failure at once.
   const status = el("p", "signin-status");
   status.setAttribute("role", "status");
@@ -75,7 +105,7 @@ function mount(root: HTMLElement): void {
   const alert = el("p", "signin-status is-error");
   alert.setAttribute("role", "alert");
 
-  root.append(hero, buttons, browser, status, alert);
+  root.append(hero, buttons, browser, guest, status, alert);
 
   const robot = mountRobot(mateBox);
   robot.setMood("calm");

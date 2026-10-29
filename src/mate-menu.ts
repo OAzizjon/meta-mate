@@ -10,6 +10,14 @@ export const MATE_MENU_ITEMS = [
   { key: "home.quit", command: "quit_app" },
 ] as const;
 
+/** The guest trial's count from Rust (`GuestUsage`), or null when there is none. */
+export function guestUsageOf(raw: unknown): { left: number; limit: number } | null {
+  if (typeof raw !== "object" || raw === null) return null;
+  const { left, limit } = raw as Record<string, unknown>;
+  if (typeof left !== "number" || typeof limit !== "number" || limit <= 0) return null;
+  return { left: Math.max(0, Math.min(left, limit)), limit };
+}
+
 export function hideReturnTime(minutes: number, now: number, locale: string): string {
   return new Date(now + minutes * 60_000).toLocaleTimeString(locale, {
     hour: "2-digit",

@@ -2,11 +2,19 @@
 //! GitHub, Mate answers nothing and the sign-in window (signin.html, src/signin.ts) is open.
 //! The installed app never falls back to the built-in invite; development builds keep the
 //! dev invite for the self-tests unless `MM_REQUIRE_SIGN_IN=1`.
+//!
+//! The guest trial (owner, 2026-10-29): without signing in, a device gets a guest token and
+//! 12 answers an hour (counted by the proxy); the count shows in Mate's window and here.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use mm_core::constants::APP_NAME;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+
+use crate::proxy::{GuestUsage, Proxy};
+
+const DEVICE_FILE: &str = "device.id";
+const USAGE_EVENT: &str = "guest-usage";
 
 const WINDOW: &str = "signin";
 
@@ -25,19 +33,123 @@ pub(crate) fn invite_for_proxy(invite: String) -> String {
     if required() { String::new() } else { invite }
 }
 
-/// Whether a new question must wait for a sign-in.
+fn signed_in(app: &AppHandle) -> bool {
+    app.try_state::<crate::auth::Auth>()
+        .is_some_and(|auth| auth.signed_in())
+}
+
+/// Whether the guest trial is used up for this hour (signed out, guest token, 0 left).
+pub(crate) fn guest_used_up(app: &AppHandle) -> bool {
+    !signed_in(app)
+        && app.try_state::<Proxy>().is_some_and(|proxy| {
+            proxy.has_guest() && proxy.guest_usage().is_some_and(|u| u.left == 0)
+        })
+}
+
+/// Whether a new question must wait for a sign-in: signed out and no guest answer left.
 pub(crate) fn missing(app: &AppHandle) -> bool {
-    required()
-        && !app
-            .try_state::<crate::auth::Auth>()
-            .is_some_and(|auth| auth.signed_in())
+    if !required() || signed_in(app) {
+        return false;
+    }
+    let guest = app
+        .try_state::<Proxy>()
+        .is_some_and(|proxy| proxy.has_guest());
+    !guest || guest_used_up(app)
+}
+
+/// The line Mate says when a question waits for a sign-in.
+pub(crate) fn refusal_line(app: &AppHandle) -> &'static str {
+    if guest_used_up(app) {
+        "robot.guest_limit"
+    } else {
+        "robot.sign_in_first"
+    }
+}
+
+/// Signed out: a guest token for this device, then every count goes to the windows (and an
+/// empty hour opens this window). Failing quietly keeps the plain sign-in.
+pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
+    if !required() || signed_in(app) {
+        return;
+    }
+    let app = app.clone();
+    let proxy = proxy.clone();
+    tauri::async_runtime::spawn(async move {
+        let Some(device) = device_id(&app) else {
+            return;
+        };
+        match proxy.guest_token(&device).await {
+            Ok(token) => proxy.set_guest(Some(token)),
+            Err(error) => {
+                eprintln!("signin: guest trial: {error}");
+                return;
+            }
+        }
+        let mut usage = proxy.watch_guest_usage();
+        loop {
+            let current = *usage.borrow_and_update();
+            if let Some(current) = current {
+                let _ = app.emit(USAGE_EVENT, current);
+                if current.left == 0 && !signed_in(&app) {
+                    open_later(&app);
+                }
+            }
+            if usage.changed().await.is_err() {
+                break;
+            }
+        }
+    });
+}
+
+/// A random id kept in the app's data folder: the proxy counts the trial per device.
+fn device_id(app: &AppHandle) -> Option<String> {
+    let dir = app.path().app_local_data_dir().ok()?;
+    let path = dir.join(DEVICE_FILE);
+    if let Ok(kept) = std::fs::read_to_string(&path) {
+        let kept = kept.trim();
+        if (22..=64).contains(&kept.len())
+            && kept
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        {
+            return Some(kept.to_owned());
+        }
+    }
+    let id = crate::auth::random_url_safe::<24>()?;
+    std::fs::create_dir_all(&dir).ok()?;
+    std::fs::write(&path, &id).ok()?;
+    Some(id)
+}
+
+/// The guest count for the sign-in window and Mate's window (`None`: no trial).
+#[tauri::command]
+pub fn guest_usage(app: AppHandle) -> Option<GuestUsage> {
+    if !required() || signed_in(&app) {
+        return None;
+    }
+    app.try_state::<Proxy>()
+        .filter(|proxy| proxy.has_guest())
+        .and_then(|proxy| proxy.guest_usage())
+}
+
+/// "Try without signing in": the window closes while trial answers are left.
+#[tauri::command]
+pub fn try_as_guest(app: AppHandle, window: tauri::WebviewWindow) -> Result<(), String> {
+    if window.label() != WINDOW {
+        return Err("not the sign-in window".into());
+    }
+    if missing(&app) {
+        return Err("signin.guest_none".into());
+    }
+    close(&app);
+    Ok(())
 }
 
 /// A normal window the person clicks into; shown without taking the keyboard from the
 /// person's app (invariant 1), like Home.
 pub(crate) fn open(app: &AppHandle) -> tauri::Result<()> {
     // A queued open can run after the sign-in it asked for has already landed.
-    if !missing(app) {
+    if signed_in(app) {
         close(app);
         return Ok(());
     }
@@ -59,7 +171,7 @@ pub(crate) fn open(app: &AppHandle) -> tauri::Result<()> {
     #[cfg(not(windows))]
     window.show()?;
     // Signed in while the window was being built: it closes again.
-    if !missing(app) {
+    if signed_in(app) {
         close(app);
     }
     Ok(())

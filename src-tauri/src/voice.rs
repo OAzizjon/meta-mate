@@ -147,6 +147,8 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     // A kept sign-in replaces the built-in invite before the first call (D54). Before the
     // hook: without it signing in must still work (the sign-in window needs the proxy).
     crate::auth::restore(app, &proxy);
+    // Signed out: the guest trial (12 answers an hour) until a sign-in.
+    crate::signin::start_guest(app, &proxy);
     // For the outlines SAM 3.1 draws when a point is on nothing UI Automation lists, and
     // for signing in.
     app.manage(proxy.clone());
@@ -353,7 +355,7 @@ async fn run(
             crate::presence::wake(&app, false);
             stream.send(AnswerMsg::Line {
                 generation: next_generation,
-                key: "robot.sign_in_first",
+                key: crate::signin::refusal_line(&app),
             });
             stream.send(AnswerMsg::State {
                 generation: next_generation,
