@@ -63,6 +63,11 @@ Each decision records what we chose, why, and what we rejected. Add new entries 
 | D55 | Lesson keepsake card: Muse Glimmer text and Muse Image art | 2026-10-28 |
 | D56 | Lesson escalation to Muse Wonder after two misses | 2026-10-28 |
 | D57 | Production proxy hosted on Modal serverless | 2026-10-28 |
+| D58 | **Signing in with Google or GitHub is required, with a guest trial** (2026-10-29). Without an account a device gets 12 answers an hour (`/auth/guest`: an anonymous signed token per device id, few tokens per address, lesson steps capped at 40 an hour), and Mate and the sign-in window show what is left; at 0 the sign-in window opens. With `PROXY_REQUIRE_SIGN_IN=1` the proxy refuses invite codes and accepts only sessions and guest tokens | Owner, 2026-10-29 |
+| D59 | **The repository goes public one day before the deadline** (2026-11-03); the license is chosen later. Updates D52's "right before the submission" | Owner, 2026-10-29 |
+| D60 | **The UI language follows Windows by default, with a choice in Settings** (2026-10-30): judges need English, the owner's family Russian | Owner, 2026-10-30 |
+| D61 | **A chat window for typed messages** (2026-10-30): answers appear as text in the chat and Mate still speaks and points on screen when the question is about it | Owner, 2026-10-30 |
+| D62 | **Mate's right-click menu is HTML inside his own window** (2026-10-29): a native popup takes focus (`muda` calls `SetForegroundWindow` before `TrackPopupMenu`), which breaks invariant 1; the window grows with `SWP_NOACTIVATE` while the menu is open | Lead, verified in muda 0.20 |
 
 ## 2026-10-24: decisions before the start (conversation with the owner)
 
