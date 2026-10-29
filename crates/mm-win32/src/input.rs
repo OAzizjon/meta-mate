@@ -12,11 +12,11 @@
 use mm_core::geom::{PhysPoint, PhysRect};
 use mm_core::privacy::forbidden;
 use mm_platform::{
-    HumanConfirmation, InputAction, InputInjector, MouseButton, PlatformError, TargetWindow,
-    check_confirmation,
+    ConfirmedElement, HumanConfirmation, InputAction, InputInjector, MouseButton, PlatformError,
+    TargetWindow, check_confirmation, recheck_element,
 };
-use uiautomation::UIAutomation;
 use uiautomation::types::{Handle, Point};
+use uiautomation::{UIAutomation, UIElement};
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     INPUT, INPUT_0, INPUT_MOUSE, MOUSE_EVENT_FLAGS, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN,
@@ -46,7 +46,7 @@ impl InputInjector for Win32Injector {
         action: &InputAction,
         confirmation: Option<HumanConfirmation>,
     ) -> Result<(), PlatformError> {
-        check_confirmation(target, action, confirmation)?;
+        let confirmed = check_confirmation(target, action, confirmation)?;
         // Only a left click so far: anything else is refused, never approximated.
         let at = match action {
             InputAction::Click {
@@ -58,13 +58,14 @@ impl InputInjector for Win32Injector {
         let absolute = virtual_screen()
             .and_then(|screen| normalize(at, screen))
             .ok_or(PlatformError::WindowNotFound)?;
-        check_element(target, at)?;
+        let live = confirmation_element(target, at)?;
         // Last, right before the click (the UIA reads above can take a while): the window
         // the person said yes in is still in front and the point is in it or its popups.
         let front = crate::window::foreground_target(&[]).ok_or(PlatformError::WindowNotFound)?;
         if front.window != target || !inside_target(at, front.frame, &front.popups) {
             return Err(PlatformError::WindowNotFound);
         }
+        recheck_element(target, front.window, at, &confirmed, &live)?;
         click(absolute)
     }
 }
@@ -77,7 +78,10 @@ fn inside_target(at: PhysPoint, frame: PhysRect, popups: &[PhysRect]) -> bool {
 /// over the point, Mate included), something on the way up names what the click does, and
 /// neither it nor the controls around it are a password field or on the blocklist
 /// (`forbidden`, invariant 4). A provider that does not answer means no click.
-fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformError> {
+pub fn confirmation_element(
+    target: TargetWindow,
+    at: PhysPoint,
+) -> Result<ConfirmedElement, PlatformError> {
     let unanswered = |_| PlatformError::UiaTimeout;
     let automation = UIAutomation::new().map_err(unanswered)?;
     let walker = automation.get_control_view_walker().map_err(unanswered)?;
@@ -96,12 +100,16 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
     if element.get_process_id().map_err(unanswered)? != target.process_id {
         return Err(PlatformError::WindowNotFound);
     }
+    let snapshot = describe_click(&element)?;
     let mut named = false;
     let mut reached_root = false;
     for level in 0..=MAX_ANCESTORS {
         // Unknown fails closed, like the snapshot walker; a password box's inner text or
         // reveal icon counts as the box.
-        if element.is_password().unwrap_or(true) {
+        if element.is_password().unwrap_or(true)
+            || !element.is_enabled().map_err(unanswered)?
+            || element.is_offscreen().map_err(unanswered)?
+        {
             return Err(PlatformError::SafetyBlocked);
         }
         let control_type = format!("{:?}", element.get_control_type().map_err(unanswered)?);
@@ -145,7 +153,43 @@ fn check_element(target: TargetWindow, at: PhysPoint) -> Result<(), PlatformErro
     if !named || !reached_root {
         return Err(PlatformError::SafetyBlocked);
     }
-    Ok(())
+    // Walking the ancestors can take time. Hit-test again and read current properties
+    // after that walk, so the last read describes what is under the point now.
+    let live = automation
+        .element_from_point(Point::new(at.x, at.y))
+        .map_err(unanswered)?;
+    let live = describe_click(&live)?;
+    recheck_element(target, target, at, &snapshot, &live)?;
+    Ok(live)
+}
+
+fn describe_click(element: &UIElement) -> Result<ConfirmedElement, PlatformError> {
+    let unanswered = |_| PlatformError::UiaTimeout;
+    let bounds = element.get_bounding_rectangle().map_err(unanswered)?;
+    let name = element.get_name().map_err(unanswered)?;
+    let control_type = format!("{:?}", element.get_control_type().map_err(unanswered)?);
+    let labels = [
+        name.clone(),
+        element.get_automation_id().map_err(unanswered)?,
+        element.get_classname().unwrap_or_default(),
+        element.get_help_text().unwrap_or_default(),
+    ];
+    Ok(ConfirmedElement {
+        process_id: element.get_process_id().map_err(unanswered)?,
+        blocked: element.is_password().unwrap_or(true)
+            || labels.iter().any(|label| forbidden(label, &control_type)),
+        name,
+        control_type,
+        rect: PhysRect::new(
+            bounds.get_left(),
+            bounds.get_top(),
+            bounds.get_right(),
+            bounds.get_bottom(),
+        )
+        .map_err(|_| PlatformError::SafetyBlocked)?,
+        enabled: element.is_enabled().map_err(unanswered)?,
+        offscreen: element.is_offscreen().map_err(unanswered)?,
+    })
 }
 
 /// The bounding box of every monitor in physical pixels (the process is Per-Monitor DPI v2

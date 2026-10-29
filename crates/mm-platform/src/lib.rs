@@ -18,7 +18,10 @@ mod ui_tree;
 pub use captured_image::CapturedImage;
 pub use error::PlatformError;
 pub use input_hooks::{InputEvent, InputHooks, MouseButton};
-pub use input_injector::{HumanConfirmation, InputAction, InputInjector, check_confirmation};
+pub use input_injector::{
+    ConfirmedElement, HumanConfirmation, InputAction, InputInjector, PendingConfirmation,
+    ask_confirmation, check_confirmation, recheck_element,
+};
 pub use mock::MockBackend;
 pub use overlay::{Overlay, RobotPose, RobotState};
 pub use recent_targets::RecentTargets;

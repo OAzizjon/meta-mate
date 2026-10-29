@@ -189,6 +189,96 @@ Production rule: Show only what genuinely works in the codebase—never invent U
 
 ---
 
+## Backup video (Day 7 freeze)
+
+Recorded on the evening of Day 7 (`docs/plan.md:94`) on the dedicated Windows 11 demo machine (`setup-windows.md:161`, clean "Demo" profile, 125% display scaling). This 90-second cut is the standalone "can't-miss minimum" demo that showcases all core capabilities and invariants without relying on third-party call quality or tester availability.
+
+### Shot list (90 seconds total)
+
+| Time | Scene & Scenario | Visuals & Actions | Spoken Audio & Sound Cues | Meta Model in Action | System & UX Invariants |
+|---|---|---|---|---|---|
+| **0:00–0:20** (20s) | **Take 1: Scam Check on Phishing Email**<br>MailBox mock fixture (`fixtures/demo/scam-email.html`) with fake urgent security notice from Nordway Bank. | Browser displays urgent email (*"Urgent: your account will be closed today"*). Demonstrator holds **Right Ctrl** alone and asks: *"Is this safe?"* Mate wakes up, flies over (`Flight::fly_to`), sets `<mood sad>`, and shines flashlight beam directly on the deceptive sender domain (`security@nordway-bank-verify.co`) and *"Verify now"* button. | **User**: *"Is this safe?"*<br>**Mate (MMS-TTS)**: *"This looks like a scam. Do not click this link or enter your information."*<br>Sound: `assets/sounds/cues/ping.ogg`. | **Muse Voice Transcribe**: Real-time push-to-talk speech recognition into live speech bubble.<br>**Muse Spark 1.3**: Safety check reasoning (`ReasoningEffort::SAFETY_CHECK`).<br>**MMS-TTS**: Spoken verdict on Modal T4 GPU. | Active window only; passwords and background windows redacted client-side; Mate points at worst red flag and never auto-clicks or suggests verifying. |
+| **0:20–0:38** (18s) | **Take 2: Push-to-Talk WHERE-Question**<br>Direct element location in active window. | Demonstrator holds **Right Ctrl**, speech streams live into bubble: *"Where is the zoom slider?"* On key-up, Mate plays `whoosh.ogg`, glides to the zoom slider, stops 24 px away, and shines beam while highlight overlay draws glowing ring (`highlight.html`). | **User**: *"Where is the zoom slider?"*<br>**Mate (MMS-TTS)**: *"Here it is. Look where I'm pointing."* (`robot.found_it`)<br>Sound: `assets/sounds/cues/whoosh.ogg`, `assets/sounds/cues/ping.ogg`. | **Muse Voice Transcribe**: Low-latency PTT streaming.<br>**Muse Spark 1.3**: Coordinate localization (`<point eNN>`).<br>**MMS-TTS**: Fast spoken answer. | `WS_EX_NOACTIVATE`: Mate never takes focus from the active app.<br>Placement offset: Mate hovers 24 px away (`OFFSET_PX`), never covering the target button. |
+| **0:38–1:15** (37s) | **Take 3: Teacher Mode Lesson with Wrong-Click Recovery**<br>Step-by-step guidance in Windows Settings (Text size) with human recovery. | Windows Settings open. User asks: *"How do I make the text bigger?"*<br>• **Step 1**: Mate points to *Accessibility*. User clicks it. Mate chimes `success.ogg` and spins: *"Yes, that's it. Well done."* (`robot.right_click`).<br>• **Step 2 (Wrong Click)**: Mate points to *Text size* slider. Demonstrator intentionally clicks away from the target (distance > `hit_tolerance_px`). Mate plays `oops.ogg`, speaks *"Almost. Click right where I'm pointing."* (`robot.wrong_place`), and maintains beam on slider without taking over mouse.<br>• **Step 2 (Correct Click)**: Demonstrator moves mouse and drags slider. Mate detects hit, chimes `success.ogg`, and praises: *"That's right. Very good."* (`robot.right_click_2`). | **Mate (MMS-TTS)**: *"Step 1 of 2: Click Accessibility."*<br>[User clicks]<br>**Mate**: *"Yes, that's it. Well done."*<br>**Mate**: *"Step 2 of 2: Drag the text size slider."*<br>[User clicks wrong spot]<br>**Mate**: *"Almost. Click right where I'm pointing."*<br>[User drags slider]<br>**Mate**: *"That's right. Very good."*<br>Sounds: `assets/sounds/cues/success.ogg`, `assets/sounds/cues/oops.ogg`. | **Muse Spark 1.3**: Computer-use teacher loop (`crates/mm-core/src/teacher/state.rs:172`).<br>**MMS-TTS**: Spoken turn guidance and corrective feedback. | Teacher invariant: Mate never auto-clicks; human clicks every step.<br>Click recognizer (`crates/mm-core/src/teacher/clicks.rs:39`) verifies distance; off-target click triggers `LineKey::WrongPlace` (`state.rs:336`) and re-points instead of failing. |
+| **1:15–1:30** (15s) | **Take 4: Keepsake Lesson Card & Native Print Preview**<br>Post-lesson keepsake generation and printing. | Lesson completes. Mate chimes `done.ogg` and speaks: *"All done. Nice work! I made a card of what we did."* (`robot.done`). Card window (`card.html`, `src-tauri/src/card.rs`) opens with gouache illustration (no text in image), simple numbered steps, and *Print* button. Toast confirms PNG saved in `Pictures\MetaMate`. Demonstrator clicks *Print*, opening Windows print preview dialog. | **Mate (MMS-TTS)**: *"All done. Nice work! I made a card of what we did."*<br>Sound: `assets/sounds/cues/done.ogg`. | **Muse Glimmer 30B**: Meta open weights on Modal L4 simplifying completed steps (`inference/glimmer_modal.py`).<br>**Muse Image**: Gouache illustration synthesis.<br>**MMS-TTS**: Completion phrase. | Asynchronous card pipeline never blocks UI; local PNG preserved under `Pictures\MetaMate`; standard Webview print preview. |
+
+---
+
+### Recording steps with FFmpeg gdigrab (one command per take)
+
+Recording is performed directly from PowerShell on the demo machine using FFmpeg (`winget install --id Gyan.FFmpeg`, `setup-windows.md:103`). Screen capture uses `gdigrab` at 30 fps, and audio is captured from the Windows default recording device via DirectShow (`dshow`).
+
+#### 1. Pre-take check: verify audio device name
+
+Run this once to identify the exact DirectShow audio name of the default microphone:
+
+```powershell
+ffmpeg -list_devices true -f dshow -i dummy
+```
+
+If your default microphone name is `Microphone (Realtek(R) Audio)`, you can use `audio="Microphone (Realtek(R) Audio)"` or `audio="default"` (DirectShow maps `"default"` to the primary Windows audio recording endpoint).
+
+#### 2. Take commands (30 fps, default audio)
+
+Run each command in PowerShell before starting the corresponding scenario. Press `q` in the terminal when the take finishes (or rely on the `-t` duration flag):
+
+* **Take 1: Scam check on `fixtures/demo/scam-email.html` (20 seconds)**
+  ```powershell
+  ffmpeg -f gdigrab -framerate 30 -i desktop -f dshow -i audio="default" -c:v libx264 -preset ultrafast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 192k -t 20 take1_scam.mp4
+  ```
+
+* **Take 2: Push-to-Talk WHERE-question (18 seconds)**
+  ```powershell
+  ffmpeg -f gdigrab -framerate 30 -i desktop -f dshow -i audio="default" -c:v libx264 -preset ultrafast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 192k -t 18 take2_where.mp4
+  ```
+
+* **Take 3: Teacher mode with wrong click & recovery (37 seconds)**
+  ```powershell
+  ffmpeg -f gdigrab -framerate 30 -i desktop -f dshow -i audio="default" -c:v libx264 -preset ultrafast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 192k -t 37 take3_lesson.mp4
+  ```
+
+* **Take 4: Keepsake card & print preview (15 seconds)**
+  ```powershell
+  ffmpeg -f gdigrab -framerate 30 -i desktop -f dshow -i audio="default" -c:v libx264 -preset ultrafast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 192k -t 15 take4_card.mp4
+  ```
+
+---
+
+### Cutting takes together with FFmpeg concat
+
+After recording all four takes, cut them together into the final 90-second video (`backup-demo-90s.mp4`) using FFmpeg's concat demuxer or concat filter.
+
+#### Method A: Fast lossless concat (demuxer, no re-encoding)
+
+Create `takes.txt` in the folder containing the MP4 files:
+
+```powershell
+@"
+file 'take1_scam.mp4'
+file 'take2_where.mp4'
+file 'take3_lesson.mp4'
+file 'take4_card.mp4'
+"@ | Set-Content -Encoding ASCII takes.txt
+```
+
+Concatenate streams without re-encoding:
+
+```powershell
+ffmpeg -f concat -safe 0 -i takes.txt -c copy backup-demo-90s.mp4
+```
+
+#### Method B: Filter concat with audio normalization & fast-start (recommended for submission upload)
+
+If takes have slight audio level discrepancies or timestamp jitter from gdigrab start-up:
+
+```powershell
+ffmpeg -i take1_scam.mp4 -i take2_where.mp4 -i take3_lesson.mp4 -i take4_card.mp4 -filter_complex "[0:v][0:a][1:v][1:a][2:v][2:a][3:v][3:a]concat=n=4:v=1:a=1[v][a]" -map "[v]" -map "[a]" -c:v libx264 -preset fast -crf 20 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart backup-demo-90s.mp4
+```
+
+This produces a clean, web-ready 90-second video file with synchronized audio and fast-start moov atoms for playback.
+
+---
+
 ## Questions for the tester (English & Русский)
 
 1. **EN**: What on your computer makes you feel stuck or worried most often?  

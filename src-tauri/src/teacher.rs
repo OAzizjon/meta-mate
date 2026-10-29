@@ -27,7 +27,7 @@ use mm_core::teacher::{
     ChordRecognizer, ClickRecognizer, LineKey, RefusalReason, Teacher, TeacherCommand,
     TeacherConfig, TeacherInput,
 };
-use mm_platform::{HumanConfirmation, InputAction, InputInjector, MouseButton};
+use mm_platform::{InputAction, InputInjector, MouseButton, ask_confirmation};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{mpsc, oneshot};
 
@@ -368,6 +368,8 @@ pub(crate) async fn teach(
     let mut acknowledged: Vec<String> = Vec::new();
     let mut tick = tokio::time::interval(TICK);
     let mut offered_at: Option<Instant> = None;
+    let mut confirmation_offer = None;
+    let mut confirmed_click = None;
     let mut shown_model = None;
     'turns: loop {
         let cancelled = || stream.is_cancelled(generation);
@@ -548,8 +550,38 @@ pub(crate) async fn teach(
                         }
                     }
                     TeacherCommand::OfferDoIt { rect } => {
-                        if pressable(&current.snapshot, rect) {
-                            say_line(&stream, &phrases, &locale, generation, "robot.do_it_for_me");
+                        confirmation_offer = None;
+                        confirmed_click = None;
+                        let target = current.snapshot.target;
+                        let at = rect.center();
+                        let element = if pressable(&current.snapshot, rect) {
+                            tokio::task::spawn_blocking(move || {
+                                mm_win32::input::confirmation_element(target, at)
+                            })
+                            .await
+                            .ok()
+                            .and_then(Result::ok)
+                        } else {
+                            None
+                        };
+                        if let Some(element) = element.filter(|_| !stream.is_cancelled(generation))
+                        {
+                            let action = InputAction::Click {
+                                at,
+                                button: MouseButton::Left,
+                            };
+                            confirmation_offer = ask_confirmation(target, &action, element, || {
+                                say_line(
+                                    &stream,
+                                    &phrases,
+                                    &locale,
+                                    generation,
+                                    "robot.do_it_for_me",
+                                );
+                            })
+                            .ok();
+                        }
+                        if confirmation_offer.is_some() {
                             offered_at = Some(Instant::now());
                         } else {
                             offered_at = None;
@@ -564,6 +596,8 @@ pub(crate) async fn teach(
                         let frame = current.window_frame;
                         let region = current.snapshot.frame;
                         let allowed = pressable(&current.snapshot, rect);
+                        // The offer owns the pre-prompt snapshot; a yes cannot create a new one.
+                        let confirmation = confirmed_click.take();
                         let ok = tokio::task::spawn_blocking(move || {
                             // The window unmoved and its popups (an offered menu item's menu)
                             // still where they were: the region of the look is unchanged.
@@ -579,11 +613,8 @@ pub(crate) async fn teach(
                                 at,
                                 button: MouseButton::Left,
                             };
-                            // This command can only follow the person's yes to the live offer.
-                            let confirmation =
-                                HumanConfirmation::given_by_user(target, action.clone());
                             mm_win32::input::Win32Injector
-                                .execute_verified(target, &action, Some(confirmation))
+                                .execute_verified(target, &action, confirmation)
                                 .map_err(|_| {
                                     eprintln!("teacher: confirmed click: injection refused")
                                 })
@@ -701,7 +732,10 @@ pub(crate) async fn teach(
                         continue;
                     }
                     if let Some(input) = input {
-                        if matches!(input, TeacherInput::DoItAnswer { .. }) {
+                        if let TeacherInput::DoItAnswer { yes, .. } = &input {
+                            confirmed_click = confirmation_offer
+                                .take()
+                                .and_then(|offer| offer.answer(*yes));
                             offered_at = None;
                         }
                         pending = teacher.input(input);

@@ -9,6 +9,14 @@ Windows 10/11 x64 (the video can be watched anywhere).
 3. **Ask:** Press **Win+I** to open Windows Settings, then hold **Right Ctrl**, ask aloud *"How do I make the text bigger?"*, and release. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
 4. **Sign-in (optional):** Right-click the tray icon to open **Settings**. Google sign-in is completely optional (GitHub sign-in is not in the judges' build yet) and gives you your own daily allowance.
 
+## Links
+
+- [Download](https://github.com/OAzizjon/meta-mate/releases/latest)
+- Demo video: TBD before Nov 4
+- [Decisions log](docs/decisions.md)
+- [Architecture](docs/architecture.md)
+- [Submission notes](docs/submission.md)
+
 MetaMate is Mate, a small light-bulb helper on the Windows desktop: hold Right Ctrl for push-to-talk voice, and he answers aloud, flies next to the right button, and teaches you step by step.
 
 - **Push-to-talk voice:** Hold Right Ctrl, speak, and release; Mate answers aloud with a live transcript in the bubble.

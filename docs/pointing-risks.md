@@ -79,3 +79,107 @@ Source: Gemini review (job #224, 2026-10-24), checked and corrected. P0 = breaks
 10. PTT: 30 quick presses while typing in Notepad: no stuck key, no lost letters; Right Ctrl + C still copies.
 11. Open a context menu (right-click on the desktop) and ask for an item in it: the menu is in the screenshot and stays open.
 12. Zoom screen share of the **entire screen**: the robot and highlight are visible to the other side.
+
+## 12-point test matrix
+
+Pre-submission rehearsal checklist on a clean Windows 10/11 machine (or fresh user profile) before final release upload (docs/plan.md Day 9 & Day 10).
+
+### 1. Install from the release
+- **Steps:**
+  1. Copy the release installer (`MetaMate_0.1.0_x64-setup.exe`) to a clean Windows 10/11 machine.
+  2. Double-click the installer (if SmartScreen prompts, choose "More info" → "Run anyway").
+  3. Select language in the installer dialog (English or Russian) and proceed through setup.
+- **Expected result:** Installs cleanly per-user (`installMode: "currentUser"`) into `%LOCALAPPDATA%\Programs\MetaMate` without requiring administrator elevation or UAC prompts. Creates Desktop and Start Menu shortcuts with the application icon (`icons/icon.ico`).
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 2. First launch
+- **Steps:**
+  1. Launch MetaMate from the Start Menu or Desktop shortcut on a profile without existing local storage.
+  2. Observe Mate's initial position and speech bubble before interacting.
+  3. Wait 18–20 seconds without key presses or mouse clicks.
+- **Expected result:** Mate appears floating in the bottom-right corner (`home` position) above the taskbar without stealing focus from the active foreground window (`WS_EX_NOACTIVATE`). Speech bubble displays `robot.first_launch` ("Hello! I'm Mate. To talk to me, hold Right Ctrl and ask.") and the Right Ctrl keycap prompt (`#mate-keycap`). Every 6 seconds, three example questions from `onboarding.example_1..6` cycle through the bubble. System tray icon appears with tooltip "MetaMate: Hold Right Ctrl and ask me".
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 3. Push-to-talk
+- **Steps:**
+  1. Open a text editor (e.g. Notepad) in the foreground.
+  2. Press and hold **Right Ctrl** alone, speak a conversational query (e.g., "Tell me a joke" or "Hello Mate"), then release the key.
+  3. While continuously typing letters in Notepad, tap Right Ctrl rapidly several times; test pressing `Right Ctrl + C` on highlighted text.
+- **Expected result:** Holding Right Ctrl triggers `PttEvent::Press`, transitions Mate's animation state to `listening`, and plays the listening cue. Releasing the key triggers `thinking` (`robot.thinking`), streams synthesized speech from MMS-TTS, and Mate speaks the answer while showing the transcript in the bubble. Rapid taps do not insert stray characters, get stuck, or swallow keystrokes in Notepad; `Right Ctrl + C` still copies text.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 4. A where-question in Windows Settings and in Edge
+- **Steps:**
+  1. Open Windows Settings (`Win + I`), bring it to foreground, hold Right Ctrl and ask: "Where is Text size?" (or "Where is Bluetooth?").
+  2. Open Microsoft Edge with a web page loaded, hold Right Ctrl and ask: "Where is the search box?" (or "Where is the new tab button?").
+- **Expected result:** Mate transitions to `looking` state (eyes sweep as screenshot and UIA snapshot are taken), announces `robot.found_it` ("Here it is. Look where I'm pointing."), flies beside the target control (offset ~24 px to avoid covering the element), and projects a glowing beam and highlight ring on the target bounding rectangle. The overlay window remains click-through (`WS_EX_TRANSPARENT | WS_EX_LAYERED`) and never steals foreground focus (`WS_EX_NOACTIVATE`).
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 5. A lesson with a wrong click
+- **Steps:**
+  1. With Windows Settings in foreground, hold Right Ctrl and ask: "How do I make the text bigger?".
+  2. Mate initiates step-by-step teacher mode, speaks Step 1 ("Step 1 of ..."), and points to "Accessibility".
+  3. Intentionally click somewhere wrong (an empty area or unrelated menu item).
+  4. Next, click the correctly highlighted "Accessibility" item.
+- **Expected result:** On the incorrect click, the lesson mouse hook detects a click outside the target bounding box; Mate does not advance the step, plays an oops cue, speaks `robot.wrong_place` ("Almost. Click right where I'm pointing."), and keeps the beam trained on the target. On the correct click, Mate acknowledges with `robot.right_click` ("Yes, that's it. Well done."), takes a fresh look, advances to Step 2, and concludes at completion with `robot.done` ("All done. Nice work!").
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 6. Is-this-safe on fixtures/demo pages
+- **Steps:**
+  1. In Edge, open `fixtures/demo/scam-email.html` (account closure phishing) or `fixtures/demo/scam-popup.html` (fake security alert popup).
+  2. With the scam window in foreground, hold Right Ctrl and ask: "Is this safe?" (or "Is this email real?").
+- **Expected result:** Intent routes to `Intent::Safety`; Mate speaks `robot.checking_safety` ("Let me check this carefully. I'm looking only at this window.") and enters `thinking_harder` state. Muse Spark evaluates the page with safety reasoning, delivers a negative safety verdict identifying specific indicators (suspicious domain, urgent countdown, fake hotline), and never instructs the user to click links, call phone numbers, or make payments.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 7. The keepsake card and printing
+- **Steps:**
+  1. Complete a teacher lesson (e.g. text size from check 5) to the end, or run `metamate --card-selftest`.
+  2. Inspect the keepsake card window (`card.html`) that opens automatically.
+  3. Click the "Print" button.
+  4. Click the "Close" button.
+- **Expected result:** The `card` window opens titled "Lesson card", displaying the lesson title, numbered recap steps (worded by Muse Glimmer or lesson commentary), an illustration by Muse Image (saved to `Pictures\MetaMate`), and model credits (`card.credits_glimmer`: "Words by Muse Glimmer (Meta open weights) · Picture by Muse Image"). Clicking "Print" opens the Windows print dialog formatted for a single A4/Letter page with action buttons excluded. Clicking "Close" dismisses the window cleanly.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 8. Tray Try a question
+- **Steps:**
+  1. Focus an application window (e.g. Windows Settings or Edge).
+  2. Right-click the MetaMate system tray icon in the Windows taskbar and expand the "Try a question" submenu.
+  3. Click any of the three sample items:
+     - "Where is the search box?" (`tray.try_search`)
+     - "Is this safe?" (`tray.try_safe`)
+     - "How do I make the text bigger?" (`tray.try_bigger`)
+- **Expected result:** Mate remembers and targets the last active eligible application window before the tray menu was opened (`remembered_target`), avoiding targeting transient tray UI. Mate processes the question directly without microphone input, speaks the answer, and points or initiates the lesson.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 9. Two monitors with different DPI
+- **Steps:**
+  1. Connect two monitors with different DPI scaling (e.g. primary at 150% DPI, secondary at 100% DPI positioned to the left with negative virtual coordinates).
+  2. Position an application window on the secondary display and ask a pointing question.
+  3. Move the application window to the primary display and ask another pointing question.
+- **Expected result:** Per-Monitor DPI Aware v2 creates dedicated transparent highlight overlays across both monitors. Mate flies smoothly across monitor boundaries without jumping, clipping, or scale distortions. Bounding boxes and pointing beams align pixel-accurately on both displays, correctly handling negative virtual coordinates without offset.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 10. A password field painted
+- **Steps:**
+  1. Open a browser login page or credential prompt containing a password field.
+  2. Type characters into the password field; toggle "Show password" if available.
+  3. With the password window in foreground, hold Right Ctrl and ask: "Where is the sign in button?".
+- **Expected result:** UIA identifies sensitive fields (`IsPassword=true`, `PasswordBox`, or password-like attributes/names). In the capture buffer sent to the model, all password boxes are padded by 4 px (`REDACTION_PAD_PX`) and painted opaque solid black (`paint_black`). Mate announces `robot.password_covered` ("I covered your password before looking."). Password values never appear in API requests, debug views, or logs.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 11. Sign-in with Google
+- **Steps:**
+  1. Open MetaMate Settings via tray menu ("Settings") or voice command.
+  2. Navigate to the "Account" section and click "Sign in with Google" (`auth.google`).
+  3. Complete Google OAuth sign-in in the default system browser.
+- **Expected result:** The app starts a local loopback PKCE listener and opens Google sign-in in the default browser. Settings displays `auth.waiting` ("Waiting for your browser..."). On browser redirect, the app exchanges the code for a session token, seals it using Windows DPAPI (`session.bin`), and updates the Settings status to `auth.signed_in`: "Signed in as [Name] (via Google)" with an enabled "Sign out" button (`auth.sign_out`).
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 12. Uninstall
+- **Steps:**
+  1. Exit MetaMate via the tray icon menu ("Quit" / `tray.quit`).
+  2. Open Windows "Settings" → "Apps" → "Installed apps" (or Control Panel "Programs and Features").
+  3. Locate "MetaMate", click "Uninstall", and complete the uninstallation wizard.
+- **Expected result:** The NSIS uninstaller executes cleanly in `currentUser` mode without requiring administrative elevation. All installed files under `%LOCALAPPDATA%\Programs\MetaMate`, Start Menu shortcuts, Desktop shortcuts, and registry keys under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MetaMate` are removed completely. User personal data is preserved.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+

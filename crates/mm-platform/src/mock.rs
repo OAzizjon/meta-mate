@@ -145,23 +145,45 @@ mod tests {
         };
         let refused = Err(PlatformError::ConfirmationRequired);
         assert_eq!(mock.execute_verified(target, &click, None), refused);
-        let other = HumanConfirmation::given_by_user(target, InputAction::DoubleClick { at });
+        let other = confirmed(
+            target,
+            InputAction::Click {
+                at: PhysPoint { x: 6, y: 5 },
+                button: MouseButton::Left,
+            },
+        );
         assert_eq!(mock.execute_verified(target, &click, Some(other)), refused);
         // A yes given in another window never carries over (invariant 4).
         let elsewhere = TargetWindow {
             handle: 8,
             process_id: 42,
         };
-        let wrong_window = HumanConfirmation::given_by_user(elsewhere, click.clone());
+        let wrong_window = confirmed(elsewhere, click.clone());
         assert_eq!(
             mock.execute_verified(target, &click, Some(wrong_window)),
             refused
         );
         assert!(mock.executed.is_empty());
 
-        let yes = HumanConfirmation::given_by_user(target, click.clone());
+        let yes = confirmed(target, click.clone());
         assert_eq!(mock.execute_verified(target, &click, Some(yes)), Ok(()));
         assert_eq!(mock.executed, vec![(target, click)]);
+    }
+
+    fn confirmed(target: TargetWindow, action: InputAction) -> HumanConfirmation {
+        let element = crate::ConfirmedElement {
+            process_id: target.process_id,
+            name: "Open".into(),
+            control_type: "Button".into(),
+            rect: PhysRect::new(0, 0, 100, 100).unwrap(),
+            enabled: true,
+            offscreen: false,
+            blocked: false,
+        };
+        crate::ask_confirmation(target, &action, element, || {})
+            .unwrap()
+            .answer(true)
+            .unwrap()
     }
 
     #[test]
