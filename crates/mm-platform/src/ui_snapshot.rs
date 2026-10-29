@@ -52,7 +52,21 @@ const TOGGLE_TYPES: [&str; 5] = ["Button", "CheckBox", "Hyperlink", "Custom", "I
 
 fn private_phrase(name: &str) -> bool {
     let name = name.to_lowercase();
+    if mm_core::privacy::password_words(&name) {
+        return true;
+    }
     [
+        // Codes that sign someone in; never a bare "code" ("Visual Studio Code",
+        // "Postal code"): an input named just "code" is caught by its own name instead.
+        "verification code",
+        "security code",
+        "one-time code",
+        "sms code",
+        "authentication code",
+        "код подтверждения",
+        "код из смс",
+        "проверочный код",
+        "одноразовый код",
         "login",
         "log in",
         "sign in to",
@@ -84,6 +98,33 @@ fn private_phrase(name: &str) -> bool {
     })
 }
 
+fn non_secret_purpose(name: &str) -> bool {
+    let name = name.to_lowercase();
+    [
+        "user",
+        "login",
+        "email",
+        "name",
+        "search",
+        "phone",
+        "postal",
+        "zip",
+        "promo",
+        "coupon",
+        "пользоват",
+        "логин",
+        "почт",
+        "имя",
+        "фамил",
+        "поиск",
+        "телефон",
+        "индекс",
+        "промокод",
+    ]
+    .iter()
+    .any(|purpose| name.contains(purpose))
+}
+
 fn nearby(a: PhysRect, b: PhysRect) -> bool {
     let dx = (i64::from(a.left) - i64::from(b.right))
         .max(i64::from(b.left) - i64::from(a.right))
@@ -100,21 +141,23 @@ impl UiSnapshot {
         self.flat() || !self.ambiguous_private_edits().is_empty()
     }
 
-    /// Unnamed edits beside private labels must be masked, regardless of consent.
+    /// Inputs beside private labels need a clear non-secret purpose to escape masking.
     pub fn ambiguous_private_edits(&self) -> BTreeSet<String> {
         self.elements
             .iter()
             .filter(|edit| {
-                edit.control_type == "Edit"
-                    && edit.name.trim().is_empty()
-                    && self.elements.iter().any(|phrase| {
-                        private_phrase(&phrase.name)
-                            && ((edit.parent.is_some() && edit.parent == phrase.parent)
-                                || edit
-                                    .rect
-                                    .zip(phrase.rect)
-                                    .is_some_and(|(a, b)| nearby(a, b)))
-                    })
+                matches!(edit.control_type.as_str(), "Edit" | "ComboBox" | "Custom")
+                    && (mm_core::privacy::password_words(&edit.name)
+                        || matches!(edit.name.to_lowercase().trim(), "code" | "код")
+                        || (!non_secret_purpose(&edit.name)
+                            && self.elements.iter().any(|phrase| {
+                                private_phrase(&phrase.name)
+                                    && ((edit.parent.is_some() && edit.parent == phrase.parent)
+                                        || edit
+                                            .rect
+                                            .zip(phrase.rect)
+                                            .is_some_and(|(a, b)| nearby(a, b)))
+                            })))
             })
             .map(|edit| edit.id.clone())
             .collect()
@@ -187,10 +230,36 @@ impl UiSnapshot {
                         && matches!(e.control_type.as_str(), "Text" | "Hyperlink" | "Heading")
                         && !e.name.trim().is_empty()))
         });
+        let mut readable_page = BTreeSet::new();
+        for document in &documents {
+            let mut descendants = BTreeSet::from([*document]);
+            loop {
+                let before = descendants.len();
+                for e in &self.elements {
+                    if e.parent.as_deref().is_some_and(|p| descendants.contains(p)) {
+                        descendants.insert(e.id.as_str());
+                    }
+                }
+                if descendants.len() == before {
+                    break;
+                }
+            }
+            if self.elements.iter().any(|e| {
+                descendants.contains(e.id.as_str())
+                    && readable(&e)
+                    && matches!(e.control_type.as_str(), "Text" | "Hyperlink" | "Heading")
+                    && !e.name.trim().is_empty()
+            }) {
+                readable_page.extend(descendants);
+            }
+        }
         // A large opaque surface can sit beside a perfectly accessible toolbar.
         let opaque = self.elements.iter().any(|e| {
             !e.offscreen
                 && matches!(e.control_type.as_str(), "Custom" | "Pane" | "Image")
+                && !(e.control_type == "Image"
+                    && !e.interactive
+                    && readable_page.contains(e.id.as_str()))
                 && !parents.contains(e.id.as_str())
                 && e.rect.is_some_and(|r| mostly_inside(self.frame, r))
         });
@@ -369,6 +438,13 @@ pub struct UiElement {
     /// The recorder's password-word heuristic, which also catches revealed passwords (D37);
     /// unknown counts as true.
     pub password_like: bool,
+}
+
+impl UiElement {
+    /// A contextual privacy signal, including labels that are not password controls.
+    pub fn private_label(&self) -> bool {
+        private_phrase(&self.name)
+    }
 }
 
 /// Metadata only: names can be chat lines or document text (convention 3).
@@ -560,6 +636,104 @@ mod tests {
             page.elements[2].offscreen = true;
             assert!(page.flat(), "offscreen text is not evidence");
         }
+    }
+
+    #[test]
+    fn a_bare_code_label_is_not_private() {
+        for label in [
+            "Visual Studio Code",
+            "Postal code",
+            "Promo code",
+            "Source code",
+        ] {
+            let mut page = snapshot(vec![
+                child("label", "form", "Text"),
+                child("input", "form", "Edit"),
+            ]);
+            page.elements[0].name = label.into();
+            page.elements[1].name = "Editor".into();
+            assert!(page.ambiguous_private_edits().is_empty(), "{label}");
+        }
+    }
+
+    #[test]
+    fn named_inputs_need_a_clear_non_secret_purpose_beside_private_labels() {
+        for kind in ["Edit", "ComboBox", "Custom"] {
+            for label in ["Password", "Пароль", "PIN", "Verification code"] {
+                let mut page = snapshot(vec![
+                    child("label", "form", "Text"),
+                    child("input", "form", kind),
+                    child("value", "input", "Text"),
+                ]);
+                page.elements[0].name = label.into();
+                for name in [
+                    "",
+                    "Enter here",
+                    "Введите здесь",
+                    "Password",
+                    "Пароль",
+                    "PIN",
+                    "code",
+                    "Username password",
+                ] {
+                    page.elements[1].name = name.into();
+                    assert_eq!(
+                        page.ambiguous_private_edits(),
+                        ids(&["input"]),
+                        "{kind}: {label}/{name}"
+                    );
+                    assert!(page.hidden_ids().contains("value"));
+                    // Sibling context still works without geometric evidence.
+                    page.elements[1].rect = None;
+                    assert!(page.hidden_ids().contains("input"));
+                }
+                for name in [
+                    "Username",
+                    "Login",
+                    "Email",
+                    "Name",
+                    "Search",
+                    "Phone",
+                    "Имя",
+                    "Логин",
+                    "Почта",
+                    "Поиск",
+                    "Телефон",
+                ] {
+                    page.elements[1].name = name.into();
+                    assert!(page.ambiguous_private_edits().is_empty(), "{kind}: {name}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn readable_article_with_large_hero_image_is_not_flat() {
+        let mut page = snapshot(vec![
+            element("root", "Window", rect(0, 0, 100, 100)),
+            child("document", "root", "Document"),
+            child("paragraph", "document", "Text"),
+            child("hero", "document", "Image"),
+        ]);
+        page.elements[1].rect = Some(page.frame);
+        page.elements[3].rect = Some(rect(0, 20, 100, 100));
+        assert!(!page.flat());
+        page.elements[3].interactive = true;
+        assert!(page.flat(), "interactive surfaces still need consent");
+        page.elements[3].interactive = false;
+        for kind in ["Custom", "Pane"] {
+            page.elements[3].control_type = kind.into();
+            assert!(
+                page.flat(),
+                "a large {kind} is opaque even beside article text"
+            );
+        }
+        page.elements[3].control_type = "Image".into();
+        page.elements[3].parent = Some("other-document".into());
+        assert!(
+            page.flat(),
+            "text in another document cannot vouch for an image"
+        );
     }
 
     #[test]
@@ -799,6 +973,8 @@ mod tests {
             toggle.name = label.to_owned();
             let mut edit = child("edit", "root", "Edit");
             edit.name.clear();
+            let mut unrelated = child("unrelated", "other", "Edit");
+            unrelated.name = "Search".into();
             assert_eq!(
                 hidden(vec![
                     element("root", "Window", rect(0, 0, 100, 100)),
@@ -807,7 +983,7 @@ mod tests {
                     child("document", "root", "Document"),
                     child("custom", "root", "Custom"),
                     child("text", "root", "Text"),
-                    child("unrelated", "other", "Edit"),
+                    unrelated,
                     element("other", "Pane", rect(0, 0, 100, 100)),
                 ]),
                 ids(&["edit", "document", "custom", "text"])
@@ -822,12 +998,14 @@ mod tests {
         field.is_password = true;
         let mut label = child("label", "root", "Text");
         label.name = "Password".to_owned();
+        let mut username = child("username", "root", "Edit");
+        username.name = "Username".into();
         assert_eq!(
             hidden(vec![
                 element("root", "Window", rect(0, 0, 100, 100)),
                 field,
                 label,
-                child("username", "root", "Edit"),
+                username,
                 child("hint", "root", "Text"),
             ]),
             ids(&["field"])
@@ -916,12 +1094,16 @@ mod tests {
         root_toggle.name = "Show password".to_owned();
         let mut orphan = child("orphan", "missing", "Edit");
         orphan.is_password = true;
+        let mut plain = child("plain", "missing", "Edit");
+        plain.name = "Username".into();
+        let mut root_edit = element("root_edit", "Edit", rect(0, 0, 10, 10));
+        root_edit.name = "Email".into();
         assert_eq!(
             hidden(vec![
                 toggle,
-                child("plain", "missing", "Edit"),
+                plain,
                 root_toggle,
-                element("root_edit", "Edit", rect(0, 0, 10, 10)),
+                root_edit,
                 orphan,
                 child("orphan_child", "orphan", "Text"),
             ]),

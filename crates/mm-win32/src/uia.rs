@@ -50,9 +50,11 @@ const PROPERTIES: [UIProperty; 9] = [
 
 /// Control types a password field, a PIN box or a show/hide-password toggle comes as
 /// (what `password_like` and `UiSnapshot::hidden_ids` look at); `IsPassword` is asked for
-/// separately.
-const SENSITIVE_TYPES: [ControlType; 7] = [
+/// separately. Text labels and plain inputs are retained for contextual classification.
+const SENSITIVE_TYPES: [ControlType; 9] = [
     ControlType::Edit,
+    ControlType::ComboBox,
+    ControlType::Text,
     ControlType::Document,
     ControlType::Custom,
     ControlType::Button,
@@ -175,12 +177,32 @@ impl UiaWalker {
         let found = root
             .find_all_build_cache(TreeScope::Subtree, &condition, &self.cache)
             .ok()?;
+        // Keep plain inputs and separate labels until contextual classification is done.
+        // A cut walk may have seen neither; dropping them would falsely certify it.
+        let mut candidates = UiSnapshot {
+            target: target_window(hwnd),
+            frame: describe(&root, "root", None)?.rect?,
+            elements: found
+                .iter()
+                .enumerate()
+                .map(|(i, element)| describe(element, &format!("c{i}"), None))
+                .collect::<Option<Vec<_>>>()?,
+            truncated: false,
+        };
+        mark_contextual_inputs(&mut candidates);
         let mut hide = Vec::new();
-        for element in &found {
-            let described = describe(element, &format!("s{}", hide.len()), None)?;
-            if !(described.is_password || described.password_like) {
+        for (element, candidate) in found.iter().zip(&candidates.elements) {
+            // Parent links are absent from FindAll. Search the label's surrounding
+            // subtree as well, covering siblings with distant or missing bounds.
+            if candidate.control_type == "Text" && candidate.private_label() {
+                self.siblings_of(element, &on_screen, &mut hide)?;
+            }
+            if !(candidate.is_password || candidate.password_like) {
                 continue;
             }
+            let mut described = candidate.clone();
+            described.id = format!("s{}", hide.len());
+            described.password_like = true;
             // A show/hide-password toggle: the field beside it may hold the password in
             // plain text (D37), whatever it is called.
             let toggle = !matches!(described.control_type.as_str(), "Edit" | "Document")
@@ -234,6 +256,7 @@ impl UiaWalker {
             )
             .ok()?;
         for kind in [
+            ControlType::ComboBox,
             ControlType::Document,
             ControlType::Custom,
             ControlType::Text,
@@ -253,9 +276,11 @@ impl UiaWalker {
         let mut area = toggle.clone();
         let mut near = Vec::new();
         for _ in 0..4 {
-            let Ok(up) = self.walker.get_parent_build_cache(&area, &self.cache) else {
-                break;
-            };
+            // An unreadable ancestor cannot certify contextual coverage.
+            let up = self
+                .walker
+                .get_parent_build_cache(&area, &self.cache)
+                .ok()?;
             area = up;
             near = area
                 .find_all_build_cache(TreeScope::Descendants, &fields, &self.cache)
@@ -263,7 +288,7 @@ impl UiaWalker {
             let has_edit = near.iter().any(|element| {
                 element
                     .get_cached_control_type()
-                    .is_ok_and(|kind| kind == ControlType::Edit)
+                    .is_ok_and(|kind| matches!(kind, ControlType::Edit | ControlType::ComboBox))
             });
             if has_edit {
                 break;
@@ -363,6 +388,16 @@ fn is_end(code: i32) -> bool {
     code == 0
 }
 
+/// Classify before filtering: a provider-found plain input may be a revealed secret.
+fn mark_contextual_inputs(candidates: &mut UiSnapshot) {
+    let ambiguous = candidates.ambiguous_private_edits();
+    for element in &mut candidates.elements {
+        if ambiguous.contains(&element.id) {
+            element.password_like = true;
+        }
+    }
+}
+
 struct PropertyFlags {
     password_like: bool,
     is_password: bool,
@@ -447,6 +482,50 @@ fn target_window(hwnd: HWND) -> TargetWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn provider_scan_keeps_labels_and_classifies_plain_inputs_past_walk_limit() {
+        assert!(SENSITIVE_TYPES.contains(&ControlType::Text));
+        for kind in [
+            ControlType::Edit,
+            ControlType::ComboBox,
+            ControlType::Custom,
+        ] {
+            assert!(SENSITIVE_TYPES.contains(&kind));
+            let bounds = PhysRect::new(0, 0, 100, 30).unwrap();
+            let text = |id: String, name: &str| UiElement {
+                id,
+                parent: None,
+                control_type: "Text".into(),
+                name: name.into(),
+                rect: Some(bounds),
+                interactive: false,
+                enabled: true,
+                offscreen: false,
+                is_password: false,
+                password_like: false,
+            };
+            let mut elements: Vec<_> = (0..501)
+                .map(|i| text(format!("c{i}"), "Article paragraph"))
+                .collect();
+            let mut input = text("input".into(), "Enter here");
+            input.control_type = format!("{kind:?}");
+            elements.push(input);
+            elements.push(text("label".into(), "Password"));
+            let mut candidates = UiSnapshot {
+                target: TargetWindow {
+                    handle: 1,
+                    process_id: 1,
+                },
+                frame: bounds,
+                elements,
+                truncated: false,
+            };
+            mark_contextual_inputs(&mut candidates);
+            assert!(candidates.element("input").unwrap().password_like);
+            assert!(!candidates.element("c0").unwrap().password_like);
+        }
+    }
 
     #[test]
     fn only_s_ok_is_end() {

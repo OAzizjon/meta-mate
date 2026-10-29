@@ -693,8 +693,9 @@ fn scan(
 const SEARCHED: &str = "s";
 
 /// The search's fields join the walk's elements (new ids, no parent: never pointable,
-/// never named in the prompt), and the snapshot then vouches for the picture. A walked
-/// element the search also found (the same control type at the same place) is marked too,
+/// never named in the prompt), and the snapshot then vouches for the picture. The
+/// provider search must classify contextual inputs before returning this complete list.
+/// A walked element the search also found (the same control type at the same place) is marked too,
 /// so its name and everything below it stay out of the prompt.
 fn complete_with(snapshot: &mut UiSnapshot, found: &[mm_platform::UiElement]) {
     for walked in &mut snapshot.elements {
@@ -947,7 +948,7 @@ mod tests {
     }
 
     #[test]
-    fn unnamed_revealed_password_is_painted_with_or_without_consent() {
+    fn revealed_password_with_empty_or_innocuous_name_is_always_painted() {
         let field = PhysRect::new(150, 200, 350, 230).unwrap();
         let mut page = snapshot();
         page.elements = vec![
@@ -980,7 +981,11 @@ mod tests {
         let expected_url = mm_core::shot::png_data_url(
             &mm_core::shot::encode_png_rgb(&expected, 400, 300).unwrap(),
         );
-        for consent in [false, true] {
+        for (name, consent) in ["", "Enter here"]
+            .into_iter()
+            .flat_map(|name| [false, true].map(|consent| (name, consent)))
+        {
+            page.elements[3].name = name.into();
             let look = prepare_at(page.clone(), &capture(), &[], REGION, consent).unwrap();
             assert_eq!(look.redacted.painted, 1);
             assert!(look.list.text.contains("e3 Edit [hidden]"));
@@ -1378,5 +1383,57 @@ mod tests {
         assert!(!look.list.text.contains("hunter2"));
         assert_eq!(look.resolve(&Point::Id("s0".into())), None);
         assert!(!look.list.text.contains("s0 "));
+    }
+
+    #[test]
+    fn contextual_provider_field_beyond_a_long_article_is_painted_after_completion() {
+        let field = PhysRect::new(150, 200, 350, 230).unwrap();
+        let mut walked = snapshot();
+        walked.elements = vec![
+            element("root", "Window", "Microsoft Edge", REGION),
+            element("document", "Document", "Article", REGION),
+        ];
+        for i in 0..501 {
+            let mut text = element(
+                &format!("text{i}"),
+                "Text",
+                "Article paragraph",
+                PhysRect::new(110, 100, 490, 120).unwrap(),
+            );
+            text.parent = Some("document".into());
+            walked.elements.push(text);
+        }
+        walked.truncated = true;
+        // Neither the revealed input nor its separate label reached the bounded walk.
+        // The complete provider scan classifies this input using the label.
+        let mut found = element("input", "Edit", "Enter here", field);
+        found.password_like = true;
+        let mut again = walked.clone();
+        complete_with(&mut walked, &[found.clone()]);
+        complete_with(&mut again, &[found]);
+        assert!(!walked.truncated);
+        assert!(mm_platform::same_hidden(&walked, &again));
+        let look = prepare(walked, &capture(), &[]).unwrap();
+        assert!(!look.list.text.contains("Enter here"));
+        let mut expected = vec![200; 400 * 300 * 3];
+        for y in 146..184 {
+            for x in 46..254 {
+                let offset = (y * 400 + x) * 3;
+                expected[offset..offset + 3].fill(0);
+            }
+        }
+        let expected_url = mm_core::shot::png_data_url(
+            &mm_core::shot::encode_png_rgb(&expected, 400, 300).unwrap(),
+        );
+        let body = mm_core::api::sam::sam_point_request(
+            0,
+            0,
+            look.redacted.frame.sent_size(),
+            &look.redacted.image,
+        );
+        assert_eq!(
+            body["input"][0]["content"][1]["image_url"].as_str(),
+            Some(expected_url.as_str()),
+        );
     }
 }
