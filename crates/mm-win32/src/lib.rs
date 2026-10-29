@@ -12,6 +12,7 @@ pub mod dpi;
 pub mod focus;
 pub mod input;
 pub mod keyboard;
+pub mod locale;
 pub mod monitors;
 pub mod mouse;
 pub mod overlay;

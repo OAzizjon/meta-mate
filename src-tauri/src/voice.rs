@@ -118,7 +118,7 @@ pub struct VoiceLoop {
 
 enum Input {
     Ptt(PttEvent, Option<Instant>),
-    Text(String, Option<mm_platform::TargetWindow>),
+    Text(String, Option<mm_platform::TargetWindow>, Option<u64>),
     Line(&'static str),
 }
 
@@ -131,9 +131,21 @@ struct TextQuestions {
 pub(crate) fn ask_text(app: &AppHandle, text: String) -> bool {
     if let Some(questions) = app.try_state::<TextQuestions>() {
         let target = remembered_target(app);
-        return questions.sender.send(Input::Text(text, target)).is_ok();
+        return questions
+            .sender
+            .send(Input::Text(text, target, None))
+            .is_ok();
     }
     false
+}
+
+pub(crate) fn ask_chat(app: &AppHandle, text: String, epoch: u64) -> bool {
+    app.try_state::<TextQuestions>().is_some_and(|questions| {
+        questions
+            .sender
+            .send(Input::Text(text, remembered_target(app), Some(epoch)))
+            .is_ok()
+    })
 }
 
 pub(crate) fn remembered_target(app: &AppHandle) -> Option<mm_platform::TargetWindow> {
@@ -319,6 +331,22 @@ impl Session {
     }
 }
 
+/// Refusals must stop both an ordinary answer and a detached lesson before feedback.
+async fn cancel_feedback(stream: &AnswerStream, current: &mut Option<Session>, lessons: &Lessons) {
+    if let Some(previous) = current.take() {
+        stream.send(AnswerMsg::Cancel {
+            generation: previous.generation,
+        });
+        previous.abort().await;
+    }
+    if let Some(lesson) = live_lesson(lessons) {
+        stream.send(AnswerMsg::Cancel {
+            generation: lesson.generation,
+        });
+        lesson.abort.abort();
+    }
+}
+
 async fn run(
     app: AppHandle,
     proxy: Proxy,
@@ -354,6 +382,13 @@ async fn run(
             Input::Ptt(PttEvent::Start { .. }, pressed_at) => *pressed_at,
             _ => None,
         };
+        // Clear also invalidates questions still waiting in the queue. Bind accepted
+        // requests under the history lock before any state, refusal or answer is sent.
+        if let Input::Text(_, _, Some(epoch)) = &event
+            && !crate::chat::start_request(&app, *epoch, next_generation + 1)
+        {
+            continue;
+        }
         // Signing in is required (signin.rs): a new question opens the sign-in window
         // instead; the key's release finds no recording and is dropped below.
         if matches!(
@@ -363,6 +398,8 @@ async fn run(
         {
             next_generation += 1;
             recording = None;
+            cancel_feedback(&stream, &mut current, &lessons).await;
+            stop_pointing(&app);
             crate::presence::wake(&app, false);
             stream.send(AnswerMsg::Line {
                 generation: next_generation,
@@ -397,7 +434,7 @@ async fn run(
                 });
                 continue;
             }
-            Input::Text(text, target) => {
+            Input::Text(text, target, _) => {
                 // Home's Try and the tray's questions: a question wakes Mate like a press.
                 crate::presence::wake(&app, false);
                 next_generation += 1;
@@ -1204,6 +1241,40 @@ fn load_built_phrases(phrases: &Phrases) {
 #[cfg(test)]
 mod tests {
     use super::is_overlay;
+
+    #[tokio::test]
+    async fn refusal_cancels_answer_and_detached_lesson() {
+        use super::*;
+        let stream = AnswerStream::default();
+        let transcript = tokio::spawn(std::future::pending::<Result<Transcript, ProxyError>>());
+        let transcript_abort = transcript.abort_handle();
+        let answer = tokio::spawn(std::future::pending::<()>());
+        let answer_abort = answer.abort_handle();
+        let mut current = Some(Session {
+            pressed_at: None,
+            generation: 2,
+            microphone: None,
+            transcript: None,
+            transcript_abort: transcript_abort.clone(),
+            answer: Some(answer),
+        });
+        let task = tokio::spawn(std::future::pending::<()>());
+        let (words, _receiver) = mpsc::unbounded_channel();
+        let lessons = Arc::new(Mutex::new(Some(Lesson {
+            generation: 1,
+            words,
+            abort: task.abort_handle(),
+            speech_epoch: Arc::default(),
+        })));
+        cancel_feedback(&stream, &mut current, &lessons).await;
+        assert!(current.is_none());
+        assert!(matches!(transcript.await, Err(error) if error.is_cancelled()));
+        assert!(answer_abort.is_finished());
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert!(stream.is_cancelled(1));
+        assert!(stream.is_cancelled(2));
+        assert!(!stream.is_cancelled(3));
+    }
 
     #[test]
     fn only_overlays_are_hidden_during_a_look() {

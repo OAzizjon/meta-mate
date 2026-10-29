@@ -238,7 +238,16 @@ impl AnswerStream {
             .lock()
             .ok()
             .and_then(|inner| inner.as_ref().map(|(_, locale)| locale.clone()))
-            .unwrap_or_else(|| "en".into());
+            .unwrap_or_else(|| {
+                #[cfg(windows)]
+                {
+                    mm_win32::locale::system_locale().into()
+                }
+                #[cfg(not(windows))]
+                {
+                    "en".into()
+                }
+            });
         crate::settings::language().resolve(&system).to_owned()
     }
 

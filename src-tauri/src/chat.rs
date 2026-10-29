@@ -1,4 +1,5 @@
 //! Session chat mirrored from the answer stream; history stays in the app data folder.
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -13,6 +14,8 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, ipc::Channel};
 use crate::answer_stream::AnswerMsg;
 
 const LIMIT: usize = 200;
+// JSON can escape each text byte as six ASCII bytes; include metadata overhead.
+const HISTORY_MAX_BYTES: usize = LIMIT * (MATE_TEXT_MAX_BYTES * 6 + 256);
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,13 +42,31 @@ struct History {
     subscriber: Option<Channel<Vec<Message>>>,
     cancelled: Option<u64>,
     latest: Option<u64>,
+    epoch: u64,
 }
 
 #[derive(Default)]
 pub struct Chat(Mutex<History>);
 
 impl History {
+    fn clear(&mut self) {
+        self.messages.clear();
+        self.cancelled = self.latest;
+        self.epoch += 1;
+    }
+
+    fn start_request(&mut self, epoch: u64, generation: u64) -> bool {
+        if epoch != self.epoch {
+            return false;
+        }
+        self.latest = Some(self.latest.map_or(generation, |old| old.max(generation)));
+        true
+    }
+
     fn push(&mut self, role: Role, text: String, generation: Option<u64>) {
+        if !valid_text(role, &text) {
+            return;
+        }
         self.messages.push(Message {
             role,
             text,
@@ -126,6 +147,40 @@ impl History {
     }
 }
 
+fn valid_text(role: Role, text: &str) -> bool {
+    !text.trim().is_empty()
+        && match role {
+            Role::Person => text.chars().count() <= 1000,
+            Role::Mate => text.len() <= MATE_TEXT_MAX_BYTES,
+        }
+}
+
+fn load_history(reader: impl Read) -> Vec<Message> {
+    let mut raw = Vec::new();
+    if reader
+        .take((HISTORY_MAX_BYTES + 1) as u64)
+        .read_to_end(&mut raw)
+        .is_err()
+        || raw.len() > HISTORY_MAX_BYTES
+    {
+        return Vec::new();
+    }
+    let mut messages = serde_json::from_slice::<Vec<Message>>(&raw).unwrap_or_default();
+    messages.retain(|message| valid_text(message.role, &message.text));
+    let excess = messages.len().saturating_sub(LIMIT);
+    messages.drain(..excess);
+    messages
+}
+
+/// Bind a queued chat question before the voice loop emits any of its feedback.
+pub(crate) fn start_request(app: &AppHandle, epoch: u64, generation: u64) -> bool {
+    app.state::<Chat>()
+        .0
+        .lock()
+        .unwrap()
+        .start_request(epoch, generation)
+}
+
 pub fn init(app: &AppHandle) {
     let chat = app.state::<Chat>();
     let mut history = chat.0.lock().unwrap();
@@ -137,11 +192,9 @@ pub fn init(app: &AppHandle) {
     history.messages = history
         .path
         .as_ref()
-        .and_then(|path| std::fs::read(path).ok())
-        .and_then(|raw| serde_json::from_slice::<Vec<Message>>(&raw).ok())
+        .and_then(|path| std::fs::File::open(path).ok())
+        .map(load_history)
         .unwrap_or_default();
-    let excess = history.messages.len().saturating_sub(LIMIT);
-    history.messages.drain(..excess);
 }
 
 pub fn record(app: &AppHandle, message: &AnswerMsg, locale: &str) {
@@ -215,17 +268,21 @@ fn question(text: &str) -> Result<String, String> {
 #[tauri::command]
 pub async fn chat_send(app: AppHandle, text: String) -> Result<(), String> {
     let text = question(&text)?;
-    {
+    let epoch = {
         let chat = app.state::<Chat>();
         let mut history = chat.0.lock().unwrap();
         history.push(Role::Person, text.clone(), None);
         // Keep the session usable if the disk is unavailable.
         let _ = history.publish();
-    }
+        history.epoch
+    };
     #[cfg(windows)]
-    if !crate::voice::ask_text(&app, text) {
+    if !crate::voice::ask_chat(&app, text, epoch) {
         let chat = app.state::<Chat>();
         let mut history = chat.0.lock().unwrap();
+        if history.epoch != epoch {
+            return Ok(());
+        }
         let locale = app.state::<crate::answer_stream::AnswerStream>().locale();
         let key = if crate::signin::missing(&app) {
             crate::signin::refusal_line(&app)
@@ -241,15 +298,86 @@ pub async fn chat_send(app: AppHandle, text: String) -> Result<(), String> {
 #[tauri::command]
 pub fn chat_clear(chat: tauri::State<'_, Chat>) -> Result<(), String> {
     let mut history = chat.0.lock().unwrap();
-    history.messages.clear();
     // Late sentences from the answer being cleared must not recreate its bubbles.
-    history.cancelled = history.latest;
+    history.clear();
     history.publish()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clear_invalidates_queued_and_started_requests() {
+        let mut history = History::default();
+        let queued_epoch = history.epoch;
+        history.push(Role::Person, "queued".into(), None);
+        history.clear();
+        assert!(!history.start_request(queued_epoch, 1));
+        assert!(history.messages.is_empty());
+
+        assert!(history.start_request(history.epoch, 2));
+        history.clear();
+        assert!(!history.answer(
+            &AnswerMsg::Line {
+                generation: 2,
+                key: "robot.network_error",
+            },
+            "en"
+        ));
+        assert!(history.messages.is_empty());
+        assert!(history.start_request(history.epoch, 3));
+        assert!(history.answer(
+            &AnswerMsg::Line {
+                generation: 3,
+                key: "robot.network_error",
+            },
+            "en"
+        ));
+    }
+
+    #[test]
+    fn history_read_and_message_sizes_are_bounded() {
+        // An infinite reader demonstrates that the read itself stops at the cap.
+        assert!(load_history(std::io::repeat(b' ')).is_empty());
+        let messages = vec![
+            Message {
+                role: Role::Mate,
+                text: "x".repeat(MATE_TEXT_MAX_BYTES + 1),
+                timestamp: 0,
+                generation: None,
+            },
+            Message {
+                role: Role::Person,
+                text: "x".repeat(1001),
+                timestamp: 0,
+                generation: None,
+            },
+            Message {
+                role: Role::Mate,
+                text: "kept".into(),
+                timestamp: 0,
+                generation: None,
+            },
+        ];
+        let raw = serde_json::to_vec(&messages).unwrap();
+        let loaded = load_history(raw.as_slice());
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].text, "kept");
+        let mut history = History::default();
+        history.answer(
+            &AnswerMsg::Item {
+                generation: 1,
+                item: Item::Say(mm_core::matescript::Say {
+                    id: 1,
+                    text: "x".repeat(MATE_TEXT_MAX_BYTES + 1),
+                    bound: vec![],
+                }),
+            },
+            "en",
+        );
+        assert!(history.messages.is_empty());
+    }
 
     #[test]
     fn questions_are_nonempty_and_limited_in_unicode_characters() {

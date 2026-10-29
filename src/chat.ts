@@ -1,6 +1,6 @@
 // Chat is a normal, deliberately opened window. DOM focus never activates its HWND.
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { getLocale, initI18n, t } from "./i18n/index.ts";
+import { getLocale, t } from "./i18n/index.ts";
 import { canSend, parseHistory, sendsOnKey } from "./chat/model.ts";
 import { followSettingsLocale } from "./i18n/settings.ts";
 import type { Message } from "./chat/model.ts";
@@ -123,8 +123,7 @@ async function start(): Promise<void> {
   const channel = new Channel<unknown>();
   channel.onmessage = render;
   // The channel sends its snapshot under the history lock, before any later updates.
-  const locale = await invoke<string>("chat_subscribe", { channel });
-  initI18n({ locale });
+  await invoke("chat_subscribe", { channel });
   localize();
   const current = messages;
   messages = [];
