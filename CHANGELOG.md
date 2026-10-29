@@ -10,6 +10,13 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- Guest trial: up to 12 messages an hour per device without signing in; Mate and the sign-in window show what is left (`/auth/guest`).
+- Click Mate to talk: one click starts listening, another click asks.
+- Language choice in Settings: Automatic (as in Windows), English or Русский.
+- A chat window for typed messages with history; Mate still speaks and points on screen.
+- Home, Settings, sign-in, card and chat windows work from 360 px wide.
+- Mate says when the microphone cannot be opened or heard nothing.
+- Home's "bigger text" question opens Windows Display settings first.
 - Sign-in is required: the sign-in window appears at startup and when a question is asked; the proxy can enforce it with `PROXY_REQUIRE_SIGN_IN`.
 - The talk key is a setting: Right Ctrl, Right Alt, Caps Lock, Insert, F9 or F10, for laptops without Right Ctrl.
 - Quit MetaMate from the Home window; right-click Mate for Home, Settings, Hide for 1 hour and Quit.
@@ -78,6 +85,8 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Changed
 
+- Privacy round 7: Telegram windows with an empty UI Automation tree ask for consent on each look; login and email codes are always painted.
+- Idle audio and animations sleep to save CPU; screenshot downscaling and redaction are faster.
 - Privacy round 6: inputs beside private labels are painted unless their name shows a non-secret purpose; long pages are checked for them before truncation clears; article images no longer ask for consent.
 - Privacy round 5: consent never waives painting an unnamed edit beside a password label; short Edge articles no longer ask for consent.
 - First-minute guidance for older users: keycaps show the printed key and where to find it, instructions say to press and hold, and Settings cards and the voice-speed slider are clearer.
