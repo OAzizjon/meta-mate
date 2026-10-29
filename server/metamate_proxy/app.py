@@ -111,6 +111,11 @@ class Settings:
             raise ValueError('PROXY_PUBLIC_URL must be https (http only on 127.0.0.1)')
         judges = frozenset(item.strip().lower() for item in env.get('PROXY_JUDGE_EMAILS', '').split(',')
                            if '@' in item)
+        # Signing in required (owner, 2026-10-29): no invite code is accepted, only sessions.
+        if env.get('PROXY_REQUIRE_SIGN_IN', '').strip() == '1':
+            if not session_secret or not oauth:
+                raise ValueError('PROXY_REQUIRE_SIGN_IN needs PROXY_SESSION_SECRET and an OAuth client')
+            invites = {}
         return Settings(key, base, invites, budget, prices, tts_url, tts_secret, glimmer_url, oauth,
                         session_secret, public_url, judges, env.get('PROXY_LEDGER_PATH') or '',
                         env.get('PROXY_SITE_DIR') or '')

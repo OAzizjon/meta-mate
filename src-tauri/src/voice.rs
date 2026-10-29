@@ -141,7 +141,7 @@ pub(crate) fn ask_text(app: &AppHandle, text: String) {
 /// (logged).
 pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     let (base, invite) = proxy_config()?;
-    let proxy = Proxy::new(&base, &invite)
+    let proxy = Proxy::new(&base, &crate::signin::invite_for_proxy(invite))
         .map_err(|error| eprintln!("voice: {error}"))
         .ok()?;
     let (events, receiver) = mpsc::unbounded_channel();
@@ -331,6 +331,27 @@ async fn run(
             Input::Ptt(PttEvent::Start { .. }, pressed_at) => *pressed_at,
             _ => None,
         };
+        // Signing in is required (signin.rs): a new question opens the sign-in window
+        // instead; the key's release finds no recording and is dropped below.
+        if matches!(
+            event,
+            Input::Text(..) | Input::Ptt(PttEvent::Start { .. }, _)
+        ) && crate::signin::missing(&app)
+        {
+            next_generation += 1;
+            recording = None;
+            crate::presence::wake(&app, false);
+            stream.send(AnswerMsg::Line {
+                generation: next_generation,
+                key: "robot.sign_in_first",
+            });
+            stream.send(AnswerMsg::State {
+                generation: next_generation,
+                state: "idle",
+            });
+            crate::signin::open_later(&app);
+            continue;
+        }
         let (event, text) = match event {
             Input::Text(text, target) => {
                 next_generation += 1;

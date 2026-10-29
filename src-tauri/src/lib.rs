@@ -40,6 +40,7 @@ mod screen;
 #[cfg(windows)]
 mod selftest;
 mod settings;
+mod signin;
 #[cfg(windows)]
 mod teacher;
 #[cfg(windows)]
@@ -171,6 +172,9 @@ pub fn run() {
             }
             {
                 use tauri::Manager;
+                // Signing in is required: before Mate answers, the sign-in window opens
+                // (after Home, so it is the one on top).
+                let sign_in = signin::required() && !app.state::<auth::Auth>().signed_in();
                 if app
                     .state::<settings::SettingsStore>()
                     .get()
@@ -181,7 +185,12 @@ pub fn run() {
                         if let Err(error) = home::open(&app) {
                             eprintln!("home: window: {error}");
                         }
+                        if sign_in && let Err(error) = signin::open(&app) {
+                            eprintln!("signin: window: {error}");
+                        }
                     });
+                } else if sign_in {
+                    signin::open_later(app.handle());
                 }
             }
             #[cfg(not(windows))]

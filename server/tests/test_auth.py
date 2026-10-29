@@ -209,6 +209,12 @@ class FlowTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             Settings.from_env(dict(AUTH_ENV, PROXY_PUBLIC_URL='http://example.com'))
 
+    def test_required_sign_in_refuses_invite_codes(self):
+        self.assertTrue(Settings.from_env(AUTH_ENV).invites)
+        self.assertEqual(Settings.from_env(dict(AUTH_ENV, PROXY_REQUIRE_SIGN_IN='1')).invites, {})
+        with self.assertRaises(ValueError):
+            Settings.from_env(dict(ENV, PROXY_REQUIRE_SIGN_IN='1'))
+
 
 if __name__ == '__main__':
     unittest.main()

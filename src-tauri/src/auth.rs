@@ -74,6 +74,11 @@ impl Auth {
         status_of(session.as_ref())
     }
 
+    /// Whether a session is kept (signin.rs: Mate answers only then when required).
+    pub(crate) fn signed_in(&self) -> bool {
+        self.session.lock().is_ok_and(|session| session.is_some())
+    }
+
     fn is_latest(&self, attempt: u64) -> bool {
         self.attempts.load(Ordering::Acquire) == attempt
     }
@@ -133,6 +138,7 @@ pub async fn sign_in(app: AppHandle, provider: String) -> Result<AuthStatus, Str
     let status = status_of(Some(&session));
     *current = Some(session);
     let _ = app.emit(CHANGED_EVENT, status.clone());
+    crate::signin::close(&app);
     Ok(status)
 }
 
@@ -158,6 +164,10 @@ pub fn sign_out(app: AppHandle, auth: State<'_, Auth>) {
             }
         }
         let _ = app.emit(CHANGED_EVENT, status_of(None));
+    }
+    // Signing in is required: the way back in opens at once.
+    if crate::signin::required() {
+        crate::signin::open_later(&app);
     }
 }
 

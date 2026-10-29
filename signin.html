@@ -1,0 +1,205 @@
+<!doctype html>
+<!-- Sign-in window (src-tauri/src/signin.rs, src/signin.ts): signing in is required before
+     Mate answers. Mate, one sentence, two big buttons (Google, GitHub) and what happens next.
+     The Home window's palette and buttons, copied by hand (keep them in step). Sized for the
+     560x600 window. Supports dark mode, Windows contrast themes and reduced motion. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title></title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fffdf7;
+        --panel-bg: #ffffff;
+        --panel-border: #d0d8e5;
+        --text: #1f2a44;
+        --text-muted: #475569;
+        --accent: #1d4ed8;
+        --accent-soft: #eff6ff;
+        --hero-bg: linear-gradient(135deg, #fff1c9 0%, #fffaf0 60%, #fffdf7 100%);
+        --hero-border: #f0d68a;
+        --glow: rgba(255, 200, 40, 0.38);
+        --error: #b91c1c;
+        --btn-bg: #f1f5f9;
+        --btn-border: #64748b;
+        --btn-text: #1f2a44;
+        --btn-hover: #e2e8f0;
+        --radius: 16px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #131722;
+          --panel-bg: #1c2230;
+          --panel-border: #2e384d;
+          --text: #f1f5f9;
+          --text-muted: #cbd5e1;
+          --accent: #ffd23f;
+          --accent-soft: #252f42;
+          --hero-bg: linear-gradient(135deg, #2e2814 0%, #1f2230 65%, #1c2230 100%);
+          --hero-border: #5a4d22;
+          --glow: rgba(255, 210, 63, 0.22);
+          --error: #fca5a5;
+          --btn-bg: #22293a;
+          --btn-border: #7b8aa0;
+          --btn-text: #f1f5f9;
+          --btn-hover: #2d374d;
+        }
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font: 19px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+
+      #signin-app {
+        max-width: 560px;
+        margin: 0 auto;
+        padding: 24px 20px 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .signin-hero {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 20px;
+        border: 2px solid var(--hero-border);
+        border-radius: var(--radius);
+        background: var(--hero-bg);
+      }
+
+      .signin-mate {
+        flex: 0 0 auto;
+        width: 120px;
+        height: 112px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: radial-gradient(circle at 50% 45%, var(--glow) 0%, transparent 68%);
+      }
+
+      .signin-title {
+        margin: 0 0 6px;
+        font-size: 30px;
+        line-height: 1.2;
+      }
+
+      .signin-intro {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .signin-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .signin-btn {
+        min-height: 64px;
+        padding: 12px 24px;
+        font: inherit;
+        font-size: 22px;
+        font-weight: 700;
+        border-radius: 14px;
+        border: 2px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: var(--btn-text);
+        cursor: pointer;
+        transition: background-color 140ms ease-out;
+      }
+
+      .signin-btn:hover:not(:disabled) {
+        background: var(--btn-hover);
+      }
+
+      /* A press darkens the button but never shrinks it: a shaking hand stays on target. */
+      .signin-btn:active:not(:disabled) {
+        filter: brightness(0.9);
+      }
+
+      .signin-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .signin-btn.is-waiting {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        opacity: 1;
+        cursor: progress;
+      }
+
+      .signin-btn:focus-visible {
+        outline: 4px solid var(--accent);
+        outline-offset: 3px;
+      }
+
+      .signin-browser {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: 18px;
+      }
+
+      .signin-status {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .signin-status:empty {
+        display: none;
+      }
+
+      .signin-status.is-error {
+        color: var(--error);
+      }
+
+      @media (forced-colors: active) {
+        .signin-hero,
+        .signin-btn {
+          border-color: CanvasText;
+          background: Canvas;
+        }
+
+        .signin-btn.is-waiting,
+        .signin-btn:focus-visible {
+          border-color: Highlight;
+          outline-color: Highlight;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .signin-btn {
+          transition: none;
+        }
+      }
+
+      @media (max-width: 460px) {
+        .signin-hero {
+          flex-direction: column;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="signin-app"></main>
+    <script type="module" src="/src/signin.ts"></script>
+  </body>
+</html>

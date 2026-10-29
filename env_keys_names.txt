@@ -35,6 +35,8 @@ GITHUB_CLIENT_ID
 GITHUB_CLIENT_SECRET
 PROXY_SESSION_SECRET
 PROXY_JUDGE_EMAILS
+# 1 = only signed-in sessions, no invite codes (owner, 2026-10-29)
+PROXY_REQUIRE_SIGN_IN
 # Muse Glimmer on Modal (D53): the endpoint the proxy forwards to
 GLIMMER_URL
 # Deploy time only: 1 keeps one Glimmer container warm (demo and judging days)
@@ -63,3 +65,5 @@ METAMATE_INVITE
 HF_HUB_OFFLINE
 # Drafting team only (never the app or the proxy): DeepSeek API for occasional creative second opinions
 DEEP_SEEK
+# Development builds: 1 = require signing in like the installed app (src-tauri/src/signin.rs)
+MM_REQUIRE_SIGN_IN
