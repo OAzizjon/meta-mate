@@ -14,6 +14,7 @@
 mod answer_stream;
 mod auth;
 mod card;
+mod chat;
 #[cfg(debug_assertions)]
 mod debug_view;
 #[cfg(windows)]
@@ -81,6 +82,7 @@ pub fn run() {
 
     let result = tauri::Builder::default()
         .manage(answer_stream::AnswerStream::default())
+        .manage(chat::Chat::default())
         .manage(pointing::Pointing::default())
         .manage(auth::Auth::default())
         .manage(presence::Presence::default())
@@ -94,6 +96,10 @@ pub fn run() {
             settings::save_settings,
             home::open_home,
             home::home_try,
+            chat::open_chat,
+            chat::chat_send,
+            chat::chat_subscribe,
+            chat::chat_clear,
             presence::quit_app,
             presence::hide_mate,
             presence::mate_menu_size,
@@ -108,6 +114,9 @@ pub fn run() {
             {
                 use tauri::Manager;
                 app.manage(settings::SettingsStore::new(settings::load(app.handle())));
+                chat::init(app.handle());
+                app.state::<answer_stream::AnswerStream>()
+                    .attach_chat(app.handle().clone());
             }
             #[cfg(windows)]
             let before = mm_win32::focus::foreground();
@@ -209,6 +218,7 @@ pub fn run() {
 
 /// Tray menu ids.
 const MENU_HOME: &str = "tray.open_home";
+const MENU_CHAT: &str = "tray.chat";
 const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
 const MENU_HIDE: &str = "hide_hour";
@@ -243,6 +253,13 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     use tauri::tray::TrayIconBuilder;
 
     let locale = app.state::<answer_stream::AnswerStream>().locale();
+    let chat_item = MenuItem::with_id(
+        app,
+        MENU_CHAT,
+        locale_text(&locale, MENU_CHAT),
+        true,
+        None::<&str>,
+    )?;
     let home_item = MenuItem::with_id(
         app,
         MENU_HOME,
@@ -294,6 +311,7 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let menu = Menu::with_items(
         app,
         &[
+            &chat_item,
             &home_item,
             &try_menu,
             &settings_item,
@@ -316,6 +334,7 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     let _tray = builder.build(app)?;
     app.manage(TrayLabels {
         items: vec![
+            (chat_item, MENU_CHAT),
             (home_item, MENU_HOME),
             (settings_item, "tray.settings"),
             (hide_item, "tray.hide_hour"),
@@ -371,6 +390,14 @@ pub(crate) fn refresh_tray_tooltip(app: &tauri::AppHandle) {
 fn handle_menu(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
     use tauri::Manager;
     match event.id.as_ref() {
+        MENU_CHAT => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                if chat::open(&app).is_err() {
+                    eprintln!("chat: could not open window");
+                }
+            });
+        }
         MENU_HOME => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {

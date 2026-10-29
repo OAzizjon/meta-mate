@@ -395,6 +395,13 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   startOption.append(startInput, startText);
 
   const actions = el("div", "home-actions");
+  const chatBtn = el("button", "btn btn-primary", t("home.write"));
+  chatBtn.type = "button";
+  chatBtn.id = "home-chat-btn";
+  chatBtn.disabled = !invoke;
+  chatBtn.addEventListener("click", () => {
+    void invoke?.("open_chat").catch(() => console.error("home: could not open chat"));
+  });
   const settingsBtn = el("button", "btn btn-secondary", t("tray.settings"));
   settingsBtn.type = "button";
   settingsBtn.id = "home-settings-btn";
@@ -420,7 +427,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
       console.error("[home] could not quit:", error);
     });
   });
-  actions.append(quitBtn, settingsBtn, closeBtn);
+  actions.append(chatBtn, quitBtn, settingsBtn, closeBtn);
   footer.append(startOption, actions);
 
   container.replaceChildren(content, footer);

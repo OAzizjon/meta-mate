@@ -66,6 +66,7 @@ pub enum AnswerMsg {
 #[derive(Default)]
 pub struct AnswerStream {
     inner: Mutex<Option<(Channel<AnswerMsg>, String)>>,
+    chat: Mutex<Option<tauri::AppHandle>>,
     /// The newest cancelled generation: a dying task's late message for it, or an older
     /// one, never reaches the window after its `Cancel`.
     cancelled: Mutex<Option<u64>>,
@@ -144,6 +145,10 @@ mod model_tests {
 }
 
 impl AnswerStream {
+    pub fn attach_chat(&self, app: tauri::AppHandle) {
+        *self.chat.lock().unwrap() = Some(app);
+    }
+
     /// Whether `generation` was cancelled (a newer press): its work must not touch the
     /// screen any more.
     pub fn is_cancelled(&self, generation: u64) -> bool {
@@ -212,6 +217,9 @@ impl AnswerStream {
         #[cfg(debug_assertions)]
         if let Some(app) = self.debug.lock().ok().and_then(|debug| debug.clone()) {
             crate::debug_view::answer(&app, &message);
+        }
+        if let Some(app) = self.chat.lock().ok().and_then(|chat| chat.clone()) {
+            crate::chat::record(&app, &message, &self.locale());
         }
         let channel = self
             .inner

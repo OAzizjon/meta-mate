@@ -21,6 +21,7 @@ export default defineConfig({
         settings: "settings.html",
         card: "card.html",
         home: "home.html",
+        chat: "chat.html",
         signin: "signin.html",
       },
     },

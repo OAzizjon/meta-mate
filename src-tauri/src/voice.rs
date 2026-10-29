@@ -128,11 +128,12 @@ struct TextQuestions {
 }
 
 /// Queues a text question on the voice loop, with the same barge-in as a new press.
-pub(crate) fn ask_text(app: &AppHandle, text: String) {
+pub(crate) fn ask_text(app: &AppHandle, text: String) -> bool {
     if let Some(questions) = app.try_state::<TextQuestions>() {
         let target = remembered_target(app);
-        let _ = questions.sender.send(Input::Text(text, target));
+        return questions.sender.send(Input::Text(text, target)).is_ok();
     }
+    false
 }
 
 pub(crate) fn remembered_target(app: &AppHandle) -> Option<mm_platform::TargetWindow> {
@@ -709,7 +710,13 @@ async fn answer(
         stop_pointing(&app);
     }
     let locale = stream.locale();
-    if tray_target == Some(None) {
+    let intent = guess_intent(&question);
+    if tray_target == Some(None)
+        && matches!(
+            intent,
+            Intent::How | Intent::Do | Intent::Where | Intent::Safety
+        )
+    {
         say_line(
             &stream,
             &phrases,
@@ -741,7 +748,6 @@ async fn answer(
     );
     #[cfg(not(debug_assertions))]
     let _ = key_up;
-    let intent = guess_intent(&question);
     if matches!(intent, Intent::How | Intent::Do) {
         // Several steps: the teacher, with the person as the hand (D48).
         let own = own_windows(&app);

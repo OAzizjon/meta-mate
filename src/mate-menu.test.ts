@@ -4,7 +4,7 @@ import { guestUsageOf, hideReturnTime, MATE_MENU_ITEMS } from "./mate-menu.ts";
 
 test("menu dispatches existing commands with separators around temporary hide", () => {
   assert.deepEqual(MATE_MENU_ITEMS.map((item) => item?.command ?? null), [
-    "open_home", "open_settings_window", null, "hide_mate", null, "quit_app",
+    "open_chat", "open_home", "open_settings_window", null, "hide_mate", null, "quit_app",
   ]);
 });
 

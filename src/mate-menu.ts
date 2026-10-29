@@ -2,6 +2,7 @@
 import type { LocaleKey } from "./i18n/index.ts";
 
 export const MATE_MENU_ITEMS = [
+  { key: "tray.chat", command: "open_chat" },
   { key: "mate.menu_home", command: "open_home" },
   { key: "tray.settings", command: "open_settings_window" },
   null,
