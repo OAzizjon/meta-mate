@@ -9,6 +9,8 @@
 
 .mate-svg {
   display: block;
+  cursor: grab;
+  touch-action: none;
 }
 
 /* The beam's own layer covers the page; its user units are client CSS pixels. */

@@ -471,9 +471,8 @@ pub fn stop_pointing(app: &AppHandle) {
         pointing.take();
     }
     let _ = crate::highlight::clear(app);
-    let home = crate::overlay::home(&mm_win32::monitors::monitors());
-    if let (Some(flight), Some(home)) = (app.try_state::<Flight>(), home) {
-        flight.land(home);
+    if let Some(flight) = app.try_state::<Flight>() {
+        flight.land(flight.home());
     }
 }
 

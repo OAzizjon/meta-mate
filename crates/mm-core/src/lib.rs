@@ -3,6 +3,7 @@
 
 pub mod api;
 pub mod constants;
+pub mod drag;
 pub mod flight;
 pub mod geom;
 pub mod matescript;

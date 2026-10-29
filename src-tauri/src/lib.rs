@@ -17,6 +17,8 @@ mod card;
 #[cfg(debug_assertions)]
 mod debug_view;
 #[cfg(windows)]
+mod drag;
+#[cfg(windows)]
 mod flight;
 #[cfg(windows)]
 mod highlight;
@@ -83,6 +85,7 @@ pub fn run() {
             answer_stream::subscribe_answer_stream,
             answer_stream::report_playback,
             pointing::point_at,
+            drag::mate_drag_start,
             settings::load_settings,
             settings::save_settings,
             home::open_home,
@@ -134,7 +137,7 @@ pub fn run() {
                 // Mate flies beside a target (pointing.rs); each monitor's highlight window
                 // is shown once, empty: transparent, click-through, never activated
                 // (invariant 1).
-                let home = overlay::home(&mm_win32::monitors::monitors());
+                let home = overlay::starting_home(app.handle(), &mm_win32::monitors::monitors());
                 if let (Ok(mate), Some(home)) = (overlays.mate.hwnd(), home) {
                     app.manage(flight::Flight::new(mate, home));
                 }

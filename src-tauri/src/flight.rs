@@ -39,6 +39,8 @@ struct Shared {
 /// window or a thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Schedule {
+    home: PhysRect,
+    dragging: bool,
     /// The last rectangle placed (`start` before the first frame).
     position: PhysRect,
     /// The newest request the worker has not taken yet: it replaces an older one and ends
@@ -53,6 +55,8 @@ struct Schedule {
 impl Schedule {
     fn new(position: PhysRect) -> Self {
         Self {
+            home: position,
+            dragging: false,
             position,
             pending: None,
             flying: false,
@@ -71,6 +75,9 @@ impl Schedule {
     /// The worker takes the newest request: from where Mate is now (the last frame
     /// placed, even mid-flight) to it.
     fn take(&mut self) -> Option<(PhysRect, PhysRect)> {
+        if self.dragging {
+            return None;
+        }
         let to = self.pending.take();
         self.flying = to.is_some();
         to.map(|to| (self.position, to))
@@ -89,11 +96,44 @@ impl Schedule {
 
     #[allow(dead_code)] // used by wait_idle
     fn idle(&self) -> bool {
-        self.pending.is_none() && !self.flying
+        self.pending.is_none() && !self.flying && !self.dragging
     }
 }
 
 impl Flight {
+    /// Claims the idle window before the first drag frame. Pending flights count as busy.
+    pub fn begin_drag(&self) -> Option<PhysRect> {
+        let mut schedule = lock(&self.shared.schedule);
+        if schedule.closed || schedule.dragging || !schedule.idle() {
+            return None;
+        }
+        schedule.dragging = true;
+        Some(schedule.position)
+    }
+
+    pub fn drag_allowed(&self) -> bool {
+        let schedule = lock(&self.shared.schedule);
+        schedule.dragging && schedule.pending.is_none() && !schedule.closed
+    }
+
+    /// Called only after a successful no-activate placement.
+    pub fn dragged(&self, rect: PhysRect) {
+        lock(&self.shared.schedule).position = rect;
+    }
+
+    pub fn end_drag(&self) {
+        lock(&self.shared.schedule).dragging = false;
+        self.shared.wake.notify_one();
+    }
+
+    pub fn set_home(&self, home: PhysRect) {
+        lock(&self.shared.schedule).home = home;
+    }
+
+    pub fn home(&self) -> PhysRect {
+        lock(&self.shared.schedule).home
+    }
+
     /// Flies `mate` (Mate's window, now at `start`) from a worker thread that lives as long
     /// as the app.
     pub fn new(mate: HWND, start: PhysRect) -> Self {
@@ -336,6 +376,48 @@ mod tests {
         schedule.request(rect(100, 100, 320, 320));
         assert_eq!(schedule.take(), Some((home(), rect(100, 100, 320, 320))));
         assert_eq!(schedule.take(), None);
+    }
+
+    #[test]
+    fn dragging_reserves_the_idle_window_and_a_flight_waits_for_release() {
+        let (flight, placed) = recorded(home());
+        assert_eq!(flight.begin_drag(), Some(home()));
+        assert_eq!(flight.begin_drag(), None);
+        assert!(!flight.wait_idle(Duration::ZERO));
+        let moved = rect(100, 100, 320, 320);
+        flight.dragged(moved);
+        flight.set_home(moved);
+        assert_eq!(flight.home(), moved);
+        flight.fly_to(beside());
+        assert!(!flight.drag_allowed());
+        // Taking a pending request must not let the flight worker enter SetWindowPos.
+        assert_eq!(lock(&flight.shared.schedule).take(), None);
+        assert_eq!(flight.position(), moved);
+        assert!(placed.try_recv().is_err());
+        flight.end_drag();
+        assert!(flight.wait_idle(WAIT));
+        assert_eq!(flight.position(), beside());
+        assert_eq!(flight.home(), moved);
+    }
+
+    #[test]
+    fn pending_or_active_flights_cannot_be_dragged() {
+        // No worker: inspect both scheduling states without racing its next_job.
+        let flight = Flight {
+            shared: Arc::new(Shared {
+                schedule: Mutex::new(Schedule::new(home())),
+                wake: Condvar::new(),
+                idle: Condvar::new(),
+            }),
+        };
+        let mut schedule = lock(&flight.shared.schedule);
+        schedule.request(beside());
+        drop(schedule);
+        assert_eq!(flight.begin_drag(), None);
+        let mut schedule = lock(&flight.shared.schedule);
+        assert!(schedule.take().is_some());
+        drop(schedule);
+        assert_eq!(flight.begin_drag(), None);
     }
 
     #[test]

@@ -10,10 +10,13 @@ use std::thread::JoinHandle;
 use std::time::Instant;
 
 use mm_core::geom::PhysPoint;
+use windows::Win32::Foundation::POINT;
 use windows::Win32::Foundation::{HINSTANCE, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
 use windows::Win32::UI::Input::KeyboardAndMouse::GetDoubleClickTime;
+use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
 use windows::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, GetMessageW, GetSystemMetrics, HHOOK, LLMHF_INJECTED, LLMHF_LOWER_IL_INJECTED,
     MSG, MSLLHOOKSTRUCT, PM_NOREMOVE, PeekMessageW, PostThreadMessageW, SM_CXDOUBLECLK,
@@ -27,6 +30,22 @@ pub enum Button {
     Left,
     Right,
     Middle,
+}
+
+/// Cursor and physical left-button state, independent of WebView pointer capture.
+pub fn drag_pointer() -> Option<(PhysPoint, bool)> {
+    let mut point = POINT::default();
+    // SAFETY: writable stack point and a constant virtual-key code; no input is changed.
+    unsafe {
+        GetCursorPos(&mut point).ok()?;
+        Some((
+            PhysPoint {
+                x: point.x,
+                y: point.y,
+            },
+            GetAsyncKeyState(i32::from(VK_LBUTTON.0)) < 0,
+        ))
+    }
 }
 
 /// One button transition, including software input (which never confirms a step).

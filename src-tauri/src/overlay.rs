@@ -34,7 +34,8 @@ pub fn create(app: &AppHandle) -> Result<Overlays, Box<dyn std::error::Error>> {
         overlay::prepare(mate_hwnd, OverlayKind::Robot)?;
         let monitors = mm_win32::monitors::monitors();
         // Never show Mate at an arbitrary place: no monitor, no Mate.
-        let area = home(&monitors).ok_or("no monitor to place Mate on")?;
+        let area = starting_home(app, &monitors).ok_or("no monitor to place Mate on")?;
+        overlay::place(mate_hwnd, area)?;
         overlay::place(mate_hwnd, area)?;
         let mut highlights = Vec::with_capacity(monitors.len());
         for (index, monitor) in monitors.into_iter().enumerate() {
@@ -88,6 +89,34 @@ fn builder<'a>(
 pub fn home(monitors: &[mm_win32::monitors::Monitor]) -> Option<mm_core::geom::PhysRect> {
     let monitor = monitors.iter().find(|m| m.primary).or(monitors.first())?;
     corner(monitor)
+}
+
+/// Restores a saved home only when its monitor is still connected, at its current DPI.
+#[cfg(windows)]
+pub fn starting_home(
+    app: &AppHandle,
+    monitors: &[mm_win32::monitors::Monitor],
+) -> Option<mm_core::geom::PhysRect> {
+    use tauri::Manager;
+    if let Some(saved) = app
+        .state::<crate::settings::SettingsStore>()
+        .get()
+        .mate_home
+    {
+        let point = mm_core::geom::PhysPoint {
+            x: saved.x,
+            y: saved.y,
+        };
+        for monitor in monitors {
+            let size = (MATE_SIZE * monitor.scale()).round() as i32;
+            if let Some(rect) =
+                mm_core::drag::restore(point, size, size, monitor.area, monitor.work_area)
+            {
+                return Some(rect);
+            }
+        }
+    }
+    home(monitors)
 }
 
 /// The bottom-right corner of `monitor`'s work area, 24 px in, Mate-sized.

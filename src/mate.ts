@@ -358,6 +358,13 @@ if (container) {
   setOnboardingTranslator((key) => t(key));
   mountOnboarding();
   const inTauri = "__TAURI_INTERNALS__" in window;
+  container.querySelector(".mate-svg")?.addEventListener("pointerdown", (event) => {
+    if (!(event instanceof PointerEvent) || event.button !== 0 || !inTauri) return;
+    event.preventDefault();
+    void tauriInvoke("mate_drag_start").catch((error: unknown) => {
+      console.error("mate: drag:", error);
+    });
+  });
   const motionQuery =
     typeof window.matchMedia === "function" ? window.matchMedia(REDUCED_MOTION_QUERY) : null;
   const settings = startMateSettings(

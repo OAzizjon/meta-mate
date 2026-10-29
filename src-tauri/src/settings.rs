@@ -73,6 +73,14 @@ pub enum RobotSize {
     XL,
 }
 
+/// Mate's resting top-left corner, in physical virtual-screen pixels. Rust owns it:
+/// saving preferences from an already open settings window must not reset the home.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MateHome {
+    pub x: i32,
+    pub y: i32,
+}
+
 /// The shape of `Settings` in src/settings/model.ts. Missing fields take their defaults,
 /// unknown fields are ignored.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -87,6 +95,8 @@ pub struct Settings {
     pub reduce_motion: bool,
     pub start_with_windows: bool,
     pub show_home_at_start: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mate_home: Option<MateHome>,
 }
 
 impl Default for Settings {
@@ -101,6 +111,7 @@ impl Default for Settings {
             reduce_motion: false,
             start_with_windows: false,
             show_home_at_start: true,
+            mate_home: None,
         }
     }
 }
@@ -162,9 +173,10 @@ pub fn save_settings(
     store: State<'_, SettingsStore>,
     settings: Settings,
 ) -> Result<(), String> {
-    let settings = settings.sanitized();
+    let mut settings = settings.sanitized();
     let saved = {
         let mut current = store.lock();
+        settings.mate_home = current.mate_home;
         *current = settings.clone();
         VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
         #[cfg(windows)]
@@ -187,6 +199,24 @@ pub fn save_settings(
 pub fn model(app: &AppHandle) -> Model {
     app.try_state::<SettingsStore>()
         .map_or(Model::Quick, |store| store.get().model)
+}
+
+/// Persists a drag release under the same lock as preference saves.
+#[cfg(windows)]
+pub fn save_mate_home(app: &AppHandle, rect: mm_core::geom::PhysRect) {
+    let store = app.state::<SettingsStore>();
+    let settings = {
+        let mut current = store.lock();
+        current.mate_home = Some(MateHome {
+            x: rect.left,
+            y: rect.top,
+        });
+        if let Err(error) = persist(app, &current) {
+            eprintln!("settings: could not save Mate's home: {error}");
+        }
+        current.clone()
+    };
+    let _ = app.emit(CHANGED_EVENT, settings);
 }
 
 /// The voice speed of the current settings (`DEFAULT_VOICE_SPEED` before the store exists).
@@ -260,6 +290,7 @@ mod tests {
             reduce_motion: true,
             start_with_windows: true,
             show_home_at_start: false,
+            mate_home: None,
         }
     }
 
@@ -300,6 +331,15 @@ mod tests {
         assert_eq!(name(RobotSize::S), json!("S"));
         assert_eq!(name(RobotSize::L), json!("L"));
         assert_eq!(name(RobotSize::XL), json!("XL"));
+    }
+
+    #[test]
+    fn saved_home_round_trips_with_home_window_preferences() {
+        let settings = parse(r#"{"mateHome":{"x":-1200,"y":640},"showHomeAtStart":false}"#);
+        assert_eq!(settings.mate_home, Some(MateHome { x: -1200, y: 640 }));
+        assert!(!settings.show_home_at_start);
+        assert_eq!(parse(&serde_json::to_string(&settings).unwrap()), settings);
+        assert_eq!(parse("{}").mate_home, None);
     }
 
     #[test]
