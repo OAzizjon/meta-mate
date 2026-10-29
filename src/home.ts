@@ -305,7 +305,8 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   );
   talkRow.append(keycap, talkSteps);
   const talkWhere = el("p", "home-talk-where", t("home.where_rightCtrl"));
-  talk.append(talkTitle, talkRow, talkWhere);
+  const talkClick = el("p", "home-talk-where", t("home.talk_click"));
+  talk.append(talkTitle, talkRow, talkClick, talkWhere);
 
   heroText.append(title, intro, talk);
   hero.append(mateBox, heroText);
@@ -467,6 +468,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
     const steps = talkSteps.children;
     steps[0].textContent = keyed("home.talk_hold");
     steps[1].textContent = keyed("home.talk_release");
+    talkClick.textContent = t("home.talk_click");
     talkWhere.textContent = t(`home.where_${updated.pttKey}` as LocaleKey);
     startInput.checked = updated.showHomeAtStart;
     startInput.disabled = !canSave;

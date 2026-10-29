@@ -464,6 +464,13 @@ async fn run(
                     generation,
                     state: "listening",
                 });
+                // Click starts carry no key-down time; keep their stop instruction visible.
+                if pressed_at.is_none() {
+                    stream.send(AnswerMsg::Line {
+                        generation,
+                        key: "robot.click_stop",
+                    });
+                }
                 let (frames, received) = mpsc::channel(FRAME_QUEUE);
                 // Each 80 ms frame's level moves Mate's ears and, in the hands-free mode,
                 // ends the recording after the speech (ptt.rs ignores it when held).

@@ -30,6 +30,16 @@ const REINSTALL_EVERY: Duration = Duration::from_secs(5);
 static KEY_TAP: Mutex<Weak<KeyTap>> = Mutex::new(Weak::new());
 static TOGGLE_MODE: AtomicBool = AtomicBool::new(false);
 static PTT_KEY: AtomicU32 = AtomicU32::new(RIGHT_CTRL);
+static CLICKS: Mutex<Option<Sender<Instant>>> = Mutex::new(None);
+
+/// Native drag release uses the same serialized driver as the keyboard, without focus.
+pub(crate) fn click() {
+    if let Ok(sender) = CLICKS.lock()
+        && let Some(sender) = sender.as_ref()
+    {
+        let _ = sender.send(Instant::now());
+    }
+}
 
 pub fn set_ptt_key(key: crate::settings::PttKey) {
     let vk = key.virtual_key();
@@ -162,6 +172,7 @@ pub(crate) fn spawn_timed(
     let published = Arc::downgrade(&tap);
     let stop = Arc::new(AtomicBool::new(false));
     let (silence, silences) = mpsc::channel();
+    let (clicks, clicked) = mpsc::channel();
     let thread = std::thread::Builder::new()
         .name("mm-ptt".into())
         .spawn({
@@ -169,7 +180,7 @@ pub(crate) fn spawn_timed(
             move || {
                 run(
                     Feed::new(settings, started),
-                    (keys, silences),
+                    (keys, silences, clicked),
                     events,
                     hook,
                     tap,
@@ -182,6 +193,9 @@ pub(crate) fn spawn_timed(
     if let Ok(mut current) = KEY_TAP.lock() {
         *current = published;
     }
+    if let Ok(mut current) = CLICKS.lock() {
+        *current = Some(clicks);
+    }
     Ok(PttDriver {
         stop,
         silence,
@@ -191,14 +205,14 @@ pub(crate) fn spawn_timed(
 
 fn run(
     mut feed: Feed,
-    inputs: (Receiver<KeyEvent>, Receiver<u64>),
+    inputs: (Receiver<KeyEvent>, Receiver<u64>, Receiver<Instant>),
     events: Sender<KeyEvent>,
     mut hook: KeyboardHook, // unhooks when the loop ends
     tap: Arc<KeyTap>,
     stop: &AtomicBool,
     on_event: &mut impl FnMut(PttEvent, Option<Instant>),
 ) {
-    let (keys, silences) = inputs;
+    let (keys, silences, clicks) = inputs;
     let mut emit = |events: Vec<PttEvent>, pressed_at| {
         for event in events {
             on_event(event, pressed_at);
@@ -225,6 +239,10 @@ fn run(
             Err(RecvTimeoutError::Disconnected) => break,
         }
         let now = Instant::now();
+        for at in clicks.try_iter() {
+            let events = feed.click(at);
+            emit(events, feed.pressed_at);
+        }
         // Not `events`: that name is the hook's sender, needed for a reinstall below.
         let ticked = feed.tick(now);
         emit(ticked, feed.pressed_at);
@@ -273,6 +291,8 @@ fn run(
 /// Hook events and wake-ups as `PttInput`s on one clock, and whether a session is on
 /// (between Start and Stop or Cancel). Pure: the caller passes every `Instant`.
 struct Feed {
+    click_active: bool,
+    suppress_key: bool,
     vk: u32,
     pressed_at: Option<Instant>,
     ptt: Ptt,
@@ -290,6 +310,8 @@ struct Feed {
 impl Feed {
     fn new(settings: PttSettings, started: Instant) -> Self {
         Self {
+            click_active: false,
+            suppress_key: false,
             vk: RIGHT_CTRL,
             pressed_at: None,
             ptt: Ptt::new(Self::core_settings(settings)),
@@ -339,6 +361,8 @@ impl Feed {
         if event.vk == self.vk
             && event.down
             && !event.injected
+            && !self.click_active
+            && !self.suppress_key
             && !self.ptt.key_pressed()
             && self.settings.mode != mode
         {
@@ -357,7 +381,10 @@ impl Feed {
 
     fn silence(&mut self, generation: u64) -> Vec<PttEvent> {
         let mut out = Vec::new();
-        if self.active && self.settings.mode == Mode::Toggle && generation == self.generation {
+        if self.active
+            && (self.click_active || self.settings.mode == Mode::Toggle)
+            && generation == self.generation
+        {
             self.end(StopReason::Toggled, &mut out);
             self.gesture = None;
         }
@@ -372,10 +399,24 @@ impl Feed {
     /// Polling is due during a session and while a press the hook reported is pending
     /// (after TooLong or a chord too): a lost key-up must never wedge the next press.
     fn needs_poll(&self) -> bool {
-        self.active || self.ptt.key_pressed()
+        self.active || self.ptt.key_pressed() || self.suppress_key
     }
 
     fn key(&mut self, event: KeyEvent) -> Vec<PttEvent> {
+        if event.vk == self.vk && !event.injected {
+            if self.click_active && event.down {
+                let mut out = Vec::new();
+                self.end(StopReason::Toggled, &mut out);
+                self.suppress_key = true;
+                return out;
+            }
+            if self.suppress_key {
+                if !event.down {
+                    self.suppress_key = false;
+                }
+                return Vec::new();
+            }
+        }
         if event.vk == self.vk && event.down && !event.injected && !self.ptt.key_pressed() {
             self.pressed_at = Some(event.at);
         }
@@ -402,6 +443,9 @@ impl Feed {
     }
 
     fn poll(&mut self, ptt_key_down: bool, now: Instant) -> Vec<PttEvent> {
+        if !ptt_key_down {
+            self.suppress_key = false;
+        }
         let now_ms = self.ms(now);
         self.input(PttInput::Poll {
             ptt_key_down,
@@ -421,6 +465,15 @@ impl Feed {
             PttInput::SettingsChanged(_) => self.now_ms,
         };
         self.now_ms = self.now_ms.max(time);
+        if self.click_active {
+            let mut out = Vec::new();
+            if self.now_ms.saturating_sub(self.active_since)
+                >= TOGGLE_MAX_MS.min(self.settings.max_ms)
+            {
+                self.end(StopReason::TooLong, &mut out);
+            }
+            return out;
+        }
         let events = self.ptt.input(input);
         let mut out = Vec::new();
         if self.settings.mode == Mode::Hold {
@@ -481,7 +534,26 @@ impl Feed {
         }
     }
 
+    fn click(&mut self, at: Instant) -> Vec<PttEvent> {
+        self.now_ms = self.now_ms.max(self.ms(at));
+        let mut out = Vec::new();
+        let was_active = self.active;
+        let key_pending = self.ptt.key_pressed() || self.suppress_key;
+        self.end(StopReason::Toggled, &mut out);
+        self.gesture = None;
+        // Reset a pending hold too; its release/repeats must not reopen the mic.
+        self.ptt = Ptt::new(Self::core_settings(self.settings));
+        self.suppress_key = key_pending;
+        if !was_active && !key_pending {
+            self.pressed_at = None;
+            self.begin(&mut out);
+            self.click_active = self.active;
+        }
+        out
+    }
+
     fn end(&mut self, reason: StopReason, out: &mut Vec<PttEvent>) {
+        self.click_active = false;
         if self.active {
             self.active = false;
             out.push(PttEvent::Stop {
@@ -492,6 +564,7 @@ impl Feed {
     }
 
     fn cancel(&mut self, out: &mut Vec<PttEvent>) {
+        self.click_active = false;
         if self.active {
             self.active = false;
             out.push(PttEvent::Cancel {
@@ -533,6 +606,64 @@ pub fn probe_if_requested(args: &[String]) -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clicks_toggle_with_unique_generations_and_ignore_the_key_watchdog() {
+        let t0 = Instant::now();
+        let mut feed = Feed::new(PttSettings::default(), t0);
+        assert_eq!(feed.click(t0), start(1));
+        assert_eq!(feed.pressed_at, None);
+        assert_eq!(feed.poll(false, at(t0, 100)), nothing());
+        assert_eq!(feed.click(at(t0, 200)), stop(1, StopReason::Toggled));
+        assert_eq!(feed.click(at(t0, 300)), start(2));
+        assert_eq!(feed.silence(1), nothing());
+        assert_eq!(feed.silence(2), stop(2, StopReason::Toggled));
+        assert_eq!(feed.click(at(t0, 400)), start(3));
+        assert_eq!(feed.tick(at(t0, 30_399)), nothing());
+        assert_eq!(feed.tick(at(t0, 30_400)), stop(3, StopReason::TooLong));
+    }
+
+    #[test]
+    fn key_press_stops_click_without_reopening_on_repeat_or_release() {
+        for mode in [Mode::Hold, Mode::Toggle] {
+            let t0 = Instant::now();
+            let mut feed = Feed::new(PttSettings::default(), t0);
+            assert_eq!(feed.click(t0), start(1));
+            assert_eq!(
+                feed.key_in_mode(injected(RIGHT_CTRL, true, at(t0, 50)), mode),
+                nothing()
+            );
+            assert_eq!(
+                feed.key_in_mode(key(RIGHT_CTRL, true, at(t0, 100)), mode),
+                stop(1, StopReason::Toggled)
+            );
+            assert_eq!(feed.key(key(RIGHT_CTRL, true, at(t0, 200))), nothing());
+            assert_eq!(feed.tick(at(t0, 600)), nothing());
+            assert_eq!(feed.key(key(RIGHT_CTRL, false, at(t0, 700))), nothing());
+            assert_eq!(feed.click(at(t0, 800)), start(2));
+        }
+    }
+
+    #[test]
+    fn click_stops_a_key_recording_and_suppresses_a_pending_hold() {
+        let t0 = Instant::now();
+        let mut feed = Feed::new(PttSettings::default(), t0);
+        feed.key(key(RIGHT_CTRL, true, t0));
+        assert_eq!(feed.tick(at(t0, 250)), start(1));
+        assert_eq!(feed.click(at(t0, 300)), stop(1, StopReason::Toggled));
+        assert_eq!(feed.tick(at(t0, 600)), nothing());
+        assert_eq!(feed.key(key(RIGHT_CTRL, false, at(t0, 700))), nothing());
+        feed.key(key(RIGHT_CTRL, true, at(t0, 800)));
+        assert_eq!(feed.click(at(t0, 850)), nothing());
+        assert_eq!(feed.tick(at(t0, 1100)), nothing());
+        assert_eq!(feed.poll(false, at(t0, 1200)), nothing());
+        assert_eq!(feed.click(at(t0, 1300)), start(2));
+
+        let mut feed = toggle(t0);
+        assert_eq!(tap(&mut feed, t0, 0), start(1));
+        assert_eq!(feed.click(at(t0, 200)), stop(1, StopReason::Toggled));
+        assert_eq!(feed.click(at(t0, 300)), start(2));
+    }
 
     #[test]
     fn chosen_keys_drive_holds_chords_and_release_watchdog() {

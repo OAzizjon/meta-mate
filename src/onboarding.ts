@@ -248,6 +248,7 @@ export function startOnboarding(
     }
   };
 
+  // The greeting mentions click-to-talk once; examples keep only the talk-key keycap.
   // Initial step: show `robot.first_launch` and the talk-key keycap immediately.
   if (sink.showExample) {
     sink.showExample(null);

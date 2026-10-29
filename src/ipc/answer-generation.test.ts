@@ -2,6 +2,18 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AnswerGenerations, HeldPresentation } from "./answer-generation.ts";
 
+test("click instructions belong to the recording and preserve an interrupted lesson", () => {
+  const ids = new AnswerGenerations();
+  ids.accept({ type: "model", generation: 1, model: null });
+  ids.accept({ type: "state", generation: 2, state: "listening" });
+  assert.ok(ids.accept({ type: "line", generation: 2, key: "robot.click_stop" }));
+  assert.equal(ids.answer, 1);
+  assert.equal(ids.holdPresentation, true);
+  assert.ok(ids.accept({ type: "item", generation: 1, item: { kind: "end" } }));
+  ids.accept({ type: "state", generation: 3, state: "listening" });
+  assert.equal(ids.accept({ type: "line", generation: 2, key: "robot.click_stop" }), false);
+});
+
 test("a follow-up recording keeps the lesson's speech, state and model", () => {
   const ids = new AnswerGenerations();
   assert.ok(ids.accept({ type: "item", generation: 1, item: { kind: "end" } }));

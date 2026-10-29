@@ -227,6 +227,7 @@ async function createRouter(
     });
   let listening = false;
   let listeningGeneration: number | null = null;
+  let clickListening = false;
   let showingHeard = false;
   const generations = new AnswerGenerations();
   const presentation = new HeldPresentation();
@@ -240,6 +241,7 @@ async function createRouter(
     if (listening && state !== "listening") {
       listening = false;
       listeningGeneration = null;
+      clickListening = false;
       if (showingHeard) bubble.show(null);
       showingHeard = false;
       robot.setVoiceLevel(0);
@@ -306,13 +308,16 @@ async function createRouter(
         setState(msg.state);
         if (msg.state === "listening") {
           listeningGeneration = msg.generation;
+          clickListening = false;
           showingHeard = false;
           bubble.show(null);
         }
         return;
       case "heard":
         if (listening && msg.generation === listeningGeneration) {
-          bubble.show(msg.text || null);
+          bubble.show(clickListening
+            ? [msg.text, t("robot.click_stop")].filter(Boolean).join("\n")
+            : msg.text || null);
           showingHeard = true;
         }
         return;
@@ -341,6 +346,14 @@ async function createRouter(
         if (generations.canIdle(msg.generation)) setState("idle");
         return;
       case "line":
+        if (msg.key === "robot.click_stop") {
+          if (listening && msg.generation === listeningGeneration) {
+            clickListening = true;
+            showingHeard = true;
+            bubble.show(t(msg.key));
+          }
+          return;
+        }
         present("bubble", () => {
           showingHeard = false;
           const text = t(msg.key);
@@ -372,7 +385,8 @@ if (container) {
   container.querySelector(".mate-svg")?.addEventListener("pointerdown", (event) => {
     if (!(event instanceof PointerEvent) || event.button !== 0 || !inTauri) return;
     event.preventDefault();
-    void tauriInvoke("mate_drag_start").catch((error: unknown) => {
+    // Native polling distinguishes a click from a drag and never activates the window.
+    void tauriInvoke("mate_drag_start", { x: event.clientX, y: event.clientY }).catch((error: unknown) => {
       console.error("mate: drag:", error);
     });
   });

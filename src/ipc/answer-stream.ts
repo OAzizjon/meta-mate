@@ -23,6 +23,7 @@ export const ANSWER_LINE_KEYS = [
   "robot.network_error",
   "robot.cant_find",
   "robot.listening",
+  "robot.click_stop",
   // The look and pointing (src-tauri/src/screen.rs LookFailure::line, pointing.rs).
   "robot.cant_look",
   "robot.protected_window",

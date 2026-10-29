@@ -2,6 +2,32 @@
 
 use crate::geom::{PhysPoint, PhysRect};
 
+/// Physical pixels of hand movement allowed for a click on Mate.
+pub const CLICK_THRESHOLD: i64 = 5;
+
+#[derive(Debug)]
+pub struct ClickGesture {
+    origin: PhysPoint,
+    dragged: bool,
+}
+
+impl ClickGesture {
+    pub fn new(origin: PhysPoint) -> Self {
+        Self {
+            origin,
+            dragged: false,
+        }
+    }
+
+    /// Latch movement: returning to the starting point cannot turn a drag into a click.
+    pub fn update(&mut self, cursor: PhysPoint) -> bool {
+        let dx = i64::from(cursor.x) - i64::from(self.origin.x);
+        let dy = i64::from(cursor.y) - i64::from(self.origin.y);
+        self.dragged |= dx.abs() > CLICK_THRESHOLD || dy.abs() > CLICK_THRESHOLD;
+        !self.dragged
+    }
+}
+
 /// Keeps the original grab offset, even after hitting an edge of the work area.
 #[derive(Debug, Clone, Copy)]
 pub struct Drag {
@@ -61,6 +87,19 @@ fn clamped(x: i64, y: i64, width: i32, height: i32, work: PhysRect) -> Option<Ph
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn click_tolerates_jitter_but_a_drag_stays_a_drag() {
+        let origin = PhysPoint { x: -100, y: 20 };
+        let mut click = ClickGesture::new(origin);
+        assert!(click.update(PhysPoint { x: -95, y: 15 }));
+        assert!(!click.update(PhysPoint { x: -94, y: 20 }));
+        assert!(!click.update(origin));
+        assert!(!click.update(PhysPoint {
+            x: i32::MAX,
+            y: i32::MIN,
+        }));
+    }
 
     fn rect(x: i32, y: i32, w: i32, h: i32) -> PhysRect {
         PhysRect::new(x, y, x + w, y + h).unwrap()

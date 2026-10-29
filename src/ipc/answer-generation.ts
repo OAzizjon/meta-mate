@@ -22,7 +22,10 @@ export class AnswerGenerations {
       if (msg.generation === this.recording) {
         this.listening = msg.state === "listening" ? msg.generation : null;
       }
-    } else if (msg.type === "level" || msg.type === "heard") {
+    } else if (
+      msg.type === "level" || msg.type === "heard" ||
+      (msg.type === "line" && msg.key === "robot.click_stop")
+    ) {
       if (msg.generation !== this.recording) return false;
     } else {
       this.answer = msg.generation;

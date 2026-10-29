@@ -48,6 +48,26 @@ function stepDuration(text: string): number {
 
 setOnboardingTranslator((key) => t(key));
 
+test("onboarding mentions the click alternative only in the greeting in both languages", () => {
+  for (const locale of ["en", "ru"]) {
+    resetOnboardingSession();
+    setLocale(locale);
+    const clock = createFakeClock();
+    const shown: string[] = [];
+    const controller = startOnboarding(
+      { showBubble: (text) => { if (text) shown.push(text); } },
+      { clock, storage: createMemoryStorage() },
+    );
+    const click = t("home.talk_click");
+    assert.ok(shown[0].includes(click));
+    clock.advance(stepDuration(t("robot.first_launch")));
+    assert.equal(shown.filter((text) => text.includes(click)).length, 1);
+    assert.equal(shown.at(-1), exampleText("onboarding.example_1"));
+    controller.stop();
+  }
+  setLocale("en");
+});
+
 test("the greeting and keycap follow live key changes without restarting examples", () => {
   resetOnboardingSession();
   const clock = createFakeClock();
