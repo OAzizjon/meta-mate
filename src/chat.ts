@@ -137,7 +137,14 @@ async function start(): Promise<void> {
 localize();
 update();
 clear.disabled = true;
-void followSettingsLocale(localize).catch((error: unknown) => console.error("chat: language:", error));
+void followSettingsLocale(() => {
+  localize();
+  // Speaker names and times are written once per bubble: rebuild them in the new language.
+  const current = messages;
+  messages = [];
+  log.replaceChildren();
+  render(current);
+}).catch((error: unknown) => console.error("chat: language:", error));
 void start().then(() => { clear.disabled = false; }).catch(() => {
   status.textContent = t("chat.load_failed");
 });

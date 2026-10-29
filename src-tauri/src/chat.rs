@@ -3,6 +3,9 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// The longest one Mate message may grow in the history.
+const MATE_TEXT_MAX_BYTES: usize = 8 * 1024;
+
 use mm_core::matescript::Item;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, ipc::Channel};
@@ -96,8 +99,11 @@ impl History {
             && last.role == Role::Mate
             && last.generation == Some(generation)
         {
-            last.text.push('\n');
-            last.text.push_str(&text);
+            // One answer is a few sentences; the cap keeps a runaway stream out of the file.
+            if last.text.len() + text.len() < MATE_TEXT_MAX_BYTES {
+                last.text.push('\n');
+                last.text.push_str(&text);
+            }
         } else {
             self.push(Role::Mate, text, Some(generation));
         }
@@ -175,7 +181,15 @@ pub(crate) fn open(app: &AppHandle) -> tauri::Result<()> {
 
 #[tauri::command]
 pub async fn open_chat(app: AppHandle) -> Result<(), String> {
-    open(&app).map_err(|_| "could not open chat".to_owned())
+    open(&app).map_err(|_| "could not open chat".to_owned())?;
+    // The person asked for the chat to type in it: bring it to the front (an explicit open).
+    #[cfg(windows)]
+    if let Some(window) = app.get_webview_window("chat")
+        && let Ok(hwnd) = window.hwnd()
+    {
+        mm_win32::focus::activate_on_request(hwnd);
+    }
+    Ok(())
 }
 
 /// Snapshot and subscription share the same lock, including during concurrent answers.

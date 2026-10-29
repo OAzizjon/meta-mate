@@ -393,7 +393,7 @@ fn handle_menu(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
         MENU_CHAT => {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                if chat::open(&app).is_err() {
+                if chat::open_chat(app).await.is_err() {
                     eprintln!("chat: could not open window");
                 }
             });
