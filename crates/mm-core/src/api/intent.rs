@@ -64,7 +64,7 @@ fn has_phrase(words: &[&str], phrase: &[&str]) -> bool {
 }
 
 fn spoken_words(text: &str) -> String {
-    text.to_lowercase().replace(['\'', '’'], "")
+    text.to_lowercase().replace(['\'', '’', '‘', 'ʻ', 'ʼ'], "")
 }
 
 fn contains_spoken(words: &[&str], phrases: &[&str]) -> bool {
@@ -101,13 +101,8 @@ fn has_no(words: &[&str]) -> bool {
 pub fn parse_yes_no(text: &str) -> Option<bool> {
     let lower = spoken_words(text);
     let words: Vec<_> = words(&lower).collect();
-    if text.contains('?')
-        || words.len() > 4
-        || words
-            .iter()
-            .any(|word| matches!(*word, "where" | "what" | "how" | "где" | "что" | "как"))
-    {
-        return None;
+    if has_no(&words) {
+        return Some(false);
     }
     let yes = contains_spoken(
         &words,
@@ -127,19 +122,57 @@ pub fn parse_yes_no(text: &str) -> Option<bool> {
             "угу",
             "конечно",
             "давай",
-            "давайте",
             "нажми",
-            "нажмите",
             "хорошо",
             "ладно",
+            "нажимай",
+            "жми",
+            "click",
+            "ha",
+            "mayli",
+            "bosing",
         ],
     );
-    if has_no(&words) || (yes && negated(&words)) {
+    if yes && negated(&words) {
         Some(false)
     } else if doubtful(&words) && !pressing(&words) {
         // "да вряд ли", "yes maybe later": not a yes Mate may press on; he asks again.
         None
-    } else if yes {
+    } else if yes
+        && !text.contains('?')
+        && words.iter().all(|word| {
+            matches!(
+                *word,
+                "yes"
+                    | "yeah"
+                    | "yep"
+                    | "ok"
+                    | "okay"
+                    | "sure"
+                    | "please"
+                    | "go"
+                    | "ahead"
+                    | "do"
+                    | "it"
+                    | "press"
+                    | "click"
+                    | "да"
+                    | "давай"
+                    | "ага"
+                    | "угу"
+                    | "конечно"
+                    | "пожалуйста"
+                    | "нажми"
+                    | "нажимай"
+                    | "жми"
+                    | "хорошо"
+                    | "ладно"
+                    | "ha"
+                    | "mayli"
+                    | "bosing"
+            )
+        })
+    {
         Some(true)
     } else {
         None

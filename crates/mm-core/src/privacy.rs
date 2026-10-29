@@ -173,14 +173,10 @@ const FORBIDDEN_EXTRA: &[&str] = &[
     "virement",
     "elimin",
     "borr",
-    "pag",
-    "compr",
     "transferir",
     "o'chir",
     "to'la",
     "sotib ol",
-    "o'tkaz",
-    "sil",
     "öde",
     "satın al",
     "havale",
@@ -189,7 +185,26 @@ const FORBIDDEN_EXTRA: &[&str] = &[
     "төле",
     "сатып ал",
     "аудар",
+    "подписаться",
+    "видалити",
+    "оплатити",
+    "купити",
+    "переказати",
 ];
+
+static FORBIDDEN_WORDS: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\b(?:pagar|pague|pago|s[iİ]l|comprar|compra|compre|o'tkazma|o'tkazish)\b")
+        .expect("constant forbidden word regex must compile")
+});
+
+static MONEY_AMOUNT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(concat!(
+        r"(?i)(?:\p{Sc}|so'm\b|сум\b|руб\b|тенге\b)\s*\d|",
+        r"\d[\d\s.,]*\s*(?:\p{Sc}|so'm\b|сум\b|руб\b|тенге\b)|",
+        r"\bотправить\s+\d",
+    ))
+    .expect("constant money amount regex must compile")
+});
 
 static FORBIDDEN_PHRASES: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(concat!(
@@ -213,6 +228,8 @@ pub fn forbidden(name: &str, control_type: &str) -> bool {
     }
     let text = separated(name);
     FORBIDDEN_PHRASES.is_match(&text)
+        || FORBIDDEN_WORDS.is_match(&text)
+        || MONEY_AMOUNT.is_match(&text)
         || FORBIDDEN_EXTRA
             .iter()
             .any(|stem| contains_stem(&text, stem))
@@ -375,7 +392,6 @@ mod tests {
             "Дополнительно",
             "Отправить по расписанию",
             "Подпись",
-            "Подписаться на канал",
         ] {
             assert!(!forbidden(name, "Button"), "unexpected forbidden: {name}");
         }

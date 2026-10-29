@@ -192,3 +192,57 @@ fn matching_is_independent_of_turkish_case_rules() {
         assert!(!password_words(label), "unexpected Turkish fold: {label}");
     }
 }
+#[test]
+fn click_safety_whole_words_and_amounts() {
+    for name in [
+        "pagar",
+        "pague",
+        "pago",
+        "comprar",
+        "compra",
+        "compre",
+        "sil",
+        "SİL",
+        "O'tkazma",
+        "O‘tkazish",
+        "Подписаться на канал",
+        "Subscribe",
+        "Видалити",
+        "Оплатити",
+        "Купити",
+        "Переказати",
+        "Отправить 500 ₽",
+        "Отправить 500",
+        "Continue – $9.99",
+        "€5",
+        "5 €",
+        "£ 20",
+        "20£",
+        "Continue 500 ₽",
+        "500 so'm",
+        "so‘m 500",
+        "500 сум",
+        "500 руб.",
+        "500 тенге",
+        "500 ₹",
+        "￥500",
+        "Proceed 9,99€",
+    ] {
+        assert!(mm_core::privacy::forbidden(name, "Button"), "{name}");
+    }
+    for name in [
+        "Next page",
+        "Page setup",
+        "Silent",
+        "Compress",
+        "O'tkazib yuborish",
+        "O‘tkazib yuborish",
+        "page",
+        "silence",
+        "500 results",
+        "Currency $",
+        "Send feedback",
+    ] {
+        assert!(!mm_core::privacy::forbidden(name, "Button"), "{name}");
+    }
+}

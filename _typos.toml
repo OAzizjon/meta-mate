@@ -17,3 +17,5 @@ hel = "hel"
 theyre = "theyre"
 # "som", the Uzbek and Kyrgyz currency, in the money words of crates/mm-core/src/privacy.rs
 som = "som"
+# "compre" (Spanish: buy), a forbidden word in crates/mm-core/src/privacy.rs
+compre = "compre"

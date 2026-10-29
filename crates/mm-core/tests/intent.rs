@@ -253,13 +253,14 @@ fn spoken_yes_no_covers_both_languages_and_negation_wins() {
         "угу",
         "конечно",
         "давай",
-        "давайте",
         "нажми",
-        "нажмите",
         "хорошо",
         "ладно",
         "Yes, please.",
-        "Хорошо, нажмите!",
+        "Хорошо, нажимай!",
+        "ha",
+        "mayli, bosing",
+        "yes please go ahead do it",
         "Да ладно, нажми",
     ] {
         assert_eq!(parse_yes_no(text), Some(true), "{text}");
@@ -290,6 +291,9 @@ fn spoken_yes_no_covers_both_languages_and_negation_wins() {
         "not okay",
         "не нажми",
         "never press it",
+        "okay, do not press it",
+        "нет, не надо, я сам нажму",
+        "no, why would you?",
     ] {
         assert_eq!(parse_yes_no(text), Some(false), "{text}");
     }
@@ -305,7 +309,12 @@ fn spoken_yes_no_covers_both_languages_and_negation_wins() {
         "да2",
         "maybe",
         "what button?",
-        "okay, do not press it",
+        "ok, what's that",
+        "ok, what’s that",
+        "окей, а какую",
+        "where's it",
+        "давайте",
+        "нажмите",
         "yes?",
         "okay where is it",
         "yes what now",

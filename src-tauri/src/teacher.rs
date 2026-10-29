@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use mm_core::api::intent::{asks_do_it, parse_yes_no};
+use mm_core::api::intent::asks_do_it;
 use mm_core::api::request::{
     ComputerSession, ModelChoice, ReasoningEffort, computer_followup, computer_request,
 };
@@ -25,9 +25,9 @@ use mm_core::matescript::{Item, Say};
 use mm_core::redaction::{overlaps_any, point_in_any};
 use mm_core::teacher::{
     ChordRecognizer, ClickRecognizer, LineKey, RefusalReason, Teacher, TeacherCommand,
-    TeacherConfig, TeacherInput,
+    TeacherConfig, TeacherInput, confirmation_answer, confirmation_ready_at,
 };
-use mm_platform::{InputAction, InputInjector, MouseButton, ask_confirmation};
+use mm_platform::{InputAction, InputInjector, MouseButton};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{mpsc, oneshot};
 
@@ -373,6 +373,8 @@ pub(crate) async fn teach(
     let mut acknowledged: Vec<String> = Vec::new();
     let mut tick = tokio::time::interval(TICK);
     let mut offered_at: Option<Instant> = None;
+    let mut audio_until = Instant::now();
+    let mut audio_known = true;
     let mut confirmation_offer = None;
     let mut confirmed_click = None;
     let mut shown_model = None;
@@ -505,7 +507,7 @@ pub(crate) async fn teach(
                             card_steps.push(text.clone());
                         }
                         sentence += 1;
-                        speak(
+                        let duration = speak(
                             &stream,
                             &proxy,
                             &locale,
@@ -515,6 +517,11 @@ pub(crate) async fn teach(
                             &speech_epoch,
                         )
                         .await;
+                        if let Some(duration) = duration {
+                            audio_until = audio_until.max(Instant::now()) + duration;
+                        } else {
+                            audio_known = false;
+                        }
                         spoke = true;
                     }
                     TeacherCommand::PointAt { rect, step, total } => {
@@ -552,6 +559,13 @@ pub(crate) async fn teach(
                     TeacherCommand::Say(line) => {
                         if let Some(key) = line_key(line, &mut steps_done) {
                             say_line(&stream, &phrases, &locale, generation, key);
+                            if let Some(wav) = crate::voice::phrase(&phrases, &locale, key) {
+                                if let Some(duration) = wav_duration(&wav) {
+                                    audio_until = audio_until.max(Instant::now()) + duration;
+                                } else {
+                                    audio_known = false;
+                                }
+                            }
                         }
                     }
                     TeacherCommand::OfferDoIt { rect } => {
@@ -559,9 +573,13 @@ pub(crate) async fn teach(
                         confirmed_click = None;
                         let target = current.snapshot.target;
                         let at = rect.center();
-                        let element = if pressable(&current.snapshot, rect) {
+                        let offer = if pressable(&current.snapshot, rect) && audio_known {
                             tokio::task::spawn_blocking(move || {
-                                mm_win32::input::confirmation_element(target, at)
+                                let action = InputAction::Click {
+                                    at,
+                                    button: MouseButton::Left,
+                                };
+                                mm_win32::input::Win32Injector.ask_confirmation(target, &action)
                             })
                             .await
                             .ok()
@@ -569,36 +587,29 @@ pub(crate) async fn teach(
                         } else {
                             None
                         };
-                        if let Some(element) = element.filter(|live| {
+                        if let Some(offer) = offer.filter(|offer| {
                             !stream.is_cancelled(generation)
                                 && current.snapshot.target_at(at).is_some_and(|expected| {
                                     expected.rect.is_some_and(|bounds| {
-                                        live.matches_target(
+                                        offer.element().matches_target(
                                             &expected.name,
                                             &expected.control_type,
                                             bounds,
                                         )
                                     })
                                 })
-                        }) {
-                            let action = InputAction::Click {
-                                at,
-                                button: MouseButton::Left,
-                            };
-                            confirmation_offer = ask_confirmation(target, &action, element, || {
-                                say_line(
-                                    &stream,
-                                    &phrases,
-                                    &locale,
-                                    generation,
-                                    "robot.do_it_for_me",
-                                );
-                            })
-                            .ok();
+                        }) && let Some(duration) =
+                            crate::voice::phrase(&phrases, &locale, "robot.do_it_for_me")
+                                .and_then(|wav| wav_duration(&wav))
+                        {
+                            let ready =
+                                confirmation_ready_at(Instant::now(), audio_until, duration);
+                            offered_at = Some(ready);
+                            audio_until = ready - Duration::from_millis(300);
+                            say_line(&stream, &phrases, &locale, generation, "robot.do_it_for_me");
+                            confirmation_offer = Some(offer);
                         }
-                        if confirmation_offer.is_some() {
-                            offered_at = Some(Instant::now());
-                        } else {
+                        if confirmation_offer.is_none() {
                             offered_at = None;
                             pending.extend(
                                 teacher.input(TeacherInput::DoItUnavailable { now_ms: now() }),
@@ -653,6 +664,19 @@ pub(crate) async fn teach(
                                 generation,
                                 "robot.thinking_harder",
                             );
+                            if let Some(wav) =
+                                crate::voice::phrase(&phrases, &locale, "robot.thinking_harder")
+                            {
+                                if let Some(duration) = wav_duration(&wav) {
+                                    audio_until = audio_until.max(Instant::now()) + duration;
+                                    if offered_at.is_some() {
+                                        offered_at = Some(audio_until + Duration::from_millis(300));
+                                    }
+                                } else {
+                                    audio_known = false;
+                                    offered_at = None;
+                                }
+                            }
                         }
                     }
                     TeacherCommand::RequestScreenshot => {
@@ -731,17 +755,18 @@ pub(crate) async fn teach(
                         continue;
                     }
                     expire_offer(&mut teacher, &mut offered_at, now());
-                    let input = if fresh_answer(words.pressed_at, offered_at) {
-                        parse_yes_no(&words.text).map(|yes| TeacherInput::DoItAnswer {
+                    let live_offer = offered_at.is_some() && confirmation_offer.is_some();
+                    let input = if let Some(ready) = offered_at.filter(|_| live_offer) {
+                        confirmation_answer(&words.text, words.pressed_at, ready).map(|yes| TeacherInput::DoItAnswer {
                             yes,
                             now_ms: now(),
                         })
                     } else {
                         None
-                    }.or_else(|| asks_do_it(&words.text).then(|| {
+                    }.or_else(|| (!live_offer && asks_do_it(&words.text)).then(|| {
                         TeacherInput::DoItRequested { now_ms: now() }
                     }));
-                    let taken = input.is_some();
+                    let taken = live_offer || input.is_some();
                     // A superseded recognition task cannot authorize a click.
                     if words.taken.send(taken).is_err() {
                         continue;
@@ -754,6 +779,15 @@ pub(crate) async fn teach(
                             offered_at = None;
                         }
                         pending = teacher.input(input);
+                    } else if live_offer {
+                        // PTT may have discarded queued audio. Keep the old deadline as a
+                        // conservative bound and require a fresh press after the repeat.
+                        if let Some(duration) = crate::voice::phrase(&phrases, &locale, "robot.do_it_for_me")
+                            .and_then(|wav| wav_duration(&wav)) {
+                            offered_at = Some(confirmation_ready_at(Instant::now(), audio_until, duration));
+                            audio_until = offered_at.unwrap() - Duration::from_millis(300);
+                            say_line(&stream, &phrases, &locale, generation, "robot.do_it_for_me");
+                        }
                     }
                 }
                 input = received.recv() => {
@@ -767,6 +801,13 @@ pub(crate) async fn teach(
                     if focus_only && !asked_to_focus && teacher.matches_key_chord(&input) {
                         asked_to_focus = true;
                         say_line(&stream, &phrases, &locale, generation, "robot.click_app_first");
+                        if let Some(wav) = crate::voice::phrase(&phrases, &locale, "robot.click_app_first") {
+                            if let Some(duration) = wav_duration(&wav) {
+                                audio_until = audio_until.max(Instant::now()) + duration;
+                            } else {
+                                audio_known = false;
+                            }
+                        }
                     }
                     if !stale {
                         pending = teacher.input(input);
@@ -820,13 +861,14 @@ fn input_staleness(
 }
 
 fn expire_offer(teacher: &mut Teacher, offered_at: &mut Option<Instant>, now_ms: u64) {
-    if offered_at.is_some_and(|at| at.elapsed() >= OFFER_LIMIT) {
+    if offered_at.is_some_and(|at| Instant::now().saturating_duration_since(at) >= OFFER_LIMIT) {
         *offered_at = None;
         // Reset Awaiting without speaking. A later explicit request can offer again.
         let _ = teacher.input(TeacherInput::DoItUnavailable { now_ms });
     }
 }
 
+#[cfg(test)]
 fn fresh_answer(pressed_at: Option<Instant>, offered_at: Option<Instant>) -> bool {
     matches!((pressed_at, offered_at), (Some(pressed), Some(offered)) if pressed > offered)
 }
@@ -889,6 +931,13 @@ async fn outline_unlisted(
 }
 
 /// A commentary line as the next sentence of the lesson's timeline, with its speech.
+fn wav_duration(bytes: &[u8]) -> Option<Duration> {
+    let wav = mm_core::wav::read(bytes).ok()?;
+    Some(Duration::from_secs_f64(
+        wav.samples.len() as f64 / f64::from(wav.sample_rate) / f64::from(wav.channels),
+    ))
+}
+
 async fn speak(
     stream: &AnswerStream,
     proxy: &Proxy,
@@ -897,7 +946,7 @@ async fn speak(
     id: u64,
     text: String,
     speech_epoch: &AtomicU64,
-) {
+) -> Option<Duration> {
     let epoch = speech_epoch.load(Ordering::Acquire);
     let say = Say {
         id,
@@ -911,11 +960,16 @@ async fn speak(
     match proxy.speak(voice_of(locale), &text).await {
         Ok(speech) if speech_epoch.load(Ordering::Acquire) == epoch => {
             stream.send_wav(generation, id, &speech.wav);
+            wav_duration(&speech.wav)
         }
-        Ok(_) => stream.end_sentence(generation, id),
+        Ok(_) => {
+            stream.end_sentence(generation, id);
+            Some(Duration::ZERO)
+        }
         Err(error) => {
             eprintln!("teacher: speech synthesis: {error}");
             stream.end_sentence(generation, id);
+            Some(Duration::ZERO)
         }
     }
 }

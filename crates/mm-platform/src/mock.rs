@@ -181,10 +181,24 @@ mod tests {
             offscreen: false,
             blocked: false,
         };
-        crate::ask_confirmation(target, &action, element, || {})
+        crate::input_injector::ask_confirmation(target, &action, element, || {})
             .unwrap()
             .answer(true)
             .unwrap()
+    }
+
+    #[test]
+    fn mock_without_a_live_desktop_cannot_issue_offers() {
+        let mut mock = backend();
+        let target = mock.snapshot.target;
+        let action = InputAction::Click {
+            at: PhysPoint { x: 5, y: 5 },
+            button: MouseButton::Left,
+        };
+        assert!(matches!(
+            mock.ask_confirmation(target, &action),
+            Err(PlatformError::SafetyBlocked)
+        ));
     }
 
     #[test]

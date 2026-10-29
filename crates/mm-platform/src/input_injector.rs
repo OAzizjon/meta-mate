@@ -20,9 +20,17 @@ pub enum InputAction {
 ///
 /// Created only by answering a platform prompt. The element captured before that prompt
 /// is compared with a live read immediately before injection.
+///
+/// ```compile_fail
+/// use mm_platform::{ConfirmedElement, HumanConfirmation, InputAction, TargetWindow};
+/// fn fabricate(target: TargetWindow, action: InputAction, element: ConfirmedElement) {
+///     let _ = HumanConfirmation { target, foreground: target, action, element };
+/// }
+/// ```
 #[derive(Debug)]
 pub struct HumanConfirmation {
     target: TargetWindow,
+    foreground: TargetWindow,
     action: InputAction,
     element: ConfirmedElement,
 }
@@ -78,15 +86,19 @@ pub fn can_borrow_click_name(child_type: &str, parent_type: &str) -> bool {
 pub struct PendingConfirmation(HumanConfirmation);
 
 impl PendingConfirmation {
+    pub fn element(&self) -> &ConfirmedElement {
+        &self.0.element
+    }
+
     /// Never call with model output or a pending safety check.
     pub fn answer(self, yes: bool) -> Option<HumanConfirmation> {
         yes.then_some(self.0)
     }
 }
 
-/// The platform presents the prompt itself through the host's localized speech callback.
-/// Capture `element` before calling this, never after receiving the person's answer.
-pub fn ask_confirmation(
+/// Test-only prompt fixture; production offers must go through the injector's live read.
+#[cfg(test)]
+pub(crate) fn ask_confirmation(
     target: TargetWindow,
     action: &InputAction,
     element: ConfirmedElement,
@@ -103,6 +115,7 @@ pub fn ask_confirmation(
     show_prompt();
     Ok(PendingConfirmation(HumanConfirmation {
         target,
+        foreground: target,
         action: action.clone(),
         element,
     }))
@@ -150,13 +163,48 @@ pub fn check_confirmation(
     confirmation: Option<HumanConfirmation>,
 ) -> Result<ConfirmedElement, PlatformError> {
     match confirmation {
-        Some(yes) if yes.target == target && yes.action == *action => Ok(yes.element),
+        Some(yes) if yes.target == target && yes.foreground == target && yes.action == *action => {
+            Ok(yes.element)
+        }
         _ => Err(PlatformError::ConfirmationRequired),
     }
 }
 
 /// Injected input into the user's app.
 pub trait InputInjector {
+    /// Read the actual foreground window and the live element on the platform.
+    /// Backends without a live desktop cannot issue confirmations.
+    fn confirmation_context(
+        &mut self,
+        _target: TargetWindow,
+        _at: PhysPoint,
+    ) -> Result<(TargetWindow, ConfirmedElement), PlatformError> {
+        Err(PlatformError::SafetyBlocked)
+    }
+
+    /// Capture the offered action before the host queues its localized prompt.
+    fn ask_confirmation(
+        &mut self,
+        target: TargetWindow,
+        action: &InputAction,
+    ) -> Result<PendingConfirmation, PlatformError> {
+        let InputAction::Click {
+            at,
+            button: MouseButton::Left,
+        } = action
+        else {
+            return Err(PlatformError::SafetyBlocked);
+        };
+        let (foreground, element) = self.confirmation_context(target, *at)?;
+        recheck_element(target, foreground, *at, &element, &element)?;
+        Ok(PendingConfirmation(HumanConfirmation {
+            target,
+            foreground,
+            action: action.clone(),
+            element,
+        }))
+    }
+
     /// Performs `action` after `check_confirmation`, and only while `target` is still the
     /// foreground window and the element under the point is still the confirmed one. The
     /// safety blocklist is checked both before the prompt and immediately before injection.
@@ -194,6 +242,70 @@ mod tests {
 
     fn check(live: &ConfirmedElement) -> Result<(), PlatformError> {
         recheck_element(TARGET, TARGET, AT, &test_element(), live)
+    }
+
+    struct TestInjector {
+        foreground: TargetWindow,
+        element: ConfirmedElement,
+    }
+
+    impl InputInjector for TestInjector {
+        fn confirmation_context(
+            &mut self,
+            _target: TargetWindow,
+            _at: PhysPoint,
+        ) -> Result<(TargetWindow, ConfirmedElement), PlatformError> {
+            Ok((self.foreground, self.element.clone()))
+        }
+
+        fn execute_verified(
+            &mut self,
+            target: TargetWindow,
+            action: &InputAction,
+            confirmation: Option<HumanConfirmation>,
+        ) -> Result<(), PlatformError> {
+            check_confirmation(target, action, confirmation).map(|_| ())
+        }
+    }
+
+    #[test]
+    fn injector_reads_foreground_and_element_before_issuing_an_offer() {
+        let action = InputAction::Click {
+            at: AT,
+            button: MouseButton::Left,
+        };
+        let mut injector = TestInjector {
+            foreground: TARGET,
+            element: test_element(),
+        };
+        let offer = injector.ask_confirmation(TARGET, &action).unwrap();
+        assert_eq!(offer.element(), &test_element());
+        assert_eq!(
+            injector.execute_verified(TARGET, &action, offer.answer(true)),
+            Ok(())
+        );
+        for foreground in [
+            TargetWindow {
+                handle: 8,
+                ..TARGET
+            },
+            TargetWindow {
+                process_id: 43,
+                ..TARGET
+            },
+        ] {
+            injector.foreground = foreground;
+            assert!(matches!(
+                injector.ask_confirmation(TARGET, &action),
+                Err(PlatformError::WindowNotFound)
+            ));
+        }
+        injector.foreground = TARGET;
+        injector.element.name = "Buy".into();
+        assert!(matches!(
+            injector.ask_confirmation(TARGET, &action),
+            Err(PlatformError::SafetyBlocked)
+        ));
     }
 
     #[test]

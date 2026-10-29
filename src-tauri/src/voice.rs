@@ -945,7 +945,7 @@ fn is_overlay(label: &str) -> bool {
 }
 
 /// The cached phrase `key` in the UI locale's voice.
-fn phrase(phrases: &Phrases, locale: &str, key: &str) -> Option<Vec<u8>> {
+pub(crate) fn phrase(phrases: &Phrases, locale: &str, key: &str) -> Option<Vec<u8>> {
     let cached = phrases.lock().ok()?;
     cached.get(&(voice_of(locale), key.to_owned())).cloned()
 }

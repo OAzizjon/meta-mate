@@ -25,7 +25,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     VK_RWIN, VK_SHIFT, VK_XBUTTON1, VK_XBUTTON2,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GA_ROOTOWNER, GetAncestor, GetForegroundWindow, GetSystemMetrics, GetWindowThreadProcessId,
+    GA_ROOT, GetAncestor, GetForegroundWindow, GetSystemMetrics, GetWindowThreadProcessId,
     IsHungAppWindow, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_SWAPBUTTON, SM_XVIRTUALSCREEN,
     SM_YVIRTUALSCREEN, WindowFromPoint,
 };
@@ -40,6 +40,20 @@ const MAX_ANCESTORS: usize = 12;
 pub struct Win32Injector;
 
 impl InputInjector for Win32Injector {
+    fn confirmation_context(
+        &mut self,
+        target: TargetWindow,
+        at: PhysPoint,
+    ) -> Result<(TargetWindow, ConfirmedElement), PlatformError> {
+        let element = confirmation_element(target, at)?;
+        // Read focus after the potentially slow UIA walk, before making the offer.
+        let front = crate::window::foreground_target(&[]).ok_or(PlatformError::WindowNotFound)?;
+        if front.window != target || !inside_target(at, front.frame, &front.popups) {
+            return Err(PlatformError::WindowNotFound);
+        }
+        Ok((front.window, element))
+    }
+
     fn execute_verified(
         &mut self,
         target: TargetWindow,
@@ -88,7 +102,7 @@ fn injection_guard(
         let front = GetForegroundWindow();
         let thread = GetWindowThreadProcessId(front, Some(&mut process_id));
         let hit = WindowFromPoint(POINT { x: at.x, y: at.y });
-        let owner = GetAncestor(hit, GA_ROOTOWNER);
+        let owner = GetAncestor(hit, GA_ROOT);
         front == hwnd
             && thread != 0
             && process_id == target.process_id
