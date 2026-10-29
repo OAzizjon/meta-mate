@@ -183,3 +183,47 @@ Pre-submission rehearsal checklist on a clean Windows 10/11 machine (or fresh us
 - **Expected result:** The NSIS uninstaller executes cleanly in `currentUser` mode without requiring administrative elevation. All installed files under `%LOCALAPPDATA%\Programs\MetaMate`, Start Menu shortcuts, Desktop shortcuts, and registry keys under `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\MetaMate` are removed completely. User personal data is preserved.
 - **Pass / Fail:** [ ] Pass  [ ] Fail
 
+### 13. Guest trial
+- **Steps:**
+  1. Launch MetaMate without signing in (`MM_REQUIRE_SIGN_IN=1` in dev or standard release build).
+  2. Inspect Mate's speech window for the trial pill counter (`#mate-trial`).
+  3. Send 12 consecutive questions without signing in.
+  4. Attempt to send a 13th question.
+  5. Complete Google or GitHub sign-in in Settings or the Sign-in window.
+- **Expected result:** The trial pill (`#mate-trial`) displays remaining queries (e.g. `12 / 12` via `mate.trial`). The first 12 questions process and answer normally. Upon sending the 13th query, Mate refuses with `robot.guest_limit` ("Your guest questions for this hour are used up.") and automatically opens the sign-in window (`signin.html`). After completing sign-in, the guest usage pill disappears (`trial.hidden = true`).
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 14. Click-to-talk (toggle mode)
+- **Steps:**
+  1. Open Notepad in the foreground and focus the text editing caret.
+  2. Click Mate's character window once with the left mouse button, speak a prompt, and click Mate once more.
+  3. Click and hold Mate with the left mouse button, drag him across the desktop, and release.
+  4. Observe keyboard focus in Notepad throughout both actions.
+- **Expected result:** The first click starts listening (in either talk mode) and shows `robot.click_stop`; speaking streams voice levels; second click concludes capture and triggers answering. Dragging moves Mate smoothly across the desktop and saves the new position as home (`mate_drag_start`). Mate's window remains non-activating (`WS_EX_NOACTIVATE | SWP_NOACTIVATE`), and the active caret in Notepad never loses focus or drops keystrokes.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 15. Mate's right-click menu
+- **Steps:**
+  1. Position Mate near the screen edge (bottom or right boundary of the monitor work area).
+  2. Right-click Mate to open his contextual HTML menu (`#mate-menu`).
+  3. Move the mouse cursor away from Mate and the menu into another application window.
+  4. Re-open the right-click menu and select "Hide for 1 hour" (`tray.hide_hour`).
+  5. Right-click the system tray icon and click "Bring Mate back now" (`tray.wake_mate`).
+- **Expected result:** Menu opens clamped inside the visible work area without getting clipped off-screen or activating the window. Moving the mouse pointer outside automatically closes the menu after pointer leave or click outside. Choosing "Hide for 1 hour" shows Mate sleeping and displays his return time (`mate.hiding` / `hideReturnTime`) for 3 seconds before hiding. Clicking "Bring Mate back now" in the system tray immediately restores Mate to his home position.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 16. Sign-in required
+- **Steps:**
+  1. Clean or remove existing session tokens in local app data (`session.bin`), and ensure no cached credentials exist.
+  2. Launch MetaMate on a fresh install configuration.
+  3. Attempt to trigger push-to-talk before completing sign-in.
+- **Expected result:** On initial startup without credentials, MetaMate opens the sign-in window (`signin.html`) alongside Mate. Questions asked while unauthenticated and without a guest token refuse with `robot.sign_in_first` ("Please sign in first so I can answer.") and refocus/open the sign-in window. The built-in invite code is never used.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
+
+### 17. Privacy rounds 5–7: password reveal, consent, and non-secret fields
+- **Steps:**
+  1. Open a Microsoft Edge login page with a revealed password (plain text visible via show/hide toggle).
+  2. Open Telegram Desktop (Qt window with minimal UIA tree) and trigger an inquiry.
+  3. Open a form displaying a postal code field adjacent to an address block.
+- **Expected result:** On the Edge login page, the revealed password field and its adjacent toggle/neighbors are identified via password heuristics and painted solid black (`paint_black`, `must_hide`); consent never waives painting an unnamed edit beside a password label. Telegram Desktop triggers consent dialog confirmation before inspecting non-UIA canvas/Qt targets. Postal code and address fields with clear non-secret semantics are not blacked out.
+- **Pass / Fail:** [ ] Pass  [ ] Fail
