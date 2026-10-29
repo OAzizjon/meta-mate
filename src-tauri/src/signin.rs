@@ -42,7 +42,7 @@ fn signed_in(app: &AppHandle) -> bool {
 pub(crate) fn guest_used_up(app: &AppHandle) -> bool {
     !signed_in(app)
         && app.try_state::<Proxy>().is_some_and(|proxy| {
-            proxy.has_guest() && proxy.guest_usage().is_some_and(|u| u.left == 0)
+            proxy.has_guest() && proxy.guest_usage().is_some_and(|u| u.used_up())
         })
 }
 
@@ -88,6 +88,22 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
                 return;
             }
         }
+        // Guest tokens live a day: a fresh one twice a day while still signed out.
+        let renew = (app.clone(), proxy.clone());
+        tauri::async_runtime::spawn(async move {
+            let (app, proxy) = renew;
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(12 * 3600)).await;
+                if signed_in(&app) || !proxy.has_guest() {
+                    break;
+                }
+                if let Some(device) = device_id(&app)
+                    && let Ok(token) = proxy.guest_token(&device).await
+                {
+                    proxy.set_guest(Some(token));
+                }
+            }
+        });
         let mut usage = proxy.watch_guest_usage();
         let mut was_left = None;
         loop {

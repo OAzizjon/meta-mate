@@ -193,6 +193,19 @@ pub struct GuestUsage {
     pub limit: u32,
     /// Seconds until the oldest counted answer leaves the hour (0: none counted).
     pub reset: u32,
+    /// When the proxy said so: an empty hour ends `reset` seconds later.
+    #[serde(skip)]
+    pub noted: Option<Instant>,
+}
+
+impl GuestUsage {
+    /// No answer left right now (an empty hour refills after `reset`).
+    pub fn used_up(&self) -> bool {
+        self.left == 0
+            && self
+                .noted
+                .is_none_or(|noted| noted.elapsed() < Duration::from_secs(u64::from(self.reset)))
+    }
 }
 
 impl GuestUsage {
@@ -207,6 +220,7 @@ impl GuestUsage {
             left: number("x-metamate-guest-left")?,
             limit: number("x-metamate-guest-limit")?,
             reset: number("x-metamate-guest-reset").unwrap_or(0),
+            noted: Some(Instant::now()),
         })
     }
 }
@@ -325,6 +339,7 @@ impl Proxy {
                 left,
                 limit,
                 reset: number("reset").unwrap_or(0),
+                noted: Some(Instant::now()),
             }));
         }
         value["token"]
@@ -668,5 +683,29 @@ fn asr_event(
             .map(Some)
             .map_err(|_| ProxyError::Protocol("a speech event is not JSON")),
         Some(Ok(_)) => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_empty_guest_hour_refills_after_reset() {
+        let usage = |left, reset, ago: u64| GuestUsage {
+            left,
+            limit: 12,
+            reset,
+            noted: Instant::now().checked_sub(Duration::from_secs(ago)),
+        };
+        assert!(!usage(3, 100, 0).used_up());
+        assert!(usage(0, 100, 0).used_up());
+        assert!(!usage(0, 100, 101).used_up());
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("x-metamate-guest-left", "4".parse().unwrap());
+        headers.insert("x-metamate-guest-limit", "12".parse().unwrap());
+        let parsed = GuestUsage::from_headers(&headers).unwrap();
+        assert_eq!((parsed.left, parsed.limit, parsed.reset), (4, 12, 0));
+        assert!(GuestUsage::from_headers(&reqwest::header::HeaderMap::new()).is_none());
     }
 }

@@ -73,6 +73,8 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
         who = invite_of(request.headers.get('authorization'), settings)
         if who is None:
             return error(401, 'unknown invite code')
+        if who[0].startswith('user:guest:'):
+            return error(403, 'sign in for the lesson card')
         invite, limits = who
         body = await json_body(request, 8192)
         prompt = body.get('prompt') if body else None
@@ -114,6 +116,8 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
         who = invite_of(request.headers.get('authorization'), settings)
         if who is None:
             return error(401, 'unknown invite code')
+        if who[0].startswith('user:guest:'):
+            return error(403, 'sign in for the lesson card')
         if not settings.glimmer_url:
             return error(503, 'Muse Glimmer is not configured')
         invite, limits = who

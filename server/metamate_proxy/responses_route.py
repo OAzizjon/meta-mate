@@ -81,7 +81,8 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
                     return refused
                 hits.append(now)
                 left, reset = auth.guest_left(hits, now)
-            elif kind is policy.CallKind.COMPUTER:
+            else:
+                # Lesson steps, intents, speech: not messages, but capped for guests too.
                 steps = state.guest_steps.setdefault(invite, [])
                 steps_left, _ = auth.guest_left(steps, now, auth.GUEST_STEPS_PER_HOUR)
                 if steps_left == 0:

@@ -18,6 +18,8 @@ import secrets
 
 TOKEN_PREFIX = 'mms1.'
 SESSION_SECONDS = 30 * 24 * 3600
+# A guest token is short-lived: the app asks for a new one, so tokens can't be stockpiled.
+GUEST_SECONDS = 24 * 3600
 # The guest trial (owner, 2026-10-29): answers per hour for a device that has not signed in.
 GUEST_ANSWERS_PER_HOUR = 12
 # A lesson's computer-use steps are not messages, but a guest's are capped too.
@@ -93,9 +95,9 @@ def valid_port(port: object) -> bool:
     return isinstance(port, int) and not isinstance(port, bool) and 1024 <= port <= 65535
 
 
-def sign_session(identity: Identity, tier: str, secret: str, now: float) -> str:
+def sign_session(identity: Identity, tier: str, secret: str, now: float, seconds: int = SESSION_SECONDS) -> str:
     payload = {'p': identity.provider, 's': identity.subject, 'n': identity.name[:MAX_NAME], 't': tier,
-               'exp': int(now) + SESSION_SECONDS}
+               'exp': int(now) + seconds}
     body = b64url(json.dumps(payload, separators=(',', ':'), ensure_ascii=False).encode('utf-8'))
     mac = b64url(hmac.new(secret.encode('utf-8'), body.encode('ascii'), hashlib.sha256).digest())
     return f'{TOKEN_PREFIX}{body}.{mac}'
@@ -134,7 +136,7 @@ def prune_hours(table: dict[str, list[float]], now: float) -> None:
 
 def sign_guest(device: str, secret: str, now: float) -> str:
     """A guest token for one device: no account, the guest trial's hourly answers only."""
-    return sign_session(Identity('guest', device, '', 'Guest'), 'guest', secret, now)
+    return sign_session(Identity('guest', device, '', 'Guest'), 'guest', secret, now, GUEST_SECONDS)
 
 
 def guest_left(hits: list[float], now: float, limit: int = GUEST_ANSWERS_PER_HOUR) -> tuple[int, int]:
