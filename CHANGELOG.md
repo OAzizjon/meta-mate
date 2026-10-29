@@ -10,6 +10,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- A live team progress board for the owner in a GitHub issue.
+- Privacy calibration explains that normal apps such as Telegram are looked at, while remote desktops and canvas-only windows ask first.
+- The Home window explains how to talk to Mate, suggests three questions to try, and says what Mate never does; it opens at startup and from the tray.
 - The landing page is served from the proxy URL.
 - The lesson card has a new layout and a print page.
 - An architecture diagram and a 12-point test matrix.
