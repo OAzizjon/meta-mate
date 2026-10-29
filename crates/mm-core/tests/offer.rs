@@ -1,6 +1,43 @@
 use std::time::{Duration, Instant};
 
-use mm_core::teacher::{confirmation_answer, confirmation_ready_at};
+use mm_core::teacher::{confirmation_answer as checked_answer, confirmation_ready_at};
+
+fn confirmation_answer(text: &str, pressed: Option<Instant>, ready: Instant) -> Option<bool> {
+    checked_answer(text, pressed, ready, 0, 1, "en")
+}
+
+#[test]
+fn intervening_silent_presses_require_a_new_prompt() {
+    let ready = Instant::now();
+    let press = Some(ready + Duration::from_millis(1));
+    for epoch in [0, 2, 3, u64::MAX] {
+        // Cancelled, empty and failed recognition presses all increment the same epoch.
+        assert_eq!(checked_answer("yes", press, ready, 0, epoch, "en"), None);
+        assert_eq!(
+            checked_answer("no", press, ready, 0, epoch, "en"),
+            Some(false)
+        );
+    }
+    assert_eq!(checked_answer("yes", press, ready, 2, 3, "en"), Some(true));
+    assert_eq!(checked_answer("yes", press, ready, u64::MAX, 0, "en"), None);
+    assert_eq!(checked_answer("ha", press, ready, 0, 1, "en"), None);
+    assert_eq!(checked_answer("ha", press, ready, 0, 1, "uz"), Some(true));
+}
+
+#[test]
+fn speech_after_a_prompt_closes_the_offer() {
+    use mm_core::teacher::{LineKey, ModelChoice, TeacherCommand, closes_confirmation};
+    for command in [
+        TeacherCommand::Say(LineKey::WrongPlace),
+        TeacherCommand::UseModel(ModelChoice::Thorough),
+        TeacherCommand::SpeakCommentary("Almost".into()),
+    ] {
+        assert!(closes_confirmation(&command));
+    }
+    assert!(!closes_confirmation(&TeacherCommand::UseModel(
+        ModelChoice::Quick
+    )));
+}
 
 #[test]
 fn prompt_waits_for_queued_audio_and_a_human_pause() {

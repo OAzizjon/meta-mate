@@ -258,7 +258,6 @@ fn spoken_yes_no_covers_both_languages_and_negation_wins() {
         "ладно",
         "Yes, please.",
         "Хорошо, нажимай!",
-        "ha",
         "mayli, bosing",
         "yes please go ahead do it",
         "Да ладно, нажми",
@@ -332,6 +331,19 @@ fn spoken_yes_no_covers_both_languages_and_negation_wins() {
     ] {
         assert_eq!(parse_yes_no(text), None, "{text}");
     }
+}
+
+#[test]
+fn ha_is_affirmative_only_in_uzbek() {
+    use mm_core::api::intent::parse_yes_no_for_locale;
+    for text in ["ha", "Ha!", "ha ha"] {
+        assert_eq!(parse_yes_no(text), None);
+        for locale in ["en", "ru", "tr", ""] {
+            assert_eq!(parse_yes_no_for_locale(text, locale), None);
+        }
+        assert_eq!(parse_yes_no_for_locale(text, "uz"), Some(true));
+    }
+    assert_eq!(parse_yes_no_for_locale("ha, no", "uz"), Some(false));
 }
 
 #[test]

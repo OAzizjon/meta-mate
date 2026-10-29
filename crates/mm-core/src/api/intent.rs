@@ -99,10 +99,18 @@ fn has_no(words: &[&str]) -> bool {
 
 /// Spoken confirmation for the current offer only; a refusal always wins.
 pub fn parse_yes_no(text: &str) -> Option<bool> {
+    parse_yes_no_for_locale(text, "en")
+}
+
+/// Uzbek "ha" is affirmative only in the Uzbek locale.
+pub fn parse_yes_no_for_locale(text: &str, locale: &str) -> Option<bool> {
     let lower = spoken_words(text);
     let words: Vec<_> = words(&lower).collect();
     if has_no(&words) {
         return Some(false);
+    }
+    if words.contains(&"ha") && locale != "uz" {
+        return None;
     }
     let yes = contains_spoken(
         &words,

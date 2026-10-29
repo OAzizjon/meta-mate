@@ -373,6 +373,7 @@ pub(crate) async fn teach(
     let mut acknowledged: Vec<String> = Vec::new();
     let mut tick = tokio::time::interval(TICK);
     let mut offered_at: Option<Instant> = None;
+    let mut prompt_epoch = 0;
     let mut audio_until = Instant::now();
     let mut audio_known = true;
     let mut confirmation_offer = None;
@@ -496,6 +497,15 @@ pub(crate) async fn teach(
                 if cancelled() {
                     return;
                 }
+                if offered_at.is_some() && mm_core::teacher::closes_confirmation(&command) {
+                    offered_at = None;
+                    confirmation_offer = None;
+                    // Reset Awaiting without adding another spoken line.
+                    let _ = teacher.input(TeacherInput::DoItAnswer {
+                        yes: false,
+                        now_ms: now(),
+                    });
+                }
                 match command {
                     TeacherCommand::SpeakCommentary(text) => {
                         // The prompt allows a leading `<lang ..><mood ..>`: never spoken.
@@ -606,6 +616,7 @@ pub(crate) async fn teach(
                                 confirmation_ready_at(Instant::now(), audio_until, duration);
                             offered_at = Some(ready);
                             audio_until = ready - Duration::from_millis(300);
+                            prompt_epoch = speech_epoch.load(Ordering::Acquire);
                             say_line(&stream, &phrases, &locale, generation, "robot.do_it_for_me");
                             confirmation_offer = Some(offer);
                         }
@@ -669,9 +680,6 @@ pub(crate) async fn teach(
                             {
                                 if let Some(duration) = wav_duration(&wav) {
                                     audio_until = audio_until.max(Instant::now()) + duration;
-                                    if offered_at.is_some() {
-                                        offered_at = Some(audio_until + Duration::from_millis(300));
-                                    }
                                 } else {
                                     audio_known = false;
                                     offered_at = None;
@@ -757,7 +765,8 @@ pub(crate) async fn teach(
                     expire_offer(&mut teacher, &mut offered_at, now());
                     let live_offer = offered_at.is_some() && confirmation_offer.is_some();
                     let input = if let Some(ready) = offered_at.filter(|_| live_offer) {
-                        confirmation_answer(&words.text, words.pressed_at, ready).map(|yes| TeacherInput::DoItAnswer {
+                        confirmation_answer(&words.text, words.pressed_at, ready,
+                            prompt_epoch, speech_epoch.load(Ordering::Acquire), &locale).map(|yes| TeacherInput::DoItAnswer {
                             yes,
                             now_ms: now(),
                         })
@@ -786,7 +795,12 @@ pub(crate) async fn teach(
                             .and_then(|wav| wav_duration(&wav)) {
                             offered_at = Some(confirmation_ready_at(Instant::now(), audio_until, duration));
                             audio_until = offered_at.unwrap() - Duration::from_millis(300);
+                            prompt_epoch = speech_epoch.load(Ordering::Acquire);
                             say_line(&stream, &phrases, &locale, generation, "robot.do_it_for_me");
+                        } else {
+                            offered_at = None;
+                            confirmation_offer = None;
+                            let _ = teacher.input(TeacherInput::DoItAnswer { yes: false, now_ms: now() });
                         }
                     }
                 }
@@ -800,6 +814,9 @@ pub(crate) async fn teach(
                         input_staleness(&input, pointed_ms, current.snapshot.target);
                     if focus_only && !asked_to_focus && teacher.matches_key_chord(&input) {
                         asked_to_focus = true;
+                        offered_at = None;
+                        confirmation_offer = None;
+                        let _ = teacher.input(TeacherInput::DoItAnswer { yes: false, now_ms: now() });
                         say_line(&stream, &phrases, &locale, generation, "robot.click_app_first");
                         if let Some(wav) = crate::voice::phrase(&phrases, &locale, "robot.click_app_first") {
                             if let Some(duration) = wav_duration(&wav) {

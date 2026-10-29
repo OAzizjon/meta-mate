@@ -246,3 +246,33 @@ fn click_safety_whole_words_and_amounts() {
         assert!(!mm_core::privacy::forbidden(name, "Button"), "{name}");
     }
 }
+#[test]
+fn broad_payment_delete_and_transfer_stems_keep_only_exact_harmless_exceptions() {
+    for text in [
+        "Paga ora",
+        "Conferma pagamento",
+        "silmek",
+        "silinsin",
+        "o'tkazmani",
+        "O'tkazing",
+        "comprare",
+        "page pagamento",
+        "silent silmek",
+        "compression compra",
+    ] {
+        assert!(mm_core::privacy::forbidden(text, "Button"), "{text}");
+    }
+    for text in [
+        "Next page",
+        "pages",
+        "paging",
+        "Silent",
+        "silence",
+        "silently",
+        "Compress",
+        "compression",
+        "O'tkazib yuborish",
+    ] {
+        assert!(!mm_core::privacy::forbidden(text, "Button"), "{text}");
+    }
+}

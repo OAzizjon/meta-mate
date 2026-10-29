@@ -8,7 +8,7 @@ use mm_core::geom::{FrameTransform, PhysPoint, PhysRect};
 use crate::captured_image::CapturedImage;
 use crate::error::PlatformError;
 use crate::input_hooks::{InputEvent, InputHooks};
-use crate::input_injector::{HumanConfirmation, InputAction, InputInjector, check_confirmation};
+use crate::input_injector::{InputAction, InputInjector};
 use crate::overlay::{Overlay, RobotPose};
 use crate::screen_capture::ScreenCapture;
 use crate::target::TargetWindow;
@@ -98,17 +98,41 @@ impl Overlay for MockBackend {
     }
 }
 
+/// No mock confirmation can be constructed in production.
+#[cfg(not(test))]
+pub type MockConfirmation = std::convert::Infallible;
+#[cfg(test)]
+pub type MockConfirmation = (TargetWindow, InputAction);
+
 impl InputInjector for MockBackend {
+    type Confirmation = MockConfirmation;
+    type Offer = std::convert::Infallible;
+
     fn execute_verified(
         &mut self,
         target: TargetWindow,
         action: &InputAction,
-        confirmation: Option<HumanConfirmation>,
+        confirmation: Option<MockConfirmation>,
     ) -> Result<(), PlatformError> {
-        check_confirmation(target, action, confirmation)?;
-        self.check_target(target)?;
-        self.executed.push((target, action.clone()));
-        Ok(())
+        #[cfg(not(test))]
+        {
+            let _ = (target, action);
+            match confirmation {
+                None => Err(PlatformError::ConfirmationRequired),
+                Some(impossible) => match impossible {},
+            }
+        }
+        #[cfg(test)]
+        {
+            if !confirmation
+                .is_some_and(|(window, confirmed)| window == target && confirmed == *action)
+            {
+                return Err(PlatformError::ConfirmationRequired);
+            }
+            self.check_target(target)?;
+            self.executed.push((target, action.clone()));
+            Ok(())
+        }
     }
 }
 
@@ -170,21 +194,8 @@ mod tests {
         assert_eq!(mock.executed, vec![(target, click)]);
     }
 
-    fn confirmed(target: TargetWindow, action: InputAction) -> HumanConfirmation {
-        let element = crate::ConfirmedElement {
-            runtime_id: vec![1, 42],
-            process_id: target.process_id,
-            name: "Open".into(),
-            control_type: "Button".into(),
-            rect: PhysRect::new(0, 0, 100, 100).unwrap(),
-            enabled: true,
-            offscreen: false,
-            blocked: false,
-        };
-        crate::input_injector::ask_confirmation(target, &action, element, || {})
-            .unwrap()
-            .answer(true)
-            .unwrap()
+    fn confirmed(target: TargetWindow, action: InputAction) -> MockConfirmation {
+        (target, action)
     }
 
     #[test]

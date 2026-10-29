@@ -156,6 +156,10 @@ const FORBIDDEN_WORD_STARTS: [&str; 9] = [
 ];
 
 const FORBIDDEN_EXTRA: &[&str] = &[
+    "pag",
+    "sil",
+    "compr",
+    "o'tkaz",
     "discard",
     "subscribe",
     "subscription",
@@ -192,9 +196,9 @@ const FORBIDDEN_EXTRA: &[&str] = &[
     "переказати",
 ];
 
-static FORBIDDEN_WORDS: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\b(?:pagar|pague|pago|s[iİ]l|comprar|compra|compre|o'tkazma|o'tkazish)\b")
-        .expect("constant forbidden word regex must compile")
+// Turkish uppercase dotted I is not an ASCII case fold of the broad "sil" stem.
+static TURKISH_DELETE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\bs[iİ]l").expect("constant Turkish delete regex must compile")
 });
 
 static MONEY_AMOUNT: LazyLock<Regex> = LazyLock::new(|| {
@@ -228,7 +232,9 @@ pub fn forbidden(name: &str, control_type: &str) -> bool {
     }
     let text = separated(name);
     FORBIDDEN_PHRASES.is_match(&text)
-        || FORBIDDEN_WORDS.is_match(&text)
+        || TURKISH_DELETE
+            .find_iter(&text)
+            .any(|matched| !harmless_stem_word(&text[matched.start()..], "sil"))
         || MONEY_AMOUNT.is_match(&text)
         || FORBIDDEN_EXTRA
             .iter()
@@ -275,6 +281,26 @@ fn contains_stem(text: &str, stem: &str) -> bool {
             .flat_map(char::to_lowercase)
             .eq(stem.chars())
             && (!stem.is_ascii() || word_start(text[..start].chars().next_back(), first))
+            && !harmless_stem_word(&text[start..], stem)
+    })
+}
+
+/// Exceptions apply to one complete word, never to the rest of the label.
+fn harmless_stem_word(text: &str, stem: &str) -> bool {
+    let exceptions: &[&str] = match stem {
+        "pag" => &["page", "pages", "paging"],
+        "sil" => &["silent", "silence", "silently"],
+        "compr" => &["compress", "compression"],
+        "o'tkaz" => &["o'tkazib"],
+        _ => return false,
+    };
+    exceptions.iter().any(|word| {
+        text.get(..word.len())
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(word))
+            && text[word.len()..]
+                .chars()
+                .next()
+                .is_none_or(|c| !c.is_alphanumeric())
     })
 }
 

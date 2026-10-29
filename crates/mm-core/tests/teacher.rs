@@ -963,6 +963,53 @@ fn offer() -> Command {
 }
 
 #[test]
+fn speech_after_an_offer_cancels_it_before_a_later_yes() {
+    for automatic in [false, true] {
+        let mut teacher = Teacher::new(TeacherConfig {
+            do_it_for_me: true,
+            auto_escalate: automatic,
+            ..Default::default()
+        });
+        teacher.input(do_it_turn(vec![click_action()]));
+        let commands = if automatic {
+            teacher.input(click(200, 1));
+            teacher.input(click(200, 2))
+        } else {
+            assert!(
+                teacher
+                    .input(Input::DoItRequested { now_ms: 1 })
+                    .contains(&offer())
+            );
+            teacher.input(click(200, 2))
+        };
+        let mut open = !automatic;
+        let mut closed_by_speech = false;
+        for command in commands {
+            if matches!(command, Command::OfferDoIt { .. }) {
+                open = true;
+            } else if open && mm_core::teacher::closes_confirmation(&command) {
+                open = false;
+                closed_by_speech = true;
+                let _ = teacher.input(Input::DoItAnswer {
+                    yes: false,
+                    now_ms: 3,
+                });
+            }
+        }
+        assert!(closed_by_speech, "automatic: {automatic}");
+        assert!(!open);
+        assert!(
+            teacher
+                .input(Input::DoItAnswer {
+                    yes: true,
+                    now_ms: 4,
+                })
+                .is_empty()
+        );
+    }
+}
+
+#[test]
 fn pending_safety_checks_never_offer_or_inject_even_after_yes() {
     let mut teacher = Teacher::new(TeacherConfig {
         do_it_for_me: true,
