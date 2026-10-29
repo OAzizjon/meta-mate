@@ -115,6 +115,74 @@ def ask(client: TestClient, body: dict, code: str = JUDGE_CODE, kind: str = 'ans
                        headers={'Authorization': f'Bearer {code}', 'X-MetaMate-Call': kind})
 
 
+class StaticSiteTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.folder = Path(temporary.name)
+        self.site = self.folder / 'site'
+        self.site.mkdir()
+        (self.site / 'index.html').write_text('<h1>MetaMate</h1>', encoding='utf-8')
+        (self.site / 'style.css').write_text('body { color: black; }', encoding='utf-8')
+        (self.site / 'images').mkdir()
+        (self.site / 'images' / 'mate.png').write_bytes(b'\x89PNG\r\n\x1a\n')
+        self.client = client_for(FakeMeta(), {**ENV, 'PROXY_SITE_DIR': str(self.site)})
+
+    def test_serves_index_and_static_files_with_safe_headers(self):
+        for path, content, content_type in (
+                ('/', b'<h1>MetaMate</h1>', 'text/html'),
+                ('/index.html', b'<h1>MetaMate</h1>', 'text/html'),
+                ('/style.css', b'body { color: black; }', 'text/css'),
+                ('/images/mate.png', b'\x89PNG\r\n\x1a\n', 'image/png')):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.content, content)
+                self.assertTrue(response.headers['content-type'].startswith(content_type))
+                self.assertEqual(response.headers['x-content-type-options'], 'nosniff')
+                self.assertEqual(response.headers['referrer-policy'], 'no-referrer')
+                self.assertEqual(response.headers['content-security-policy'],
+                                 "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
+                                 "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+
+    def test_api_routes_win_over_matching_static_files(self):
+        (self.site / 'healthz').write_text('static health', encoding='utf-8')
+        (self.site / 'auth' / 'google').mkdir(parents=True)
+        (self.site / 'auth' / 'google' / 'start').write_text('static auth', encoding='utf-8')
+        (self.site / 'v1').mkdir()
+        (self.site / 'v1' / 'responses').write_text('static API', encoding='utf-8')
+        self.assertEqual(self.client.get('/healthz').json(), {'ok': True})
+        self.assertEqual(self.client.get('/auth/google/start').status_code, 503)
+        self.assertEqual(ask(self.client, {'model': 'muse-spark-1.3', 'input': 'Hi'}).status_code, 200)
+
+    def test_parent_traversal_is_refused(self):
+        (self.folder / 'outside.txt').write_text('private', encoding='utf-8')
+        for path in ('/%2e%2e/outside.txt', '/%2e%2e%2foutside.txt',
+                     '/%2e%2e%5coutside.txt'):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 404)
+
+    def test_directory_listing_is_refused(self):
+        response = self.client.get('/images/')
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn('mate.png', response.text)
+
+    def test_static_files_are_read_only(self):
+        for method in ('post', 'put', 'patch', 'delete'):
+            with self.subTest(method=method):
+                response = getattr(self.client, method)('/index.html')
+                self.assertEqual(response.status_code, 405)
+        self.assertEqual((self.site / 'index.html').read_text(encoding='utf-8'), '<h1>MetaMate</h1>')
+
+    def test_unset_or_missing_directory_keeps_root_404(self):
+        for env in (ENV, {**ENV, 'PROXY_SITE_DIR': str(self.folder / 'missing')}):
+            with self.subTest(site_dir=env.get('PROXY_SITE_DIR')):
+                client = client_for(FakeMeta(), env)
+                self.assertEqual(client.get('/').status_code, 404)
+                self.assertEqual(client.get('/index.html').status_code, 404)
+                self.assertEqual(client.get('/healthz').json(), {'ok': True})
+
+
 class ProxyTests(unittest.TestCase):
     def test_restart_retains_spend_and_refuses_over_budget_calls(self):
         from metamate_proxy.app import today

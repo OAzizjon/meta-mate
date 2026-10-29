@@ -20,6 +20,7 @@ image = (
     modal.Image.debian_slim(python_version='3.12')
     .pip_install_from_requirements(str(SERVER / 'requirements.txt'))
     .add_local_dir(str(SERVER / 'metamate_proxy'), '/root/metamate_proxy')
+    .add_local_dir(str(SERVER.parent / 'site'), '/root/site')
 )
 
 app = modal.App(APP_NAME)
@@ -29,7 +30,8 @@ ledger_volume = modal.Volume.from_name('metamate-proxy-ledger', create_if_missin
 @app.function(
     image=image,
     secrets=[modal.Secret.from_name(SECRET_NAME),
-             modal.Secret.from_dict({'PROXY_LEDGER_PATH': '/data/ledger.json'})],
+             modal.Secret.from_dict({'PROXY_LEDGER_PATH': '/data/ledger.json',
+                                     'PROXY_SITE_DIR': '/root/site'})],
     volumes={'/data': ledger_volume},
     min_containers=1,
     # One ledger: never a second container.

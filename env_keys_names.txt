@@ -25,6 +25,8 @@ PROXY_ADMIN_TOKEN
 PROXY_DAILY_BUDGET_USD
 # Optional durable daily counters; absent: in-memory ledger only
 PROXY_LEDGER_PATH
+# Optional static landing page directory; absent: API only
+PROXY_SITE_DIR
 # Sign-in (D54): Google and GitHub OAuth clients (from JustLog3), the key that signs
 # session tokens, and the e-mails that get the judge tier
 GOOGLE_CLIENT_ID

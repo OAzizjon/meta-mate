@@ -18,12 +18,14 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import httpx
 import websockets
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+from starlette.staticfiles import StaticFiles
 
 from . import auth, policy
 
@@ -73,6 +75,7 @@ class Settings:
     public_url: str = 'http://127.0.0.1:8787'
     judge_emails: frozenset[str] = frozenset()
     ledger_path: str = ''
+    site_dir: str = ''
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> 'Settings':
@@ -128,7 +131,21 @@ class Settings:
         judges = frozenset(item.strip().lower() for item in env.get('PROXY_JUDGE_EMAILS', '').split(',')
                            if '@' in item)
         return Settings(key, base, invites, budget, prices, tts_url, tts_secret, glimmer_url, oauth,
-                        session_secret, public_url, judges, env.get('PROXY_LEDGER_PATH') or '')
+                        session_secret, public_url, judges, env.get('PROXY_LEDGER_PATH') or '',
+                        env.get('PROXY_SITE_DIR') or '')
+
+
+class SiteFiles(StaticFiles):
+    """Keep the landing page's policy separate from the sign-in pages and API."""
+
+    async def get_response(self, path: str, scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
+            "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+        response.headers['Referrer-Policy'] = 'no-referrer'
+        return response
 
 
 @dataclass
@@ -747,6 +764,10 @@ def create_app(settings: Settings, client: httpx.AsyncClient | None = None,
                 await ws.close()
             except (RuntimeError, OSError, WebSocketDisconnect):
                 pass
+
+    # Last: every API route (including WebSockets) takes precedence over static files.
+    if settings.site_dir and Path(settings.site_dir).is_dir():
+        app.mount('/', SiteFiles(directory=settings.site_dir, html=True), name='site')
 
     return app
 
