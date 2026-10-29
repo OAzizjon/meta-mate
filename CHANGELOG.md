@@ -10,6 +10,10 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- The landing page is served from the proxy URL.
+- The lesson card has a new layout and a print page.
+- An architecture diagram and a 12-point test matrix.
+- Draft release v0.9.0-rc1.
 - The judges' proxy is live on Modal; Google sign-in has been verified through it.
 - Mate's answer bubble shows which Meta model answered; the tray offers "Try a question" for people whose microphone does not work.
 - The team added a second Claude worker for design and backup lead coverage, plus a fourth Gemini account.
@@ -67,6 +71,10 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Changed
 
+- Mate's v1.1 design adds eyebrows and a filament, with a softer aura.
+- "Do it for me" re-checks the element and window at click time; yes counts only after the prompt was heard, and its blocklist covers more languages and money amounts.
+- Accessibility improvements: a longer, more readable bubble, clearer settings, and announced errors.
+- Greetings are handled as chat.
 - Release builds use a built-in proxy URL and capped demo invite (`METAMATE_PROXY_URL`, `METAMATE_INVITE`); `mm release` refuses to build without them.
 - Provider search hides walked originals, treats links and images as reveal toggles, searches a toggle's grandparent, and searches inside found fields.
 - SAM is never asked about a painted pixel.
