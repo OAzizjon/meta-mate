@@ -6,19 +6,22 @@
 
 use mm_core::geom::PhysRect;
 use mm_platform::TargetWindow;
-use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, RECT};
 use windows::Win32::Graphics::Dwm::{
     DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute,
 };
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromRect,
 };
-use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GW_OWNER, GWL_EXSTYLE, GWL_STYLE, GetClassNameW, GetLayeredWindowAttributes,
-    GetWindow, GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsIconic,
-    IsWindowVisible, LWA_ALPHA, WS_EX_LAYERED, WS_EX_TRANSPARENT, WS_POPUP,
+use windows::Win32::System::Threading::{
+    OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
-use windows::core::BOOL;
+use windows::Win32::UI::WindowsAndMessaging::{
+    EnumWindows, GW_OWNER, GWL_EXSTYLE, GetClassNameW, GetLayeredWindowAttributes, GetWindow,
+    GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
+    LWA_ALPHA, WS_EX_LAYERED,
+};
+use windows::core::{BOOL, PWSTR};
 
 /// Window classes of the desktop and the taskbars: never a target.
 const SHELL_CLASSES: [&str; 6] = [
@@ -34,7 +37,85 @@ const SHELL_CLASSES: [&str; 6] = [
 const MENU_CLASS: &str = "#32768";
 
 fn eligible_class(class: &str) -> bool {
-    !SHELL_CLASSES.contains(&class) && class != MENU_CLASS
+    !SHELL_CLASSES.contains(&class) && class != MENU_CLASS && !remote_class(class)
+}
+
+/// Known RDP, VMware, VirtualBox, TeamViewer, AnyDesk and Hyper-V viewer classes.
+/// Prefixes include version-specific Qt and viewer class suffixes conservatively.
+fn remote_class(class: &str) -> bool {
+    let class = class.to_ascii_lowercase();
+    // Qt and WinForms classes are shared with ordinary apps. Without process-image
+    // evidence, refuse these families too rather than guess whether this is a VM.
+    ((class.starts_with("qt5") || class.starts_with("qt6")) && class.contains("qwindow"))
+        || [
+            "tscshellcontainerclass",
+            "tscaxhostclass",
+            "rail_window",
+            "vmware",
+            "vmuiview",
+            "vmuiframe",
+            "vmplayer",
+            "virtualbox",
+            "teamviewer",
+            "tv_",
+            "anydesk",
+            "ad_salat",
+            "vmconnect",
+            "windowsforms10.window",
+        ]
+        .iter()
+        .any(|prefix| class.starts_with(prefix))
+}
+
+fn remote_executable(path: &str) -> bool {
+    let name = path
+        .rsplit(['\\', '/'])
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    [
+        "mstsc.exe",
+        "msrdc.exe",
+        "vmconnect.exe",
+        "virtualbox.exe",
+        "virtualboxvm.exe",
+        "vmware.exe",
+        "vmplayer.exe",
+        "vmware-view.exe",
+        "teamviewer.exe",
+        "teamviewer_desktop.exe",
+        "anydesk.exe",
+    ]
+    .contains(&name.as_str())
+}
+
+/// Class names vary by release and UI toolkit; also check the owning executable.
+/// An inaccessible process cannot establish that this is a safe local target.
+fn local_process(process_id: u32) -> bool {
+    // SAFETY: a read-only query handle; no memory in the other process is read.
+    let Ok(process) =
+        (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) })
+    else {
+        return false;
+    };
+    let mut buffer = [0u16; 32768];
+    let mut len = buffer.len() as u32;
+    // SAFETY: the buffer is writable for `len` UTF-16 units; the handle stays open.
+    let read = unsafe {
+        QueryFullProcessImageNameW(
+            process,
+            PROCESS_NAME_WIN32,
+            PWSTR(buffer.as_mut_ptr()),
+            &mut len,
+        )
+    };
+    // SAFETY: this is the handle acquired above, closed once after its last query.
+    let _ = unsafe { CloseHandle(process) };
+    read.is_ok()
+        && len > 0
+        && buffer
+            .get(..len as usize)
+            .is_some_and(|path| !remote_executable(&String::from_utf16_lossy(path)))
 }
 
 /// The user's window, its popups and the region to capture. Debug carries handles and
@@ -45,7 +126,7 @@ pub struct Target {
     pub hwnd: HWND,
     /// The visible frame without the drop shadow (`DWMWA_EXTENDED_FRAME_BOUNDS`).
     pub frame: PhysRect,
-    /// Visible windows that belong to it: owned ones, and menus or dropdowns of its thread.
+    /// Visible windows whose owner chain reaches it, plus its active unowned menus.
     pub popups: Vec<PhysRect>,
     /// The same popups' handles, in the same order (UIA walks each one).
     pub popup_hwnds: Vec<HWND>,
@@ -79,7 +160,7 @@ fn target_of(hwnd: HWND, own: &[HWND]) -> Option<Target> {
     // SAFETY: the out pointer is a local u32 that outlives the call.
     let thread_id = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process_id)) };
     // Never one of our own windows, even one `own` does not list.
-    if thread_id == 0 || process_id == std::process::id() {
+    if thread_id == 0 || process_id == std::process::id() || !local_process(process_id) {
         return None;
     }
     let frame = frame_of(hwnd)?;
@@ -155,9 +236,6 @@ unsafe extern "system" fn collect_above(window: HWND, data: LPARAM) -> BOOL {
 fn transparent(hwnd: HWND) -> bool {
     // SAFETY: reads a window long; a stale handle returns zero.
     let style = unsafe { GetWindowLongPtrW(hwnd, GWL_EXSTYLE) } as u32;
-    if style & WS_EX_TRANSPARENT.0 != 0 {
-        return true;
-    }
     if style & WS_EX_LAYERED.0 == 0 {
         return false;
     }
@@ -166,7 +244,14 @@ fn transparent(hwnd: HWND) -> bool {
     // SAFETY: both output pointers are writable locals that outlive this call.
     let read =
         unsafe { GetLayeredWindowAttributes(hwnd, None, Some(&mut alpha), Some(&mut flags)) };
-    read.is_ok() && flags.0 & LWA_ALPHA.0 != 0 && alpha == 0
+    transparent_attributes(
+        style & WS_EX_LAYERED.0 != 0,
+        read.is_ok().then_some((flags.0 & LWA_ALPHA.0 != 0, alpha)),
+    )
+}
+
+fn transparent_attributes(layered: bool, attributes: Option<(bool, u8)>) -> bool {
+    layered && attributes == Some((true, 0))
 }
 
 /// Half-open intersection: touching edges, empty or inverted rectangles add no pixels.
@@ -286,6 +371,7 @@ fn popups_of(hwnd: HWND, thread_id: u32, own: &[HWND]) -> Vec<(HWND, PhysRect)> 
         .filter(|&window| {
             window != hwnd
                 && !own.contains(&window)
+                && class_name(window).is_some_and(|class| !remote_class(&class))
                 && belongs_to(window, hwnd, thread_id)
                 && shown(window)
         })
@@ -301,19 +387,56 @@ unsafe extern "system" fn collect(window: HWND, data: LPARAM) -> BOOL {
     true.into()
 }
 
-/// Owned by `owner`, or a popup-style window of the same thread (a menu, a dropdown).
+/// Ownership must reach the target. Unowned native menus additionally need its
+/// foreground and thread; a shared UI thread alone proves no ownership.
 fn belongs_to(window: HWND, owner: HWND, thread_id: u32) -> bool {
-    // SAFETY: plain handle and command; a window without an owner is an error, not a handle.
-    if unsafe { GetWindow(window, GW_OWNER) }.is_ok_and(|found| found == owner) {
-        return true;
-    }
+    let (reaches_target, unowned) = owner_chain(window, owner, |next| {
+        // SAFETY: plain handle query; missing or stale owners terminate the chain.
+        unsafe { GetWindow(next, GW_OWNER) }
+            .ok()
+            .filter(|found| !found.is_invalid())
+    });
     // SAFETY: no out pointer; a stale handle gives thread 0, never the target's.
-    if unsafe { GetWindowThreadProcessId(window, None) } != thread_id {
-        return false;
+    popup_owned(
+        reaches_target,
+        unowned,
+        class_name(window).as_deref() == Some(MENU_CLASS),
+        crate::focus::foreground() == owner,
+        unsafe { GetWindowThreadProcessId(window, None) } == thread_id,
+    )
+}
+
+fn owner_chain(
+    window: HWND,
+    target: HWND,
+    mut owner_of: impl FnMut(HWND) -> Option<HWND>,
+) -> (bool, bool) {
+    let mut chain = Vec::new();
+    let mut next = window;
+    for _ in 0..64 {
+        let Some(found) = owner_of(next) else {
+            return (false, chain.is_empty());
+        };
+        if found == target {
+            return (true, false);
+        }
+        if chain.contains(&found) {
+            return (false, false);
+        }
+        chain.push(found);
+        next = found;
     }
-    // SAFETY: reads a window long; an invalid handle returns 0.
-    let style = unsafe { GetWindowLongPtrW(window, GWL_STYLE) } as u32;
-    (style & WS_POPUP.0) != 0 || class_name(window).as_deref() == Some(MENU_CLASS)
+    (false, false)
+}
+
+fn popup_owned(
+    reaches_target: bool,
+    unowned: bool,
+    menu: bool,
+    active: bool,
+    same_thread: bool,
+) -> bool {
+    reaches_target || (unowned && menu && active && same_thread)
 }
 
 /// The window's class name; `None` when the window is gone.
@@ -328,6 +451,81 @@ fn class_name(hwnd: HWND) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn click_through_is_not_visual_transparency() {
+        assert!(!transparent_attributes(false, Some((true, 0))));
+        assert!(!transparent_attributes(true, None));
+        assert!(!transparent_attributes(true, Some((false, 0))));
+        assert!(!transparent_attributes(true, Some((true, 1))));
+        assert!(transparent_attributes(true, Some((true, 0))));
+    }
+
+    #[test]
+    fn popup_requires_ownership_or_an_active_unowned_menu() {
+        assert!(popup_owned(true, false, false, false, false));
+        assert!(!popup_owned(false, false, true, true, true));
+        assert!(!popup_owned(false, true, false, true, true));
+        assert!(!popup_owned(false, true, true, false, true));
+        assert!(!popup_owned(false, true, true, true, false));
+        assert!(popup_owned(false, true, true, true, true));
+    }
+
+    #[test]
+    fn owner_chain_follows_nested_owners_and_refuses_cycles() {
+        let handle = |n: usize| HWND(n as *mut std::ffi::c_void);
+        let (child, middle, target, other) = (handle(1), handle(2), handle(3), handle(4));
+        assert_eq!(
+            owner_chain(child, target, |w| {
+                if w == child {
+                    Some(middle)
+                } else if w == middle {
+                    Some(target)
+                } else {
+                    None
+                }
+            }),
+            (true, false)
+        );
+        assert_eq!(owner_chain(child, target, |_| None), (false, true));
+        assert_eq!(
+            owner_chain(child, target, |w| (w == child).then_some(other)),
+            (false, false)
+        );
+        assert_eq!(owner_chain(child, target, |_| Some(middle)), (false, false));
+    }
+
+    #[test]
+    fn remote_viewers_are_never_targets() {
+        for class in [
+            "TscShellContainerClass",
+            "TscAxHostClass",
+            "VMUIFrame",
+            "VMwareUnityHostWndClass",
+            "Qt5QWindowIcon",
+            "Qt6QWindowIcon",
+            "TeamViewer_RemoteScreen",
+            "TV_RemoteDesktop",
+            "ad_salat",
+            "AnyDesk",
+            "WindowsForms10.Window.8.app.0.abc",
+            "vmconnect",
+        ] {
+            assert!(!eligible_class(class), "{class}");
+        }
+        for name in [
+            "mstsc.exe",
+            "VMConnect.exe",
+            "VirtualBoxVM.exe",
+            "vmware.exe",
+            "vmplayer.exe",
+            "TeamViewer.exe",
+            "AnyDesk.exe",
+        ] {
+            assert!(remote_executable(&format!("C:\\Apps\\{name}")));
+        }
+        assert!(!remote_executable("C:\\Apps\\notepad.exe"));
+    }
 
     #[test]
     fn shell_tray_and_menu_windows_never_replace_the_target() {

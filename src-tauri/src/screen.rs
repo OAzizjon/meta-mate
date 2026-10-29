@@ -75,14 +75,35 @@ impl std::error::Error for LookError {}
 /// point at. Every element UIA reports as a password, that looks like one (D37) or sits
 /// beside a password's reveal toggle (`hidden_ids`) is painted over and its name never
 /// reaches the prompt; so is every area in `painted` (not the target app).
+#[cfg(test)]
 pub fn prepare(
     snapshot: UiSnapshot,
     capture: &CapturedImage,
     painted: &[PhysRect],
 ) -> Result<Look, LookError> {
+    let frame = snapshot.frame;
+    prepare_at(snapshot, capture, painted, frame)
+}
+
+fn prepare_at(
+    mut snapshot: UiSnapshot,
+    capture: &CapturedImage,
+    painted: &[PhysRect],
+    window_frame: PhysRect,
+) -> Result<Look, LookError> {
+    for element in &mut snapshot.elements {
+        if was_password(snapshot.target, window_frame, element) {
+            element.password_like = true;
+        }
+    }
     let hidden = snapshot.hidden_ids();
     let must_paint = |element: &mm_platform::UiElement| {
-        hidden.contains(&element.id) || must_hide(element.is_password, element.password_like, false)
+        hidden.contains(&element.id)
+            || must_hide(
+                element.is_password,
+                element.password_like,
+                was_password(snapshot.target, window_frame, element),
+            )
     };
     // UIA reports an unrendered element without bounds (and offscreen); one it calls on
     // screen without bounds could be anywhere in the picture.
@@ -101,7 +122,7 @@ pub fn prepare(
                 rect: element.rect?,
                 is_password: element.is_password || hidden.contains(&element.id),
                 password_like: element.password_like,
-                was_password_this_session: false,
+                was_password_this_session: was_password(snapshot.target, window_frame, element),
             })
         })
         .chain(painted.iter().map(|&rect| Field {
@@ -119,7 +140,7 @@ pub fn prepare(
         snapshot_region: snapshot.frame,
         fields: &fields,
         snapshot_truncated: snapshot.truncated,
-        unclassified_sensitive_field: false,
+        unclassified_sensitive_field: snapshot.unclassifiable(),
         max_edge: MAX_EDGE,
     })
     .map_err(LookError::Redaction)?;
@@ -282,6 +303,9 @@ impl LookFailure {
     /// The locale key Mate speaks instead of pointing.
     pub fn line(&self) -> &'static str {
         match self {
+            Self::Prepare(LookError::Redaction(RedactionError::UnclassifiedSensitiveField)) => {
+                "robot.private_window"
+            }
             Self::NoWindow => "robot.cant_find",
             Self::Capture(mm_win32::capture::CaptureError::Black) => "robot.protected_window",
             Self::Uia
@@ -300,6 +324,89 @@ const HIDDEN_FRAME: std::time::Duration = std::time::Duration::from_millis(50);
 /// One look at a time: two overlapping looks would show and hide our windows in each
 /// other's copy.
 static LOOKING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Session-only geometry, never names or values. Relative coordinates survive moving
+/// the window; retaining old locations also hides fields that later move back.
+/// A field seen as a password: its window, control type and rect relative to the frame.
+type PasswordField = (
+    mm_platform::TargetWindow,
+    String,
+    Option<(i64, i64, i64, i64)>,
+);
+
+#[derive(Default)]
+struct PasswordMemory(Vec<PasswordField>);
+
+impl PasswordMemory {
+    fn position(frame: PhysRect, element: &UiElement) -> Option<(i64, i64, i64, i64)> {
+        element.rect.map(|r| {
+            (
+                i64::from(r.left) - i64::from(frame.left),
+                i64::from(r.top) - i64::from(frame.top),
+                i64::from(r.right) - i64::from(frame.left),
+                i64::from(r.bottom) - i64::from(frame.top),
+            )
+        })
+    }
+
+    fn contains(
+        &self,
+        target: mm_platform::TargetWindow,
+        frame: PhysRect,
+        element: &UiElement,
+    ) -> bool {
+        let position = Self::position(frame, element);
+        self.0.iter().any(|(window, kind, rect)| {
+            *window == target
+                && *kind == element.control_type
+                && (rect.is_none() || position.is_none() || *rect == position)
+        })
+    }
+
+    fn observe(
+        &mut self,
+        target: mm_platform::TargetWindow,
+        frame: PhysRect,
+        elements: &mut [UiElement],
+    ) {
+        for element in elements.iter().filter(|e| e.is_password) {
+            let key = (
+                target,
+                element.control_type.clone(),
+                Self::position(frame, element),
+            );
+            if !self.0.contains(&key) {
+                self.0.push(key);
+            }
+        }
+        for element in elements {
+            if self.contains(target, frame, element) {
+                element.password_like = true;
+            }
+        }
+    }
+}
+
+static PASSWORDS: std::sync::Mutex<PasswordMemory> =
+    std::sync::Mutex::new(PasswordMemory(Vec::new()));
+
+fn remember_passwords(
+    target: mm_platform::TargetWindow,
+    frame: PhysRect,
+    elements: &mut [UiElement],
+) {
+    PASSWORDS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .observe(target, frame, elements);
+}
+
+fn was_password(target: mm_platform::TargetWindow, frame: PhysRect, element: &UiElement) -> bool {
+    PASSWORDS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains(target, frame, element)
+}
 
 /// Our windows hidden while the screen is copied, shown again however the copy ends.
 struct Hidden<'a>(&'a [mm_win32::HWND]);
@@ -376,15 +483,16 @@ fn look_once(
             uia::WalkLimits::default(),
         )
         .map_err(|_| LookFailure::Uia)?;
-    // A cut walk (a browser page) lists what it saw; every field to hide comes from the
-    // provider's own search instead (D50). Without it the look fails closed.
-    let scanned = if snapshot.truncated {
-        let found = scan(&walker, &target).ok_or(LookFailure::Uia)?;
-        complete_with(&mut snapshot, &found);
-        Some(found)
-    } else {
-        None
-    };
+    remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
+    // Check the actual walk before scan results can make a flat tree look complete.
+    if snapshot.unclassifiable() {
+        return Err(LookFailure::Prepare(LookError::Redaction(
+            RedactionError::UnclassifiedSensitiveField,
+        )));
+    }
+    let cut = snapshot.truncated;
+    let scanned = scan(&walker, &target).ok_or(LookFailure::Uia)?;
+    complete_with(&mut snapshot, &scanned);
     let occluders = window::occluders(&target, own);
     if !wanted() {
         return Err(LookFailure::Cancelled);
@@ -432,24 +540,23 @@ fn look_once(
     }
     // A password field that appeared or moved while the screen was copied is not in the
     // first masks (invariant 3): look again and compare what must be hidden.
-    let unchanged = match &scanned {
-        Some(first) => {
-            let second = scan(&walker, &target).ok_or(LookFailure::Uia)?;
-            signature(first) == signature(&second)
-        }
-        None => {
-            let again = walker
-                .snapshot_with_popups(
-                    target.hwnd,
-                    &target.popup_hwnds,
-                    target.region,
-                    uia::WalkLimits::default(),
-                )
-                .map_err(|_| LookFailure::Uia)?;
-            // A second walk that no longer sees everything vouches for nothing.
-            !again.truncated && same_hidden(&snapshot, &again)
-        }
-    };
+    let mut again = walker
+        .snapshot_with_popups(
+            target.hwnd,
+            &target.popup_hwnds,
+            target.region,
+            uia::WalkLimits::default(),
+        )
+        .map_err(|_| LookFailure::Uia)?;
+    remember_passwords(again.target, target.frame, &mut again.elements);
+    let second = scan(&walker, &target).ok_or(LookFailure::Uia)?;
+    let unclassifiable = again.unclassifiable();
+    complete_with(&mut again, &second);
+    // Both reads feed memory before comparing, including a newly revealed password.
+    remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
+    let unchanged = !unclassifiable
+        && signature(&scanned) == signature(&second)
+        && same_hidden(&snapshot, &again);
     if !unchanged {
         #[cfg(debug_assertions)]
         eprintln!("look: changed: hidden fields differ between the walks");
@@ -466,8 +573,9 @@ fn look_once(
         started.elapsed().as_millis(),
         painted.len()
     );
-    let mut look = prepare(snapshot, &capture, &painted).map_err(LookFailure::Prepare)?;
-    look.cut = scanned.is_some();
+    let mut look =
+        prepare_at(snapshot, &capture, &painted, target.frame).map_err(LookFailure::Prepare)?;
+    look.cut = cut;
     look.window_frame = target.frame;
     Ok(look)
 }
@@ -482,6 +590,7 @@ fn scan(
     for &popup in &target.popup_hwnds {
         found.extend(walker.sensitive(popup)?);
     }
+    remember_passwords(target.window, target.frame, &mut found);
     Some(found)
 }
 
@@ -650,6 +759,64 @@ mod tests {
         right: 500,
         bottom: 350,
     };
+
+    #[test]
+    fn password_memory_survives_reveal_and_window_movement_but_is_scoped() {
+        let mut memory = PasswordMemory::default();
+        let mut snapshot = snapshot();
+        memory.observe(snapshot.target, snapshot.frame, &mut snapshot.elements);
+        let field = snapshot
+            .elements
+            .iter_mut()
+            .find(|e| e.is_password)
+            .unwrap();
+        field.is_password = false;
+        field.password_like = false;
+        memory.observe(snapshot.target, snapshot.frame, &mut snapshot.elements);
+        let field = snapshot
+            .elements
+            .iter()
+            .find(|e| e.control_type == "Edit")
+            .unwrap();
+        assert!(field.password_like);
+        let mut shifted = field.clone();
+        shifted.rect = shifted.rect.map(|r| PhysRect {
+            left: r.left + 50,
+            right: r.right + 50,
+            ..r
+        });
+        let frame = PhysRect {
+            left: snapshot.frame.left + 50,
+            right: snapshot.frame.right + 50,
+            ..snapshot.frame
+        };
+        assert!(memory.contains(snapshot.target, frame, &shifted));
+        let mut other = snapshot.target;
+        other.handle += 1;
+        assert!(!memory.contains(other, frame, &shifted));
+        other = snapshot.target;
+        other.process_id += 1;
+        assert!(!memory.contains(other, frame, &shifted));
+        shifted.rect = None;
+        assert!(memory.contains(snapshot.target, frame, &shifted));
+    }
+
+    #[test]
+    fn text_over_a_hidden_field_never_reaches_the_prompt() {
+        let mut snapshot = snapshot();
+        let field = snapshot
+            .elements
+            .iter()
+            .find(|e| e.is_password)
+            .unwrap()
+            .rect
+            .unwrap();
+        snapshot
+            .elements
+            .push(element("peek", "Text", "revealed-secret", field));
+        let look = prepare(snapshot, &capture(), &[]).unwrap();
+        assert!(!look.list.text.contains("revealed-secret"));
+    }
 
     #[test]
     fn completely_covered_frame_fails_but_a_visible_strip_passes() {
@@ -821,7 +988,8 @@ mod tests {
     #[test]
     fn live_hit_accepts_exactly_forty_percent_but_refuses_more() {
         let mut snapshot = snapshot();
-        snapshot.elements.clear();
+        // No password field to overlap; a document keeps the tree classifiable.
+        snapshot.elements = vec![element("e0", "Document", "Page", REGION)];
         let look = prepare(snapshot, &capture(), &[]).unwrap();
         let mut button = live_button();
         button.rect = Some(PhysRect::new(100, 50, 500, 170).unwrap());

@@ -6,11 +6,41 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+#[cfg(test)]
+mod wp87_tests {
+    #[test]
+    fn revealed_keys_and_multilingual_password_labels_are_sensitive() {
+        for word in [
+            "security key",
+            "network key",
+            "network security key",
+            "ключ безопасности",
+            "ключ сети",
+            "show characters",
+            "отображать вводимые знаки",
+            "clave",
+            "код подтверждения",
+            "құпия сөз",
+            "сырсөз",
+            "şifrə",
+            "PIN",
+            "OTP",
+        ] {
+            assert!(super::password_like("Edit", word, "", "", ""), "{word}");
+            assert!(super::password_like("Custom", word, "", "", ""), "{word}");
+        }
+        assert!(!super::password_like("Custom", "spinning", "", "", ""));
+    }
+}
+
 static PASSWORD_LONG: LazyLock<Regex> = LazyLock::new(|| {
     // This constant pattern is validated by the privacy tests; compilation cannot fail.
     Regex::new(concat!(
         r"(?i)password|passwd|passcode|passphrase|\bparol|",
         r"one[ -]time[ -]code|verification\s+code|security\s+code|",
+        r"security\s+key|network\s+key|network\s+security\s+key|show\s+characters|",
+        r"ключ\s+безопасности|ключ\s+сети|отображать\s+вводимые\s+знаки|",
+        r"clave|код\s+подтверждения|құпия\s+сөз|сырсөз|şifrə|",
         r"пароль|пин-код|kennwort|contraseña|mot\s+de\s+passe|senha|",
         r"[şs]ifre|hasło|heslo|wachtwoord|lösenord|salasana|jelszó|parola|",
         r"κωδικός|密码|密碼|パスワード|비밀번호|",
@@ -77,10 +107,12 @@ pub fn password_like(
     if class_name.eq_ignore_ascii_case("PasswordBox") {
         return true;
     }
-    if control_type.eq_ignore_ascii_case("Edit") {
-        return [name, automation_id, help_text]
-            .into_iter()
-            .any(password_words);
+    if control_type.eq_ignore_ascii_case("Edit") || control_type.eq_ignore_ascii_case("Custom") {
+        return (control_type.eq_ignore_ascii_case("Custom")
+            && automation_id.eq_ignore_ascii_case("RevealButton"))
+            || [name, automation_id, help_text]
+                .into_iter()
+                .any(password_words);
     }
     if ["Text", "Document", "Window", "Pane"]
         .into_iter()

@@ -119,20 +119,22 @@ fn control_branch_precedence_and_case() {
         assert!(password_like("Edit", "", "", label, ""));
         assert!(!password_like("Button", label, label, "", ""));
     }
-    for kind in ["Custom", "Image", "Hyperlink", "Button", "", "Unknown"] {
+    for kind in ["Image", "Hyperlink", "Button", "", "Unknown"] {
         assert!(password_like(kind, "Show password", "", "", ""));
         assert!(password_like(kind, "", "togglePassword", "", ""));
         assert!(password_like(kind, "", "revealbutton", "", ""));
         assert!(!password_like(kind, "", "", "password", ""));
     }
-    // Short tokens never paint a custom control: "Pin this message" is no PIN box.
-    assert!(!password_like(
+    // Custom controls can be unmasked PIN/OTP fields: fail closed.
+    assert!(password_like(
         "Custom",
         "Pin",
         "pin-button",
         "Pin this message",
         ""
     ));
+    assert!(password_like("Custom", "", "", "password", ""));
+    assert!(password_like("Custom", "", "revealbutton", "", ""));
     assert!(password_like("eDiT", "", "PIN", "", ""));
     assert!(!password_like("Edit", "", "RevealButton", "", ""));
     assert!(!password_like("Edit", "", "", "", "MyPasswordBox"));

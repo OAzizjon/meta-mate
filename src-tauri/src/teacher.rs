@@ -337,6 +337,7 @@ pub(crate) async fn teach(
             return;
         }
     };
+    let lesson_process = current.snapshot.target.process_id;
     let mut session = lesson_session(model, current.redacted.frame.sent_size());
     let (inputs, mut received) = mpsc::unbounded_channel();
     let keys = listen_for_keys(started, inputs.clone());
@@ -693,12 +694,29 @@ pub(crate) async fn teach(
                             finish(&app, &stream, generation);
                             return;
                         };
-                        let fallback = target.and_then(|_| {
-                            mm_win32::window::foreground_target(&[])
-                                .is_none()
-                                .then_some(current.snapshot.target)
-                        });
-                        match look(&app, generation, own.clone(), fallback).await {
+                        let mut asked = false;
+                        let next_target = loop {
+                            if cancelled() {
+                                return;
+                            }
+                            if let Some(front) = mm_win32::window::foreground_target(&[])
+                                && front.window.process_id == lesson_process
+                            {
+                                break front.window;
+                            }
+                            if !asked {
+                                say_line(
+                                    &stream,
+                                    &phrases,
+                                    &locale,
+                                    generation,
+                                    "robot.click_app_first",
+                                );
+                                asked = true;
+                            }
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        };
+                        match look(&app, generation, own.clone(), Some(next_target)).await {
                             Ok(next) => current = Arc::new(next),
                             Err(failure) => {
                                 if cancelled() {
@@ -1094,7 +1112,7 @@ mod tests {
             truncated: false,
             elements: vec![
                 element("window", None, "Window", "Settings", frame),
-                element("pane", Some("window"), "Pane", "Options", frame),
+                element("pane", Some("window"), "Document", "Options", frame),
                 element(
                     "button",
                     Some("pane"),

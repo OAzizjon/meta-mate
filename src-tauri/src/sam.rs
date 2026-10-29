@@ -43,6 +43,9 @@ pub fn tree_is_flat(snapshot: &UiSnapshot) -> bool {
 /// does not make a canvas page "rich".
 pub fn outline_allowed(look: &Look, x: u32, y: u32) -> bool {
     let snapshot = &look.snapshot;
+    if snapshot.unclassifiable() {
+        return false;
+    }
     let Some(phys) = mm_core::geom::ShotPoint::new(f64::from(x) + 0.5, f64::from(y) + 0.5)
         .ok()
         .and_then(|shot| look.redacted.frame.shot_to_phys_checked(shot))
@@ -90,6 +93,9 @@ fn descends_from(snapshot: &UiSnapshot, element: &mm_platform::UiElement, ancest
 /// `look`, returning its physical screen rectangle when a valid box arrives within 6 s,
 /// lies inside `look.snapshot.frame`, and does not touch `look.painted`.
 pub async fn sam_outline(proxy: &Proxy, look: &Look, x: u32, y: u32) -> Option<PhysRect> {
+    if look.snapshot.unclassifiable() {
+        return None;
+    }
     let sent = look.redacted.frame.sent_size();
     if x >= sent.0 || y >= sent.1 {
         return None;
@@ -273,7 +279,12 @@ mod tests {
     fn outline_maps_to_physical_pixels_and_refuses_painted_or_out_of_frame_boxes() {
         let capture = CapturedImage::new(400, 300, vec![200; 400 * 300 * 4]).unwrap();
         let occluded = PhysRect::new(350, 250, 500, 350).unwrap();
-        let mut look = prepare(snapshot_with(vec![]), &capture, &[occluded]).unwrap();
+        let mut look = prepare(
+            snapshot_with(vec![el("doc", "Document", "Canvas")]),
+            &capture,
+            &[occluded],
+        )
+        .unwrap();
 
         let clear = SamBox {
             left: 20,

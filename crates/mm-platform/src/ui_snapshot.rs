@@ -51,6 +51,40 @@ pub struct UiSnapshot {
 const TOGGLE_TYPES: [&str; 5] = ["Button", "CheckBox", "Hyperlink", "Custom", "Image"];
 
 impl UiSnapshot {
+    /// Fewer than eight nodes can be just window chrome; no field-bearing controls
+    /// means UIA has not supplied enough evidence to classify the content safely.
+    pub fn unclassifiable(&self) -> bool {
+        let flat = self.elements.len() < 8
+            && !self
+                .elements
+                .iter()
+                .any(|e| matches!(e.control_type.as_str(), "Edit" | "Document" | "Custom"));
+        let private_page = self.elements.iter().any(|e| {
+            let name = e.name.to_lowercase();
+            [
+                "login",
+                "log in",
+                "sign in",
+                "sign-in",
+                "payment",
+                "card",
+                "вход",
+                "войти",
+                "оплат",
+                "платеж",
+                "платёж",
+                "карт",
+            ]
+            .iter()
+            .any(|word| name.contains(word))
+        });
+        flat || (private_page
+            && self
+                .elements
+                .iter()
+                .any(|e| e.control_type == "Edit" && e.name.trim().is_empty()))
+    }
+
     /// Ids whose pixels and names must be hidden, including revealed password siblings
     /// and all descendants. Only links to existing parents establish a relationship.
     pub fn hidden_ids(&self) -> BTreeSet<String> {
@@ -106,6 +140,20 @@ impl UiSnapshot {
                 }
             }
         }
+        let fields: Vec<_> = self
+            .elements
+            .iter()
+            .filter(|e| hidden.contains(&e.id))
+            .filter_map(|e| e.rect)
+            .collect();
+        for element in &self.elements {
+            if element
+                .rect
+                .is_some_and(|rect| fields.iter().any(|&field| mostly_inside(rect, field)))
+            {
+                hidden.insert(element.id.clone());
+            }
+        }
         hidden
     }
 
@@ -140,6 +188,17 @@ impl UiSnapshot {
         self.element_at(point)
             .filter(|element| element.interactive && element.parent.is_some())
     }
+}
+
+/// More than half of the element's own area is covered by a hidden field.
+pub fn mostly_inside(rect: PhysRect, field: PhysRect) -> bool {
+    let width =
+        (i128::from(rect.right.min(field.right)) - i128::from(rect.left.max(field.left))).max(0);
+    let height =
+        (i128::from(rect.bottom.min(field.bottom)) - i128::from(rect.top.max(field.top))).max(0);
+    let area = (i128::from(rect.right) - i128::from(rect.left))
+        * (i128::from(rect.bottom) - i128::from(rect.top));
+    area > 0 && 2 * width * height > area
 }
 
 /// Whether both walks found the same hidden control types at identical bounds.
@@ -220,6 +279,70 @@ impl fmt::Debug for UiElement {
 mod tests {
     use super::*;
 
+    #[test]
+    fn hidden_overlap_uses_the_elements_area_and_strict_half() {
+        let field = rect(0, 0, 100, 100);
+        assert!(mostly_inside(rect(10, 10, 20, 20), field));
+        assert!(!mostly_inside(rect(0, 0, 200, 100), field));
+        assert!(!mostly_inside(rect(-100, -100, 200, 200), field));
+        assert!(!mostly_inside(rect(100, 0, 200, 100), field));
+        assert!(!mostly_inside(rect(0, 0, 0, 0), field));
+    }
+
+    #[test]
+    fn sparse_tree_and_unlabelled_private_edit_require_consent() {
+        let mut snapshot = UiSnapshot {
+            target: crate::TargetWindow {
+                handle: 99,
+                process_id: 99,
+            },
+            frame: rect(0, 0, 100, 100),
+            elements: Vec::new(),
+            truncated: false,
+        };
+        assert!(snapshot.unclassifiable());
+        let element = UiElement {
+            id: "root".into(),
+            parent: None,
+            control_type: "Window".into(),
+            name: "Settings".into(),
+            rect: Some(snapshot.frame),
+            interactive: false,
+            enabled: true,
+            offscreen: false,
+            is_password: false,
+            password_like: false,
+        };
+        snapshot.elements = vec![element.clone(); 7];
+        assert!(snapshot.unclassifiable());
+        snapshot.elements.push(element);
+        assert!(!snapshot.unclassifiable());
+        snapshot.elements.truncate(1);
+        snapshot.elements[0].control_type = "Edit".into();
+        snapshot.elements[0].name.clear();
+        assert!(!snapshot.unclassifiable());
+        for title in [
+            "Login",
+            "Sign in",
+            "Payment",
+            "Card",
+            "Вход",
+            "Оплата",
+            "Карта",
+        ] {
+            let mut root = snapshot.elements[0].clone();
+            root.control_type = "Window".into();
+            root.name = title.into();
+            snapshot.elements.push(root);
+            assert!(snapshot.unclassifiable(), "{title}");
+            snapshot.elements.pop();
+        }
+        for kind in ["Document", "Custom"] {
+            snapshot.elements[0].control_type = kind.into();
+            assert!(!snapshot.unclassifiable());
+        }
+    }
+
     fn rect(left: i32, top: i32, right: i32, bottom: i32) -> PhysRect {
         PhysRect {
             left,
@@ -256,7 +379,13 @@ mod tests {
         child
     }
 
-    fn hidden(elements: Vec<UiElement>) -> BTreeSet<String> {
+    fn hidden(mut elements: Vec<UiElement>) -> BTreeSet<String> {
+        // These tests isolate parent/toggle rules. Give each element distinct bounds;
+        // geometric hiding is exercised separately below.
+        for (index, element) in elements.iter_mut().enumerate() {
+            let left = i32::try_from(index).unwrap() * 10;
+            element.rect = Some(rect(left, 0, left + 5, 5));
+        }
         UiSnapshot {
             target: TargetWindow {
                 handle: 1,
@@ -271,6 +400,19 @@ mod tests {
 
     fn ids(expected: &[&str]) -> BTreeSet<String> {
         expected.iter().map(|id| (*id).to_owned()).collect()
+    }
+
+    #[test]
+    fn hidden_ids_covers_unrelated_overlaid_names_but_not_large_containers() {
+        let mut password = element("password", "Edit", rect(10, 10, 50, 30));
+        password.is_password = true;
+        let snapshot = snapshot(vec![
+            password,
+            element("peek", "Text", rect(15, 12, 40, 28)),
+            element("half", "Text", rect(30, 10, 70, 30)),
+            element("container", "Pane", rect(0, 0, 100, 100)),
+        ]);
+        assert_eq!(snapshot.hidden_ids(), ids(&["password", "peek"]));
     }
 
     fn snapshot(elements: Vec<UiElement>) -> UiSnapshot {
@@ -296,7 +438,7 @@ mod tests {
         text.id = "e9".to_owned();
         text.parent = Some("e8".to_owned());
         let after = snapshot(vec![
-            element("e0", "Button", rect(0, 0, 1, 1)),
+            element("e0", "Button", rect(90, 90, 91, 91)),
             text,
             password,
         ]);

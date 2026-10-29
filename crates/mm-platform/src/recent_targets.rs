@@ -18,16 +18,12 @@ impl RecentTargets {
         }
     }
 
-    /// Recheck candidates at use time: a recent app may have closed or minimized.
+    /// Recheck only the newest app: never silently substitute an older window.
     pub fn newest_valid(
         &self,
         mut valid: impl FnMut(TargetWindow) -> bool,
     ) -> Option<TargetWindow> {
-        self.windows
-            .iter()
-            .rev()
-            .copied()
-            .find(|&target| valid(target))
+        self.windows.last().copied().filter(|&target| valid(target))
     }
 }
 
@@ -52,21 +48,15 @@ mod tests {
     }
 
     #[test]
-    fn newest_invalid_app_falls_back_and_no_valid_app_returns_none() {
+    fn newest_invalid_app_never_falls_back() {
         let mut targets = RecentTargets::default();
         assert_eq!(targets.newest_valid(|_| true), None);
         for handle in [1, 2, 3] {
             targets.remember(window(handle));
         }
         assert_eq!(targets.newest_valid(|_| true), Some(window(3)));
-        assert_eq!(
-            targets.newest_valid(|target| target.handle != 3),
-            Some(window(2))
-        );
-        assert_eq!(
-            targets.newest_valid(|target| target.handle == 1),
-            Some(window(1))
-        );
+        assert_eq!(targets.newest_valid(|target| target.handle != 3), None);
+        assert_eq!(targets.newest_valid(|target| target.handle == 1), None);
         assert_eq!(targets.newest_valid(|_| false), None);
     }
 }
