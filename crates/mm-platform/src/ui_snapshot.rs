@@ -95,25 +95,29 @@ fn nearby(a: PhysRect, b: PhysRect) -> bool {
 }
 
 impl UiSnapshot {
-    /// Fewer than eight content nodes provide too little evidence to classify safely.
+    /// Either the window is opaque or private edits need conservative masking.
     pub fn unclassifiable(&self) -> bool {
-        self.flat() || self.unlabelled_private_edit()
+        self.flat() || !self.ambiguous_private_edits().is_empty()
     }
 
-    /// A private form with an unnamed edit cannot be reliably redacted.
-    pub fn unlabelled_private_edit(&self) -> bool {
-        self.elements.iter().any(|phrase| {
-            private_phrase(&phrase.name)
-                && self.elements.iter().any(|edit| {
-                    edit.control_type == "Edit"
-                        && edit.name.trim().is_empty()
-                        && ((edit.parent.is_some() && edit.parent == phrase.parent)
-                            || edit
-                                .rect
-                                .zip(phrase.rect)
-                                .is_some_and(|(a, b)| nearby(a, b)))
-                })
-        })
+    /// Unnamed edits beside private labels must be masked, regardless of consent.
+    pub fn ambiguous_private_edits(&self) -> BTreeSet<String> {
+        self.elements
+            .iter()
+            .filter(|edit| {
+                edit.control_type == "Edit"
+                    && edit.name.trim().is_empty()
+                    && self.elements.iter().any(|phrase| {
+                        private_phrase(&phrase.name)
+                            && ((edit.parent.is_some() && edit.parent == phrase.parent)
+                                || edit
+                                    .rect
+                                    .zip(phrase.rect)
+                                    .is_some_and(|(a, b)| nearby(a, b)))
+                    })
+            })
+            .map(|edit| edit.id.clone())
+            .collect()
     }
 
     /// Browser chrome is never evidence that a canvas page can be inspected.
@@ -176,10 +180,13 @@ impl UiSnapshot {
                 && (e.control_type != "Pane" || parents.contains(e.id.as_str()))
         };
         let content = self.elements.iter().filter(readable).count();
-        let reads_content = self
-            .elements
-            .iter()
-            .any(|e| readable(&e) && e.control_type == "Edit" && content >= 3);
+        let reads_content = self.elements.iter().any(|e| {
+            readable(&e)
+                && ((e.control_type == "Edit" && content >= 3)
+                    || (!documents.is_empty()
+                        && matches!(e.control_type.as_str(), "Text" | "Hyperlink" | "Heading")
+                        && !e.name.trim().is_empty()))
+        });
         // A large opaque surface can sit beside a perfectly accessible toolbar.
         let opaque = self.elements.iter().any(|e| {
             !e.offscreen
@@ -218,6 +225,7 @@ impl UiSnapshot {
             }
         }
 
+        let ambiguous = self.ambiguous_private_edits();
         let mut hidden = BTreeSet::new();
         let mut pending = Vec::new();
         for element in &self.elements {
@@ -229,7 +237,8 @@ impl UiSnapshot {
                 .as_deref()
                 .is_some_and(|parent| toggle_parents.contains(parent));
             if (mm_core::api::request::must_hide(element.is_password, element.password_like, false)
-                || toggle_sibling)
+                || toggle_sibling
+                || ambiguous.contains(&element.id))
                 && hidden.insert(element.id.clone())
             {
                 pending.push(element.id.as_str());
@@ -395,7 +404,7 @@ mod tests {
     }
 
     #[test]
-    fn sparse_tree_and_unlabelled_private_edit_require_consent() {
+    fn sparse_tree_and_unlabelled_private_edit_are_separate_classification_risks() {
         let mut snapshot = UiSnapshot {
             target: crate::TargetWindow {
                 handle: 99,
@@ -506,6 +515,67 @@ mod tests {
         for kind in ["Edit", "Document", "Custom"] {
             snapshot.elements = vec![element("one", kind, rect(0, 0, 100, 100))];
             assert!(snapshot.unclassifiable());
+        }
+    }
+
+    #[test]
+    fn ambiguous_private_edits_and_their_descendants_are_hidden_even_without_bounds() {
+        let mut label = child("label", "document", "Text");
+        label.name = "Password".into();
+        let mut edit = child("edit", "document", "Edit");
+        edit.name.clear();
+        let mut page = snapshot(vec![
+            element("root", "Window", rect(0, 0, 100, 100)),
+            element("document", "Document", rect(0, 0, 100, 100)),
+            label,
+            edit,
+            child("revealed", "edit", "Text"),
+        ]);
+        assert_eq!(page.ambiguous_private_edits(), ids(&["edit"]));
+        assert!(page.hidden_ids().contains("edit"));
+        assert!(page.hidden_ids().contains("revealed"));
+        page.elements[3].rect = None;
+        assert_eq!(page.ambiguous_private_edits(), ids(&["edit"]));
+        assert!(page.hidden_ids().contains("edit"));
+        assert!(page.hidden_ids().contains("revealed"));
+    }
+
+    #[test]
+    fn short_documents_with_real_text_are_readable() {
+        for kind in ["Text", "Hyperlink", "Heading"] {
+            let mut page = snapshot(vec![
+                element("root", "Window", rect(0, 0, 100, 100)),
+                element("document", "Document", rect(0, 0, 100, 100)),
+                child("heading", "document", kind),
+                child("paragraph1", "document", "Text"),
+                child("paragraph2", "document", "Text"),
+            ]);
+            page.elements[1].parent = Some("root".into());
+            assert!(!page.flat(), "short article with {kind}");
+            for element in &mut page.elements[2..] {
+                element.name = "   ".into();
+            }
+            assert!(page.flat(), "unnamed nodes are not readable text");
+            page.elements[2].name = "Article heading".into();
+            page.elements[2].offscreen = true;
+            assert!(page.flat(), "offscreen text is not evidence");
+        }
+    }
+
+    #[test]
+    fn empty_and_canvas_only_documents_are_flat() {
+        let mut page = snapshot(vec![
+            element("root", "Window", rect(0, 0, 100, 100)),
+            element("document", "Document", rect(0, 0, 100, 100)),
+        ]);
+        page.elements[1].parent = Some("root".into());
+        assert!(page.flat(), "empty document");
+        for kind in ["Custom", "Image", "Pane"] {
+            let mut canvas = child("canvas", "document", kind);
+            canvas.rect = Some(page.frame);
+            page.elements.push(canvas);
+            assert!(page.flat(), "document containing a large {kind}");
+            page.elements.pop();
         }
     }
 

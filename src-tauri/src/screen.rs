@@ -143,7 +143,9 @@ fn prepare_at(
         snapshot_region: snapshot.frame,
         fields: &fields,
         snapshot_truncated: snapshot.truncated,
-        unclassified_sensitive_field: snapshot.unclassifiable() && !consent,
+        // Consent only waives flat-window classification; ambiguous private edits
+        // are in `hidden` and must already have passed the bounds check above.
+        unclassified_sensitive_field: snapshot.flat() && !consent,
         max_edge: MAX_EDGE,
     })
     .map_err(LookError::Redaction)?;
@@ -556,9 +558,8 @@ fn look_once(
         .map_err(|_| LookFailure::Uia)?;
     remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
     // Check the actual walk before scan results can make a flat tree look complete.
-    let needs_consent = target.requires_consent
-        || snapshot.unlabelled_private_edit()
-        || (snapshot.flat() && !target.normal_flat_app);
+    // Ambiguous private edits need no consent: they are always painted (`hidden_ids`).
+    let needs_consent = target.requires_consent || (snapshot.flat() && !target.normal_flat_app);
     if !consent && needs_consent {
         if !wanted() || !confirm(target.window) || !wanted() {
             return Err(LookFailure::Cancelled);
@@ -633,11 +634,11 @@ fn look_once(
         .map_err(|_| LookFailure::Uia)?;
     remember_passwords(again.target, target.frame, &mut again.elements);
     let second = scan(&walker, &target).ok_or(LookFailure::Uia)?;
-    let unclassifiable = again.unclassifiable();
+    let unclassifiable = again.flat();
     complete_with(&mut again, &second);
     // Both reads feed memory before comparing, including a newly revealed password.
     remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
-    let normal = target.normal_flat_app && !again.unlabelled_private_edit();
+    let normal = target.normal_flat_app;
     let unchanged = (!unclassifiable || consent || normal)
         && signature(&scanned) == signature(&second)
         && same_hidden(&snapshot, &again);
@@ -940,6 +941,67 @@ mod tests {
         let mut page = snapshot();
         page.truncated = true;
         assert!(prepare_at(page, &capture(), &[], REGION, true).is_err());
+    }
+
+    #[test]
+    fn unnamed_revealed_password_is_painted_with_or_without_consent() {
+        let field = PhysRect::new(150, 200, 350, 230).unwrap();
+        let mut page = snapshot();
+        page.elements = vec![
+            element("e0", "Window", "Microsoft Edge", REGION),
+            element("e1", "Document", "Page", REGION),
+            element(
+                "e2",
+                "Text",
+                "Password",
+                PhysRect::new(150, 170, 250, 190).unwrap(),
+            ),
+            element("e3", "Edit", "", field),
+        ];
+        page.elements[2].parent = Some("e1".into());
+        page.elements[3].parent = Some("e1".into());
+        assert!(!page.flat());
+        assert!(page.ambiguous_private_edits().contains("e3"));
+        assert!(!page.elements[3].is_password);
+        assert!(!page.elements[3].password_like);
+
+        // The sent PNG must match pixels painted black over the edit and its 4 px
+        // padding, with every other pixel still the capture's original grey.
+        let mut expected = vec![200; 400 * 300 * 3];
+        for y in 146..184 {
+            for x in 46..254 {
+                let offset = (y * 400 + x) * 3;
+                expected[offset..offset + 3].fill(0);
+            }
+        }
+        let expected_url = mm_core::shot::png_data_url(
+            &mm_core::shot::encode_png_rgb(&expected, 400, 300).unwrap(),
+        );
+        for consent in [false, true] {
+            let look = prepare_at(page.clone(), &capture(), &[], REGION, consent).unwrap();
+            assert_eq!(look.redacted.painted, 1);
+            assert!(look.list.text.contains("e3 Edit [hidden]"));
+            // Mate may still point at where to type, as at any password field; its
+            // pixels and contents never leave.
+            assert_eq!(look.resolve(&Point::Id("e3".into())), Some(field));
+            let body = mm_core::api::sam::sam_point_request(
+                0,
+                0,
+                look.redacted.frame.sent_size(),
+                &look.redacted.image,
+            );
+            assert_eq!(
+                body["input"][0]["content"][1]["image_url"].as_str(),
+                Some(expected_url.as_str()),
+                "consent={consent}"
+            );
+            let mut unlocated = page.clone();
+            unlocated.elements[3].rect = None;
+            assert!(matches!(
+                prepare_at(unlocated, &capture(), &[], REGION, consent),
+                Err(LookError::UnlocatedSensitive)
+            ));
+        }
     }
 
     #[test]
