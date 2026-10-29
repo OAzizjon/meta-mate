@@ -452,14 +452,20 @@ pub fn guess_intent(question: &str) -> Intent {
     }
     let lower = question.to_lowercase();
     let words: Vec<&str> = words(&lower).collect();
+    // Asking about Mate's abilities is conversation, not delegation. Other task
+    // cues in the same request still win over this small-talk phrase.
+    let for_me = words.windows(2).enumerate().any(|(index, phrase)| {
+        phrase == ["for", "me"]
+            && !(index >= 4 && words[index - 4..index] == ["what", "can", "you", "do"])
+    });
     if [
         &["do", "it"][..],
-        &["for", "me"][..],
         &["сделай", "за", "меня"][..],
         &["нажми", "за", "меня"][..],
     ]
     .iter()
     .any(|phrase| has_phrase(&words, phrase))
+        || for_me
     {
         return Intent::Do;
     }
@@ -472,6 +478,7 @@ pub fn guess_intent(question: &str) -> Intent {
     }
     if has_phrase(&words, &["how", "do", "i"])
         || has_phrase(&words, &["how", "to"])
+        || has_phrase(&words, &["what", "can", "i", "do", "here"])
         || words.contains(&"научи")
         || words.iter().enumerate().any(|(index, word)| {
             if *word != "как" {

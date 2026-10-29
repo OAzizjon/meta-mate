@@ -95,6 +95,61 @@ fn fallback_covers_english_and_russian_with_word_boundaries() {
 }
 
 #[test]
+fn small_talk_and_questions_about_mate_stay_chat() {
+    for text in [
+        "Hello Mate, what can you do for me?",
+        "what can you do",
+        "what can you do for me",
+        "who are you",
+        "how are you",
+        "hello",
+        "hi Mate",
+        "thank you",
+        "what is your name",
+        "tell me a joke",
+        "tell me about yourself",
+        "что ты умеешь",
+        "кто ты",
+        "как дела",
+        "привет",
+        "спасибо",
+        "как тебя зовут",
+        "расскажи анекдот",
+        "расскажи о себе",
+        "nima qila olasan",
+        "salom",
+        "rahmat",
+        "HELLO MATE! WHAT CAN YOU DO FOR ME?",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Chat, "{text}");
+    }
+}
+
+#[test]
+fn task_cues_still_win_over_small_talk() {
+    for (text, expected) in [
+        ("how do I make the text bigger", Intent::How),
+        ("what can I do here to make the text bigger", Intent::How),
+        ("Hello Mate, how do I make the text bigger?", Intent::How),
+        (
+            "What can you do for me? How do I make the text bigger?",
+            Intent::How,
+        ),
+        ("What can you do for me? Where is Save?", Intent::Where),
+        ("What can you do for me? Do it for me.", Intent::Do),
+        ("What can you do for me? Open this for me.", Intent::Do),
+        ("What can you do for me? Is this safe?", Intent::Safety),
+        ("Привет, как открыть файл?", Intent::How),
+        ("Спасибо, покажи меню", Intent::Where),
+        ("Привет, сделай за меня", Intent::Do),
+        ("Привет, это безопасно?", Intent::Safety),
+        ("What can you do for memory?", Intent::Chat),
+    ] {
+        assert_eq!(guess_intent(text), expected, "{text}");
+    }
+}
+
+#[test]
 fn safety_cues_cover_both_languages() {
     for text in [
         "Is this safe?",
