@@ -75,7 +75,8 @@ class Settings:
         invites = {}
         for item in filter(None, (part.strip() for part in env.get('PROXY_INVITE_CODES', '').split(','))):
             code, _, kind = item.partition(':')
-            if len(code) < 12 or kind not in presets:
+            # 'user:' keys are sessions' ledger keys (common.invite_of): never an invite's.
+            if len(code) < 12 or kind not in presets or code.startswith('user:'):
                 raise ValueError('PROXY_INVITE_CODES entries are code:judge or code:tester, codes of 12+ characters')
             invites[code] = presets[kind]
         raw_prices = env.get('PROXY_PRICES', '4,20,4,20').split(',')

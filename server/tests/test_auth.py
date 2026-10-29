@@ -241,6 +241,9 @@ class FlowTests(unittest.TestCase):
         self.assertEqual((claims['p'], claims['t']), ('guest', 'guest'))
         forged = auth.sign_session(auth.Identity('guest', 'g' * 32, '', 'x'), 'judge', SECRET, now=1000)
         self.assertIsNone(auth.read_session(forged, SECRET, now=1001))
+        table = {'old': [0.0], 'new': [3000.0], 'empty': []}
+        auth.prune_hours(table, 3700.0)
+        self.assertEqual(list(table), ['new'])
         hits = [0.0, 10.0, 3700.0]
         self.assertEqual(auth.guest_left(hits, 3700.0), (11, 3601))
         self.assertEqual(hits, [3700.0])

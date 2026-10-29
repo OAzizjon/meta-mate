@@ -112,6 +112,9 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
         if not isinstance(device, str) or not auth.GUEST_DEVICE.fullmatch(device):
             return error(400, 'send {"device"}: 22-64 URL-safe characters')
         now = datetime.now(timezone.utc).timestamp()
+        # Each new guest token is also the moment to forget old devices and addresses.
+        for table in (state.guest_issued, state.guest_hits, state.guest_steps):
+            auth.prune_hours(table, now)
         address = request.client.host if request.client else 'unknown'
         issued = [at for at in state.guest_issued.get(address, []) if now - at < 3600]
         if len(issued) >= GUEST_TOKENS_PER_HOUR:

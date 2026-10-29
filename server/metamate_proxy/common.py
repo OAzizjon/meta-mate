@@ -30,6 +30,7 @@ class State:
     # Guest trial: answer times per guest device, and guest tokens issued per client address.
     guest_hits: dict[str, list[float]] = field(default_factory=dict)
     guest_issued: dict[str, list[float]] = field(default_factory=dict)
+    guest_steps: dict[str, list[float]] = field(default_factory=dict)
 
 
 def today() -> 'datetime.date':

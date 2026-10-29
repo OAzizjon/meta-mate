@@ -75,24 +75,30 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
     let app = app.clone();
     let proxy = proxy.clone();
     tauri::async_runtime::spawn(async move {
-        let Some(device) = device_id(&app) else {
-            return;
+        // Without a trial (an older proxy, no data folder) the plain sign-in remains.
+        let token = match device_id(&app) {
+            Some(device) => proxy.guest_token(&device).await.map_err(|e| e.to_string()),
+            None => Err("no device id".to_owned()),
         };
-        match proxy.guest_token(&device).await {
+        match token {
             Ok(token) => proxy.set_guest(Some(token)),
             Err(error) => {
                 eprintln!("signin: guest trial: {error}");
+                open_later(&app);
                 return;
             }
         }
         let mut usage = proxy.watch_guest_usage();
+        let mut was_left = None;
         loop {
             let current = *usage.borrow_and_update();
             if let Some(current) = current {
                 let _ = app.emit(USAGE_EVENT, current);
-                if current.left == 0 && !signed_in(&app) {
+                // Once, when the hour runs out: closing the window is not undone by the next count.
+                if current.left == 0 && was_left != Some(0) && !signed_in(&app) {
                     open_later(&app);
                 }
+                was_left = Some(current.left);
             }
             if usage.changed().await.is_err() {
                 break;

@@ -81,6 +81,14 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
                     return refused
                 hits.append(now)
                 left, reset = auth.guest_left(hits, now)
+            elif kind is policy.CallKind.COMPUTER:
+                steps = state.guest_steps.setdefault(invite, [])
+                steps_left, _ = auth.guest_left(steps, now, auth.GUEST_STEPS_PER_HOUR)
+                if steps_left == 0:
+                    refused = error(429, 'guest_limit')
+                    refused.headers.update(guest_headers(left, reset))
+                    return refused
+                steps.append(now)
             guest = guest_headers(left, reset)
         state.in_flight[invite] = state.in_flight.get(invite, 0) + 1
         released = False

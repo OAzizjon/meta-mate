@@ -20,6 +20,8 @@ TOKEN_PREFIX = 'mms1.'
 SESSION_SECONDS = 30 * 24 * 3600
 # The guest trial (owner, 2026-10-29): answers per hour for a device that has not signed in.
 GUEST_ANSWERS_PER_HOUR = 12
+# A lesson's computer-use steps are not messages, but a guest's are capped too.
+GUEST_STEPS_PER_HOUR = 40
 GUEST_DEVICE = re.compile(r'[A-Za-z0-9_-]{22,64}')
 PENDING_SECONDS = 600
 CODE_SECONDS = 120
@@ -124,16 +126,22 @@ def read_session(token: str, secret: str, now: float) -> dict | None:
     return claims
 
 
+def prune_hours(table: dict[str, list[float]], now: float) -> None:
+    """Forgets keys with nothing in the last hour, so a long-running proxy does not grow."""
+    for key in [key for key, hits in table.items() if not any(now - hit < 3600 for hit in hits)]:
+        del table[key]
+
+
 def sign_guest(device: str, secret: str, now: float) -> str:
     """A guest token for one device: no account, the guest trial's hourly answers only."""
     return sign_session(Identity('guest', device, '', 'Guest'), 'guest', secret, now)
 
 
-def guest_left(hits: list[float], now: float) -> tuple[int, int]:
+def guest_left(hits: list[float], now: float, limit: int = GUEST_ANSWERS_PER_HOUR) -> tuple[int, int]:
     """Drops answers older than an hour from `hits` (in place); the answers left now and the
     seconds until the oldest counted one expires (0 when none is counted)."""
     hits[:] = [hit for hit in hits if now - hit < 3600]
-    left = max(0, GUEST_ANSWERS_PER_HOUR - len(hits))
+    left = max(0, limit - len(hits))
     reset = int(3600 - (now - hits[0])) + 1 if hits else 0
     return left, reset
 
