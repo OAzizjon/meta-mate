@@ -10,6 +10,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- The talk key is a setting: Right Ctrl, Right Alt, Caps Lock, Insert, F9 or F10, for laptops without Right Ctrl.
+- Quit MetaMate from the Home window; right-click Mate for Home, Settings, Hide for 1 hour and Quit.
+- Drag Mate with the mouse; he keeps the new spot as his home.
 - A live team progress board for the owner in a GitHub issue.
 - Privacy calibration explains that normal apps such as Telegram are looked at, while remote desktops and canvas-only windows ask first.
 - The Home window explains how to talk to Mate, suggests three questions to try, and says what Mate never does; it opens at startup and from the tray.
@@ -74,6 +77,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Changed
 
+- Privacy: browser chrome is no longer evidence that a canvas-only page can be read; such windows are looked at only after the user presses F8 twice in that window.
 - Mate's v1.1 design adds eyebrows and a filament, with a softer aura.
 - "Do it for me" re-checks the element and window at click time; yes counts only after the prompt was heard, and its blocklist covers more languages and money amounts.
 - Accessibility improvements: a longer, more readable bubble, clearer settings, and announced errors.

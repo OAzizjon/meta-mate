@@ -6,7 +6,7 @@ Windows 10/11 x64 (the video can be watched anywhere).
 
 1. **Download:** Get the release installer (built for our hosted proxy with a capped judge invite — no account, invite codes, or API keys needed).
 2. **SmartScreen:** If SmartScreen shows "Windows protected your PC", click the small **More info** link, then **Run anyway** (the installer is not code-signed yet).
-3. **Ask:** Press **Win+I** to open Windows Settings. Hold **Right Ctrl** while you speak, ask *"How do I make the text bigger?"*, then let go. Hold only **Right Ctrl**: pressing any other key cancels the question. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
+3. **Ask:** Press **Win+I** to open Windows Settings. Hold **Right Ctrl** while you speak, ask *"How do I make the text bigger?"*, then let go. Hold only the talk key: pressing any other key cancels the question. No Right Ctrl on your laptop? Open **Settings** (Home window, or right-click the tray icon) and pick Right Alt, Caps Lock, Insert, F9 or F10. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
 4. **Sign-in (optional):** Right-click the tray icon > **Settings** > **Sign in with Google**: you get your own daily allowance of questions instead of the shared judges' one.
 
 ## Links
@@ -24,7 +24,7 @@ Windows 10/11 x64 (the video can be watched anywhere).
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
-MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Hold **Right Ctrl** for push-to-talk voice in English or Russian, and Mate answers aloud with a live transcript in his bubble.
+MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Hold **Right Ctrl** (or another talk key chosen in Settings) for push-to-talk voice in English or Russian, and Mate answers aloud with a live transcript in his bubble.
 
 - **Home window:** An accessible starting hub (`home.html`) featuring an animated Right Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
 - **Scam check ("Is this safe?"):** Evaluates suspicious emails, pop-ups, and websites in the active window. Muse Spark 1.3 delivers an immediate verdict via Mate's expression (`<mood calm>`, `<mood surprised>`, or `<mood sad>`), explains the specific red flags detected (mismatched domains, artificial urgency, fake security warnings), and shines a beam on the worst one—without ever telling the user to click, call, or pay.
@@ -98,7 +98,7 @@ npm run build
 cargo run -p metamate --features custom-protocol
 ```
 
-Hold **Right Ctrl** and speak. You can also test speech headless:
+Hold **Right Ctrl** (or your talk key from Settings) and speak. You can also test speech headless:
 
 ```powershell
 cargo run -p metamate --features custom-protocol -- --ask "Where is the text size slider?"
