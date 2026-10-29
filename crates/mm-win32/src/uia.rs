@@ -131,7 +131,7 @@ impl UiaWalker {
         let mut elements = Vec::new();
         let mut truncated = self.walk(hwnd, &mut elements, limits)?;
         for &popup in popups {
-            truncated |= self.walk(popup, &mut elements, limits).unwrap_or(true);
+            truncated |= self.walk(popup, &mut elements, limits)?;
         }
         Ok(UiSnapshot {
             target: target_window(hwnd),
@@ -297,6 +297,9 @@ impl UiaWalker {
                 break;
             }
             let id = format!("e{}", elements.len());
+            // Unlike a node/depth limit, an unreadable password flag cannot be
+            // repaired by the later sensitive-control search.
+            element.is_cached_password()?;
             let offscreen = match describe(&element, &id, parent) {
                 Some(described) => {
                     let offscreen = described.offscreen;
@@ -374,7 +377,8 @@ fn property_flags(
     is_password: Option<bool>,
     enabled: Option<bool>,
     offscreen: Option<bool>,
-) -> PropertyFlags {
+) -> Option<PropertyFlags> {
+    let is_password = is_password?;
     let password_like = match texts {
         [
             Some(name),
@@ -384,12 +388,12 @@ fn property_flags(
         ] => password_like(control_type, name, automation_id, help_text, class_name),
         _ => true,
     };
-    PropertyFlags {
+    Some(PropertyFlags {
         password_like,
-        is_password: is_password.unwrap_or(true),
+        is_password,
         enabled: enabled.unwrap_or(false),
         offscreen: offscreen.unwrap_or(false),
-    }
+    })
 }
 
 /// One element's cached properties; `None` when the provider failed to answer.
@@ -411,10 +415,11 @@ fn describe(element: &UIElement, id: &str, parent: Option<String>) -> Option<UiE
             class_name.as_deref().ok(),
             help_text.as_deref().ok(),
         ],
+        // A failed read invalidates this description without inventing a password.
         element.is_cached_password().ok(),
         element.is_cached_enabled().ok(),
         element.is_cached_offscreen().ok(),
-    );
+    )?;
     Some(UiElement {
         id: id.to_owned(),
         parent,
@@ -461,14 +466,15 @@ mod tests {
         for index in 0..4 {
             let mut texts = [Some(""); 4];
             texts[index] = None;
-            let flags = property_flags("Text", texts, Some(false), Some(true), Some(false));
+            let flags =
+                property_flags("Text", texts, Some(false), Some(true), Some(false)).unwrap();
             assert!(flags.password_like, "failed text read {index}");
         }
     }
 
     #[test]
     fn successful_text_reads_keep_password_heuristics() {
-        let plain = property_flags("Edit", [Some(""); 4], None, None, None);
+        let plain = property_flags("Edit", [Some(""); 4], Some(false), None, None).unwrap();
         assert!(!plain.password_like);
         for index in 0..4 {
             let mut texts = [Some(""); 4];
@@ -477,14 +483,19 @@ mod tests {
             } else {
                 "Password"
             });
-            assert!(property_flags("Edit", texts, None, None, None).password_like);
+            assert!(
+                property_flags("Edit", texts, Some(false), None, None)
+                    .unwrap()
+                    .password_like
+            );
         }
     }
 
     #[test]
     fn failed_flags_fail_closed() {
-        let flags = property_flags("Edit", [Some(""); 4], None, None, None);
-        assert!(flags.is_password);
+        assert!(property_flags("Edit", [Some(""); 4], None, None, None).is_none());
+        let flags = property_flags("Edit", [Some(""); 4], Some(false), None, None).unwrap();
+        assert!(!flags.is_password);
         assert!(!flags.enabled);
         assert!(!flags.offscreen);
     }
@@ -493,7 +504,8 @@ mod tests {
     fn successful_flags_keep_both_values() {
         for value in [false, true] {
             let flags =
-                property_flags("Edit", [Some(""); 4], Some(value), Some(value), Some(value));
+                property_flags("Edit", [Some(""); 4], Some(value), Some(value), Some(value))
+                    .unwrap();
             assert_eq!(flags.is_password, value);
             assert_eq!(flags.enabled, value);
             assert_eq!(flags.offscreen, value);

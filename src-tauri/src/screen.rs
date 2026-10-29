@@ -328,11 +328,7 @@ static LOOKING: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// Session-only geometry, never names or values. Relative coordinates survive moving
 /// the window; retaining old locations also hides fields that later move back.
 /// A field seen as a password: its window, control type and rect relative to the frame.
-type PasswordField = (
-    mm_platform::TargetWindow,
-    String,
-    Option<(i64, i64, i64, i64)>,
-);
+type PasswordField = (mm_platform::TargetWindow, String, (i64, i64, i64, i64));
 
 #[derive(Default)]
 struct PasswordMemory(Vec<PasswordField>);
@@ -355,11 +351,11 @@ impl PasswordMemory {
         frame: PhysRect,
         element: &UiElement,
     ) -> bool {
-        let position = Self::position(frame, element);
+        let Some(position) = Self::position(frame, element) else {
+            return false;
+        };
         self.0.iter().any(|(window, kind, rect)| {
-            *window == target
-                && *kind == element.control_type
-                && (rect.is_none() || position.is_none() || *rect == position)
+            *window == target && *kind == element.control_type && *rect == position
         })
     }
 
@@ -370,11 +366,10 @@ impl PasswordMemory {
         elements: &mut [UiElement],
     ) {
         for element in elements.iter().filter(|e| e.is_password) {
-            let key = (
-                target,
-                element.control_type.clone(),
-                Self::position(frame, element),
-            );
+            let Some(position) = Self::position(frame, element) else {
+                continue;
+            };
+            let key = (target, element.control_type.clone(), position);
             if !self.0.contains(&key) {
                 self.0.push(key);
             }
@@ -798,7 +793,11 @@ mod tests {
         other.process_id += 1;
         assert!(!memory.contains(other, frame, &shifted));
         shifted.rect = None;
-        assert!(memory.contains(snapshot.target, frame, &shifted));
+        assert!(!memory.contains(snapshot.target, frame, &shifted));
+        shifted.is_password = true;
+        let mut empty = PasswordMemory::default();
+        empty.observe(snapshot.target, frame, &mut [shifted]);
+        assert!(empty.0.is_empty());
     }
 
     #[test]
@@ -854,7 +853,7 @@ mod tests {
             PhysRect::new(150, 200, 350, 230).unwrap(),
         );
         password.is_password = true;
-        UiSnapshot {
+        let mut snapshot = UiSnapshot {
             target: TargetWindow {
                 handle: 1,
                 process_id: 2,
@@ -877,7 +876,17 @@ mod tests {
                 password,
             ],
             truncated: false,
+        };
+        // Supply eight content nodes; window chrome never satisfies flatness.
+        for index in 0..5 {
+            snapshot.elements.push(element(
+                &format!("content{index}"),
+                "Text",
+                "Detail",
+                PhysRect::new(120 + index * 10, 100, 125 + index * 10, 110).unwrap(),
+            ));
         }
+        snapshot
     }
 
     fn capture() -> CapturedImage {
@@ -988,8 +997,10 @@ mod tests {
     #[test]
     fn live_hit_accepts_exactly_forty_percent_but_refuses_more() {
         let mut snapshot = snapshot();
-        // No password field to overlap; a document keeps the tree classifiable.
-        snapshot.elements = vec![element("e0", "Document", "Page", REGION)];
+        // No password field to overlap; retain the classifiable content tree.
+        snapshot.elements[3].is_password = false;
+        snapshot.elements[3].control_type = "Text".into();
+        snapshot.elements[3].name = "Page".into();
         let look = prepare(snapshot, &capture(), &[]).unwrap();
         let mut button = live_button();
         button.rect = Some(PhysRect::new(100, 50, 500, 170).unwrap());

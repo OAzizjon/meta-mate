@@ -19,7 +19,7 @@ use windows::Win32::System::Threading::{
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GW_OWNER, GWL_EXSTYLE, GetClassNameW, GetLayeredWindowAttributes, GetWindow,
     GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
-    LWA_ALPHA, WS_EX_LAYERED,
+    LWA_ALPHA, WS_EX_LAYERED, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
 };
 use windows::core::{BOOL, PWSTR};
 
@@ -41,30 +41,30 @@ fn eligible_class(class: &str) -> bool {
 }
 
 /// Known RDP, VMware, VirtualBox, TeamViewer, AnyDesk and Hyper-V viewer classes.
-/// Prefixes include version-specific Qt and viewer class suffixes conservatively.
+/// Generic UI toolkit classes are not evidence of a remote viewer.
 fn remote_class(class: &str) -> bool {
     let class = class.to_ascii_lowercase();
-    // Qt and WinForms classes are shared with ordinary apps. Without process-image
-    // evidence, refuse these families too rather than guess whether this is a VM.
-    ((class.starts_with("qt5") || class.starts_with("qt6")) && class.contains("qwindow"))
-        || [
-            "tscshellcontainerclass",
-            "tscaxhostclass",
-            "rail_window",
-            "vmware",
-            "vmuiview",
-            "vmuiframe",
-            "vmplayer",
-            "virtualbox",
-            "teamviewer",
-            "tv_",
-            "anydesk",
-            "ad_salat",
-            "vmconnect",
-            "windowsforms10.window",
-        ]
-        .iter()
-        .any(|prefix| class.starts_with(prefix))
+    [
+        "tscshellcontainerclass",
+        "tscaxhostclass",
+        "rail_window",
+        "vmware",
+        "vmuiview",
+        "vmuiframe",
+        "vmplayer",
+        "virtualbox",
+        "teamviewer",
+        "tv_",
+        "anydesk",
+        "ad_salat",
+        "vmconnect",
+        "rustdesk",
+        "parsec",
+        "vncviewer",
+        "turbovnc",
+    ]
+    .iter()
+    .any(|prefix| class.starts_with(prefix))
 }
 
 fn remote_executable(path: &str) -> bool {
@@ -85,6 +85,12 @@ fn remote_executable(path: &str) -> bool {
         "teamviewer.exe",
         "teamviewer_desktop.exe",
         "anydesk.exe",
+        "rustdesk.exe",
+        "parsec.exe",
+        "parsecd.exe",
+        "vncviewer.exe",
+        "tvnviewer.exe",
+        "wfica32.exe",
     ]
     .contains(&name.as_str())
 }
@@ -247,7 +253,35 @@ fn transparent(hwnd: HWND) -> bool {
     transparent_attributes(
         style & WS_EX_LAYERED.0 != 0,
         read.is_ok().then_some((flags.0 & LWA_ALPHA.0 != 0, alpha)),
+    ) || per_pixel_overlay(
+        style & WS_EX_LAYERED.0 != 0 && read.is_err(),
+        style & WS_EX_TOPMOST.0 != 0,
+        style & WS_EX_TRANSPARENT.0 != 0,
+        frame_of(hwnd).and_then(|frame| Some((frame, monitor_of(frame)?))),
     )
+}
+
+/// Per-pixel overlay tools have no constant-alpha attributes. Only exempt a
+/// topmost, click-through surface that covers at least 90 percent of its monitor.
+fn per_pixel_overlay(
+    per_pixel: bool,
+    topmost: bool,
+    click_through: bool,
+    bounds: Option<(PhysRect, PhysRect)>,
+) -> bool {
+    if !per_pixel || !topmost || !click_through {
+        return false;
+    }
+    let Some((frame, monitor)) = bounds else {
+        return false;
+    };
+    let Some(covered) = clip_to_region(frame, monitor) else {
+        return false;
+    };
+    let area = |r: PhysRect| {
+        (i128::from(r.right) - i128::from(r.left)) * (i128::from(r.bottom) - i128::from(r.top))
+    };
+    area(covered) * 10 >= area(monitor) * 9
 }
 
 fn transparent_attributes(layered: bool, attributes: Option<(bool, u8)>) -> bool {
@@ -429,6 +463,52 @@ fn owner_chain(
     (false, false)
 }
 
+/// A follow-up may enter only a newly opened owned dialog in the same process.
+pub fn lesson_followup(
+    lesson: TargetWindow,
+    candidate: TargetWindow,
+    existing: Option<&[u64]>,
+) -> bool {
+    let handle = |n: u64| HWND(n as usize as *mut std::ffi::c_void);
+    let owned = candidate != lesson
+        && owner_chain(handle(candidate.handle), handle(lesson.handle), |next| {
+            // SAFETY: a read-only owner query; stale handles end the chain.
+            unsafe { GetWindow(next, GW_OWNER) }
+                .ok()
+                .filter(|found| !found.is_invalid())
+        })
+        .0;
+    followup_allowed(
+        lesson,
+        candidate,
+        existing.is_none_or(|handles| handles.contains(&candidate.handle)),
+        owned,
+    )
+}
+
+fn followup_allowed(
+    lesson: TargetWindow,
+    candidate: TargetWindow,
+    existed: bool,
+    owned: bool,
+) -> bool {
+    lesson == candidate || (lesson.process_id == candidate.process_id && !existed && owned)
+}
+
+/// Window handles present before a lesson step, used to distinguish a new dialog.
+pub fn existing_windows() -> Option<Vec<u64>> {
+    let mut handles: Vec<HWND> = Vec::new();
+    // SAFETY: synchronous enumeration with an exclusive stack-local vector.
+    unsafe {
+        EnumWindows(
+            Some(collect),
+            LPARAM(std::ptr::from_mut(&mut handles) as isize),
+        )
+    }
+    .ok()?;
+    Some(handles.into_iter().map(|h| h.0 as usize as u64).collect())
+}
+
 fn popup_owned(
     reaches_target: bool,
     unowned: bool,
@@ -451,6 +531,32 @@ fn class_name(hwnd: HWND) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn lesson_follows_only_its_window_or_a_new_owned_dialog() {
+        let lesson = TargetWindow {
+            handle: 1,
+            process_id: 10,
+        };
+        let other = TargetWindow {
+            handle: 2,
+            process_id: 10,
+        };
+        assert!(followup_allowed(lesson, lesson, true, false));
+        // Includes separate browser windows and shared ApplicationFrameHost windows.
+        assert!(!followup_allowed(lesson, other, false, false));
+        assert!(!followup_allowed(lesson, other, true, true));
+        assert!(followup_allowed(lesson, other, false, true));
+        assert!(!followup_allowed(
+            lesson,
+            TargetWindow {
+                process_id: 11,
+                ..other
+            },
+            false,
+            true
+        ));
+    }
 
     #[test]
     fn click_through_is_not_visual_transparency() {
@@ -502,13 +608,10 @@ mod tests {
             "TscAxHostClass",
             "VMUIFrame",
             "VMwareUnityHostWndClass",
-            "Qt5QWindowIcon",
-            "Qt6QWindowIcon",
             "TeamViewer_RemoteScreen",
             "TV_RemoteDesktop",
             "ad_salat",
             "AnyDesk",
-            "WindowsForms10.Window.8.app.0.abc",
             "vmconnect",
         ] {
             assert!(!eligible_class(class), "{class}");
@@ -521,10 +624,41 @@ mod tests {
             "vmplayer.exe",
             "TeamViewer.exe",
             "AnyDesk.exe",
+            "RustDesk.exe",
+            "parsecd.exe",
         ] {
             assert!(remote_executable(&format!("C:\\Apps\\{name}")));
         }
         assert!(!remote_executable("C:\\Apps\\notepad.exe"));
+        for class in [
+            "Qt5QWindowIcon",
+            "Qt6QWindowIcon",
+            "WindowsForms10.Window.8.app.0.abc",
+        ] {
+            assert!(eligible_class(class));
+        }
+    }
+
+    #[test]
+    fn per_pixel_overlay_requires_all_evidence_and_monitor_coverage() {
+        let bounds = Some((rect(0, 0, 1920, 972), MONITOR));
+        assert!(per_pixel_overlay(true, true, true, bounds));
+        assert!(!per_pixel_overlay(false, true, true, bounds));
+        assert!(!per_pixel_overlay(true, false, true, bounds));
+        assert!(!per_pixel_overlay(true, true, false, bounds));
+        assert!(!per_pixel_overlay(true, true, true, None));
+        assert!(!per_pixel_overlay(
+            true,
+            true,
+            true,
+            Some((rect(0, 0, 1920, 971), MONITOR))
+        ));
+        assert!(!per_pixel_overlay(
+            true,
+            true,
+            true,
+            Some((rect(1800, 0, 3720, 1080), MONITOR))
+        ));
     }
 
     #[test]

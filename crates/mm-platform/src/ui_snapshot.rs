@@ -50,39 +50,102 @@ pub struct UiSnapshot {
 /// would hide every text beside any password field.
 const TOGGLE_TYPES: [&str; 5] = ["Button", "CheckBox", "Hyperlink", "Custom", "Image"];
 
+fn private_phrase(name: &str) -> bool {
+    let name = name.to_lowercase();
+    [
+        "login",
+        "log in",
+        "sign in to",
+        "password",
+        "payment",
+        "pay now",
+        "card number",
+        "cvv",
+        "вход в аккаунт",
+        "войти в",
+        "оплата",
+        "номер карты",
+    ]
+    .iter()
+    .any(|phrase| {
+        name.match_indices(phrase).any(|(start, matched)| {
+            let end = start + matched.len();
+            !name[..start]
+                .chars()
+                .next_back()
+                .is_some_and(|c| c.is_alphanumeric() || c == '_')
+                && !name[end..]
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_alphanumeric() || c == '_')
+        })
+    })
+}
+
+fn nearby(a: PhysRect, b: PhysRect) -> bool {
+    let dx = (i64::from(a.left) - i64::from(b.right))
+        .max(i64::from(b.left) - i64::from(a.right))
+        .max(0);
+    let dy = (i64::from(a.top) - i64::from(b.bottom))
+        .max(i64::from(b.top) - i64::from(a.bottom))
+        .max(0);
+    dx <= 200 && dy <= 200 && dx * dx + dy * dy <= 200 * 200
+}
+
 impl UiSnapshot {
-    /// Fewer than eight nodes can be just window chrome; no field-bearing controls
-    /// means UIA has not supplied enough evidence to classify the content safely.
+    /// Fewer than eight content nodes provide too little evidence to classify safely.
     pub fn unclassifiable(&self) -> bool {
-        let flat = self.elements.len() < 8
-            && !self
-                .elements
-                .iter()
-                .any(|e| matches!(e.control_type.as_str(), "Edit" | "Document" | "Custom"));
-        let private_page = self.elements.iter().any(|e| {
-            let name = e.name.to_lowercase();
-            [
-                "login",
-                "log in",
-                "sign in",
-                "sign-in",
-                "payment",
-                "card",
-                "вход",
-                "войти",
-                "оплат",
-                "платеж",
-                "платёж",
-                "карт",
-            ]
+        let mut chrome: BTreeSet<&str> = self
+            .elements
             .iter()
-            .any(|word| name.contains(word))
+            .filter(|e| e.control_type == "TitleBar")
+            .map(|e| e.id.as_str())
+            .collect();
+        // Exclude all title-bar descendants, including nested system buttons.
+        loop {
+            let before = chrome.len();
+            for e in &self.elements {
+                if e.parent.as_deref().is_some_and(|p| chrome.contains(p)) {
+                    chrome.insert(&e.id);
+                }
+            }
+            if chrome.len() == before {
+                break;
+            }
+        }
+        let parents: BTreeSet<&str> = self
+            .elements
+            .iter()
+            .filter_map(|e| e.parent.as_deref())
+            .collect();
+        let content = self
+            .elements
+            .iter()
+            .filter(|e| {
+                e.control_type != "Window"
+                    && !chrome.contains(e.id.as_str())
+                    && (e.control_type != "Pane" || parents.contains(e.id.as_str()))
+            })
+            .count();
+        // UIA that exposes a text field, or a document with something inside it, is
+        // reading the content; a bare pane of a canvas, game or remote screen is not.
+        let reads_content = self.elements.iter().any(|e| {
+            (e.control_type == "Edit" && content >= 3)
+                || (e.control_type == "Document" && parents.contains(e.id.as_str()))
         });
-        flat || (private_page
-            && self
-                .elements
-                .iter()
-                .any(|e| e.control_type == "Edit" && e.name.trim().is_empty()))
+        (content < 8 && !reads_content)
+            || self.elements.iter().any(|phrase| {
+                private_phrase(&phrase.name)
+                    && self.elements.iter().any(|edit| {
+                        edit.control_type == "Edit"
+                            && edit.name.trim().is_empty()
+                            && ((edit.parent.is_some() && edit.parent == phrase.parent)
+                                || edit
+                                    .rect
+                                    .zip(phrase.rect)
+                                    .is_some_and(|(a, b)| nearby(a, b)))
+                    })
+            })
     }
 
     /// Ids whose pixels and names must be hidden, including revealed password siblings
@@ -316,19 +379,27 @@ mod tests {
         snapshot.elements = vec![element.clone(); 7];
         assert!(snapshot.unclassifiable());
         snapshot.elements.push(element);
+        assert!(snapshot.unclassifiable());
+        for (index, e) in snapshot.elements.iter_mut().enumerate() {
+            e.id = format!("e{index}");
+            e.control_type = "Text".into();
+        }
         assert!(!snapshot.unclassifiable());
-        snapshot.elements.truncate(1);
         snapshot.elements[0].control_type = "Edit".into();
         snapshot.elements[0].name.clear();
-        assert!(!snapshot.unclassifiable());
         for title in [
             "Login",
-            "Sign in",
+            "Log in",
+            "Sign in to your account",
+            "Password",
             "Payment",
-            "Card",
-            "Вход",
+            "Pay now",
+            "Card number",
+            "CVV",
+            "Вход в аккаунт",
+            "Войти в аккаунт",
             "Оплата",
-            "Карта",
+            "Номер карты",
         ] {
             let mut root = snapshot.elements[0].clone();
             root.control_type = "Window".into();
@@ -337,9 +408,60 @@ mod tests {
             assert!(snapshot.unclassifiable(), "{title}");
             snapshot.elements.pop();
         }
-        for kind in ["Document", "Custom"] {
-            snapshot.elements[0].control_type = kind.into();
-            assert!(!snapshot.unclassifiable());
+        for title in [
+            "Discard",
+            "SD card",
+            "Карты",
+            "Картинки",
+            "Входящие",
+            "Sign-in options",
+            "Sign in",
+            "repayment",
+            "log inside",
+            "cvvalue",
+        ] {
+            let mut label = snapshot.elements[1].clone();
+            label.name = title.into();
+            snapshot.elements.push(label);
+            assert!(!snapshot.unclassifiable(), "{title}");
+            snapshot.elements.pop();
+        }
+        let mut label = snapshot.elements[1].clone();
+        label.name = "Payment".into();
+        label.rect = Some(rect(1000, 1000, 1100, 1050));
+        label.parent = Some("other".into());
+        snapshot.elements.push(label);
+        assert!(!snapshot.unclassifiable());
+        snapshot.elements[0].parent = Some("other".into());
+        assert!(snapshot.unclassifiable());
+        snapshot.elements[0].parent = Some("form".into());
+        snapshot.elements.last_mut().unwrap().rect = Some(rect(300, 0, 400, 100));
+        assert!(snapshot.unclassifiable());
+        snapshot.elements.last_mut().unwrap().rect = Some(rect(301, 0, 400, 100));
+        assert!(!snapshot.unclassifiable());
+    }
+
+    #[test]
+    fn flatness_counts_content_without_window_chrome_or_empty_panes() {
+        let mut nodes = vec![
+            element("root", "Window", rect(0, 0, 100, 100)),
+            child("title", "root", "TitleBar"),
+            child("close", "title", "Button"),
+            child("pane", "root", "Pane"),
+        ];
+        for i in 0..7 {
+            nodes.push(child(&format!("c{i}"), "root", "Text"));
+        }
+        let mut snapshot = snapshot(nodes);
+        assert!(snapshot.unclassifiable());
+        snapshot.elements.push(child("c7", "root", "Text"));
+        assert!(!snapshot.unclassifiable());
+        snapshot.elements.pop();
+        snapshot.elements.last_mut().unwrap().parent = Some("pane".into());
+        assert!(!snapshot.unclassifiable());
+        for kind in ["Edit", "Document", "Custom"] {
+            snapshot.elements = vec![element("one", kind, rect(0, 0, 100, 100))];
+            assert!(snapshot.unclassifiable());
         }
     }
 

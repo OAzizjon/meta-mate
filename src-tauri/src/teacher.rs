@@ -337,7 +337,7 @@ pub(crate) async fn teach(
             return;
         }
     };
-    let lesson_process = current.snapshot.target.process_id;
+    let lesson_window = current.snapshot.target;
     let mut session = lesson_session(model, current.redacted.frame.sent_size());
     let (inputs, mut received) = mpsc::unbounded_channel();
     let keys = listen_for_keys(started, inputs.clone());
@@ -479,6 +479,7 @@ pub(crate) async fn teach(
         // Clicks and chords from before the current step was shown never complete it
         // (invariant 4: input must not confirm a step the person never saw).
         let mut pointed_ms = now();
+        let existing_windows = mm_win32::window::existing_windows();
         loop {
             #[cfg(debug_assertions)]
             if !pending.is_empty() {
@@ -700,7 +701,12 @@ pub(crate) async fn teach(
                                 return;
                             }
                             if let Some(front) = mm_win32::window::foreground_target(&[])
-                                && front.window.process_id == lesson_process
+                                && (front.window == current.snapshot.target
+                                    || mm_win32::window::lesson_followup(
+                                        lesson_window,
+                                        front.window,
+                                        existing_windows.as_deref(),
+                                    ))
                             {
                                 break front.window;
                             }
@@ -879,10 +885,10 @@ fn input_staleness(
         TeacherInput::KeyChord {
             now_ms, foreground, ..
         } => {
-            // The app's own dialogs and popups have their own handles: the same process
-            // in front is the app in front. A window the hook could not name (a focus
-            // change in flight) is no reason to doubt the key or to say "click the app".
-            let in_front = foreground.is_none_or(|front| front.process_id == target.process_id);
+            // A shared process (browsers and UWP hosts) does not identify the lesson.
+            let in_front = foreground.is_none_or(|front| {
+                front.process_id == target.process_id && front.handle == target.handle
+            });
             (
                 *now_ms < pointed_ms || !in_front,
                 *now_ms >= pointed_ms && !in_front,
@@ -1058,10 +1064,10 @@ mod tests {
             input_staleness(&chord(12, 34, 20), 20, target),
             (false, false)
         );
-        // A dialog of the same app (another handle) is the app in front.
+        // A separate same-process window cannot complete this window's step.
         assert_eq!(
             input_staleness(&chord(13, 34, 20), 20, target),
-            (false, false)
+            (true, true)
         );
         assert_eq!(
             input_staleness(&chord(12, 35, 20), 20, target),

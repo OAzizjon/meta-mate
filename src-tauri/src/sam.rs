@@ -219,6 +219,8 @@ mod tests {
             window("e2", "Button", "Maximize", Some("e0"), chrome),
             window("e3", "Button", "Close", Some("e0"), chrome),
             window("e4", "Document", "Postcard Maker", Some("e0"), canvas),
+            // A page's document has something inside it: UIA reads this window.
+            window("e5", "Text", "Draw here", Some("e4"), canvas),
         ];
         let look = prepare(snapshot_with(elements.clone()), &canvas_capture(), &[]).unwrap();
         // The capture is the frame at 1:1: pixel (300, 200) is physical (400, 250).
@@ -280,7 +282,12 @@ mod tests {
         let capture = CapturedImage::new(400, 300, vec![200; 400 * 300 * 4]).unwrap();
         let occluded = PhysRect::new(350, 250, 500, 350).unwrap();
         let mut look = prepare(
-            snapshot_with(vec![el("doc", "Document", "Canvas")]),
+            snapshot_with(vec![el("doc", "Document", "Canvas"), {
+                // Something inside the document: UIA reads this window.
+                let mut text = el("text", "Text", "Draw here");
+                text.parent = Some("doc".into());
+                text
+            }]),
             &capture,
             &[occluded],
         )
