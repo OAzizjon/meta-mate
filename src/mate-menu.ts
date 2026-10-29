@@ -37,6 +37,10 @@ export function mountMateMenu(
       menu.hidden = true;
       wanted = false;
       console.error("mate: menu size:", error);
+      // A failed open may have grown the window already: always ask for the old size back.
+      if (open) {
+        void invoke("mate_menu_size", { open: false }).catch(() => undefined);
+      }
     });
   };
   const close = (): void => {
