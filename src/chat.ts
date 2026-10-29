@@ -16,6 +16,9 @@ log.id = "messages";
 log.setAttribute("role", "log");
 log.setAttribute("aria-live", "polite");
 log.setAttribute("aria-relevant", "additions text");
+const emptyState = document.createElement("li");
+emptyState.className = "empty-state";
+log.append(emptyState);
 const status = document.createElement("p");
 status.id = "status";
 status.setAttribute("role", "status");
@@ -50,9 +53,10 @@ function render(raw: unknown): void {
     const current = next[index];
     return current.role === old.role && current.timestamp === old.timestamp;
   });
-  if (!prefix) log.replaceChildren();
+  if (!prefix) log.replaceChildren(emptyState);
+  emptyState.hidden = next.length > 0;
   next.forEach((message, index) => {
-    let bubble = log.children[index] as HTMLLIElement | undefined;
+    let bubble = log.children[index + 1] as HTMLLIElement | undefined;
     if (!bubble) {
       bubble = document.createElement("li");
       bubble.className = `message ${message.role}`;
@@ -112,6 +116,7 @@ function localize(): void {
   hint.textContent = t("chat.hint");
   send.textContent = t("chat.send");
   log.setAttribute("aria-label", t("chat.messages"));
+  emptyState.textContent = t("chat.empty");
 }
 
 async function start(): Promise<void> {
@@ -123,7 +128,7 @@ async function start(): Promise<void> {
   localize();
   const current = messages;
   messages = [];
-  log.replaceChildren();
+  log.replaceChildren(emptyState);
   render(current);
   ready = true;
   update();
@@ -142,7 +147,7 @@ void followSettingsLocale(() => {
   // Speaker names and times are written once per bubble: rebuild them in the new language.
   const current = messages;
   messages = [];
-  log.replaceChildren();
+  log.replaceChildren(emptyState);
   render(current);
 }).catch((error: unknown) => console.error("chat: language:", error));
 void start().then(() => { clear.disabled = false; }).catch(() => {

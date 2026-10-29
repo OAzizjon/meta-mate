@@ -2,6 +2,7 @@
   "tray.chat": "Chat with Mate",
   "home.write": "Write to Mate",
   "chat.title": "Chat with Mate",
+  "chat.empty": "Write your question, for example: \"How do I make the text bigger?\" I will answer here and show you on the screen.",
   "chat.clear": "Clear chat",
   "chat.input": "Your message",
   "chat.hint": "Enter to send, Shift+Enter for a new line. Up to 1000 characters. History stays on this computer.",
