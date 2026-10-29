@@ -9,6 +9,7 @@ import { getLocale, setLocale, t } from "./i18n/index.ts";
 import type { LocaleCode } from "./i18n/index.ts";
 import { buildAccountSection } from "./settings/account-view.ts";
 import {
+  buildLanguageGroup,
   buildModelGroup,
   buildPttGroup,
   buildPttKeyGroup,
@@ -211,9 +212,9 @@ export function mountSettings(
   const titleHeading = document.createElement("h1");
   titleHeading.className = "settings-title";
 
-  const languageNote = document.createElement("p");
-  languageNote.className = "settings-language-note";
-  header.append(titleHeading, languageNote);
+  const savedNote = document.createElement("p");
+  savedNote.className = "settings-saved-note";
+  header.append(titleHeading, savedNote);
 
   const form = document.createElement("form");
   form.className = "settings-form";
@@ -229,6 +230,10 @@ export function mountSettings(
   };
 
   const accountGroup = buildAccountSection(accountStore);
+
+  const languageGroup = buildLanguageGroup((language) => {
+    void applyPatch({ language });
+  });
 
   const modelGroup = buildModelGroup((model) => {
     void applyPatch({ model });
@@ -276,6 +281,7 @@ export function mountSettings(
 
   // The everyday choices first; the account, set once, comes last (WP85).
   form.append(
+    languageGroup.fieldset,
     modelGroup.fieldset,
     pttKeyGroup.fieldset,
     pttGroup.fieldset,
@@ -312,9 +318,10 @@ export function mountSettings(
       document.title = t("tray.settings");
     }
     titleHeading.textContent = t("tray.settings");
-    languageNote.textContent = t("settings.saved_note");
+    savedNote.textContent = t("settings.saved_note");
 
     const radioGroups: readonly RadioGroupRefs<string>[] = [
+      languageGroup,
       modelGroup,
       pttGroup,
       pttKeyGroup,
@@ -345,6 +352,9 @@ export function mountSettings(
   };
 
   const syncControls = (settings: Settings): void => {
+    setLocale(settings.language);
+    syncText();
+    syncRadioSelection(languageGroup, settings.language);
     syncRadioSelection(modelGroup, settings.model);
     syncRadioSelection(pttGroup, settings.ptt);
     syncRadioSelection(pttKeyGroup, settings.pttKey);

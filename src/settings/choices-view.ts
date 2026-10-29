@@ -6,7 +6,7 @@ import type { LocaleKey } from "../i18n/index.ts";
 import { buildCheckbox, buildRadioGroup } from "./controls.ts";
 import type { CheckboxRefs, RadioGroupRefs } from "./controls.ts";
 import { PTT_KEYS, ROBOT_SIZES } from "./model.ts";
-import type { ModelChoice, PttKey, PttMode, RobotSize, SoundMode } from "./model.ts";
+import type { Language, ModelChoice, PttKey, PttMode, RobotSize, SoundMode } from "./model.ts";
 
 export function buildPttKeyGroup(onSelect: (key: PttKey) => void): RadioGroupRefs<PttKey> {
   return buildRadioGroup<PttKey>(
@@ -149,4 +149,19 @@ export function buildToggles(
 
   group.append(reduceMotion.wrapper, startWithWindows.wrapper);
   return { group, reduceMotion, startWithWindows };
+}
+
+export function buildLanguageGroup(onSelect: (language: Language) => void): RadioGroupRefs<Language> {
+  return buildRadioGroup<Language>(
+    "language",
+    "settings.language_title",
+    [
+      { id: "settings-language-auto", value: "auto", labelKey: "settings.language_auto" },
+      { id: "settings-language-en", value: "en", labelKey: "settings.language_en" },
+      { id: "settings-language-ru", value: "ru", labelKey: "settings.language_ru" },
+    ],
+    "settings-options",
+    "settings-radio-option",
+    onSelect,
+  );
 }

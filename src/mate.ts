@@ -251,6 +251,8 @@ async function createRouter(
     robot.setState(state);
   };
   const player = createTimelinePlayer({
+    // Answer tags select speech voices; UI labels keep the person's preference.
+    setLocale: () => setLocale(settings.get().language),
     robot: {
       setState: (state) => present("state", () => setState(state)),
       setMood: (mood) => present("mood", () => robot.setMood(mood)),
@@ -392,6 +394,7 @@ if (container) {
   });
   const motionQuery =
     typeof window.matchMedia === "function" ? window.matchMedia(REDUCED_MOTION_QUERY) : null;
+  let refreshTrial = (): void => {};
   const settings = startMateSettings(
     {
       roots: [document.documentElement, container],
@@ -405,7 +408,13 @@ if (container) {
     {
       invoke: inTauri ? tauriInvoke : null,
       subscribe: inTauri ? tauriSubscribe : null,
-      onChange: (updated) => setOnboardingPttKey(updated.pttKey),
+      onChange: (updated) => {
+        setLocale(updated.language);
+        document.documentElement.lang = getLocale();
+        setOnboardingPttKey(updated.pttKey);
+        refreshTrial();
+        menu?.close();
+      },
     },
   );
   void settings.ready.then(() => mountOnboarding(undefined, null));
@@ -444,7 +453,9 @@ if (container) {
       });
       // The guest trial's count (src-tauri/src/signin.rs): always in view while it runs.
       const trial = document.getElementById("mate-trial");
+      let trialUsage: unknown = null;
       const showTrial = (usage: unknown): void => {
+        trialUsage = usage;
         if (!trial) return;
         const counted = guestUsageOf(usage);
         trial.hidden = counted === null;
@@ -453,6 +464,7 @@ if (container) {
           trial.classList.toggle("is-empty", counted.left === 0);
         }
       };
+      refreshTrial = () => showTrial(trialUsage);
       await listen<unknown>("guest-usage", (event) => showTrial(event.payload));
       await listen<unknown>("auth-changed", (event) => {
         if ((event.payload as { signedIn?: unknown } | null)?.signedIn === true) showTrial(null);

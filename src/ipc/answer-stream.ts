@@ -276,11 +276,15 @@ export async function reportPlayback(
   }
 }
 
-async function connectTauri(locale: LocaleCode, onRaw: (raw: unknown) => void): Promise<void> {
+async function connectTauri(_locale: LocaleCode, onRaw: (raw: unknown) => void): Promise<void> {
   const { Channel, invoke } = await import("@tauri-apps/api/core");
   const channel = new Channel<unknown>();
   channel.onmessage = onRaw;
-  await invoke("subscribe_answer_stream", { channel, locale });
+  await invoke("subscribe_answer_stream", {
+    channel,
+    // Keep Windows' language separately so switching back to automatic works immediately.
+    locale: typeof navigator !== "undefined" && navigator.language.toLowerCase().startsWith("ru") ? "ru" : "en",
+  });
 }
 
 /** The message's `type` when it is a known one. */

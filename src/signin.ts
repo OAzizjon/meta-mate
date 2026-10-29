@@ -2,6 +2,7 @@
 // before Mate answers. Mate, one sentence and two big buttons; the account store
 // (src/settings/account.ts) does the rest, and Rust closes the window once signed in.
 import { getAppName, t } from "./i18n/index.ts";
+import { followSettingsLocale } from "./i18n/settings.ts";
 import type { LocaleKey } from "./i18n/index.ts";
 import { guestUsageOf } from "./mate-menu.ts";
 import { mountRobot } from "./robot/index.ts";
@@ -78,7 +79,9 @@ function mount(root: HTMLElement): void {
   const guestButton = el("button", "signin-btn signin-btn-quiet", t("signin.guest_try"));
   guestButton.type = "button";
   guest.append(guestLine, guestButton);
+  let guestUsage: unknown = null;
   const showGuest = (raw: unknown): void => {
+    guestUsage = raw;
     const usage = guestUsageOf(raw);
     guest.hidden = usage === null;
     if (!usage) return;
@@ -131,6 +134,14 @@ function mount(root: HTMLElement): void {
   store.subscribe(sync);
   sync(store.getState());
   void store.load().then(sync, () => undefined);
+  void followSettingsLocale(() => {
+    title.textContent = t("signin.title");
+    intro.textContent = t("signin.intro");
+    browser.textContent = t("signin.browser");
+    guestButton.textContent = t("signin.guest_try");
+    showGuest(guestUsage);
+    sync(store.getState());
+  }).catch((error: unknown) => console.error("signin: language:", error));
 }
 
 if (typeof document !== "undefined") {

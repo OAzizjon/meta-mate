@@ -26,7 +26,10 @@ export const VOICE_SPEED_STEP = 0.05;
 export const DEFAULT_VOICE_SPEED = 1;
 export const SETTINGS_CHANGED_EVENT = "settings-changed" as const;
 
+export type Language = "auto" | "en" | "ru";
+
 export interface Settings {
+  language: Language;
   model: "quick" | "thorough";
   ptt: "hold" | "toggle";
   pttKey: PttKey;
@@ -39,6 +42,7 @@ export interface Settings {
 }
 
 export const SETTINGS_KEYS = [
+  "language",
   "model",
   "ptt",
   "pttKey",
@@ -51,6 +55,7 @@ export const SETTINGS_KEYS = [
 ] as const satisfies readonly (keyof Settings)[];
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
+  language: "auto",
   model: "quick",
   ptt: "hold",
   pttKey: "rightCtrl",
@@ -130,6 +135,7 @@ export function parseSettings(raw: unknown): Settings {
       return defaultSettings();
     }
 
+    const language = readOwnField(raw, "language");
     const model = readOwnField(raw, "model");
     const ptt = readOwnField(raw, "ptt");
     const pttKey = readOwnField(raw, "pttKey");
@@ -141,6 +147,7 @@ export function parseSettings(raw: unknown): Settings {
     const showHomeAtStart = readOwnField(raw, "showHomeAtStart");
 
     return {
+      language: language === "en" || language === "ru" ? language : "auto",
       model: isModelChoice(model) ? model : DEFAULT_SETTINGS.model,
       ptt: isPttMode(ptt) ? ptt : DEFAULT_SETTINGS.ptt,
       pttKey: isPttKey(pttKey) ? pttKey : DEFAULT_SETTINGS.pttKey,

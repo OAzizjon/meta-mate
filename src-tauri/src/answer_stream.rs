@@ -61,7 +61,7 @@ pub enum AnswerMsg {
     },
 }
 
-/// The subscribed channel and the UI locale the WebView reported, and what it reported
+/// The subscribed channel and Windows locale the WebView reported, and what it reported
 /// about playback.
 #[derive(Default)]
 pub struct AnswerStream {
@@ -223,13 +223,15 @@ impl AnswerStream {
         }
     }
 
-    /// The UI locale ("en" unless the WebView said "ru").
+    /// The chosen UI locale, falling back to the WebView's Windows language.
     pub fn locale(&self) -> String {
-        self.inner
+        let system = self
+            .inner
             .lock()
             .ok()
             .and_then(|inner| inner.as_ref().map(|(_, locale)| locale.clone()))
-            .unwrap_or_else(|| "en".into())
+            .unwrap_or_else(|| "en".into());
+        crate::settings::language().resolve(&system).to_owned()
     }
 
     /// One sentence's WAV as a single PCM chunk; anything but mono PCM16 becomes an empty
@@ -280,9 +282,10 @@ pub fn report_playback(
     }
 }
 
-/// Called by the Mate window at startup and whenever its UI locale changes.
+/// Mate reports the Windows language separately from the saved preference.
 #[tauri::command]
 pub fn subscribe_answer_stream(
+    app: tauri::AppHandle,
     channel: Channel<AnswerMsg>,
     locale: String,
     stream: tauri::State<'_, AnswerStream>,
@@ -291,4 +294,5 @@ pub fn subscribe_answer_stream(
     if let Ok(mut inner) = stream.inner.lock() {
         *inner = Some((channel, locale.into()));
     }
+    crate::refresh_tray_labels(&app);
 }

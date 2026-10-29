@@ -1,5 +1,6 @@
 // The lesson card window's entry (card.html): the locale lookup, then the page itself.
-import { getLocale, setLocale, t } from "./i18n/index.ts";
+import { getLocale, t } from "./i18n/index.ts";
+import { followSettingsLocale } from "./i18n/settings.ts";
 import { CARD_READY_EVENT, LESSON_CARD_EVENT, mountLessonCard, setCardI18n } from "./card.ts";
 import type { CardController } from "./card.ts";
 
@@ -9,22 +10,20 @@ if (typeof document !== "undefined") {
   const root = document.getElementById("card-app");
   if (root) {
     const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    let receivedCard = false;
     let controller: CardController = mountLessonCard(root, { isTauri });
+    void followSettingsLocale(() => {
+      const initialCard = receivedCard ? controller.getCard() : undefined;
+      controller.destroy();
+      controller = mountLessonCard(root, { isTauri, initialCard });
+    }).catch((error: unknown) => console.error("card: language:", error));
 
     if (isTauri) {
       void (async () => {
         try {
           const { emit, listen } = await import("@tauri-apps/api/event");
           await listen<unknown>(LESSON_CARD_EVENT, (event) => {
-            // The card comes in the app's language, not the system's: the page's own
-            // labels are built at mount, so a new language mounts it again.
-            const locale = (event.payload as { locale?: unknown } | null)?.locale;
-            if ((locale === "en" || locale === "ru") && locale !== getLocale()) {
-              setLocale(locale);
-              controller.destroy();
-              controller = mountLessonCard(root, { isTauri });
-            }
-            controller.handleRaw(event.payload);
+            if (controller.handleRaw(event.payload)) receivedCard = true;
           });
           // card.rs sends the card (a picture of megabytes) once the page listens.
           await emit(CARD_READY_EVENT);

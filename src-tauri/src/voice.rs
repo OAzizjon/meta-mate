@@ -789,7 +789,7 @@ async fn answer(
         let body = chat_request(
             ModelChoice::from(crate::settings::model(&app)),
             ReasoningEffort::Minimal,
-            None,
+            Some(&locale),
             &question,
         );
         let settings = Settings {
@@ -999,12 +999,12 @@ pub(crate) fn phrase(phrases: &Phrases, locale: &str, key: &str) -> Option<Vec<u
 pub(crate) fn say_line(
     stream: &AnswerStream,
     phrases: &Phrases,
-    locale: &str,
+    _locale: &str,
     generation: u64,
     key: &'static str,
 ) {
     stream.send(AnswerMsg::Line { generation, key });
-    if let Some(wav) = phrase(phrases, locale, key) {
+    if let Some(wav) = phrase(phrases, &stream.locale(), key) {
         stream.send_wav(generation, 0, &wav);
     }
 }

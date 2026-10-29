@@ -32,6 +32,43 @@ pub const VOICE_SPEED_STEP: f64 = 0.05;
 /// The store's voice speed as `f64` bits, for the TTS call (proxy.rs), which holds no app
 /// handle. Kept in step with the store.
 static VOICE_SPEED: AtomicU64 = AtomicU64::new(DEFAULT_VOICE_SPEED.to_bits());
+static LANGUAGE: AtomicU64 = AtomicU64::new(0);
+
+/// The UI language preference; automatic follows Windows.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Language {
+    #[default]
+    Auto,
+    En,
+    Ru,
+}
+
+impl Language {
+    pub fn resolve(self, system: &str) -> &'static str {
+        match self {
+            Self::En => "en",
+            Self::Ru => "ru",
+            Self::Auto if system == "ru" => "ru",
+            Self::Auto => "en",
+        }
+    }
+}
+
+fn deserialize_language<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Language, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_default())
+}
+
+pub fn language() -> Language {
+    match LANGUAGE.load(Ordering::Relaxed) {
+        1 => Language::En,
+        2 => Language::Ru,
+        _ => Language::Auto,
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -129,6 +166,8 @@ pub struct MateHome {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
+    #[serde(default, deserialize_with = "deserialize_language")]
+    pub language: Language,
     pub model: Model,
     pub ptt: Ptt,
     #[serde(default, deserialize_with = "deserialize_ptt_key")]
@@ -148,6 +187,7 @@ impl Default for Settings {
     /// `DEFAULT_SETTINGS` of src/settings/model.ts.
     fn default() -> Self {
         Self {
+            language: Language::Auto,
             model: Model::Quick,
             ptt: Ptt::Hold,
             ptt_key: PttKey::RightCtrl,
@@ -189,6 +229,7 @@ impl SettingsStore {
     pub fn new(settings: Settings) -> Self {
         let settings = settings.sanitized();
         VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
+        LANGUAGE.store(settings.language as u64, Ordering::Relaxed);
         #[cfg(windows)]
         crate::ptt::set_ptt_mode(settings.ptt);
         #[cfg(windows)]
@@ -226,6 +267,7 @@ pub fn save_settings(
         let mut current = store.lock();
         settings.mate_home = current.mate_home;
         *current = settings.clone();
+        LANGUAGE.store(settings.language as u64, Ordering::Relaxed);
         VOICE_SPEED.store(settings.voice_speed.to_bits(), Ordering::Relaxed);
         #[cfg(windows)]
         crate::ptt::set_ptt_mode(settings.ptt);
@@ -235,7 +277,7 @@ pub fn save_settings(
         persist(&app, &current)
     };
     // Sent after the lock is released: a listener may read the store.
-    crate::refresh_tray_tooltip(&app);
+    crate::refresh_tray_labels(&app);
     if let Err(error) = app.emit(CHANGED_EVENT, settings) {
         eprintln!("settings: could not tell the windows: {error}");
     }
@@ -333,6 +375,7 @@ mod tests {
 
     fn changed() -> Settings {
         Settings {
+            language: Language::Auto,
             model: Model::Thorough,
             ptt: Ptt::Toggle,
             ptt_key: PttKey::RightCtrl,
@@ -355,11 +398,39 @@ mod tests {
     }
 
     #[test]
+    fn language_migration_validation_and_resolution() {
+        for (value, expected) in [
+            (json!("auto"), Language::Auto),
+            (json!("en"), Language::En),
+            (json!("ru"), Language::Ru),
+            (json!("de"), Language::Auto),
+            (json!(null), Language::Auto),
+            (json!(42), Language::Auto),
+        ] {
+            let settings = parse(&json!({"language": value, "sound": "fun"}).to_string());
+            assert_eq!(settings.language, expected);
+            assert_eq!(settings.sound, Sound::Fun);
+            let restored = parse(&serde_json::to_string(&settings).unwrap());
+            assert_eq!(restored, settings);
+        }
+        let old = parse(r#"{"model":"thorough","sound":"fun"}"#);
+        assert_eq!(old.language, Language::Auto);
+        assert_eq!(old.model, Model::Thorough);
+        assert_eq!(old.sound, Sound::Fun);
+        assert_eq!(Language::Auto.resolve("ru"), "ru");
+        assert_eq!(Language::Auto.resolve("en"), "en");
+        assert_eq!(Language::Auto.resolve("de"), "en");
+        assert_eq!(Language::En.resolve("ru"), "en");
+        assert_eq!(Language::Ru.resolve("en"), "ru");
+    }
+
+    #[test]
     fn defaults_match_the_window_model() {
         let defaults = serde_json::to_value(Settings::default()).unwrap();
         assert_eq!(
             defaults,
             json!({
+                "language": "auto",
                 "model": "quick",
                 "ptt": "hold",
                 "pttKey": "rightCtrl",

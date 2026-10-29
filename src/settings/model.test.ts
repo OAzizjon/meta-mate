@@ -41,6 +41,7 @@ test("talk keys parse independently and older settings retain their preferences"
 test("defaultSettings returns a fresh copy of the expected defaults", () => {
   const defaults = defaultSettings();
   assert.deepEqual(defaults, {
+    language: "auto",
     model: "quick",
     ptt: "hold",
     pttKey: "rightCtrl",
@@ -74,6 +75,7 @@ test("parseSettings accepts every valid enum combination and boundary voiceSpeed
         for (const robotSize of ROBOT_SIZES) {
           for (const voiceSpeed of [MIN_VOICE_SPEED, 0.95, 1, 1.15, MAX_VOICE_SPEED]) {
             const raw: Settings = {
+              language: "auto",
               model,
               ptt,
               pttKey: "rightCtrl",
@@ -111,6 +113,7 @@ test("parseSettings drops unknown fields and preserves valid ones", () => {
   const parsed = parseSettings(raw);
   assert.deepEqual(Object.keys(parsed), [...SETTINGS_KEYS]);
   assert.deepEqual(parsed, {
+    language: "auto",
     model: "thorough",
     ptt: "toggle",
     pttKey: "rightCtrl",
@@ -136,6 +139,7 @@ test("parseSettings replaces out-of-range and wrong-type fields with defaults pe
       startWithWindows: "true",
     }),
     {
+      language: "auto",
       model: "thorough",
       ptt: DEFAULT_SETTINGS.ptt,
       pttKey: "rightCtrl",
@@ -219,6 +223,7 @@ test("parseSettings ignores inherited properties and never throws on non-objects
 
 test("updateSettings and formatVoiceSpeed stay within invariants", () => {
   const updated = updateSettings(DEFAULT_SETTINGS, {
+    language: "auto",
     model: "thorough",
     voiceSpeed: 1.15,
     reduceMotion: true,
@@ -298,6 +303,7 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
   assert.equal(calls.length, 1);
   assert.equal(calls[0].cmd, "load_settings");
   assert.deepEqual(loaded, {
+    language: "auto",
     model: "thorough",
     ptt: "toggle",
     pttKey: "rightCtrl",
@@ -347,6 +353,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
   assert.notEqual(emitChanged, null);
 
   emitChanged!({
+    language: "auto",
     model: "thorough",
     ptt: "toggle",
     pttKey: "rightCtrl",
@@ -360,6 +367,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
   assert.equal(calls.length, 0);
   assert.equal(refreshed.length, 1);
   assert.deepEqual(refreshed[0], {
+    language: "auto",
     model: "thorough",
     ptt: "toggle",
     pttKey: "rightCtrl",
@@ -378,4 +386,37 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
   emitChanged!(DEFAULT_SETTINGS);
   assert.equal(refreshed.length, 1);
   assert.equal(store.get().model, "thorough");
+});
+
+test("language choices survive saves and invalid or older settings keep other preferences", async () => {
+  for (const language of ["auto", "en", "ru"] as const) {
+    const store = createSettingsStore(null);
+    await store.update({ language, sound: "fun" });
+    assert.equal((await store.update({ voiceSpeed: 1.2 })).language, language);
+    assert.equal(parseSettings({ language }).language, language);
+  }
+  for (const language of [undefined, null, "de", "EN", 0, {}]) {
+    const parsed = parseSettings({ language, sound: "fun" });
+    assert.equal(parsed.language, "auto");
+    assert.equal(parsed.sound, "fun");
+  }
+});
+test("external language changes refresh the store without saving back", async () => {
+  let emit: ((raw: unknown) => void) | undefined;
+  const calls: string[] = [];
+  const store = createSettingsStore(async (command) => { calls.push(command); return {}; });
+  const languages: string[] = [];
+  const stop = subscribeSettingsChanged(store, async (onChanged) => {
+    emit = onChanged;
+    return () => {};
+  }, (settings) => languages.push(settings.language));
+  await Promise.resolve();
+  for (const language of ["ru", "en", "auto"]) {
+    emit!({ ...DEFAULT_SETTINGS, language, model: "thorough" });
+    assert.equal(store.get().language, language);
+    assert.equal(store.get().model, "thorough");
+  }
+  assert.deepEqual(languages, ["ru", "en", "auto"]);
+  assert.deepEqual(calls, []);
+  stop();
 });

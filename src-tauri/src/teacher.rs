@@ -572,7 +572,8 @@ pub(crate) async fn teach(
                     TeacherCommand::Say(line) => {
                         if let Some(key) = line_key(line, &mut steps_done) {
                             say_line(&stream, &phrases, &locale, generation, key);
-                            if let Some(wav) = crate::voice::phrase(&phrases, &locale, key) {
+                            if let Some(wav) = crate::voice::phrase(&phrases, &stream.locale(), key)
+                            {
                                 if let Some(duration) = wav_duration(&wav) {
                                     audio_until = audio_until.max(Instant::now()) + duration;
                                 } else {
@@ -612,7 +613,7 @@ pub(crate) async fn teach(
                                     })
                                 })
                         }) && let Some(duration) =
-                            crate::voice::phrase(&phrases, &locale, "robot.do_it_for_me")
+                            crate::voice::phrase(&phrases, &stream.locale(), "robot.do_it_for_me")
                                 .and_then(|wav| wav_duration(&wav))
                         {
                             let ready =
@@ -678,9 +679,11 @@ pub(crate) async fn teach(
                                 generation,
                                 "robot.thinking_harder",
                             );
-                            if let Some(wav) =
-                                crate::voice::phrase(&phrases, &locale, "robot.thinking_harder")
-                            {
+                            if let Some(wav) = crate::voice::phrase(
+                                &phrases,
+                                &stream.locale(),
+                                "robot.thinking_harder",
+                            ) {
                                 if let Some(duration) = wav_duration(&wav) {
                                     audio_until = audio_until.max(Instant::now()) + duration;
                                 } else {
@@ -826,7 +829,7 @@ pub(crate) async fn teach(
                     } else if live_offer {
                         // PTT may have discarded queued audio. Keep the old deadline as a
                         // conservative bound and require a fresh press after the repeat.
-                        if let Some(duration) = crate::voice::phrase(&phrases, &locale, "robot.do_it_for_me")
+                        if let Some(duration) = crate::voice::phrase(&phrases, &stream.locale(), "robot.do_it_for_me")
                             .and_then(|wav| wav_duration(&wav)) {
                             offered_at = Some(confirmation_ready_at(Instant::now(), audio_until, duration));
                             audio_until = offered_at.unwrap() - Duration::from_millis(300);
@@ -853,7 +856,7 @@ pub(crate) async fn teach(
                         confirmation_offer = None;
                         let _ = teacher.input(TeacherInput::DoItAnswer { yes: false, now_ms: now() });
                         say_line(&stream, &phrases, &locale, generation, "robot.click_app_first");
-                        if let Some(wav) = crate::voice::phrase(&phrases, &locale, "robot.click_app_first") {
+                        if let Some(wav) = crate::voice::phrase(&phrases, &stream.locale(), "robot.click_app_first") {
                             if let Some(duration) = wav_duration(&wav) {
                                 audio_until = audio_until.max(Instant::now()) + duration;
                             } else {
@@ -997,7 +1000,7 @@ fn wav_duration(bytes: &[u8]) -> Option<Duration> {
 async fn speak(
     stream: &AnswerStream,
     proxy: &Proxy,
-    locale: &str,
+    _locale: &str,
     generation: u64,
     id: u64,
     text: String,
@@ -1013,7 +1016,7 @@ async fn speak(
         generation,
         item: Item::Say(say),
     });
-    match proxy.speak(voice_of(locale), &text).await {
+    match proxy.speak(voice_of(&stream.locale()), &text).await {
         Ok(speech) if speech_epoch.load(Ordering::Acquire) == epoch => {
             stream.send_wav(generation, id, &speech.wav);
             wav_duration(&speech.wav)

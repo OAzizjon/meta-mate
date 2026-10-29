@@ -235,12 +235,9 @@ pub(crate) fn show_tray_wake(app: &tauri::AppHandle, hidden: bool) {
     }
 }
 
-/// The tray icon with Home, sample questions, Settings, temporary hide (and, while Mate is
-/// hidden, a way back: `show_tray_wake`) and Quit, in the UI
-/// locale Mate's window reports (its `navigator.language` follows the Windows display language): English until
-/// that window subscribes, then relabelled once.
+/// The tray menu follows the saved language preference. Automatic uses the Windows
+/// display language reported by Mate's WebView.
 fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
-    use std::time::{Duration, Instant};
     use tauri::Manager;
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
     use tauri::tray::TrayIconBuilder;
@@ -317,26 +314,39 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     }
     // The app keeps the icon; this handle relabels its tooltip below.
     let _tray = builder.build(app)?;
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let stream = app.state::<answer_stream::AnswerStream>();
-        let started = Instant::now();
-        while !stream.subscribed() && started.elapsed() < Duration::from_secs(15) {
-            tokio::time::sleep(Duration::from_millis(200)).await;
-        }
-        let locale = stream.locale();
-        let _ = home_item.set_text(locale_text(&locale, MENU_HOME));
-        let _ = settings_item.set_text(locale_text(&locale, "tray.settings"));
-        let _ = hide_item.set_text(locale_text(&locale, "tray.hide_hour"));
-        let _ = wake_item.set_text(locale_text(&locale, "tray.wake"));
-        let _ = quit_item.set_text(locale_text(&locale, "tray.quit"));
-        let _ = try_menu.set_text(locale_text(&locale, "tray.try_title"));
-        for (item, key) in try_items.iter().zip(TRY_QUESTIONS) {
-            let _ = item.set_text(locale_text(&locale, key));
-        }
-        refresh_tray_tooltip(&app);
+    app.manage(TrayLabels {
+        items: vec![
+            (home_item, MENU_HOME),
+            (settings_item, "tray.settings"),
+            (hide_item, "tray.hide_hour"),
+            (wake_item, "tray.wake"),
+            (quit_item, "tray.quit"),
+        ]
+        .into_iter()
+        .chain(try_items.into_iter().zip(TRY_QUESTIONS.iter().copied()))
+        .collect(),
+        try_menu,
     });
     Ok(())
+}
+
+struct TrayLabels {
+    items: Vec<(tauri::menu::MenuItem<tauri::Wry>, &'static str)>,
+    try_menu: tauri::menu::Submenu<tauri::Wry>,
+}
+
+pub(crate) fn refresh_tray_labels(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    let locale = app.state::<answer_stream::AnswerStream>().locale();
+    if let Some(labels) = app.try_state::<TrayLabels>() {
+        for (item, key) in &labels.items {
+            let _ = item.set_text(locale_text(&locale, key));
+        }
+        let _ = labels
+            .try_menu
+            .set_text(locale_text(&locale, "tray.try_title"));
+    }
+    refresh_tray_tooltip(app);
 }
 
 fn tray_tooltip(app: &tauri::AppHandle) -> String {
