@@ -21,6 +21,8 @@ export type AnswerModel = (typeof ANSWER_MODELS)[number];
 /** The locale lines Rust may show in the bubble (it may send their audio as sentence 0). */
 export const ANSWER_LINE_KEYS = [
   "robot.network_error",
+  "robot.no_microphone",
+  "robot.open_browser_first",
   "robot.cant_find",
   "robot.listening",
   "robot.click_stop",

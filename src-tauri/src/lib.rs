@@ -464,6 +464,8 @@ mod tests {
                 "tray.wake",
                 "home.quit",
                 "home.closed_hint",
+                "robot.no_microphone",
+                "robot.open_browser_first",
             ]
             .into_iter()
             .chain(TRY_QUESTIONS)

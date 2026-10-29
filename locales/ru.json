@@ -5,6 +5,8 @@
   "model.voice_transcribe": "Muse Voice Transcribe 1.0 · речь",
   "robot.first_launch": "Здравствуйте! Я {name}. Нажмите {key} и, не отпуская, спросите. Или нажмите на меня один раз, скажите и нажмите ещё раз.",
   "robot.listening": "Слушаю.",
+  "robot.no_microphone": "Я вас не слышу: микрофон не работает. Вопрос можно напечатать через значок в трее.",
+  "robot.open_browser_first": "Сначала откройте браузер, потом спросите меня снова.",
   "robot.thinking": "Сейчас подумаю.",
   "robot.thinking_2": "Одну секунду.",
   "robot.thinking_3": "Минутку.",

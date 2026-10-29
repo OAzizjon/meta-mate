@@ -17,9 +17,10 @@ use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GW_OWNER, GWL_EXSTYLE, GetClassNameW, GetLayeredWindowAttributes, GetWindow,
-    GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
-    LWA_ALPHA, WS_EX_LAYERED, WS_EX_TOPMOST, WS_EX_TRANSPARENT,
+    EnumChildWindows, EnumWindows, GW_OWNER, GWL_EXSTYLE, GetClassNameW,
+    GetLayeredWindowAttributes, GetWindow, GetWindowLongPtrW, GetWindowRect,
+    GetWindowThreadProcessId, IsIconic, IsWindowVisible, LWA_ALPHA, WS_EX_LAYERED, WS_EX_TOPMOST,
+    WS_EX_TRANSPARENT,
 };
 use windows::core::{BOOL, PWSTR};
 
@@ -100,6 +101,10 @@ fn remote_executable(path: &str) -> bool {
 /// Class names vary by release and UI toolkit; also check the owning executable.
 /// An inaccessible process cannot establish that this is a safe local target.
 fn local_process(process_id: u32) -> Option<bool> {
+    Some(!remote_executable(&process_path(process_id)?))
+}
+
+fn process_path(process_id: u32) -> Option<String> {
     // SAFETY: a read-only query handle; no memory in the other process is read.
     let Ok(process) =
         (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) })
@@ -123,8 +128,46 @@ fn local_process(process_id: u32) -> Option<bool> {
         return None;
     }
     let path = buffer.get(..len as usize)?;
-    let path = String::from_utf16_lossy(path);
-    Some(!remote_executable(&path))
+    Some(String::from_utf16_lossy(path))
+}
+
+fn settings_executable(path: &str) -> bool {
+    path.rsplit(['\\', '/'])
+        .next()
+        .is_some_and(|name| name.eq_ignore_ascii_case("SystemSettings.exe"))
+}
+
+/// True only when the remembered window is still foreground and belongs to Settings.
+/// Windows 10 can host Settings inside an ApplicationFrameHost window.
+pub fn settings_foreground(window: TargetWindow) -> bool {
+    let hwnd = HWND(window.handle as usize as *mut std::ffi::c_void);
+    if crate::focus::foreground() != hwnd || remembered_target(window, &[]).is_none() {
+        return false;
+    }
+    if process_path(window.process_id).is_some_and(|path| settings_executable(&path)) {
+        return true;
+    }
+    unsafe extern "system" fn child(hwnd: HWND, data: LPARAM) -> BOOL {
+        let mut pid = 0;
+        // SAFETY: pid is writable; data points to the bool alive during EnumChildWindows.
+        unsafe {
+            GetWindowThreadProcessId(hwnd, Some(&mut pid));
+            if process_path(pid).is_some_and(|path| settings_executable(&path)) {
+                *(data.0 as *mut bool) = true;
+            }
+        }
+        BOOL(1)
+    }
+    let mut found = false;
+    // SAFETY: the callback is synchronous and found outlives the enumeration.
+    let _ = unsafe {
+        EnumChildWindows(
+            Some(hwnd),
+            Some(child),
+            LPARAM(&mut found as *mut bool as isize),
+        )
+    };
+    found
 }
 
 /// The user's window, its popups and the region to capture. Debug carries handles and
@@ -539,6 +582,25 @@ fn class_name(hwnd: HWND) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_identity_uses_the_executable_basename() {
+        for path in [
+            "C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe",
+            "SYSTEMSETTINGS.EXE",
+        ] {
+            assert!(settings_executable(path));
+        }
+        for path in [
+            "",
+            "explorer.exe",
+            "ApplicationFrameHost.exe",
+            "FakeSystemSettings.exe",
+            "SystemSettings.exe.bak",
+        ] {
+            assert!(!settings_executable(path));
+        }
+    }
 
     #[test]
     fn demo_apps_are_local_but_identity_does_not_certify_their_tree() {

@@ -119,6 +119,7 @@ pub struct VoiceLoop {
 enum Input {
     Ptt(PttEvent, Option<Instant>),
     Text(String, Option<mm_platform::TargetWindow>),
+    Line(&'static str),
 }
 
 struct TextQuestions {
@@ -129,11 +130,24 @@ struct TextQuestions {
 /// Queues a text question on the voice loop, with the same barge-in as a new press.
 pub(crate) fn ask_text(app: &AppHandle, text: String) {
     if let Some(questions) = app.try_state::<TextQuestions>() {
-        let target = questions.target.lock().ok().and_then(|targets| {
-            targets
-                .newest_valid(|target| mm_win32::window::remembered_target(target, &[]).is_some())
-        });
+        let target = remembered_target(app);
         let _ = questions.sender.send(Input::Text(text, target));
+    }
+}
+
+pub(crate) fn remembered_target(app: &AppHandle) -> Option<mm_platform::TargetWindow> {
+    let questions = app.try_state::<TextQuestions>()?;
+    questions
+        .target
+        .lock()
+        .ok()?
+        .newest_valid(|target| mm_win32::window::remembered_target(target, &[]).is_some())
+}
+
+/// Feedback uses the loop's generations and cancels any previous answer.
+pub(crate) fn show_line(app: &AppHandle, key: &'static str) {
+    if let Some(questions) = app.try_state::<TextQuestions>() {
+        let _ = questions.sender.send(Input::Line(key));
     }
 }
 
@@ -365,6 +379,27 @@ async fn run(
             continue;
         }
         let (event, text) = match event {
+            Input::Line(key) => {
+                crate::presence::wake(&app, false);
+                next_generation += 1;
+                recording = None;
+                if let Some(previous) = current.take() {
+                    stream.send(AnswerMsg::Cancel {
+                        generation: previous.generation,
+                    });
+                    previous.abort().await;
+                }
+                if let Some(lesson) = live_lesson(&lessons) {
+                    lesson.abort.abort();
+                }
+                stop_pointing(&app);
+                say_line(&stream, &phrases, &stream.locale(), next_generation, key);
+                stream.send(AnswerMsg::State {
+                    generation: next_generation,
+                    state: "idle",
+                });
+                continue;
+            }
             Input::Text(text, target) => {
                 // Home's Try and the tray's questions: a question wakes Mate like a press.
                 crate::presence::wake(&app, false);
@@ -497,6 +532,14 @@ async fn run(
                     Ok(Ok(microphone)) => microphone,
                     Ok(Err(error)) => {
                         eprintln!("voice: microphone: {error}");
+                        recording = None;
+                        say_line(
+                            &stream,
+                            &phrases,
+                            &stream.locale(),
+                            generation,
+                            "robot.no_microphone",
+                        );
                         stream.send(AnswerMsg::State {
                             generation,
                             state: "idle",
@@ -504,6 +547,14 @@ async fn run(
                         continue;
                     }
                     Err(_) => {
+                        recording = None;
+                        say_line(
+                            &stream,
+                            &phrases,
+                            &stream.locale(),
+                            generation,
+                            "robot.no_microphone",
+                        );
                         stream.send(AnswerMsg::State {
                             generation,
                             state: "idle",
@@ -615,6 +666,13 @@ async fn answer(
     };
     if question.trim().is_empty() {
         let generation = live_lesson(&lessons).map_or(generation, |lesson| lesson.generation);
+        say_line(
+            &stream,
+            &phrases,
+            &stream.locale(),
+            generation,
+            "robot.no_microphone",
+        );
         stream.send(AnswerMsg::State {
             generation,
             state: "idle",
@@ -1029,7 +1087,12 @@ pub(crate) fn voice_of(locale: &str) -> &'static str {
 async fn cache_phrases(proxy: Proxy, phrases: Phrases) {
     load_built_phrases(&phrases);
     // Wait phrases the build does not have yet: synthesized once through the proxy.
-    for key in THINKING.into_iter().chain([LOOKING, CHECKING]) {
+    for key in THINKING.into_iter().chain([
+        LOOKING,
+        CHECKING,
+        "robot.no_microphone",
+        "robot.open_browser_first",
+    ]) {
         for (voice, locale) in [
             ("en", include_str!("../../locales/en.json")),
             ("ru", include_str!("../../locales/ru.json")),

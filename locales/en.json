@@ -5,6 +5,8 @@
   "model.voice_transcribe": "Muse Voice Transcribe 1.0",
   "robot.first_launch": "Hello! I'm {name}. Press and hold {key}, then ask me. Or click me once, speak, and click me again.",
   "robot.listening": "I'm listening.",
+  "robot.no_microphone": "I can't hear you: no microphone is working. You can type a question from the tray icon.",
+  "robot.open_browser_first": "Open your web browser first, then ask me again.",
   "robot.thinking": "Let me think.",
   "robot.thinking_2": "One moment.",
   "robot.thinking_3": "Let me see.",

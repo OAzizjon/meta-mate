@@ -61,6 +61,25 @@ fn validate_try_key(key: &str) -> Result<(), String> {
     }
 }
 
+#[cfg(any(windows, test))]
+#[derive(Debug, PartialEq, Eq)]
+enum TryAction {
+    Display,
+    Ask,
+    OpenBrowser,
+}
+
+#[cfg(any(windows, test))]
+fn try_action(key: &str, has_target: bool) -> TryAction {
+    if key == "tray.try_bigger" {
+        TryAction::Display
+    } else if has_target {
+        TryAction::Ask
+    } else {
+        TryAction::OpenBrowser
+    }
+}
+
 /// Uses the tray's voice path, including its remembered app target. That path rejects
 /// every window belonging to our process, including Home. Home lies over that app and the
 /// copy reads the screen, so Home is minimized before the question is asked.
@@ -73,11 +92,43 @@ pub async fn home_try(app: AppHandle, key: String) -> Result<(), String> {
             minimize(&home).await;
         }
         let locale = app.state::<crate::answer_stream::AnswerStream>().locale();
+        match try_action(&key, crate::voice::remembered_target(&app).is_some()) {
+            TryAction::Display => {
+                if !open_display(&app).await {
+                    crate::voice::show_line(&app, "robot.cant_find");
+                    return Ok(());
+                }
+            }
+            TryAction::OpenBrowser => {
+                crate::voice::show_line(&app, "robot.open_browser_first");
+                return Ok(());
+            }
+            TryAction::Ask => {}
+        }
         crate::voice::ask_text(&app, crate::locale_text(&locale, &key));
     }
     #[cfg(not(windows))]
     let _ = app;
     Ok(())
+}
+
+/// Wait for the voice loop's remembered target to catch up with Settings activation.
+#[cfg(windows)]
+async fn open_display(app: &AppHandle) -> bool {
+    use std::time::{Duration, Instant};
+    let started = Instant::now();
+    if !mm_win32::shell::open_url("ms-settings:display") {
+        return false;
+    }
+    loop {
+        if crate::voice::remembered_target(app).is_some_and(mm_win32::window::settings_foreground) {
+            return true;
+        }
+        if started.elapsed() >= Duration::from_secs(3) {
+            return false;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
 }
 
 /// About as long as Windows' minimize animation, which draws Home until it ends.
@@ -102,6 +153,20 @@ async fn minimize(home: &tauri::WebviewWindow) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn display_opens_settings_and_other_samples_need_a_target() {
+        for has_target in [false, true] {
+            assert_eq!(
+                try_action("tray.try_bigger", has_target),
+                TryAction::Display
+            );
+        }
+        for key in ["tray.try_search", "tray.try_safe"] {
+            assert_eq!(try_action(key, false), TryAction::OpenBrowser);
+            assert_eq!(try_action(key, true), TryAction::Ask);
+        }
+    }
 
     #[test]
     fn only_the_three_tray_questions_are_allowed() {

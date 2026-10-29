@@ -2,6 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AnswerGenerations, HeldPresentation } from "./answer-generation.ts";
 
+test("microphone failure feedback releases listening and returns to idle", () => {
+  const ids = new AnswerGenerations();
+  ids.accept({ type: "state", generation: 1, state: "listening" });
+  assert.ok(ids.accept({ type: "line", generation: 1, key: "robot.no_microphone" }));
+  assert.equal(ids.holdPresentation, false);
+  assert.ok(ids.accept({ type: "state", generation: 1, state: "idle" }));
+  assert.equal(ids.listening, null);
+  assert.equal(ids.canIdle(1), true);
+});
+
 test("click instructions belong to the recording and preserve an interrupted lesson", () => {
   const ids = new AnswerGenerations();
   ids.accept({ type: "model", generation: 1, model: null });

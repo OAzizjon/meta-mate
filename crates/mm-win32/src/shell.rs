@@ -4,14 +4,16 @@ use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 use windows::core::{HSTRING, PCWSTR, w};
 
-/// Whether `url` may be handed to the shell: an https page, or http on the loopback, with no
-/// quote or control character (never a file, a program or a second argument).
+/// Whether `url` may be handed to the shell: Display Settings, an https page, or http on
+/// the loopback, with no quote or control character (never a file or a program).
 pub fn openable(url: &str) -> bool {
-    (url.starts_with("https://") || url.starts_with("http://127.0.0.1:"))
+    (url == "ms-settings:display"
+        || url.starts_with("https://")
+        || url.starts_with("http://127.0.0.1:"))
         && !url.chars().any(|c| c.is_control() || c == '"' || c == ' ')
 }
 
-/// Opens `url` in the default browser. False when it is not `openable` or Windows refused.
+/// Opens `url` with the shell. False when it is not `openable` or Windows refused.
 pub fn open_url(url: &str) -> bool {
     if !openable(url) {
         return false;
@@ -38,7 +40,8 @@ mod tests {
     use super::openable;
 
     #[test]
-    fn only_web_pages_are_opened() {
+    fn only_web_pages_and_display_settings_are_opened() {
+        assert!(openable("ms-settings:display"));
         assert!(openable(
             "https://example.com/auth/google/start?port=51234&state=x"
         ));
@@ -50,7 +53,9 @@ mod tests {
             "https://example.com/\" --evil",
             "https://example.com/a b",
             "https://example.com/\nx",
-            "ms-settings:display",
+            "ms-settings:privacy-microphone",
+            "ms-settings:display --evil",
+            "ms-settings:display\n",
         ] {
             assert!(!openable(url), "{url}");
         }
