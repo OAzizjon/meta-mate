@@ -5,7 +5,7 @@ Mate is male: Russian lines use the masculine forms (нашёл, показал)
 
 | Situation | English | Русский |
 |---|---|---|
-| First launch | Hello! I'm {name}. To talk to me, hold Right Ctrl and ask. | Здравствуйте! Я {name}. Чтобы поговорить, зажмите правый Ctrl и спросите. |
+| First launch | Hello! I'm {name}. Press and hold {key}, then ask me. | Здравствуйте! Я {name}. Нажмите {key} и, не отпуская, спросите. |
 | Listening | I'm listening. | Слушаю. |
 | Looking | One moment. I'm looking only at this window. | Секунду. Смотрю только на это окно. |
 | Found it | Here it is. Look where I'm pointing. | Вот она. Посмотрите, куда я показываю. |

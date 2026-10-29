@@ -6,6 +6,10 @@ export function pttKeyLabel(key: PttKey, translate: (key: LocaleKey) => string):
   return translate(`settings.key_${key}` as LocaleKey);
 }
 
+export function pttKeycapLabel(key: PttKey, translate: (key: LocaleKey) => string): string {
+  return translate(`settings.keycap_${key}` as LocaleKey);
+}
+
 export function withPttKey(text: string, key: PttKey, translate: (key: LocaleKey) => string): string {
   return text.replaceAll("{key}", pttKeyLabel(key, translate));
 }

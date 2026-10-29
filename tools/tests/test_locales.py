@@ -40,7 +40,10 @@ class LocaleTests(unittest.TestCase):
                 self.assertIsNone(CYRILLIC.search(english[key]))
                 # Hardware key names are printed on keyboards in both languages.
                 if key not in {'settings.key_capsLock', 'settings.key_insert',
-                               'settings.key_f9', 'settings.key_f10'}:
+                               'settings.key_f9', 'settings.key_f10',
+                               'settings.keycap_rightCtrl', 'settings.keycap_rightAlt',
+                               'settings.keycap_capsLock', 'settings.keycap_insert',
+                               'settings.keycap_f9', 'settings.keycap_f10'}:
                     self.assertIsNotNone(CYRILLIC.search(russian[key]))
 
 

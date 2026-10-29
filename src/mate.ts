@@ -390,7 +390,7 @@ if (container) {
       onChange: (updated) => setOnboardingPttKey(updated.pttKey),
     },
   );
-  void settings.ready.then(() => mountOnboarding());
+  void settings.ready.then(() => mountOnboarding(undefined, null));
   const onEnvironmentChange = (): void => {
     settings.reapply();
   };

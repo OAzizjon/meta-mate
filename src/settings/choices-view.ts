@@ -66,11 +66,13 @@ export function buildPttGroup(onSelect: (ptt: PttMode) => void): RadioGroupRefs<
         id: "settings-ptt-hold",
         value: "hold",
         labelKey: "settings.ptt_hold",
+        hintKey: "settings.ptt_hold_hint",
       },
       {
         id: "settings-ptt-toggle",
         value: "toggle",
         labelKey: "settings.ptt_toggle",
+        hintKey: "settings.ptt_toggle_hint",
       },
     ],
     "settings-options",

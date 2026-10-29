@@ -8,7 +8,7 @@
 // All user-facing strings come from `src/i18n` (invariant 7).
 
 import type { LocaleKey } from "./i18n/index.ts";
-import { withPttKey } from "./settings/ptt-key.ts";
+import { pttKeycapLabel, withPttKey } from "./settings/ptt-key.ts";
 import { createSettingsStore, subscribeSettingsChanged } from "./settings/model.ts";
 import type { Settings, SettingsInvoke, SettingsSubscribe } from "./settings/model.ts";
 
@@ -49,7 +49,7 @@ export const HOME_NEVER_KEYS = [
 ] as const satisfies readonly LocaleKey[];
 
 /** How long the line under the questions stays after a click. */
-export const HOME_STATUS_MS = 10_000;
+export const HOME_STATUS_MS = 30_000;
 
 /** Minimal IPC invoke signature matching `@tauri-apps/api/core`'s `invoke`. */
 export type HomeInvoke = SettingsInvoke;
@@ -297,14 +297,14 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   const talkTitle = el("h2", "home-section-title", keyedDefault("home.talk_title"));
   talkTitle.id = "home-talk-title";
   const talkRow = el("div", "home-talk-row");
-  const keycap = el("kbd", "home-keycap", keyedDefault("onboarding.key_right_ctrl"));
+  const keycap = el("kbd", "home-keycap", pttKeycapLabel("rightCtrl", t));
   const talkSteps = el("ol", "home-talk-steps");
   talkSteps.append(
     el("li", "home-talk-step", keyedDefault("home.talk_hold")),
     el("li", "home-talk-step", keyedDefault("home.talk_release")),
   );
   talkRow.append(keycap, talkSteps);
-  const talkWhere = el("p", "home-talk-where", keyedDefault("home.talk_where"));
+  const talkWhere = el("p", "home-talk-where", t("home.where_rightCtrl"));
   talk.append(talkTitle, talkRow, talkWhere);
 
   heroText.append(title, intro, talk);
@@ -325,6 +325,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
     clearTimeout(statusTimer);
     tryStatus.textContent = t(key);
     tryStatus.classList.toggle("is-error", failed);
+    tryStatus.scrollIntoView({ block: "nearest" });
     statusTimer = setTimeout(() => {
       tryStatus.textContent = "";
       tryStatus.classList.remove("is-error");
@@ -409,7 +410,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   closeBtn.addEventListener("click", () => {
     void close();
   });
-  const quitBtn = el("button", "btn btn-secondary", t("home.quit"));
+  const quitBtn = el("button", "btn btn-quiet", t("home.quit"));
   quitBtn.type = "button";
   quitBtn.id = "home-quit-btn";
   quitBtn.disabled = !invoke;
@@ -418,7 +419,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
       console.error("[home] could not quit:", error);
     });
   });
-  actions.append(settingsBtn, closeBtn, quitBtn);
+  actions.append(quitBtn, settingsBtn, closeBtn);
   footer.append(startOption, actions);
 
   container.replaceChildren(content, footer);
@@ -461,12 +462,12 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
 
   const settings = startHomeSettings(invoke, options.subscribe ?? null, (updated, canSave) => {
     const keyed = (key: LocaleKey): string => withPttKey(t(key), updated.pttKey, t);
-    keycap.textContent = keyed("onboarding.key_right_ctrl");
+    keycap.textContent = pttKeycapLabel(updated.pttKey, t);
     talkTitle.textContent = keyed("home.talk_title");
     const steps = talkSteps.children;
     steps[0].textContent = keyed("home.talk_hold");
     steps[1].textContent = keyed("home.talk_release");
-    talkWhere.textContent = keyed("home.talk_where");
+    talkWhere.textContent = t(`home.where_${updated.pttKey}` as LocaleKey);
     startInput.checked = updated.showHomeAtStart;
     startInput.disabled = !canSave;
     reduceSetting = updated.reduceMotion;

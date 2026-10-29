@@ -4,10 +4,10 @@ Windows 10/11 x64 (the video can be watched anywhere).
 
 ## Try it in 60 seconds
 
-1. **Download:** Get the release installer (built for our hosted proxy with a capped judge invite — no account, invite codes, or API keys needed).
+1. **Download:** Get the release installer (built for our hosted proxy — no API keys or invite codes needed).
 2. **SmartScreen:** If SmartScreen shows "Windows protected your PC", click the small **More info** link, then **Run anyway** (the installer is not code-signed yet).
-3. **Ask:** Press **Win+I** to open Windows Settings. Hold **Right Ctrl** while you speak, ask *"How do I make the text bigger?"*, then let go. Hold only the talk key: pressing any other key cancels the question. No Right Ctrl on your laptop? Open **Settings** (Home window, or right-click the tray icon) and pick Right Alt, Caps Lock, Insert, F9 or F10. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
-4. **Sign-in (optional):** Right-click the tray icon > **Settings** > **Sign in with Google**: you get your own daily allowance of questions instead of the shared judges' one.
+3. **Sign in:** The sign-in window opens at the first start. Click **Sign in with Google**, choose your account in the browser, and come back: each account gets its own daily allowance of questions.
+4. **Ask:** Press **Win+I** to open Windows Settings. Hold **Right Ctrl** while you speak, ask *"How do I make the text bigger?"*, then let go. Hold only the talk key: pressing any other key cancels the question. No Right Ctrl on your laptop? Open **Settings** (Home window, or right-click the tray icon) and pick Right Alt, Caps Lock, Insert, F9 or F10. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
 
 ## Links
 

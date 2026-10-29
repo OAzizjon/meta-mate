@@ -1,13 +1,14 @@
 // First-run onboarding in Mate's window (WP25).
 // On the very first launch (a flag in localStorage, wrapped in try/catch; when storage fails,
 // once per session in memory), Mate's bubble shows `robot.first_launch` and then, one at a time
-// every 6 s, three example questions (`onboarding.example_1..6`). Stops as soon as the first
+// at a readable pace, three example questions (`onboarding.example_1..6`). Stops as soon as the first
 // answer stream message arrives via `stopOnboarding()`. Pure scheduling logic is testable with
 // a fake clock and without DOM or Tauri dependencies.
 
 import type { LocaleKey } from "./i18n/index.ts";
 import type { PttKey } from "./settings/model.ts";
-import { withPttKey } from "./settings/ptt-key.ts";
+import { pttKeycapLabel, withPttKey } from "./settings/ptt-key.ts";
+import { bubbleReadMs } from "./bubble-timing.ts";
 
 let pttKey: PttKey = "rightCtrl";
 let refreshKey: (() => void) | null = null;
@@ -26,7 +27,6 @@ export function setOnboardingTranslator(translate: (key: LocaleKey) => string): 
 }
 export const ONBOARDING_STEP_MS = 6000;
 export const ONBOARDING_EXAMPLE_COUNT = 3;
-export const ONBOARDING_KEYCAP_KEY = "onboarding.key_right_ctrl" as const satisfies LocaleKey;
 
 export const ONBOARDING_EXAMPLE_KEYS = [
   "onboarding.example_1",
@@ -69,7 +69,7 @@ export interface OnboardingOptions {
   readonly storage?: StorageLike | null;
   /** Overrides the global timer functions. */
   readonly clock?: OnboardingClock;
-  /** Overrides the step interval (defaults to `ONBOARDING_STEP_MS = 6000`). */
+  /** Overrides the minimum step interval (defaults to `ONBOARDING_STEP_MS = 6000`). */
   readonly stepMs?: number;
   /** Overrides the 3 example keys shown after `robot.first_launch` (or pass a picker). */
   readonly exampleKeys?: readonly OnboardingExampleKey[];
@@ -168,8 +168,9 @@ let activeController: OnboardingController | null = null;
 /**
  * Starts the pure onboarding schedule if this is the first launch.
  * Step 0 (t = 0): shows `robot.first_launch` in the bubble.
- * Steps 1..3 (every `stepMs`, default 6000 ms): shows three example questions one at a time.
- * Step 4 (after the 3rd example has been shown for `stepMs`): hides the onboarding text.
+ * Steps 1..3: shows three wrapped example questions one at a time, keeping the keycap visible.
+ * Each step lasts at least `stepMs` (default 6000 ms) and its text's reading time.
+ * Step 4: hides the onboarding text and keycap after the third example.
  * Calling `stop()` (or `stopOnboarding()`) at any time cancels pending timers and hides the text.
  */
 export function startOnboarding(
@@ -222,26 +223,25 @@ export function startOnboarding(
   };
 
   const advance = (): void => {
-    refreshKey = null;
     timer = undefined;
     if (!active) return;
 
     if (stepIndex < examples.length) {
       const key = examples[stepIndex];
       stepIndex += 1;
-      sink.showKeycap?.(null);
+      const text = translate("onboarding.try_asking").replaceAll("{question}", translate(key));
       if (sink.showExample) {
         // Keep the greeting or clear it if the example uses its own element;
         // showing the example in #mate-onboarding while hiding #mate-bubble avoids two bubbles at once,
         // or if showExample === showBubble it replaces the bubble text directly.
         sink.showBubble(null);
-        showExample(translate(key));
+        showExample(text);
       } else {
-        sink.showBubble(translate(key));
+        sink.showBubble(text);
       }
       // A sink may have stopped onboarding meanwhile: no timer after a stop.
       if (!active) return;
-      timer = clock.setTimeout(advance, stepMs);
+      timer = clock.setTimeout(advance, Math.max(stepMs, bubbleReadMs(text)));
     } else {
       active = false;
       hideAll();
@@ -253,11 +253,14 @@ export function startOnboarding(
     sink.showExample(null);
   }
   refreshKey = () => {
-    sink.showBubble(withPttKey(translate("robot.first_launch"), pttKey, translate));
-    sink.showKeycap?.(withPttKey(translate(ONBOARDING_KEYCAP_KEY), pttKey, translate));
+    if (stepIndex === 0) {
+      sink.showBubble(withPttKey(translate("robot.first_launch"), pttKey, translate));
+    }
+    sink.showKeycap?.(pttKeycapLabel(pttKey, translate));
   };
   refreshKey();
-  timer = clock.setTimeout(advance, stepMs);
+  const greeting = withPttKey(translate("robot.first_launch"), pttKey, translate);
+  timer = clock.setTimeout(advance, Math.max(stepMs, bubbleReadMs(greeting)));
 
   const controller: OnboardingController = {
     isActive: () => active,

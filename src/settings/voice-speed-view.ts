@@ -61,8 +61,17 @@ export function buildVoiceSpeedGroup(
   speedInput.step = String(VOICE_SPEED_STEP);
   speedInput.setAttribute("aria-labelledby", speedLabel.id);
 
+  const ends = document.createElement("div");
+  ends.className = "settings-range-ends";
+  ends.setAttribute("aria-hidden", "true");
+  const slower = document.createElement("span");
+  const faster = document.createElement("span");
+  ends.append(slower, faster);
+
   // The value as shown, and in words for screen readers (a bare "1.1" says little).
   const showVoiceSpeed = (voiceSpeed: number): void => {
+    slower.textContent = t("settings.voice_speed_min");
+    faster.textContent = t("settings.voice_speed_max");
     const speed = formatVoiceSpeed(voiceSpeed);
     speedOutput.textContent = speed;
     speedInput.setAttribute(
@@ -82,7 +91,7 @@ export function buildVoiceSpeedGroup(
   speedInput.addEventListener("input", onSpeedUpdate);
   speedInput.addEventListener("change", onSpeedUpdate);
 
-  speedGroup.append(speedHeader, speedInput);
+  speedGroup.append(speedHeader, speedInput, ends);
 
   return { group: speedGroup, label: speedLabel, input: speedInput, show: showVoiceSpeed };
 }

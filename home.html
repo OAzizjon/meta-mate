@@ -31,6 +31,8 @@
         --safe-mark-bg: #dcfce7;
         --safe-mark-text: #166534;
         --error: #b91c1c;
+        --error-soft: #fef2f2;
+        --quiet-border: #7b8aa0;
         --btn-secondary-bg: #f1f5f9;
         --btn-secondary-border: #cbd5e1;
         --btn-secondary-text: #1f2a44;
@@ -60,6 +62,8 @@
           --safe-mark-bg: #14532d;
           --safe-mark-text: #bbf7d0;
           --error: #fca5a5;
+          --error-soft: #3a1f24;
+          --quiet-border: #6b7a93;
           --btn-secondary-bg: #22293a;
           --btn-secondary-border: #3b4760;
           --btn-secondary-text: #f1f5f9;
@@ -177,7 +181,7 @@
         text-align: center;
         white-space: nowrap;
         box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
-        animation: home-key-press 3.2s ease-in-out infinite;
+        animation: home-key-press 4s ease-in-out infinite;
       }
 
       /* Beside the keycap; its lines wrap there rather than dropping under it. */
@@ -282,6 +286,11 @@
       /* No display here when empty: nothing shifts until a line is shown. */
       .home-try-status {
         margin: 10px 0 0;
+        padding: 14px;
+        border: 2px solid var(--accent);
+        border-radius: 12px;
+        background: var(--accent-soft);
+        font-size: 20px;
         font-weight: 700;
       }
 
@@ -291,6 +300,8 @@
 
       .home-try-status.is-error {
         color: var(--error);
+        border-color: var(--error);
+        background: var(--error-soft);
       }
 
       /* What Mate never does: one calm green mark per line. */
@@ -424,6 +435,12 @@
         border-color: var(--accent-hover);
       }
 
+      .btn-quiet {
+        background: transparent;
+        color: var(--text-muted);
+        border: 2px solid var(--quiet-border);
+      }
+
       .btn-secondary {
         background: var(--btn-secondary-bg);
         color: var(--btn-secondary-text);
@@ -488,12 +505,12 @@
 
       @keyframes home-key-press {
         0%,
-        62%,
+        40%,
         100% {
           transform: translateY(0);
         }
-        72%,
-        86% {
+        45%,
+        95% {
           transform: translateY(3px);
         }
       }

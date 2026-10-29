@@ -277,8 +277,8 @@ export function mountSettings(
   // The everyday choices first; the account, set once, comes last (WP85).
   form.append(
     modelGroup.fieldset,
-    pttGroup.fieldset,
     pttKeyGroup.fieldset,
+    pttGroup.fieldset,
     soundGroup.fieldset,
     speedGroup,
     sizeGroup.fieldset,
@@ -312,7 +312,7 @@ export function mountSettings(
       document.title = t("tray.settings");
     }
     titleHeading.textContent = t("tray.settings");
-    languageNote.textContent = t("settings.language_automatic");
+    languageNote.textContent = t("settings.saved_note");
 
     const radioGroups: readonly RadioGroupRefs<string>[] = [
       modelGroup,
