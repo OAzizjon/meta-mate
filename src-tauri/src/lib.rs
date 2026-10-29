@@ -95,7 +95,8 @@ pub fn run() {
             home::open_home,
             home::home_try,
             presence::quit_app,
-            presence::mate_context_menu,
+            presence::hide_mate,
+            presence::mate_menu_size,
             open_settings_window,
             auth::auth_status,
             auth::sign_in,
@@ -209,17 +210,37 @@ const MENU_HOME: &str = "tray.open_home";
 const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
 const MENU_HIDE: &str = "hide_hour";
+const MENU_WAKE: &str = "wake";
 /// The settings window's label (capabilities/default.json) and page (src/settings.ts).
 const SETTINGS_WINDOW: &str = "settings";
 const SETTINGS_PAGE: &str = "settings.html";
 
-/// The tray icon with Home, sample questions, Settings, temporary hide and Quit, in the UI
+/// The tray's "Bring Mate back now": in its menu only while Mate is hidden.
+struct TrayWake {
+    menu: tauri::menu::Menu<tauri::Wry>,
+    item: tauri::menu::MenuItem<tauri::Wry>,
+}
+
+/// Puts "Bring Mate back now" at the top of the tray menu while Mate is hidden. Removed
+/// first, so hiding twice does not list it twice.
+pub(crate) fn show_tray_wake(app: &tauri::AppHandle, hidden: bool) {
+    use tauri::Manager;
+    if let Some(wake) = app.try_state::<TrayWake>() {
+        let _ = wake.menu.remove(&wake.item);
+        if hidden {
+            let _ = wake.menu.insert(&wake.item, 0);
+        }
+    }
+}
+
+/// The tray icon with Home, sample questions, Settings, temporary hide (and, while Mate is
+/// hidden, a way back: `show_tray_wake`) and Quit, in the UI
 /// locale Mate's window reports (its `navigator.language` follows the Windows display language): English until
 /// that window subscribes, then relabelled once.
 fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     use std::time::{Duration, Instant};
     use tauri::Manager;
-    use tauri::menu::{Menu, MenuItem, Submenu};
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
     use tauri::tray::TrayIconBuilder;
 
     let locale = app.state::<answer_stream::AnswerStream>().locale();
@@ -251,6 +272,13 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
+    let wake_item = MenuItem::with_id(
+        app,
+        MENU_WAKE,
+        locale_text(&locale, "tray.wake"),
+        true,
+        None::<&str>,
+    )?;
     let try_items = TRY_QUESTIONS
         .iter()
         .map(|key| MenuItem::with_id(app, *key, locale_text(&locale, key), true, None::<&str>))
@@ -271,9 +299,14 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             &try_menu,
             &settings_item,
             &hide_item,
+            &PredefinedMenuItem::separator(app)?,
             &quit_item,
         ],
     )?;
+    app.manage(TrayWake {
+        menu: menu.clone(),
+        item: wake_item.clone(),
+    });
     let mut builder = TrayIconBuilder::with_id("main")
         .menu(&menu)
         .tooltip(tray_tooltip(app));
@@ -293,6 +326,7 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         let _ = home_item.set_text(locale_text(&locale, MENU_HOME));
         let _ = settings_item.set_text(locale_text(&locale, "tray.settings"));
         let _ = hide_item.set_text(locale_text(&locale, "tray.hide_hour"));
+        let _ = wake_item.set_text(locale_text(&locale, "tray.wake"));
         let _ = quit_item.set_text(locale_text(&locale, "tray.quit"));
         let _ = try_menu.set_text(locale_text(&locale, "tray.try_title"));
         for (item, key) in try_items.iter().zip(TRY_QUESTIONS) {
@@ -321,7 +355,7 @@ pub(crate) fn refresh_tray_tooltip(app: &tauri::AppHandle) {
     }
 }
 
-/// Shared by the tray and Mate's native popup.
+/// Tray events use the tray's own native host, never Mate's HWND as a popup owner.
 fn handle_menu(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
     use tauri::Manager;
     match event.id.as_ref() {
@@ -341,6 +375,7 @@ fn handle_menu(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
         }
         MENU_QUIT => app.exit(0),
         MENU_HIDE => presence::hide(app),
+        MENU_WAKE => presence::wake(app, false),
         #[cfg(windows)]
         key if TRY_QUESTIONS.contains(&key) => {
             let text = locale_text(&app.state::<answer_stream::AnswerStream>().locale(), key);
@@ -414,6 +449,7 @@ mod tests {
                 "tray.quit",
                 "tray.try_title",
                 "tray.hide_hour",
+                "tray.wake",
                 "home.quit",
                 "home.closed_hint",
             ]

@@ -6,6 +6,8 @@
 import { createAudioEngine } from "./audio";
 import { BUBBLE_LINGER_MS, bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
 import { getLocale, setLocale, t } from "./i18n";
+import { hideReturnTime, mountMateMenu } from "./mate-menu";
+import { pttKeyLabel } from "./settings/ptt-key";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
@@ -351,19 +353,21 @@ async function createRouter(
 
 const container = document.getElementById("mate");
 if (container) {
-  const robot = mountRobot(container);
+  const mountedRobot = mountRobot(container);
+  let sleeping = false;
+  const robot: RobotController = {
+    ...mountedRobot,
+    setState: (state) => mountedRobot.setState(sleeping ? "sleeping" : state),
+  };
   robot.setMood("calm");
   robot.setState("idle");
   const bubble = document.getElementById("mate-bubble");
   setOnboardingTranslator((key) => t(key));
   const inTauri = "__TAURI_INTERNALS__" in window;
+  const menu = inTauri ? mountMateMenu(tauriInvoke, t) : null;
   container.addEventListener("contextmenu", (event) => {
     event.preventDefault();
-    if (inTauri) {
-      void tauriInvoke("mate_context_menu").catch((error: unknown) => {
-        console.error("mate: context menu:", error);
-      });
-    }
+    menu?.open();
   });
   container.querySelector(".mate-svg")?.addEventListener("pointerdown", (event) => {
     if (!(event instanceof PointerEvent) || event.button !== 0 || !inTauri) return;
@@ -397,11 +401,39 @@ if (container) {
   motionQuery?.addEventListener("change", onEnvironmentChange);
   window.addEventListener("resize", onEnvironmentChange);
   const mountedBubble = bubble ? mountBubble(bubble) : null;
+  // An answer already playing must not replace the hide explanation or sleeping state.
+  const liveBubble: Bubble | null = mountedBubble ? {
+    setModel: (model) => { if (!sleeping) mountedBubble.setModel(model); },
+    show: (text, ms) => { if (!sleeping) mountedBubble.show(text, ms); },
+    hideAfter: (ms) => { if (!sleeping) mountedBubble.hideAfter(ms); },
+  } : null;
   const live =
-    mountedBubble && inTauri ? startLiveAnswers(robot, mountedBubble, settings) : null;
+    liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, settings) : null;
   if (mountedBubble && inTauri) {
+    void import("@tauri-apps/api/event").then(async ({ listen }) => {
+      await listen("mate-menu-outside", () => menu?.close());
+      await listen<{ minutes: number }>("mate-hiding", (event) => {
+        menu?.close();
+        stopOnboarding();
+        sleeping = true;
+        robot.setState("sleeping");
+        mountedBubble.setModel(null);
+        mountedBubble.show(t("mate.hiding", {
+          time: hideReturnTime(event.payload.minutes, Date.now(), getLocale()),
+          key: pttKeyLabel(settings.get().pttKey, t),
+        }), 3000);
+      });
+      await listen("mate-woke", () => {
+        sleeping = false;
+        mountedBubble.show(null);
+        robot.setState("idle");
+      });
+    }).catch((error: unknown) => {
+      console.error("mate: presence events:", error);
+    });
     void import("@tauri-apps/api/event").then(({ listen }) =>
       listen("home-closed-hint", () => {
+        if (sleeping) return;
         const text = t("home.closed_hint");
         mountedBubble.setModel(null);
         mountedBubble.show(text, bubbleReadMs(text));

@@ -214,6 +214,11 @@ class FlowTests(unittest.TestCase):
         self.assertEqual(Settings.from_env(dict(AUTH_ENV, PROXY_REQUIRE_SIGN_IN='1')).invites, {})
         with self.assertRaises(ValueError):
             Settings.from_env(dict(ENV, PROXY_REQUIRE_SIGN_IN='1'))
+        from tests.test_app import JUDGE_CODE
+        strict = client_for(FakeProviders(), dict(AUTH_ENV, PROXY_REQUIRE_SIGN_IN='1'))
+        refused = strict.post('/v1/responses', headers={'Authorization': f'Bearer {JUDGE_CODE}'},
+                              json={'model': 'muse-spark-1.3', 'input': 'hi'})
+        self.assertEqual(refused.status_code, 401)
 
 
 if __name__ == '__main__':

@@ -144,6 +144,12 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     let proxy = Proxy::new(&base, &crate::signin::invite_for_proxy(invite))
         .map_err(|error| eprintln!("voice: {error}"))
         .ok()?;
+    // A kept sign-in replaces the built-in invite before the first call (D54). Before the
+    // hook: without it signing in must still work (the sign-in window needs the proxy).
+    crate::auth::restore(app, &proxy);
+    // For the outlines SAM 3.1 draws when a point is on nothing UI Automation lists, and
+    // for signing in.
+    app.manage(proxy.clone());
     let (events, receiver) = mpsc::unbounded_channel();
     let questions = events.clone();
     let driver = ptt::spawn_timed(PttSettings::default(), move |event, pressed_at| {
@@ -152,11 +158,6 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     .map_err(|error| eprintln!("voice: push-to-talk: {error}"))
     .ok()?;
     let silencer = driver.silencer();
-    // A kept sign-in replaces the built-in invite before the first call (D54).
-    crate::auth::restore(app, &proxy);
-    // For the outlines SAM 3.1 draws when a point is on nothing UI Automation lists, and
-    // for signing in.
-    app.manage(proxy.clone());
     app.manage(TextQuestions {
         sender: questions,
         target: Arc::default(),
@@ -170,12 +171,21 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
 /// once the window reports the answer played out, 1 after a minute: spike S7 (audio in
 /// WebView2 without a user gesture) and the whole answer path, with no one at the laptop.
 pub fn ask(app: &AppHandle, question: String) {
-    let proxy = proxy_config().and_then(|(base, invite)| Proxy::new(&base, &invite).ok());
+    let proxy = proxy_config().and_then(|(base, invite)| {
+        Proxy::new(&base, &crate::signin::invite_for_proxy(invite)).ok()
+    });
     let Some(proxy) = proxy else {
         eprintln!("ask: no proxy: start server/run_dev.py --tts");
         app.exit(1);
         return;
     };
+    // Signing in is required here too: `--ask` never rides on the built-in invite.
+    crate::auth::restore(app, &proxy);
+    if crate::signin::missing(app) {
+        eprintln!("ask: sign in first");
+        app.exit(1);
+        return;
+    }
     app.manage(proxy.clone());
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -354,6 +364,8 @@ async fn run(
         }
         let (event, text) = match event {
             Input::Text(text, target) => {
+                // Home's Try and the tray's questions: a question wakes Mate like a press.
+                crate::presence::wake(&app, false);
                 next_generation += 1;
                 recording = None;
                 (

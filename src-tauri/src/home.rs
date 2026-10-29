@@ -8,6 +8,7 @@ pub(crate) const TRY_QUESTIONS: [&str; 3] = ["tray.try_search", "tray.try_safe",
 /// A normal window the person may click into; both first show and reopening keep the
 /// keyboard in the person's app, like the lesson card (invariant 1).
 pub(crate) fn open(app: &AppHandle) -> tauri::Result<()> {
+    crate::presence::wake(app, false);
     let window = match app.get_webview_window("home") {
         Some(window) => window,
         None => WebviewWindowBuilder::new(app, "home", WebviewUrl::App("home.html".into()))
@@ -61,18 +62,41 @@ fn validate_try_key(key: &str) -> Result<(), String> {
 }
 
 /// Uses the tray's voice path, including its remembered app target. That path rejects
-/// every window belonging to our process, including Home.
+/// every window belonging to our process, including Home. Home lies over that app and the
+/// copy reads the screen, so Home is minimized before the question is asked.
 #[tauri::command]
-pub fn home_try(app: AppHandle, key: String) -> Result<(), String> {
+pub async fn home_try(app: AppHandle, key: String) -> Result<(), String> {
     validate_try_key(&key)?;
     #[cfg(windows)]
     {
+        if let Some(home) = app.get_webview_window("home") {
+            minimize(&home).await;
+        }
         let locale = app.state::<crate::answer_stream::AnswerStream>().locale();
         crate::voice::ask_text(&app, crate::locale_text(&locale, &key));
     }
     #[cfg(not(windows))]
     let _ = app;
     Ok(())
+}
+
+/// About as long as Windows' minimize animation, which draws Home until it ends.
+#[cfg(windows)]
+const MINIMIZE_ANIMATION: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Minimizes Home and returns once it is iconic (`IsIconic`) and its animation is over,
+/// after 1 s at most.
+#[cfg(windows)]
+async fn minimize(home: &tauri::WebviewWindow) {
+    use std::time::{Duration, Instant};
+    if home.minimize().is_err() {
+        return;
+    }
+    let started = Instant::now();
+    tokio::time::sleep(MINIMIZE_ANIMATION).await;
+    while !home.is_minimized().unwrap_or(true) && started.elapsed() < Duration::from_secs(1) {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
 }
 
 #[cfg(test)]

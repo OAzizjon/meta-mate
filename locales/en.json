@@ -166,6 +166,9 @@
   "home.show_at_start": "Show this window when MetaMate starts",
   "home.close": "Close this window",
   "home.quit": "Quit MetaMate",
-  "home.closed_hint": "I'm still here in the corner. Right-click me or use the tray icon to quit.",
-  "tray.hide_hour": "Hide Mate for 1 hour"
+  "home.closed_hint": "I'm still here. Right-click me to hide me or quit.",
+  "tray.hide_hour": "Hide Mate for 1 hour",
+  "tray.wake": "Bring Mate back now",
+  "mate.hiding": "I'll be back at {time}. Hold {key} to call me sooner.",
+  "mate.menu_home": "Home"
 }

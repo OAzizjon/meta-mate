@@ -3,10 +3,15 @@
 //! The installed app never falls back to the built-in invite; development builds keep the
 //! dev invite for the self-tests unless `MM_REQUIRE_SIGN_IN=1`.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use mm_core::constants::APP_NAME;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 
 const WINDOW: &str = "signin";
+
+/// One open at a time: a burst of key presses queues one window, not one each.
+static OPENING: AtomicBool = AtomicBool::new(false);
 
 /// Release builds always; development builds only with `MM_REQUIRE_SIGN_IN=1`.
 pub(crate) fn required() -> bool {
@@ -31,6 +36,11 @@ pub(crate) fn missing(app: &AppHandle) -> bool {
 /// A normal window the person clicks into; shown without taking the keyboard from the
 /// person's app (invariant 1), like Home.
 pub(crate) fn open(app: &AppHandle) -> tauri::Result<()> {
+    // A queued open can run after the sign-in it asked for has already landed.
+    if !missing(app) {
+        close(app);
+        return Ok(());
+    }
     let window = match app.get_webview_window(WINDOW) {
         Some(window) => window,
         None => WebviewWindowBuilder::new(app, WINDOW, WebviewUrl::App("signin.html".into()))
@@ -48,16 +58,24 @@ pub(crate) fn open(app: &AppHandle) -> tauri::Result<()> {
     mm_win32::overlay::show(window.hwnd()?);
     #[cfg(not(windows))]
     window.show()?;
+    // Signed in while the window was being built: it closes again.
+    if !missing(app) {
+        close(app);
+    }
     Ok(())
 }
 
 /// Opens the window off the event thread (window construction there can deadlock WebView2).
 pub(crate) fn open_later(app: &AppHandle) {
+    if OPENING.swap(true, Ordering::AcqRel) {
+        return;
+    }
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         if let Err(error) = open(&app) {
             eprintln!("signin: window: {error}");
         }
+        OPENING.store(false, Ordering::Release);
     });
 }
 

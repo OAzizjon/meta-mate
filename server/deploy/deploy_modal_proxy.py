@@ -36,7 +36,7 @@ GLIMMER_URL = 'https://obdazizjon--metamate-glimmer-serve.us-east.modal.run'
 URL = re.compile(r'https://[A-Za-z0-9.-]+\.modal\.run')
 # Copied from the secrets file when present (the Meta key under either name).
 FROM_SECRETS = ('META_API_KEY', 'META_KEY', 'META_API_BASE', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
-                'PROXY_JUDGE_EMAILS', 'PROXY_PRICES')
+                'PROXY_JUDGE_EMAILS', 'PROXY_PRICES', 'PROXY_REQUIRE_SIGN_IN')
 # Only with --github: the GitHub OAuth app has one callback URL, still the development one
 # (owner, 2026-10-29: Google only in the judges' build for now). Without them the proxy
 # answers GitHub sign-in with 'not available' instead of a GitHub error page.

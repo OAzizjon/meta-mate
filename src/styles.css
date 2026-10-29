@@ -16,6 +16,49 @@ body {
   place-items: center;
 }
 
+/* Large pointer-only controls inside the existing no-activate window. */
+#mate-menu {
+  position: fixed;
+  inset: 8px;
+  z-index: 10;
+  box-sizing: border-box;
+  padding: 8px;
+  overflow: auto;
+  border: 2px solid #6b7280;
+  border-radius: 12px;
+  background: #fffdf5;
+  color: #1f2430;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+#mate-menu[hidden] {
+  display: none;
+}
+
+#mate-menu button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: 18px/1.35 "Segoe UI", system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+
+#mate-menu button:hover {
+  background: #e8edf5;
+}
+
+#mate-menu hr {
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px solid #6b7280;
+}
+
 /* Mate's speech bubble (src/mate.ts) in large type for older eyes (WP85); the `hidden`
    attribute removes it. It hangs from the top of his 220px window and grows down over him, so
    a long line is never cut off above the window; if it is taller than the window, its start

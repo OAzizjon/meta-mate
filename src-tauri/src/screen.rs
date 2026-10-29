@@ -409,7 +409,8 @@ fn was_password(target: mm_platform::TargetWindow, frame: PhysRect, element: &Ui
         .contains(target, frame, element)
 }
 
-/// Restore only windows that were visible: Mate may be sleeping for an hour.
+/// Restore only windows that were visible: Mate may be sleeping for an hour, or have been
+/// hidden for one while the screen was copied.
 struct Hidden(Vec<mm_win32::HWND>);
 
 impl Hidden {
@@ -429,7 +430,9 @@ impl Hidden {
 impl Drop for Hidden {
     fn drop(&mut self) {
         for &hwnd in &self.0 {
-            mm_win32::overlay::show_after_capture(hwnd);
+            if !crate::presence::is_hidden(hwnd.0 as isize) {
+                mm_win32::overlay::show_after_capture(hwnd);
+            }
         }
     }
 }
