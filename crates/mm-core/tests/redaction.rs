@@ -209,6 +209,44 @@ fn downscaling_keeps_the_frame_transform_of_the_sent_image() {
 }
 
 #[test]
+fn rgb_redaction_matches_painting_bgra_before_downscaling() {
+    use mm_core::shot::{ShotRectPx, downscale_to_rgb, paint_black};
+
+    let pixels: Vec<u8> = (0..W as usize * H as usize * 4)
+        .map(|i| (i.wrapping_mul(37) ^ (i / 7)) as u8)
+        .collect();
+    let fields = [field(true)];
+    let mut painted = pixels.clone();
+    paint_black(
+        &mut painted,
+        W,
+        H,
+        &[ShotRectPx {
+            left: 10,
+            top: 5,
+            right: 20,
+            bottom: 10,
+        }],
+    )
+    .unwrap();
+    for edge in [0, 1, 7, 20, 39, 40] {
+        let mut request = input(&pixels, &fields);
+        request.max_edge = edge;
+        let redacted = redact(&request).unwrap();
+        let (expected, _, _) = downscale_to_rgb(Bgra::new(W, H, &painted).unwrap(), edge).unwrap();
+        assert_eq!(decode(&debug_data_url(&redacted)), expected);
+        assert_eq!(redacted.painted, 1);
+    }
+    assert!(
+        pixels
+            .iter()
+            .enumerate()
+            .all(|(i, value)| { *value == (i.wrapping_mul(37) ^ (i / 7)) as u8 }),
+        "the borrowed source must stay unchanged"
+    );
+}
+
+#[test]
 fn a_window_that_moved_after_the_snapshot_is_refused() {
     let pixels = white();
     let fields = [field(true)];

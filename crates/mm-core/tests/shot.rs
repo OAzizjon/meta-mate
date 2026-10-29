@@ -200,3 +200,123 @@ fn data_url_uses_png_prefix_and_standard_base64() {
     assert_eq!(png_data_url(&[251, 255]), "data:image/png;base64,+/8=");
     assert_eq!(png_data_url(&[]), "data:image/png;base64,");
 }
+
+// The pre-WP113 exact box filter, retained as an independent accuracy and
+// timing reference. Production must not do u128 arithmetic per source pixel.
+fn exact_box(src: Bgra<'_>, width: u32, height: u32) -> Vec<u8> {
+    let (sw, sh) = (u64::from(src.width), u64::from(src.height));
+    let (dw, dh) = (u64::from(width), u64::from(height));
+    let area = u128::from(sw) * u128::from(sh);
+    let mut rgb = vec![0; width as usize * height as usize * 3];
+    for y in 0..dh {
+        let (top, bottom) = (y * sh, (y + 1) * sh);
+        for x in 0..dw {
+            let (left, right) = (x * sw, (x + 1) * sw);
+            let mut sums = [0u128; 3];
+            for sy in top / dh..bottom.div_ceil(dh) {
+                let wy = bottom.min((sy + 1) * dh) - top.max(sy * dh);
+                for sx in left / dw..right.div_ceil(dw) {
+                    let wx = right.min((sx + 1) * dw) - left.max(sx * dw);
+                    let weight = u128::from(wx) * u128::from(wy);
+                    let i = (sy as usize * src.width as usize + sx as usize) * 4;
+                    for (channel, offset) in [2, 1, 0].into_iter().enumerate() {
+                        sums[channel] += u128::from(src.pixels[i + offset]) * weight;
+                    }
+                }
+            }
+            let out = (y as usize * width as usize + x as usize) * 3;
+            for channel in 0..3 {
+                rgb[out + channel] = (sums[channel] / area) as u8;
+            }
+        }
+    }
+    rgb
+}
+
+fn synthetic_bgra(width: u32, height: u32) -> Vec<u8> {
+    let mut pixels = Vec::with_capacity(width as usize * height as usize * 4);
+    for y in 0..height {
+        for x in 0..width {
+            pixels.extend_from_slice(&[
+                (x / 8 + y / 16) as u8,
+                (y / 4) as u8,
+                (x.wrapping_mul(13) ^ y.wrapping_mul(7)) as u8,
+                (x ^ y) as u8,
+            ]);
+        }
+    }
+    pixels
+}
+
+#[test]
+fn fixed_point_box_matches_exact_fixtures_within_one_channel_level() {
+    for (sw, sh) in [(1, 31), (31, 1), (3, 2), (17, 29), (101, 63)] {
+        for pixels in [
+            synthetic_bgra(sw, sh),
+            vec![255; sw as usize * sh as usize * 4],
+            (0..sw as usize * sh as usize * 4)
+                .map(|i| if i % 3 == 0 { 255 } else { 0 })
+                .collect(),
+        ] {
+            let src = Bgra::new(sw, sh, &pixels).unwrap();
+            for edge in [0, 1, 2, 7, 19, 100] {
+                let (actual, width, height) = downscale_to_rgb(src, edge).unwrap();
+                let expected = exact_box(src, width, height);
+                for (actual, expected) in actual.iter().zip(expected) {
+                    assert!(actual.abs_diff(expected) <= 1, "{sw}x{sh}, edge {edge}");
+                }
+            }
+        }
+    }
+}
+
+fn default_png(rgb: &[u8], width: u32, height: u32) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut bytes, width, height);
+        encoder.set_color(png::ColorType::Rgb);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().unwrap();
+        writer.write_image_data(rgb).unwrap();
+        writer.finish().unwrap();
+    }
+    bytes
+}
+
+/// Manual micro-benchmark: elapsed times include output allocation, exclude
+/// fixture construction, and make no timing assertions. Compare in one build.
+/// Local WP113 sample (test opt-level=3, dependencies=2): box 106.72 -> 92.57 ms;
+/// PNG 119.01 -> 53.41 ms, 62,602 -> 3,417,046 bytes. This high-frequency
+/// synthetic frame exposes Fast's size tradeoff. Unoptimized box timings were
+/// 1089.01 -> 541.63 ms; PNG was slower unoptimized (119.54 -> 327.06 ms).
+#[test]
+#[ignore = "manual WP113 before/after timings and PNG byte sizes"]
+fn screenshot_before_after_timings() {
+    use std::hint::black_box;
+    use std::time::Instant;
+
+    let pixels = synthetic_bgra(1920, 1080);
+    let src = Bgra::new(1920, 1080, &pixels).unwrap();
+    let start = Instant::now();
+    let before = black_box(exact_box(black_box(src), 1280, 720));
+    let old_box = start.elapsed();
+    let start = Instant::now();
+    let (after, _, _) = black_box(downscale_to_rgb(black_box(src), 1280).unwrap());
+    let new_box = start.elapsed();
+    assert!(before.iter().zip(&after).all(|(a, b)| a.abs_diff(*b) <= 1));
+
+    // Measure PNG on the full 1920x1080 synthetic frame, not the scaled image.
+    let (rgb, _, _) = downscale_to_rgb(src, 0).unwrap();
+    let start = Instant::now();
+    let before = black_box(default_png(black_box(&rgb), 1920, 1080));
+    let old_png = start.elapsed();
+    let start = Instant::now();
+    let after = black_box(encode_png_rgb(black_box(&rgb), 1920, 1080).unwrap());
+    let new_png = start.elapsed();
+    println!("box 1920x1080 -> 1280x720: before {old_box:?}, after {new_box:?}");
+    println!(
+        "PNG 1920x1080: before {old_png:?} / {} bytes, after {new_png:?} / {} bytes",
+        before.len(),
+        after.len()
+    );
+}

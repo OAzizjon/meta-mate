@@ -91,6 +91,37 @@ fn speech(timeline: &[Item]) -> Vec<&str> {
         .collect()
 }
 
+#[test]
+fn long_stream_preserves_splits_and_chunk_independence() {
+    let unit = "Dr. Smith met A. Jones. \"Done!\" she said. Go。Next! ";
+    let input = unit.repeat(500);
+    assert!(input.chars().count() >= 20_000);
+    let expected = parse(&input, false);
+    let expected_speech = [
+        "Dr. Smith met A. Jones. \"Done!\" she said.",
+        "Go。",
+        "Next!",
+    ];
+    assert_eq!(speech(&expected), expected_speech.repeat(500));
+    let mut parser = Parser::new(settings(false));
+    let mut streamed = Vec::new();
+    for ch in input.chars() {
+        streamed.extend(parser.push(&ch.to_string()));
+    }
+    streamed.extend(parser.finish());
+    assert_eq!(golden(&streamed), golden(&expected));
+
+    // No terminators or spaces: exercise forced splits and rolling-tail resets.
+    let input = "я".repeat(20_000);
+    let timeline = parse(&input, false);
+    assert_eq!(speech(&timeline).concat(), input);
+    assert!(
+        speech(&timeline)
+            .iter()
+            .all(|text| text.chars().count() <= 220)
+    );
+}
+
 fn golden_bound(bound: &Bound) -> String {
     match bound {
         Bound::Show(text) => format!("Show({text:?})"),

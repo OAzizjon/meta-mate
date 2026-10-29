@@ -184,13 +184,8 @@ pub fn redact(input: &RedactionInput<'_>) -> Result<Redacted, RedactionError> {
             bottom: i64::from(f.rect.bottom) - i64::from(region.top),
         })
         .collect();
-    let mut pixels = input.capture.pixels.to_vec();
-    let painted =
-        shot::paint_black(&mut pixels, width, height, &rects).map_err(RedactionError::Shot)?;
-
-    let painted_view = Bgra::new(width, height, &pixels).map_err(RedactionError::Shot)?;
-    let (rgb, sent_width, sent_height) =
-        shot::downscale_to_rgb(painted_view, input.max_edge).map_err(RedactionError::Shot)?;
+    let (rgb, sent_width, sent_height, painted) =
+        shot::redact_to_rgb(input.capture, &rects, input.max_edge).map_err(RedactionError::Shot)?;
     let png = shot::encode_png_rgb(&rgb, sent_width, sent_height).map_err(RedactionError::Shot)?;
     let frame = FrameTransform::new(region, sent_width, sent_height)
         .map_err(|_| RedactionError::CaptureMismatch)?;

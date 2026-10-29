@@ -103,7 +103,17 @@ pub fn paint_black(
     height: u32,
     rects: &[ShotRectPx],
 ) -> Result<usize, ShotError> {
-    validate(pixels, width, height, 4)?;
+    paint_black_channels(pixels, width, height, rects, 4)
+}
+
+fn paint_black_channels(
+    pixels: &mut [u8],
+    width: u32,
+    height: u32,
+    rects: &[ShotRectPx],
+    channels: usize,
+) -> Result<usize, ShotError> {
+    validate(pixels, width, height, channels)?;
     let mut painted = 0;
     for rect in rects {
         if rect.left >= rect.right || rect.top >= rect.bottom {
@@ -123,10 +133,13 @@ pub fn paint_black(
             continue;
         }
         for y in top as usize..bottom as usize {
-            let start = (y * width as usize + left as usize) * 4;
-            let end = (y * width as usize + right as usize) * 4;
-            for pixel in pixels[start..end].as_chunks_mut::<4>().0 {
-                *pixel = [0, 0, 0, 255];
+            let start = (y * width as usize + left as usize) * channels;
+            let end = (y * width as usize + right as usize) * channels;
+            pixels[start..end].fill(0);
+            if channels == 4 {
+                for alpha in pixels[start + 3..end].iter_mut().step_by(4) {
+                    *alpha = 255;
+                }
             }
         }
         painted += 1;
@@ -134,55 +147,106 @@ pub fn paint_black(
     Ok(painted)
 }
 
-/// Area-average to packed RGB8, ignoring alpha. Dimensions and channel means
-/// round down; each dimension stays at least one pixel. Zero keeps the size.
+/// Area-average to packed RGB8, ignoring alpha. Dimensions round down and stay
+/// at least one pixel. Fixed-point means are within one level of the exact
+/// rounded-down channel mean. Zero keeps the size.
 pub fn downscale_to_rgb(src: Bgra<'_>, max_edge: u32) -> Result<(Vec<u8>, u32, u32), ShotError> {
     // Public fields permit unchecked struct literals.
     validate(src.pixels, src.width, src.height, 4)?;
-    let long = src.width.max(src.height);
+    downscale(src.pixels, src.width, src.height, 4, [2, 1, 0], max_edge)
+}
+
+// Redaction needs an owned working buffer, but never an owned BGRA copy: alpha
+// is ignored by the model. Paint RGB before filtering so no hidden pixel leaks.
+pub(crate) fn redact_to_rgb(
+    src: Bgra<'_>,
+    rects: &[ShotRectPx],
+    max_edge: u32,
+) -> Result<(Vec<u8>, u32, u32, usize), ShotError> {
+    let (mut rgb, width, height) = downscale_to_rgb(src, 0)?;
+    let painted = paint_black_channels(&mut rgb, width, height, rects, 3)?;
+    if max_edge == 0 || width.max(height) <= max_edge {
+        return Ok((rgb, width, height, painted));
+    }
+    let (rgb, width, height) = downscale(&rgb, width, height, 3, [0, 1, 2], max_edge)?;
+    Ok((rgb, width, height, painted))
+}
+
+fn downscale(
+    pixels: &[u8],
+    src_width: u32,
+    src_height: u32,
+    channels: usize,
+    offsets: [usize; 3],
+    max_edge: u32,
+) -> Result<(Vec<u8>, u32, u32), ShotError> {
+    let long = src_width.max(src_height);
     let (width, height) = if max_edge == 0 || long <= max_edge {
-        (src.width, src.height)
+        (src_width, src_height)
     } else {
         let scale = |n| ((u64::from(n) * u64::from(max_edge) / u64::from(long)) as u32).max(1);
-        (scale(src.width), scale(src.height))
+        (scale(src_width), scale(src_height))
     };
     let mut rgb = vec![0; buffer_len(width, height, 3)?];
-    // Coordinates are integers in units of 1/output_dimension source pixels.
-    // Each destination footprint has area src.width * src.height in these units.
-    // u64 holds coordinate products; u128 also holds weighted channel sums.
-    let sw = u64::from(src.width);
-    let sh = u64::from(src.height);
+    if (width, height) == (src_width, src_height) {
+        for (src, dst) in pixels
+            .chunks_exact(channels)
+            .zip(rgb.as_chunks_mut::<3>().0.iter_mut())
+        {
+            dst[0] = src[offsets[0]];
+            dst[1] = src[offsets[1]];
+            dst[2] = src[offsets[2]];
+        }
+        return Ok((rgb, width, height));
+    }
+    // Exact integer overlap coordinates, with horizontal means in Q16. Only
+    // that division loses precision: the final channel differs by at most one
+    // from the exact area mean. Even u32::MAX dimensions fit these u64 sums:
+    // horizontal <= 255 * sw, vertical <= (255 << 16) * sh.
+    let sw = u64::from(src_width);
+    let sh = u64::from(src_height);
     let dw = u64::from(width);
     let dh = u64::from(height);
-    let area = u128::from(sw) * u128::from(sh);
+    let spans: Vec<_> = (0..dw).map(|x| (x * sw, (x + 1) * sw)).collect();
+    let mut row = vec![0u64; width as usize * 3];
+    let mut sums = vec![0u64; row.len()];
+    let mut cached_row = None;
     for y in 0..dh {
         let top = y * sh;
         let bottom = (y + 1) * sh;
-        for x in 0..dw {
-            let left = x * sw;
-            let right = (x + 1) * sw;
-            let mut sums = [0u128; 3];
-            for sy in top / dh..bottom.div_ceil(dh) {
-                let wy = bottom.min((sy + 1) * dh) - top.max(sy * dh);
-                for sx in left / dw..right.div_ceil(dw) {
-                    let wx = right.min((sx + 1) * dw) - left.max(sx * dw);
-                    let weight = u128::from(wx) * u128::from(wy);
-                    let i = (sy as usize * src.width as usize + sx as usize) * 4;
-                    for (channel, offset) in [2, 1, 0].into_iter().enumerate() {
-                        sums[channel] += u128::from(src.pixels[i + offset]) * weight;
+        sums.fill(0);
+        for sy in top / dh..bottom.div_ceil(dh) {
+            if cached_row != Some(sy) {
+                for (&(left, right), dst) in spans.iter().zip(row.as_chunks_mut::<3>().0.iter_mut())
+                {
+                    let mut horizontal = [0u64; 3];
+                    for sx in left / dw..right.div_ceil(dw) {
+                        let wx = right.min((sx + 1) * dw) - left.max(sx * dw);
+                        let i = (sy as usize * src_width as usize + sx as usize) * channels;
+                        for channel in 0..3 {
+                            horizontal[channel] += u64::from(pixels[i + offsets[channel]]) * wx;
+                        }
+                    }
+                    for channel in 0..3 {
+                        dst[channel] = (horizontal[channel] << 16) / sw;
                     }
                 }
+                cached_row = Some(sy);
             }
-            let out = (y as usize * width as usize + x as usize) * 3;
-            for channel in 0..3 {
-                rgb[out + channel] = (sums[channel] / area) as u8;
+            let wy = bottom.min((sy + 1) * dh) - top.max(sy * dh);
+            for (sum, value) in sums.iter_mut().zip(&row) {
+                *sum += value * wy;
             }
+        }
+        let start = y as usize * row.len();
+        for (dst, sum) in rgb[start..start + row.len()].iter_mut().zip(&sums) {
+            *dst = ((sum / sh) >> 16) as u8;
         }
     }
     Ok((rgb, width, height))
 }
 
-/// Encode packed RGB8 to an in-memory PNG, using the encoder's default compression.
+/// Encode packed RGB8 to an ephemeral in-memory PNG, prioritizing latency.
 pub fn encode_png_rgb(rgb: &[u8], width: u32, height: u32) -> Result<Vec<u8>, ShotError> {
     validate(rgb, width, height, 3)?;
     let mut bytes = Vec::new();
@@ -190,6 +254,8 @@ pub fn encode_png_rgb(rgb: &[u8], width: u32, height: u32) -> Result<Vec<u8>, Sh
         let mut encoder = png::Encoder::new(&mut bytes, width, height);
         encoder.set_color(png::ColorType::Rgb);
         encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_compression(png::Compression::Fast);
+        encoder.set_filter(png::Filter::Sub);
         let mut writer = encoder.write_header().map_err(|_| ShotError::PngEncoding)?;
         writer
             .write_image_data(rgb)
