@@ -91,6 +91,8 @@ def main() -> int:
     parser.add_argument('--budget', default='15', help="the proxy's daily dollar cap (default 15)")
     parser.add_argument('--new-invite', action='store_true', help='replace the judge invite')
     parser.add_argument('--github', action='store_true', help='also GitHub sign-in (its callback set to this proxy)')
+    parser.add_argument('--require-sign-in', action='store_true',
+                        help='refuse invite codes: only sign-in sessions and the guest trial (12 answers an hour)')
     args = parser.parse_args()
     link = load(LINK_FILE)
     tts = load(TTS_LINK)
@@ -118,6 +120,8 @@ def main() -> int:
         'MMS_TTS_SECRET': tts['secret'],
         'GLIMMER_URL': GLIMMER_URL,
     })
+    if args.require_sign_in:
+        values['PROXY_REQUIRE_SIGN_IN'] = '1'
     for _ in range(2):
         values['PROXY_PUBLIC_URL'] = url
         store_secret(values)
