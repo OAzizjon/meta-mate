@@ -17,6 +17,8 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Home, Settings, sign-in, card and chat windows work from 360 px wide.
 - Mate says when the microphone cannot be opened or heard nothing.
 - Home's "bigger text" question opens Windows Display settings first.
+- Spotlight: while Mate points, the rest of the screen dims around a soft opening on the target (Settings: "Dim the rest of the screen while I point", on by default).
+- Warmer, warmer: during a lesson step the ring and Mate's glow brighten and pulse faster as the mouse nears the right button, and hold steady once it is on it.
 - Sign-in is required: the sign-in window appears at startup and when a question is asked; the proxy can enforce it with `PROXY_REQUIRE_SIGN_IN`.
 - The talk key is a setting: Right Ctrl, Right Alt, Caps Lock, Insert, F9 or F10, for laptops without Right Ctrl.
 - Quit MetaMate from the Home window; right-click Mate for Home, Settings, Hide for 1 hour and Quit.

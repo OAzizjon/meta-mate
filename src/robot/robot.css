@@ -306,3 +306,21 @@
     opacity: 0.55;
   }
 }
+/* Warmth changes opacity even when motion is reduced. */
+.mate-svg.has-warmth[data-state="waiting_for_click"]:not(.warmth-steady) .mate-layer-aura {
+  animation: mate-warmth var(--warmth-period, 1.8s) ease-in-out infinite;
+}
+
+@keyframes mate-warmth {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(0.7); }
+}
+
+.reduce-motion .mate-svg[data-state="waiting_for_click"] .mate-layer-aura,
+.mate-svg.reduce-motion[data-state="waiting_for_click"] .mate-layer-aura {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mate-svg[data-state="waiting_for_click"] .mate-layer-aura { animation: none !important; }
+}

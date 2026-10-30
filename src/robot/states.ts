@@ -31,6 +31,7 @@ export interface StateAnimator {
   setMood(mood: RobotMood): void;
   /** The voice level 0..1 while speaking (RMS, at animation-frame rate). */
   setVoiceLevel(rms: number): void;
+  setWarmth(level: number | null, onTarget: boolean): void;
   /** The mouse in client CSS pixels; the eyes follow it a little in idle. */
   setEyeTarget(cursor: CssPoint | null): void;
   /** What the beam shines on in pointing, waiting_for_click and oops (client CSS pixels). */
@@ -126,6 +127,9 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   let state: RobotState = "idle";
   let mood: RobotMood = "calm";
   let voice = 0;
+  let warmth = 0;
+  let warmthActive = false;
+  let onTarget = false;
   let cursor: CssPoint | null = null;
   let target: CssRect | null = null;
   let reduceMotion = false;
@@ -192,7 +196,13 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       const opacity = String(Math.round((AURA_REST + voice * AURA_VOICE) * 100) / 100);
       if (aura.style.opacity !== opacity) aura.style.opacity = opacity;
     }
+    else if (state === "waiting_for_click" && warmthActive) {
+      aura.style.opacity = String(AURA_REST + warmth * 0.5);
+    }
     else aura.style.removeProperty("opacity");
+    refs.svg.classList.toggle("has-warmth", warmthActive);
+    refs.svg.classList.toggle("warmth-steady", onTarget);
+    refs.svg.style.setProperty("--warmth-period", `${1.8 - warmth * 1.2}s`);
   }
 
   function renderPose(): void {
@@ -216,7 +226,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     const aim = armAim(cssToView(box, rectCenter(target)));
     setArmPose(refs, "point", aim);
     beam.aimAt(viewToCss(box, nozzleInView(aim)), target, BEAM_HALF_WIDTH * scale);
-    beam.setPulse(state === "waiting_for_click" && !isMotionReduced());
+    beam.setPulse(state === "waiting_for_click" && !onTarget && !isMotionReduced());
   }
 
   function render(): void {
@@ -289,6 +299,13 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       mood = next;
       setAttr(refs.svg, "data-mood", mood);
       renderFace();
+    },
+    setWarmth(level, steady) {
+      warmthActive = level !== null;
+      warmth = level === null ? 0 : clamp(Number.isFinite(level) ? level / 9 : 0, 0, 1);
+      onTarget = steady;
+      renderAura();
+      renderPose();
     },
     setVoiceLevel(rms) {
       const next = Math.round(clamp(Number.isFinite(rms) ? rms : 0, 0, 1) * 100) / 100;

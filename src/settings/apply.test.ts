@@ -230,6 +230,7 @@ test("startMateSettings loads once via invoke('load_settings') and listens for s
           reduceMotion: true,
           startWithWindows: false,
           showHomeAtStart: true,
+          spotlight: true,
         } satisfies Settings;
       },
       subscribe: async (onChanged) => {

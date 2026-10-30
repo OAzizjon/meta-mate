@@ -20,6 +20,7 @@ export interface HighlightStep {
 
 export interface HighlightTargetMsg {
   readonly type: "target";
+  readonly dim: boolean;
   readonly rect: CssRect;
   readonly beamFrom: CssPoint | null;
   readonly step: HighlightStep | null;
@@ -30,7 +31,13 @@ export interface HighlightClearMsg {
 }
 
 /** Wire payload of the `"highlight"` Tauri event sent to the highlight window. */
-export type HighlightMsg = HighlightTargetMsg | HighlightClearMsg;
+export interface HighlightWarmthMsg {
+  readonly type: "warmth";
+  readonly level: number;
+  readonly onTarget: boolean;
+}
+
+export type HighlightMsg = HighlightTargetMsg | HighlightClearMsg | HighlightWarmthMsg;
 
 export type RectEdgeSide = "left" | "right" | "top" | "bottom";
 
@@ -62,7 +69,7 @@ export const CLEAR_FADE_MS = 200;
 
 type JsonObject = Readonly<Record<string, unknown>>;
 
-const TARGET_ALLOWED_KEYS = ["type", "rect", "beamFrom", "step"] as const;
+const TARGET_ALLOWED_KEYS = ["type", "rect", "beamFrom", "step", "dim"] as const;
 const RECT_KEYS = ["left", "top", "right", "bottom"] as const;
 const POINT_KEYS = ["x", "y"] as const;
 const STEP_KEYS = ["number", "total"] as const;
@@ -111,6 +118,13 @@ function parseMsg(raw: unknown): HighlightMsg | null {
   if (type === "clear") {
     return exact(raw, ["type"]) ? { type: "clear" } : null;
   }
+  if (type === "warmth") {
+    const { level, onTarget } = raw;
+    return exact(raw, ["type", "level", "onTarget"]) &&
+      typeof level === "number" && Number.isInteger(level) && level >= 0 && level <= 9 &&
+      typeof onTarget === "boolean"
+      ? { type, level, onTarget } : null;
+  }
   if (type !== "target") return null;
 
   const own = Object.keys(raw);
@@ -137,7 +151,18 @@ function parseMsg(raw: unknown): HighlightMsg | null {
     if (!step) return null;
   }
 
-  return { type: "target", rect, beamFrom, step };
+  const dim = Object.hasOwn(raw, "dim") ? raw.dim : false;
+  if (typeof dim !== "boolean") return null;
+  return { type: "target", rect, beamFrom, step, dim };
+}
+
+/** Only the visible part of the padded ring counts against half this monitor. */
+export function shouldDim(rect: CssRect, viewport: CssSize): boolean {
+  if (!(viewport.width > 0 && viewport.height > 0)) return false;
+  const ring = ringRect(rect);
+  const width = Math.max(0, Math.min(viewport.width, ring.right) - Math.max(0, ring.left));
+  const height = Math.max(0, Math.min(viewport.height, ring.bottom) - Math.max(0, ring.top));
+  return width * height <= viewport.width * viewport.height / 2;
 }
 
 function parseRect(value: unknown): CssRect | null {

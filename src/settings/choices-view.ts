@@ -124,6 +124,7 @@ export function buildSizeGroup(
 export interface TogglesRefs {
   readonly group: HTMLDivElement;
   readonly reduceMotion: CheckboxRefs;
+  readonly spotlight: CheckboxRefs;
   readonly startWithWindows: CheckboxRefs;
 }
 
@@ -131,6 +132,7 @@ export interface TogglesRefs {
 export function buildToggles(
   onReduceMotion: (reduceMotion: boolean) => void,
   onStartWithWindows: (startWithWindows: boolean) => void,
+  onSpotlight: (spotlight: boolean) => void = () => {},
 ): TogglesRefs {
   const group = document.createElement("div");
   group.className = "settings-group settings-toggles";
@@ -147,8 +149,9 @@ export function buildToggles(
     onStartWithWindows,
   );
 
-  group.append(reduceMotion.wrapper, startWithWindows.wrapper);
-  return { group, reduceMotion, startWithWindows };
+  const spotlight = buildCheckbox("settings-spotlight", "settings.spotlight", onSpotlight);
+  group.append(spotlight.wrapper, reduceMotion.wrapper, startWithWindows.wrapper);
+  return { group, reduceMotion, startWithWindows, spotlight };
 }
 
 export function buildLanguageGroup(onSelect: (language: Language) => void): RadioGroupRefs<Language> {

@@ -50,8 +50,10 @@ class FakeSvgElement {
   readonly tagName: string;
   readonly attrs = new Map<string, string>();
   readonly classList = new FakeClassList();
+  readonly cssProperties = new Map<string, string>();
   readonly style: {
     opacity: string;
+    setProperty(name: string, value: string): void;
     removeProperty(name: string): void;
   };
   readonly animations: RecordedAnimation[] = [];
@@ -61,8 +63,10 @@ class FakeSvgElement {
 
   constructor(tagName: string) {
     this.tagName = tagName;
+    const properties = this.cssProperties;
     const styleObj = {
       opacity: "",
+      setProperty(name: string, value: string): void { properties.set(name, value); },
       removeProperty(name: string): void {
         if (name === "opacity") styleObj.opacity = "";
       },
@@ -405,5 +409,23 @@ test("speaking RMS bursts update mouth and aura once per frame and cancel on hid
   h.animator.setVoiceLevel(0.7);
   h.animator.setState("idle");
   assert.equal(frames.size, 0);
+  assert.equal(h.refs.layers.aura.style.opacity, "");
+});
+test("warmth brightens the waiting aura with reduced motion and becomes steady on target", (t) => {
+  const h = createHarness();
+  t.after(() => h.cleanup());
+  h.animator.setState("waiting_for_click");
+  h.animator.setReduceMotion(true);
+  h.animator.setWarmth(0, false);
+  assert.equal(h.refs.layers.aura.style.opacity, "0.45");
+  assert.equal(h.refs.svg.cssProperties.get("--warmth-period"), "1.8s");
+  h.animator.setWarmth(9, true);
+  assert.equal(h.refs.layers.aura.style.opacity, "0.95");
+  assert.ok(Math.abs(parseFloat(h.refs.svg.cssProperties.get("--warmth-period")!) - 0.6) < 1e-9);
+  assert.equal(h.refs.svg.classList.contains("warmth-steady"), true);
+  h.animator.setWarmth(null, false);
+  assert.equal(h.refs.svg.classList.contains("has-warmth"), false);
+  assert.equal(h.refs.layers.aura.style.opacity, "");
+  h.animator.setState("idle");
   assert.equal(h.refs.layers.aura.style.opacity, "");
 });

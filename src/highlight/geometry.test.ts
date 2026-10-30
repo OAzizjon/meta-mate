@@ -19,6 +19,7 @@ import {
   nearestRectEdge,
   parseHighlightMsg,
   ringRect,
+  shouldDim,
 } from "./geometry.ts";
 import type { CssPoint, CssRect } from "./geometry.ts";
 
@@ -54,24 +55,28 @@ test("valid target and clear payloads parse into fresh copies", () => {
   const cases = [
     {
       type: "target",
+      dim: true,
       rect: RECT,
       beamFrom: { x: 320, y: 100 },
       step: { number: 2, total: 3 },
     },
     {
       type: "target",
+      dim: true,
       rect: { left: -20.5, top: 0.25, right: 0.5, bottom: 10.75 },
       beamFrom: null,
       step: null,
     },
     {
       type: "target",
+      dim: true,
       rect: RECT,
       beamFrom: { x: 0, y: 0 },
       step: { number: 1, total: 1 },
     },
     {
       type: "target",
+      dim: true,
       rect: RECT,
       beamFrom: null,
       step: { number: MAX_STEP_TOTAL, total: MAX_STEP_TOTAL },
@@ -91,6 +96,7 @@ test("valid target and clear payloads parse into fresh copies", () => {
     rect: RECT,
     beamFrom: null,
     step: null,
+    dim: false,
   });
 });
 
@@ -313,4 +319,31 @@ test("step badge text is digits only and badge position stays inside the viewpor
       `bottom=${pos.y + BADGE_HEIGHT} for ${inspect(rect)}`,
     );
   }
+});
+test("spotlight is suppressed above half the monitor, including ring padding", () => {
+  const viewport = { width: 100, height: 100 };
+  assert.equal(shouldDim({ left: 6, top: 6, right: 44, bottom: 94 }, viewport), true);
+  assert.equal(shouldDim({ left: 6, top: 6, right: 45, bottom: 94 }, viewport), false);
+  assert.equal(shouldDim({ left: -20, top: -20, right: 120, bottom: 120 }, viewport), false);
+  assert.equal(shouldDim(RECT, { width: 0, height: 100 }), false);
+  assert.equal(shouldDim({ left: -30, top: 20, right: 10, bottom: 30 }, viewport), true);
+});
+
+test("warmth accepts exactly ten levels and rejects malformed fields", () => {
+  for (let level = 0; level < 10; level++) {
+    const msg = { type: "warmth", level, onTarget: level === 9 };
+    assert.deepEqual(parseHighlightMsg(msg), msg);
+  }
+  for (const level of [-1, 10, 0.5, NaN, Infinity, "9", null]) {
+    assert.equal(parseHighlightMsg({ type: "warmth", level, onTarget: false }), null);
+  }
+  for (const msg of [
+    { type: "warmth", level: 2 },
+    { type: "warmth", level: 2, onTarget: 1 },
+    { type: "warmth", level: 2, onTarget: false, extra: true },
+    { type: "target", rect: RECT, dim: "yes" },
+  ]) assert.equal(parseHighlightMsg(msg), null);
+  assert.deepEqual(parseHighlightMsg({ type: "target", rect: RECT, dim: false }), {
+    type: "target", rect: RECT, dim: false, beamFrom: null, step: null,
+  });
 });

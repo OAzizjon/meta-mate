@@ -111,6 +111,7 @@
   "settings.language_en": "English",
   "settings.language_ru": "Русский",
   "settings.saved_note": "Изменения сохраняются сразу. Когда закончите, просто закройте окно.",
+  "settings.spotlight": "Затемнять остальной экран, когда я показываю",
   "settings.reduce_motion": "Меньше движения на экране",
   "settings.start_with_windows": "Запускать MetaMate при включении компьютера",
   "settings.voice_speed_min": "Медленнее",

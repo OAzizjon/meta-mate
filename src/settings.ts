@@ -269,6 +269,7 @@ export function mountSettings(
   const {
     group: togglesGroup,
     reduceMotion: reduceMotionBox,
+    spotlight: spotlightBox,
     startWithWindows: startWithWindowsBox,
   } = buildToggles(
     (reduceMotion) => {
@@ -276,6 +277,9 @@ export function mountSettings(
     },
     (startWithWindows) => {
       void applyPatch({ startWithWindows });
+    },
+    (spotlight) => {
+      void applyPatch({ spotlight });
     },
   );
 
@@ -346,6 +350,7 @@ export function mountSettings(
 
     speedLabel.textContent = t("settings.voice_speed");
     showVoiceSpeed(store.get().voiceSpeed);
+    spotlightBox.titleEl.textContent = t(spotlightBox.labelKey);
     reduceMotionBox.titleEl.textContent = t(reduceMotionBox.labelKey);
     startWithWindowsBox.titleEl.textContent = t(startWithWindowsBox.labelKey);
     accountGroup.syncText();
@@ -364,6 +369,8 @@ export function mountSettings(
     speedInput.value = String(settings.voiceSpeed);
     showVoiceSpeed(settings.voiceSpeed);
 
+    spotlightBox.input.checked = settings.spotlight;
+    spotlightBox.wrapper.classList.toggle("is-selected", settings.spotlight);
     reduceMotionBox.input.checked = settings.reduceMotion;
     reduceMotionBox.wrapper.classList.toggle("is-selected", settings.reduceMotion);
 

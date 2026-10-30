@@ -51,6 +51,7 @@ test("defaultSettings returns a fresh copy of the expected defaults", () => {
     reduceMotion: false,
     startWithWindows: false,
     showHomeAtStart: true,
+    spotlight: true,
   });
   assert.deepEqual(defaults, DEFAULT_SETTINGS);
   assert.notEqual(defaults, DEFAULT_SETTINGS);
@@ -85,6 +86,7 @@ test("parseSettings accepts every valid enum combination and boundary voiceSpeed
               reduceMotion: model === "thorough",
               startWithWindows: ptt === "toggle",
               showHomeAtStart: model === "quick",
+              spotlight: true,
             };
             const parsed = parseSettings(raw);
             assert.deepEqual(parsed, raw, inspect(raw));
@@ -123,6 +125,7 @@ test("parseSettings drops unknown fields and preserves valid ones", () => {
     reduceMotion: true,
     startWithWindows: true,
     showHomeAtStart: true,
+    spotlight: true,
   });
   assert.equal("unknownField" in parsed, false);
 });
@@ -149,6 +152,7 @@ test("parseSettings replaces out-of-range and wrong-type fields with defaults pe
       reduceMotion: true,
       startWithWindows: DEFAULT_SETTINGS.startWithWindows,
       showHomeAtStart: DEFAULT_SETTINGS.showHomeAtStart,
+      spotlight: true,
     },
   );
 
@@ -313,6 +317,7 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
     reduceMotion: true,
     startWithWindows: false,
     showHomeAtStart: true,
+    spotlight: true,
   });
 
   const saved = await tauriStore.update({ voiceSpeed: 1.2, startWithWindows: true });
@@ -377,6 +382,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
     reduceMotion: true,
     startWithWindows: true,
     showHomeAtStart: true,
+    spotlight: true,
   });
   assert.deepEqual(store.get(), refreshed[0]);
 
@@ -419,4 +425,13 @@ test("external language changes refresh the store without saving back", async ()
   assert.deepEqual(languages, ["ru", "en", "auto"]);
   assert.deepEqual(calls, []);
   stop();
+});
+
+test("spotlight migrates old settings and persists either choice", () => {
+  assert.equal(parseSettings({ sound: "fun" }).spotlight, true);
+  for (const spotlight of [true, false]) {
+    const settings = updateSettings(DEFAULT_SETTINGS, { spotlight });
+    assert.equal(parseSettings(JSON.parse(JSON.stringify(settings))).spotlight, spotlight);
+  }
+  for (const spotlight of [null, 0, "false"]) assert.equal(parseSettings({ spotlight }).spotlight, true);
 });

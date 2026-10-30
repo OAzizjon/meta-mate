@@ -5,6 +5,7 @@
 // Never calls `focus()` (invariant 1).
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { parseSettings, SETTINGS_CHANGED_EVENT } from "./settings/model.ts";
 import {
   BADGE_HEIGHT,
   BADGE_WIDTH,
@@ -20,12 +21,12 @@ import {
   num,
   parseHighlightMsg,
   ringRect,
+  shouldDim,
 } from "./highlight/geometry.ts";
 import type {
   CssRect,
   CssSize,
   HighlightMsg,
-  HighlightStep,
   HighlightTargetMsg,
 } from "./highlight/geometry.ts";
 
@@ -70,6 +71,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 export interface HighlightController {
+  setSettings(raw: unknown): void;
   /** Applies a validated highlight message (`"target"` or `"clear"`). */
   apply(msg: HighlightMsg): void;
   /** Parses an untrusted payload and applies it if valid; returns `true` when accepted. */
@@ -132,6 +134,23 @@ export function mountHighlight(
   const badge = ensureBadgeElement(badgeElement);
 
   const scene = svgEl("g", { class: "highlight-scene" });
+  // In the existing highlight window: capture hides and verifies this whole window.
+  const defs = svgEl("defs");
+  const blur = svgEl("filter", {
+    id: "spotlight-soft", x: "-50%", y: "-50%", width: "200%", height: "200%",
+  });
+  blur.append(svgEl("feGaussianBlur", { stdDeviation: 12 }));
+  const mask = svgEl("mask", {
+    id: "spotlight-hole", maskUnits: "userSpaceOnUse", x: 0, y: 0, width: "100%", height: "100%",
+  });
+  mask.append(svgEl("rect", { width: "100%", height: "100%", fill: "white" }));
+  const hole = svgEl("rect", { fill: "black", rx: RING_RADIUS, filter: "url(#spotlight-soft)" });
+  mask.append(hole);
+  defs.append(blur, mask);
+  const dim = svgEl("rect", {
+    width: "100%", height: "100%", fill: "black", "fill-opacity": 0.35,
+    mask: "url(#spotlight-hole)", display: "none",
+  });
   const beam = svgEl("polygon", {
     class: "highlight-beam",
     fill: BEAM_COLOR,
@@ -158,17 +177,18 @@ export function mountHighlight(
     "stroke-width": 3,
   });
   ringGroup.append(ringGlow, ringStroke);
-  scene.append(beam, ringGroup);
-  svgRoot.replaceChildren(scene);
+  scene.append(dim, beam, ringGroup);
+  svgRoot.replaceChildren(defs, scene);
 
   const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+  let reduceSetting = false;
   const syncMotion = (): void => {
-    svgRoot.classList.toggle("reduce-motion", motionQuery.matches);
+    svgRoot.classList.toggle("reduce-motion", reduceSetting || motionQuery.matches);
   };
   syncMotion();
   motionQuery.addEventListener("change", syncMotion);
 
-  let activeTarget: { readonly rect: CssRect; readonly step: HighlightStep | null } | null = null;
+  let activeTarget: HighlightTargetMsg | null = null;
   let clearTimer: ReturnType<typeof setTimeout> | undefined;
 
   const stopClearTimer = (): void => {
@@ -185,6 +205,10 @@ export function mountHighlight(
   };
 
   const onResize = (): void => {
+    if (activeTarget) {
+      const visible = activeTarget.dim && shouldDim(activeTarget.rect, viewportSize());
+      setAttr(dim, "display", visible ? null : "none");
+    }
     if (activeTarget?.step) {
       positionBadge(activeTarget.rect);
     }
@@ -193,7 +217,16 @@ export function mountHighlight(
 
   const drawTarget = (msg: HighlightTargetMsg): void => {
     stopClearTimer();
-    activeTarget = { rect: msg.rect, step: msg.step };
+    activeTarget = msg;
+    svgRoot.style.setProperty("--warmth", "0");
+    svgRoot.style.setProperty("--warmth-period", "1.8s");
+    svgRoot.classList.remove("on-target");
+    setAttr(dim, "display", msg.dim && shouldDim(msg.rect, viewportSize()) ? null : "none");
+    const opening = ringRect(msg.rect, RING_PAD + 16);
+    setAttr(hole, "x", num(opening.left));
+    setAttr(hole, "y", num(opening.top));
+    setAttr(hole, "width", num(opening.right - opening.left));
+    setAttr(hole, "height", num(opening.bottom - opening.top));
 
     const ring = ringRect(msg.rect, RING_PAD);
     const width = Math.max(0, ring.right - ring.left);
@@ -250,11 +283,27 @@ export function mountHighlight(
       clear();
       return;
     }
+    if (msg.type === "warmth") {
+      if (!activeTarget) return;
+      svgRoot.style.setProperty("--warmth", String(msg.level / 9));
+      svgRoot.style.setProperty("--warmth-period", `${1.8 - msg.level / 9 * 1.2}s`);
+      svgRoot.classList.toggle("on-target", msg.onTarget);
+      return;
+    }
     drawTarget(msg);
   };
 
   return {
     apply,
+    setSettings(raw) {
+      const settings = parseSettings(raw);
+      reduceSetting = settings.reduceMotion;
+      syncMotion();
+      if (activeTarget) {
+        activeTarget = { ...activeTarget, dim: settings.spotlight };
+        onResize();
+      }
+    },
     handleRaw(raw) {
       const msg = parseHighlightMsg(raw);
       if (!msg) return false;
@@ -267,6 +316,7 @@ export function mountHighlight(
       motionQuery.removeEventListener("change", syncMotion);
       window.removeEventListener("resize", onResize);
       scene.remove();
+      defs.remove();
       badge.hidden = true;
       badge.textContent = "";
       badge.classList.remove("is-active");
@@ -279,8 +329,17 @@ if (typeof document !== "undefined") {
   if (svg instanceof SVGSVGElement) {
     const controller = mountHighlight(svg);
     if ("__TAURI_INTERNALS__" in window) {
+      let settingsChanged = false;
+      void import("@tauri-apps/api/core").then(async ({ invoke }) => {
+        const settings = await invoke("load_settings");
+        if (!settingsChanged) controller.setSettings(settings);
+      }).catch((error: unknown) => console.error("[highlight] settings load failed", error));
       // This window only: with one highlight window per monitor, a global listener would
       // draw every monitor's ring at its own coordinates.
+      void getCurrentWebviewWindow().listen<unknown>(SETTINGS_CHANGED_EVENT, (event) => {
+        settingsChanged = true;
+        controller.setSettings(event.payload);
+      });
       void getCurrentWebviewWindow().listen<unknown>("highlight", (event) => {
         controller.handleRaw(event.payload);
       }).catch((error: unknown) => {

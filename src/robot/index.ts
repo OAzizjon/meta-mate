@@ -19,6 +19,7 @@ export interface RobotController {
   setMood(mood: RobotMood): void;
   /** Voice level 0..1 while speaking. */
   setVoiceLevel(rms: number): void;
+  setWarmth(level: number | null, onTarget: boolean): void;
   /** The mouse in client CSS pixels, or null. */
   setEyeTarget(cursor: CssPoint | null): void;
   /** The beam's target in client CSS pixels; it shines in pointing, waiting_for_click and oops. */
@@ -92,6 +93,7 @@ export function mountRobot(container: HTMLElement): RobotController {
     setState: (state) => animator.setState(state),
     setMood: (mood) => animator.setMood(mood),
     setVoiceLevel: (rms) => animator.setVoiceLevel(rms),
+    setWarmth: (level, onTarget) => animator.setWarmth(level, onTarget),
     setEyeTarget: (cursor) => animator.setEyeTarget(cursor),
     aimAt: (target) => animator.aimAt(target),
     async flyTo(center) {

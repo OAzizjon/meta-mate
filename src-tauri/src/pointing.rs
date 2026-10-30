@@ -14,7 +14,7 @@ use mm_core::geom::PhysRect;
 use mm_core::matescript::Point;
 use mm_core::placement::place_mate;
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::answer_stream::{AnswerMsg, AnswerStream};
 use crate::flight::Flight;
@@ -33,6 +33,7 @@ type Outlines = HashMap<(u64, u32, u32), tauri::async_runtime::JoinHandle<Option
 pub struct Pointing {
     current: Mutex<Option<(u64, Arc<Look>)>>,
     follower: Mutex<Option<Follower>>,
+    warmth: Mutex<Option<Follower>>,
     outlines: Mutex<Outlines>,
 }
 
@@ -123,8 +124,15 @@ impl Pointing {
     }
 
     fn stop_following(&self) {
+        self.stop_warmth();
         if let Ok(mut follower) = self.follower.lock() {
             follower.take();
+        }
+    }
+
+    pub(crate) fn stop_warmth(&self) {
+        if let Ok(mut warmth) = self.warmth.lock() {
+            warmth.take();
         }
     }
 }
@@ -426,6 +434,10 @@ fn render_target(
     target: PhysRect,
     step: Option<(u32, u32)>,
 ) -> Option<MateRect> {
+    if let Some(pointing) = app.try_state::<Pointing>() {
+        pointing.stop_warmth();
+    }
+    let _ = app.emit_to("mate", "highlight", crate::highlight::HighlightMsg::Clear);
     // Any monitor: each has its highlight window, by index (overlay.rs).
     let monitors = mm_win32::monitors::monitors();
     let (index, monitor) = monitors
@@ -451,7 +463,55 @@ fn render_target(
         eprintln!("pointing: highlight: {error:?}");
         return None;
     }
+    if let Some(pointing) = app.try_state::<Pointing>()
+        && let Ok(mut warmth) = pointing.warmth.lock()
+    {
+        warmth.take();
+        if step.is_some() {
+            *warmth = start_warmth(app, target, scale);
+        }
+    }
     Some(in_mate(target, placement.mate, scale))
+}
+
+/// A local poll owned by the shown lesson target, joined before clear or replacement.
+fn start_warmth(app: &AppHandle, target: PhysRect, scale: f64) -> Option<Follower> {
+    let stopped = Arc::new(AtomicBool::new(false));
+    let cancelled = Arc::clone(&stopped);
+    let app = app.clone();
+    let thread = std::thread::Builder::new()
+        .name("mm-pointing-warmth".into())
+        .spawn(move || {
+            let mut last = None;
+            while !cancelled.load(Ordering::Acquire) {
+                if let Some((cursor, _)) = mm_win32::mouse::drag_pointer() {
+                    let next = cursor_warmth(target, cursor, scale);
+                    if last != Some(next) {
+                        crate::highlight::warmth(&app, next.0, next.1);
+                        last = Some(next);
+                    }
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        })
+        .ok()?;
+    Some(Follower {
+        stopped,
+        thread: Some(thread),
+    })
+}
+
+fn cursor_warmth(target: PhysRect, cursor: mm_core::geom::PhysPoint, scale: f64) -> (u8, bool) {
+    let x = f64::from(cursor.x);
+    let y = f64::from(cursor.y);
+    let dx = (f64::from(target.left) - x)
+        .max(x - f64::from(target.right))
+        .max(0.0);
+    let dy = (f64::from(target.top) - y)
+        .max(y - f64::from(target.bottom))
+        .max(0.0);
+    let warmth = 1.0 - (dx.hypot(dy) / (600.0 * scale)).clamp(0.0, 1.0);
+    ((warmth * 9.0).round() as u8, target.contains(cursor))
 }
 
 /// The target relative to Mate's window at `mate`, in that window's CSS pixels.
@@ -479,6 +539,52 @@ pub fn stop_pointing(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stopping_pointing_joins_the_warmth_worker() {
+        let pointing = Pointing::default();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let cancelled = Arc::clone(&stopped);
+        let thread = std::thread::spawn(move || {
+            while !cancelled.load(Ordering::Acquire) {
+                std::thread::yield_now();
+            }
+        });
+        *pointing.warmth.lock().unwrap() = Some(Follower {
+            stopped: Arc::clone(&stopped),
+            thread: Some(thread),
+        });
+        pointing.take();
+        assert!(stopped.load(Ordering::Acquire));
+        assert!(pointing.warmth.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn warmth_uses_distance_to_the_rectangle_and_monitor_scale() {
+        use mm_core::geom::PhysPoint;
+        let rect = PhysRect::new(-100, 100, 100, 200).unwrap();
+        assert_eq!(
+            cursor_warmth(rect, PhysPoint { x: 0, y: 150 }, 1.0),
+            (9, true)
+        );
+        assert_eq!(
+            cursor_warmth(rect, PhysPoint { x: 101, y: 150 }, 1.0),
+            (9, false)
+        );
+        assert_eq!(
+            cursor_warmth(rect, PhysPoint { x: 400, y: 150 }, 1.0),
+            (5, false)
+        );
+        assert_eq!(
+            cursor_warmth(rect, PhysPoint { x: 1000, y: 150 }, 1.5),
+            (0, false)
+        );
+        // A diagonal distance of 600 physical pixels is 400 CSS pixels at 150 %.
+        assert_eq!(
+            cursor_warmth(rect, PhysPoint { x: 460, y: 680 }, 1.5),
+            (3, false)
+        );
+    }
 
     #[test]
     fn the_target_is_given_in_mates_own_css_pixels() {

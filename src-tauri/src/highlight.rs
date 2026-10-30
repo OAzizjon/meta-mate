@@ -26,12 +26,15 @@ const MAX_STEPS: u32 = 20;
 pub enum HighlightMsg {
     /// The ring around `rect`, the beam from `beam_from` and the "2 / 3" badge for `step`.
     Target {
+        dim: bool,
         rect: Rect,
         beam_from: Option<Point>,
         step: Option<Step>,
     },
     /// Everything fades out.
     Clear,
+    /// Ten brightness levels; only a cursor actually on the target is steady.
+    Warmth { level: u8, on_target: bool },
 }
 
 /// CSS pixels relative to the highlight window.
@@ -126,7 +129,12 @@ pub fn show(
     mate: Option<PhysRect>,
     step: Option<(u32, u32)>,
 ) -> Result<(), HighlightError> {
-    let payload = message(monitor.area, monitor.scale(), target, mate, step)?;
+    let mut payload = message(monitor.area, monitor.scale(), target, mate, step)?;
+    if let HighlightMsg::Target { dim, .. } = &mut payload {
+        *dim = app
+            .try_state::<crate::settings::SettingsStore>()
+            .is_none_or(|store| store.get().spotlight);
+    }
     let shown = label(monitor_index);
     let others = send_all(app, |other| other != shown, &HighlightMsg::Clear);
     send(app, &shown, payload).and(others)
@@ -134,7 +142,18 @@ pub fn show(
 
 /// Fades the ring, the beam and the badge out on every monitor.
 pub fn clear(app: &AppHandle) -> Result<(), HighlightError> {
+    #[cfg(windows)]
+    if let Some(pointing) = app.try_state::<crate::pointing::Pointing>() {
+        pointing.stop_warmth();
+    }
+    let _ = app.emit_to("mate", EVENT, HighlightMsg::Clear);
     send_all(app, |_| true, &HighlightMsg::Clear)
+}
+
+pub fn warmth(app: &AppHandle, level: u8, on_target: bool) {
+    let payload = HighlightMsg::Warmth { level, on_target };
+    let _ = app.emit_to("mate", EVENT, payload.clone());
+    let _ = send_all(app, |_| true, &payload);
 }
 
 fn send(app: &AppHandle, label: &str, payload: HighlightMsg) -> Result<(), HighlightError> {
@@ -200,6 +219,7 @@ fn message(
         None => None,
     };
     Ok(HighlightMsg::Target {
+        dim: true,
         rect: transform.phys_rect_to_css(visible).into(),
         beam_from,
         step,
@@ -280,14 +300,14 @@ mod tests {
     fn beam(mate: PhysRect) -> Result<Option<Point>, HighlightError> {
         match message(primary(), 1.0, button(), Some(mate), None)? {
             HighlightMsg::Target { beam_from, .. } => Ok(beam_from),
-            HighlightMsg::Clear => Ok(None),
+            _ => Ok(None),
         }
     }
 
     fn step(number: u32, total: u32) -> Result<Option<Step>, HighlightError> {
         match message(primary(), 1.0, button(), None, Some((number, total)))? {
             HighlightMsg::Target { step, .. } => Ok(step),
-            HighlightMsg::Clear => Ok(None),
+            _ => Ok(None),
         }
     }
 
@@ -300,6 +320,7 @@ mod tests {
         assert_eq!(
             message(area, 1.5, target, Some(mate), Some((2, 3))),
             Ok(HighlightMsg::Target {
+                dim: true,
                 rect: css(280.0, 200.0, 380.0, 300.0),
                 beam_from: point(220.0, 250.0),
                 step: Some(Step {
@@ -315,6 +336,7 @@ mod tests {
         assert_eq!(
             at(button()),
             Ok(HighlightMsg::Target {
+                dim: true,
                 rect: css(400.0, 400.0, 500.0, 450.0),
                 beam_from: None,
                 step: None,
@@ -347,6 +369,7 @@ mod tests {
         assert_eq!(
             at(rect(1850, 100, 1950, 150)),
             Ok(HighlightMsg::Target {
+                dim: true,
                 rect: css(1850.0, 100.0, 1920.0, 150.0),
                 beam_from: None,
                 step: None,
@@ -403,6 +426,7 @@ mod tests {
     #[test]
     fn serializes_the_shape_the_window_expects() {
         let shown = HighlightMsg::Target {
+            dim: true,
             rect: css(1.0, 2.0, 3.5, 4.0),
             beam_from: point(5.0, 6.0),
             step: Some(Step {
@@ -414,12 +438,22 @@ mod tests {
             serde_json::to_value(&shown).ok(),
             Some(json!({
                 "type": "target",
+                "dim": true,
                 "rect": {"left": 1.0, "top": 2.0, "right": 3.5, "bottom": 4.0},
                 "beamFrom": {"x": 5.0, "y": 6.0},
                 "step": {"number": 2, "total": 3}
             }))
         );
+        assert_eq!(
+            serde_json::to_value(HighlightMsg::Warmth {
+                level: 9,
+                on_target: true
+            })
+            .unwrap(),
+            json!({"type": "warmth", "level": 9, "onTarget": true})
+        );
         let bare = HighlightMsg::Target {
+            dim: false,
             rect: css(1.0, 2.0, 3.5, 4.0),
             beam_from: None,
             step: None,
@@ -428,6 +462,7 @@ mod tests {
             serde_json::to_value(&bare).ok(),
             Some(json!({
                 "type": "target",
+                "dim": false,
                 "rect": {"left": 1.0, "top": 2.0, "right": 3.5, "bottom": 4.0},
                 "beamFrom": null,
                 "step": null

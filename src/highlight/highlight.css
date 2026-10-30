@@ -31,7 +31,17 @@
 }
 
 .highlight-ring {
-  animation: highlight-pulse 1.5s ease-in-out infinite;
+  filter: brightness(calc(0.7 + var(--warmth, 0) * 0.6));
+  animation: highlight-pulse var(--warmth-period, 1.5s) ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.highlight-scene.is-active .highlight-ring {
+  animation-play-state: running;
+}
+
+.on-target .highlight-ring {
+  animation: none;
 }
 
 .highlight-ring-glow {

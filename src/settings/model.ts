@@ -37,6 +37,7 @@ export interface Settings {
   voiceSpeed: number /* 0.8..1.3 */;
   robotSize: "S" | "M" | "L" | "XL";
   reduceMotion: boolean;
+  spotlight: boolean;
   startWithWindows: boolean;
   showHomeAtStart: boolean;
 }
@@ -50,6 +51,7 @@ export const SETTINGS_KEYS = [
   "voiceSpeed",
   "robotSize",
   "reduceMotion",
+  "spotlight",
   "startWithWindows",
   "showHomeAtStart",
 ] as const satisfies readonly (keyof Settings)[];
@@ -63,6 +65,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   voiceSpeed: DEFAULT_VOICE_SPEED,
   robotSize: "M",
   reduceMotion: false,
+  spotlight: true,
   startWithWindows: false,
   showHomeAtStart: true,
 });
@@ -142,6 +145,7 @@ export function parseSettings(raw: unknown): Settings {
     const sound = readOwnField(raw, "sound");
     const voiceSpeed = readOwnField(raw, "voiceSpeed");
     const robotSize = readOwnField(raw, "robotSize");
+    const spotlight = readOwnField(raw, "spotlight");
     const reduceMotion = readOwnField(raw, "reduceMotion");
     const startWithWindows = readOwnField(raw, "startWithWindows");
     const showHomeAtStart = readOwnField(raw, "showHomeAtStart");
@@ -156,6 +160,7 @@ export function parseSettings(raw: unknown): Settings {
       robotSize: isRobotSize(robotSize) ? robotSize : DEFAULT_SETTINGS.robotSize,
       reduceMotion:
         typeof reduceMotion === "boolean" ? reduceMotion : DEFAULT_SETTINGS.reduceMotion,
+      spotlight: typeof spotlight === "boolean" ? spotlight : DEFAULT_SETTINGS.spotlight,
       startWithWindows:
         typeof startWithWindows === "boolean"
           ? startWithWindows

@@ -3,6 +3,7 @@
 // bubble. In development only, the console gets `window.__mate` to try states, moods, the beam
 // and the UI language by hand, e.g.
 // __mate.setState("pointing"); __mate.aimAt({ left: 20, top: 20, right: 120, bottom: 60 }).
+import { parseHighlightMsg } from "./highlight/geometry.ts";
 import { createAudioEngine } from "./audio";
 import { BUBBLE_LINGER_MS, bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
 import { getLocale, setLocale, t } from "./i18n";
@@ -453,6 +454,11 @@ if (container) {
     liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, settings) : null;
   if (mountedBubble && inTauri) {
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
+      await listen<unknown>("highlight", (event) => {
+        const msg = parseHighlightMsg(event.payload);
+        if (msg?.type === "warmth") robot.setWarmth(msg.level, msg.onTarget);
+        else if (msg?.type === "clear") robot.setWarmth(null, false);
+      });
       await listen("mate-menu-outside", () => menu?.close());
       await listen<{ minutes: number }>("mate-hiding", (event) => {
         menu?.close();

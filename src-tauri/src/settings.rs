@@ -177,6 +177,7 @@ pub struct Settings {
     pub voice_speed: f64,
     pub robot_size: RobotSize,
     pub reduce_motion: bool,
+    pub spotlight: bool,
     pub start_with_windows: bool,
     pub show_home_at_start: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -195,6 +196,7 @@ impl Default for Settings {
             voice_speed: DEFAULT_VOICE_SPEED,
             robot_size: RobotSize::M,
             reduce_motion: false,
+            spotlight: true,
             start_with_windows: false,
             show_home_at_start: true,
             mate_home: None,
@@ -383,6 +385,7 @@ mod tests {
             voice_speed: 1.15,
             robot_size: RobotSize::XL,
             reduce_motion: true,
+            spotlight: true,
             start_with_windows: true,
             show_home_at_start: false,
             mate_home: None,
@@ -438,6 +441,7 @@ mod tests {
                 "voiceSpeed": 1.0,
                 "robotSize": "M",
                 "reduceMotion": false,
+                "spotlight": true,
                 "startWithWindows": false,
                 "showHomeAtStart": true
             })
