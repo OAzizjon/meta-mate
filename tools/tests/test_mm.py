@@ -151,6 +151,16 @@ class CliTests(unittest.TestCase):
             with self.subTest(argv=argv), patch.object(mm, 'agent_mode_reason', return_value='test'), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(mm.main(argv), 2)
 
+    def test_every_command_is_documented(self):
+        """A new `mm` command shows up in CLAUDE.md's Commands table and in mm.py's docstring."""
+        parser = mm.build_parser()
+        commands = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction)).choices
+        table = (Path(mm.__file__).resolve().parents[1] / 'CLAUDE.md').read_text(encoding='utf-8')
+        for name in commands:
+            with self.subTest(command=name):
+                self.assertRegex(table, rf'\| `mm {name}\b', 'CLAUDE.md Commands table')
+                self.assertRegex(mm.__doc__, rf'\n    mm {name}\b', 'tools/mm.py docstring')
+
     def test_code_tools_run_with_their_own_flags_also_for_agents(self):
         for argv, name, rest in ((['where', 'sign_out', '--all'], 'where', ['sign_out', '--all']),
                                  (['cite', '-C', '3', 'answer.md'], 'cite', ['-C', '3', 'answer.md']),

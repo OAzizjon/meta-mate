@@ -1,5 +1,7 @@
 """mm where TERM: where a name is defined and used, across Rust, TypeScript, Python, locales and docs.
 
+    mm where TERM [--all] [--limit N] [--json]
+                                   find a name; --all shows every hit, --limit caps hits per area
     mm where sign_out            the definition, then the uses grouped by area (ui, app, core, ...)
     mm where robot.sign_in_again a locale key: its English and Russian text, then the code that says it
     mm where SessionRefused --all     every hit, not only the first few per area

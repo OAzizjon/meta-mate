@@ -1,4 +1,6 @@
-"""A standard-library-only project dashboard; mm.py owns command dispatch.
+"""mm stats [--save] [--json] [--since DAYS]
+
+A standard-library-only project dashboard; mm.py owns command dispatch.
 
 Fallback LOC means nonblank physical source lines (including comments). Test
 co-changes are a naming/crate heuristic, not a claim about coverage.

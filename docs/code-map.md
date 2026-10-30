@@ -500,10 +500,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:105 first_line:120 agent_mode_reason:124 say:136 cmd_doctor:173 plan_sections:239 cmd_plan:262 cmd_status:289
-  cmd_check:337 cmd_test:361 cmd_agent:401 cmd_tool:426 cmd_release:432 cmd_uia:513 cmd_art:547 cmd_sounds:595
-  cmd_phrases:637 cmd_agents:650 wanted_key_names:663 parse_env:671 cmd_keys:726 build_parser:805 cmd_probe:858 main:874
-  tests: tools/tests/test_mm.py (49)
+  run:110 first_line:125 agent_mode_reason:129 say:141 cmd_doctor:178 plan_sections:244 cmd_plan:267 cmd_status:294
+  cmd_check:342 cmd_test:366 cmd_agent:406 cmd_tool:431 cmd_release:437 cmd_uia:518 cmd_art:552 cmd_sounds:600
+  cmd_phrases:642 cmd_agents:655 wanted_key_names:668 parse_env:676 cmd_keys:731 build_parser:810 cmd_probe:863 main:879
+  tests: tools/tests/test_mm.py (50)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
   tests: tools/tests/test_mm_changed.py (14)
@@ -513,11 +513,11 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: tools/tests/test_mm_checks.py (25)
 - tools/mm_cite.py — mm cite: show the code behind every `path:line` an agent's answer cites, next to the claim.
   is_secret:42 references:48 project_files:80 resolve:93 show:120 read_source:163 main:175
-- tools/mm_contracts.py — Check Tauri commands, arguments, events, locale keys and serde shapes offline.
-  findings:432 main:529
+- tools/mm_contracts.py — mm contracts [--verbose]
+  findings:434 main:531
   tests: tools/tests/test_mm_contracts.py (25)
-- tools/mm_difflint.py — Lint added unified-diff lines for patch leftovers (standard library only).
-  AddedLine:27 FileDiff:34 Finding:41 is_secret:68 parse_diff:74 lint:188 working_diff:264 main:282
+- tools/mm_difflint.py — mm difflint [PATCH|-]
+  AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284
   tests: tools/tests/test_mm_difflint.py (18)
 - tools/mm_fixture.py — Pure fixture loading and geometry for recorded UIA probes.
   Fixture:21 load_fixture:40 unsafe_reason:71 FrameMap:93 element_list:140 Hit:156 hit_test:162 describe:178
@@ -525,21 +525,21 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_map.py — Write docs/code-map.md: where things live, for agents that read files but have no shell.
   is_secret:25 mask:176 Source:267 Project:285 summary:346 outline:471 render:910 main:954
   tests: tools/tests/test_mm_map.py (21)
-- tools/mm_probe.py — mm probe: the Meta Model API from the lead's machine (never from the agents' copies).
-  ProbeError:80 is_plain_file:97 read_secret:108 scrub:124 provider_config:137 iter_sse:211 output_text:230 computer_actions:240
-  point_actions:265 action_points:288 usage_tokens:300 cost_usd:305 ledger_total:334 ledger_unpriced:338 ledger_add:342 guard_budget:348
-  record:360 report:370 multipart:380 wav_info:392 cmd_asr:404 cmd_models:440 add_reasoning:448 cmd_stream:455
-  verdict:530 computer_tool:541 png_size:547 cmd_click:558 cmd_sam:655 cmd_ledger:731 build_parser:753 main:793
+- tools/mm_probe.py — mm probe models|stream|click|sam|asr|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe stream QUESTION …
+  ProbeError:99 is_plain_file:116 read_secret:127 scrub:143 provider_config:156 iter_sse:230 output_text:249 computer_actions:259
+  point_actions:284 action_points:307 usage_tokens:319 cost_usd:324 ledger_total:353 ledger_unpriced:357 ledger_add:361 guard_budget:367
+  record:379 report:389 multipart:399 wav_info:411 cmd_asr:423 cmd_models:459 add_reasoning:467 cmd_stream:474
+  verdict:549 computer_tool:560 png_size:566 cmd_click:577 cmd_sam:674 cmd_ledger:750 build_parser:772 main:812
   tests: tools/tests/test_mm_probe.py (25)
-- tools/mm_stats.py — A standard-library-only project dashboard; mm.py owns command dispatch.
-  area:32 crate:37 source_files:44 read:59 run:66 code_summary:76 parse_scc:88 collect_code:102
-  mask_code:126 count_tests:151 production_rust:166 is_test:189 related_test:195 parse_numstat:213 churn_summary:237 locale_stats:264
-  first_table:288 agents_report:310 collect:330 totals:365 save_snapshot:372 render:396 main:435
+- tools/mm_stats.py — mm stats [--save] [--json] [--since DAYS]
+  area:34 crate:39 source_files:46 read:61 run:68 code_summary:78 parse_scc:90 collect_code:104
+  mask_code:128 count_tests:153 production_rust:168 is_test:191 related_test:197 parse_numstat:215 churn_summary:239 locale_stats:266
+  first_table:290 agents_report:312 collect:332 totals:367 save_snapshot:374 render:398 main:437
   tests: tools/tests/test_mm_stats.py (17)
 - tools/mm_where.py — mm where TERM: where a name is defined and used, across Rust, TypeScript, Python, locales and docs.
-  is_secret:61 variants:68 area_of:90 is_test_path:97 tracked_files:102 searchable:119 read_lines:125 first_test_line:135
-  search:143 is_comment:177 constants_holding:181 via_constants:196 trimmed:210 report:215 locale_text:258 keys_with_text:272
-  main:289
+  is_secret:63 variants:70 area_of:92 is_test_path:99 tracked_files:104 searchable:121 read_lines:127 first_test_line:137
+  search:145 is_comment:179 constants_holding:183 via_constants:198 trimmed:212 report:217 locale_text:260 keys_with_text:274
+  main:291
 - tools/phrases.py — Build and check the English and Russian cached MMS-TTS phrases.
   synthesize:50 build:69 check:105 main:132
   tests: tools/tests/test_phrases.py (9)
@@ -791,6 +791,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 173 | 20 |
 | src | 197 | 23 |
-| tools | 253 | 16 |
+| tools | 254 | 16 |
 | server | 86 | 4 |
 | tts | 27 | 2 |

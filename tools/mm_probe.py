@@ -1,12 +1,31 @@
-"""mm probe: the Meta Model API from the lead's machine (never from the agents' copies).
+"""mm probe models|stream|click|sam|asr|ledger
+    mm probe models [--provider P] [--model M] [--timeout S] [--budget USD]
+                    [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT]
+    mm probe stream QUESTION [--provider P] [--model M] [--timeout S] [--budget USD]
+                    [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] [--max-tokens N]
+    mm probe click FIXTURE QUESTION [--provider P] [--model M] [--timeout S] [--budget USD]
+                   [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT]
+                   [--max-edge PX] [--dry-run] [--mode computer|point]
+    mm probe asr AUDIO [--provider P] [--model M] [--timeout S] [--budget USD]
+                 [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT]
+                 [--mode PUSH_TO_TALK|ENDPOINTING]
+    mm probe sam FIXTURE X Y [--provider P] [--model M] [--timeout S] [--budget USD]
+                 [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] [--text TEXT]
+    mm probe ledger
 
-    mm probe models [--provider meta|openai]
+The Meta Model API from the lead's machine (never from the agents' copies).
+
+    mm probe models [--provider meta|groq|openrouter|openai]
         the model ids the key can use (confirm the names at the kickoff)
     mm probe stream "QUESTION" [--model M] [--provider ...] [--max-tokens N]
         stream one answer: print it live, then time to first token, total time, tokens, cost
     mm probe click FIXTURE "QUESTION" [--max-edge PX] [--model M] [--provider ...] [--dry-run]
         one computer-use turn on fixtures/uia/FIXTURE.png; the model's click is mapped back to
         the fixture's UI Automation tree, and the element it hit is named
+    mm probe asr AUDIO [--mode PUSH_TO_TALK|ENDPOINTING]
+        transcribe speech from a WAV file
+    mm probe sam FIXTURE X Y [--text TEXT]
+        ask SAM 3.1 about a point in the fixture image
     mm probe ledger
         what the probes have spent so far (estimated from the token counts)
 

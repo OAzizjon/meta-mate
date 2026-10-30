@@ -3,7 +3,8 @@
     mm doctor                      build tools with versions (Rust, MSVC linker, WebView2, Node, ffmpeg, uv, ...)
     mm status                      one screen: git, deadline, today's plan, agent queue
     mm plan [today|N]              the plan for today (or day N) from docs/plan.md
-    mm check [--full] [--only a,b] fast checks (tools/mm_checks.py)
+    mm check [--full] [--only CHECKS] [--changed] [--base REF] [--dry-run]
+                                   fast checks (tools/mm_checks.py)
     mm test [--changed] [--base REF] [--dry-run]
                                    unit tests, optionally limited to changed files
     mm check --changed [--base REF] [--dry-run]
@@ -14,27 +15,31 @@
                                    UI Automation tree of the foreground window; --save writes
                                    fixtures/uia/NAME.json and NAME.png (record only the Demo user's windows)
     mm art [NAME ...]              render assets/art/src/*.html|*.svg to PNG with headless Edge
-    mm sounds [check|normalize]    loudness-normalize assets/sounds/src with ffmpeg; every file needs a LICENSES.md line
-    mm phrases [build|check]       build or verify cached English and Russian MMS-TTS phrases
+    mm sounds [check|normalize] [--force]
+                                   loudness-normalize assets/sounds/src with ffmpeg; every file needs a LICENSES.md line
+    mm phrases [build|check] [--tts-python PATH] [--force]
+                                   build or verify cached English and Russian MMS-TTS phrases
     mm agents [status|stats]       the drafting team's queue (team.py)
     mm keys SOURCE_DIR [--apply]   copy the keys named in env_keys_names.txt from another project's
                                    secrets file into this one; prints names only, never values
-    mm probe models|stream|click|ledger
+    mm probe models|stream|click|sam|asr|ledger
                                    the Meta Model API from this machine: stream an answer with timings and
                                    cost, or one computer-use turn on a fixture with the element it hit
                                    (tools/mm_probe.py; reads the keys, never prints them)
-    mm where TERM [--all]          where a name is defined and used across Rust, TS, Python, locales
+    mm where TERM [--all] [--limit N] [--json]
+                                   where a name is defined and used across Rust, TS, Python, locales
                                    and docs (sign_out also finds signOut, sign-out; Tauri commands
                                    with their invoke() callers; a locale key with its en/ru text)
     mm cite FILE|-|#JOB [-C N]     the code behind every path:line an agent's answer cites, next to
                                    the claim; flags missing files, lines past the end, ambiguous names
     mm map [--check]               regenerate docs/code-map.md (files, pub items, cross-language links)
-    mm stats [--save] [--json]     code, tests, churn, hygiene and agent numbers, with deltas
+    mm stats [--save] [--json] [--since DAYS]
+                                   code, tests, churn, hygiene and agent numbers, with deltas
     mm difflint [PATCH|-]          leftovers in a patch's added lines: debug prints, unwraps, conflict
                                    markers, UI strings outside the locales, secrets (default: git diff)
-    mm contracts                   Rust <-> TypeScript contracts: commands registered and called with
+    mm contracts [--verbose]       Rust <-> TypeScript contracts: commands registered and called with
                                    the right argument names, events emitted and listened, locale keys
-    mm agent check|test|where|cite|map|stats|difflint|contracts
+    mm agent check [--only CHECKS]|test|where|cite|map|stats|difflint|contracts
                                    the restricted set for sandboxed agents: offline, no secrets, no GUI
 
 Agent mode is forced when MM_AGENT=1, when the project has no .git folder (the drafting agents'

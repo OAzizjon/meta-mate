@@ -1,4 +1,6 @@
-"""Check Tauri commands, arguments, events, locale keys and serde shapes offline.
+"""mm contracts [--verbose]
+
+Check Tauri commands, arguments, events, locale keys and serde shapes offline.
 
 Uses mm_map's offset-preserving scanner and event extraction. Dynamic command/event
 names and interpolated templates cannot be checked statically. --verbose reports

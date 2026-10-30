@@ -1,4 +1,6 @@
-"""Lint added unified-diff lines for patch leftovers (standard library only).
+"""mm difflint [PATCH|-]
+
+Lint added unified-diff lines for patch leftovers (standard library only).
 
 Rule names carry their severity. Header and summary diagnostics use line 0;
 ordinary findings use the new-file line number. Rust test context deliberately
