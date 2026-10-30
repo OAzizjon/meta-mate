@@ -32,7 +32,7 @@
         --safe-mark-text: #166534;
         --error: #b91c1c;
         --error-soft: #fef2f2;
-        --quiet-border: #7b8aa0;
+        --quiet-border: #475569;
         --btn-secondary-bg: #f1f5f9;
         --btn-secondary-border: #cbd5e1;
         --btn-secondary-text: #1f2a44;
@@ -64,10 +64,10 @@
           --error: #fca5a5;
           --error-soft: #3a1f24;
           --quiet-border: #6b7a93;
-          --btn-secondary-bg: #22293a;
-          --btn-secondary-border: #3b4760;
+          --btn-secondary-bg: #2d374d;
+          --btn-secondary-border: #64748b;
           --btn-secondary-text: #f1f5f9;
-          --btn-secondary-hover: #2d374d;
+          --btn-secondary-hover: #3b4760;
           --shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
         }
       }
@@ -228,13 +228,13 @@
         margin-bottom: 0;
       }
 
-      /* Try it: three cards side by side, each with its own big button. */
+      /* Try it: cards wrap as space allows, each with its own big button. */
       .home-try-list {
         list-style: none;
         margin: 10px 0 0;
         padding: 0;
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
         gap: 12px;
       }
 
@@ -288,6 +288,18 @@
 
       .home-try-btn.is-busy {
         cursor: progress;
+      }
+
+      .home-try-btn.is-busy::after {
+        content: "";
+        flex: none;
+        width: 18px;
+        height: 18px;
+        margin-left: 10px;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: home-try-spin 800ms linear infinite;
       }
 
       /* No display here when empty: nothing shifts until a line is shown. */
@@ -415,6 +427,12 @@
         flex: 1 1 130px;
       }
 
+      /* Quit follows navigation in keyboard order, with space before it. */
+      #home-quit-btn {
+        flex: 0 1 130px;
+        margin-left: auto;
+      }
+
       .home-start-text {
         min-width: 0;
       }
@@ -501,15 +519,11 @@
         }
       }
 
-      /* A narrow window: Mate above the greeting, one question per row. */
+      /* A narrow window: Mate above the greeting; the question grid wraps naturally. */
       @media (max-width: 600px) {
         .home-hero {
           grid-template-columns: minmax(0, 1fr);
           justify-items: start;
-        }
-
-        .home-try-list {
-          grid-template-columns: minmax(0, 1fr);
         }
 
         .home-talk-row {
@@ -526,6 +540,27 @@
         }
       }
 
+      @media (max-width: 460px) {
+        .home-hero {
+          justify-items: center;
+          text-align: center;
+        }
+
+        .home-mate {
+          width: 96px;
+          height: auto;
+        }
+
+        .home-talk-row {
+          align-items: center;
+        }
+
+        .home-talk-steps {
+          max-width: 100%;
+          text-align: left;
+        }
+      }
+
       /* Windows contrast themes drop the backgrounds: the keycap and the marks keep a ring. */
       @media (forced-colors: active) {
         .home-keycap,
@@ -535,6 +570,12 @@
 
         .home-keycap {
           border-bottom-width: 6px;
+        }
+      }
+
+      @keyframes home-try-spin {
+        to {
+          transform: rotate(360deg);
         }
       }
 

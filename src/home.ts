@@ -427,7 +427,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
       console.error("[home] could not quit:", error);
     });
   });
-  actions.append(chatBtn, quitBtn, settingsBtn, closeBtn);
+  actions.append(chatBtn, settingsBtn, closeBtn, quitBtn);
   footer.append(startOption, actions);
 
   container.replaceChildren(content, footer);
