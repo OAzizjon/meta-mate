@@ -253,7 +253,7 @@
         width: 28px;
         height: 28px;
         margin-top: -10px;
-        border: 2px solid #1f2a44;
+        border: 2px solid var(--text);
         border-radius: 50%;
         background: var(--accent);
         box-shadow: 0 0 0 4px var(--glow);
@@ -269,7 +269,7 @@
         width: 28px;
         height: 28px;
         box-sizing: border-box;
-        border: 2px solid #1f2a44;
+        border: 2px solid var(--text);
         border-radius: 50%;
         background: var(--accent);
       }
@@ -375,6 +375,13 @@
       /* Windows contrast themes drop the tints: the cards keep a rim, the chosen option a
          Highlight border. */
       @media (forced-colors: active) {
+        /* Two rules: WebView2 drops a whole rule that names a -moz- pseudo-element. */
+        .settings-range-input::-webkit-slider-runnable-track {
+          border: 1px solid CanvasText;
+        }
+        .settings-range-input::-moz-range-track {
+          border: 1px solid CanvasText;
+        }
         .settings-header,
         .settings-group {
           border: 1px solid CanvasText;
