@@ -70,6 +70,7 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
             return error(429, 'too many requests at once')
         # The guest trial counts answers (one per question) per device and hour.
         guest = None
+        counted = None  # the guest answer's time, refunded when no answer could come back
         if invite.startswith('user:guest:'):
             hits = state.guest_hits.setdefault(invite, [])
             now = datetime.now(timezone.utc).timestamp()
@@ -80,6 +81,7 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
                     refused.headers.update(guest_headers(0, reset))
                     return refused
                 hits.append(now)
+                counted = now
                 left, reset = auth.guest_left(hits, now)
             else:
                 # Lesson steps, intents, speech: not messages, but capped for guests too.
@@ -102,6 +104,13 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
 
         try:
             response = await handle(request, invite, limits, kind, release)
+            if counted is not None and (response.status_code in (400, 413, 422) or response.status_code >= 500):
+                # A refused body or a failure upstream is not an answer: the message comes back.
+                hits = state.guest_hits.get(invite, [])
+                if counted in hits:
+                    hits.remove(counted)
+                left, reset = auth.guest_left(hits, datetime.now(timezone.utc).timestamp())
+                guest = guest_headers(left, reset)
             if guest is not None:
                 response.headers.update(guest)
             return response

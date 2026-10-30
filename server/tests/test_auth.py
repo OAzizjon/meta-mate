@@ -218,6 +218,10 @@ class FlowTests(unittest.TestCase):
         self.assertEqual((body['limit'], body['left']), (12, 12))
         bearer = {'Authorization': f'Bearer {body["token"]}'}
         ask = {'model': 'muse-spark-1.3', 'input': 'hi'}
+        # A body the proxy refuses is not an answer: nothing is counted.
+        broken = client.post('/v1/responses', headers=bearer, content='not json')
+        self.assertEqual(broken.status_code, 400)
+        self.assertEqual(broken.headers['x-metamate-guest-left'], '12')
         for left in range(11, -1, -1):
             answered = client.post('/v1/responses', headers=bearer, json=ask)
             self.assertEqual(answered.headers['x-metamate-guest-left'], str(left))
