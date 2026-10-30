@@ -159,6 +159,7 @@
   "signin.browser": "Your web browser will open. Choose your account there, then come back to this window.",
   "signin.done": "You are signed in. This window closes now.",
   "robot.sign_in_first": "Please sign in first. I opened the sign-in window.",
+  "robot.sign_in_again": "My sign-in has expired. Please sign in again: I opened the sign-in window.",
   "signin.guest_try": "Try without signing in",
   "signin.guest_left": "Without signing in: {left} of {limit} messages left this hour.",
   "signin.guest_none": "The free messages for this hour are used. Sign in to keep going.",

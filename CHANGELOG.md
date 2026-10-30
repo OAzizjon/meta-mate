@@ -90,6 +90,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Fixed
 
+- A sign-in the proxy no longer accepts (after its signing key changed) no longer looks like a lost connection: Mate signs out, opens the sign-in window and says so, instead of "I can't connect" on every question.
 - A saved Toggle push-to-talk mode survives restarts.
 - A microphone failure also ends a click-to-talk recording.
 - A second click on Sign in with the same provider, from the sign-in window or Settings, joins the sign-in already waiting in the browser (2 minutes) instead of opening another tab; signing out ends it at once.

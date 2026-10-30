@@ -241,32 +241,66 @@ async fn sign_in_once(
 
 #[tauri::command]
 pub fn sign_out(app: AppHandle, auth: State<'_, Auth>) {
+    forget(&app, &auth, None);
+}
+
+/// When the proxy refuses the kept session (its signing key was rotated, the account was
+/// revoked), Mate signs out as if the person had, and the sign-in window opens: never
+/// "I can't connect" on every question until someone signs out by hand.
+pub fn watch_rejected(app: &AppHandle, proxy: &Proxy) {
+    let mut rejected = proxy.watch_rejected();
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        while rejected.changed().await.is_ok() {
+            let Some(token) = rejected.borrow_and_update().clone() else {
+                continue;
+            };
+            let Some(auth) = app.try_state::<Auth>() else {
+                continue;
+            };
+            if forget(&app, &auth, Some(&token)) {
+                eprintln!("auth: the proxy refused the kept session; signed out");
+            }
+        }
+    });
+}
+
+/// Signs out (`refused: None`), or drops the session the proxy refused (`Some(token)`) and
+/// returns whether it was still the kept one: compared under the session lock, so a sign-in
+/// that landed after the refused call keeps its new session. A refused session leaves a
+/// sign-in that is waiting for its browser tab alone: that is the way back in.
+fn forget(app: &AppHandle, auth: &Auth, refused: Option<&str>) -> bool {
     {
         let mut current = auth
             .session
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // A sign-in still waiting for its browser tab ends too, and so do the clicks that
-        // joined it: at once, not when its tab gives up. Counted under the lock that sign-ins
-        // register under, so none starts between the count and the removal.
-        let mut waiting = auth
-            .waiting
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        auth.attempts.fetch_add(1, Ordering::AcqRel);
-        if let Some(waiting) = waiting.take() {
-            settle(&waiting.outcome, Err("auth.cancelled".into()));
+        if let Some(token) = refused {
+            if current
+                .as_ref()
+                .is_none_or(|session| session.token != token)
+            {
+                return false;
+            }
+        } else {
+            // A sign-in still waiting for its browser tab ends too, and so do the clicks that
+            // joined it: at once, not when its tab gives up. Counted under the lock that
+            // sign-ins register under, so none starts between the count and the removal.
+            let mut waiting = auth
+                .waiting
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            auth.attempts.fetch_add(1, Ordering::AcqRel);
+            if let Some(waiting) = waiting.take() {
+                settle(&waiting.outcome, Err("auth.cancelled".into()));
+            }
         }
-        drop(waiting);
         *current = None;
         if let Some(proxy) = app.try_state::<Proxy>() {
             proxy.set_session(None);
         }
         for name in [FILE_NAME, TEMPORARY_FILE_NAME, PLAIN_FILE_NAME] {
-            for path in [file(&app, name), old_file(&app, name)]
-                .into_iter()
-                .flatten()
-            {
+            for path in [file(app, name), old_file(app, name)].into_iter().flatten() {
                 let _ = std::fs::remove_file(path);
             }
         }
@@ -275,10 +309,11 @@ pub fn sign_out(app: AppHandle, auth: State<'_, Auth>) {
     // Signing in is required: the way back in opens at once, with the guest trial.
     if crate::signin::required() {
         if let Some(proxy) = app.try_state::<Proxy>() {
-            crate::signin::start_guest(&app, proxy.inner());
+            crate::signin::start_guest(app, proxy.inner());
         }
-        crate::signin::open_later(&app);
+        crate::signin::open_later(app);
     }
+    true
 }
 
 async fn sign_in_with(

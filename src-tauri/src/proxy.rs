@@ -85,10 +85,20 @@ pub enum ProxyError {
     /// The proxy closed the speech socket with this code (4400 bad handshake, 4401 unknown
     /// invite, 4429 allowance used up).
     Closed(u16),
+    /// The proxy refused the session token this call carried, and it was the kept one: it
+    /// is dropped, and auth.rs signs out and opens the sign-in window.
+    SessionRefused,
     Network(String),
     Timeout(&'static str),
     Protocol(&'static str),
     Answer(ResponseError),
+}
+
+impl ProxyError {
+    /// The proxy did not accept the credential: a 401, or the speech socket's 4401.
+    pub fn is_unauthorized(&self) -> bool {
+        matches!(self, Self::Refused { status: 401, .. } | Self::Closed(4401))
+    }
 }
 
 impl fmt::Display for ProxyError {
@@ -96,6 +106,7 @@ impl fmt::Display for ProxyError {
         match self {
             Self::Refused { status, message } => write!(f, "proxy refused ({status}): {message}"),
             Self::Closed(code) => write!(f, "speech socket closed ({code})"),
+            Self::SessionRefused => write!(f, "the proxy refused the kept sign-in"),
             Self::Network(error) => write!(f, "network: {error}"),
             Self::Timeout(what) => write!(f, "timed out: {what}"),
             Self::Protocol(what) => write!(f, "protocol: {what}"),
@@ -183,6 +194,9 @@ pub struct Proxy {
     /// The guest trial's token (no account) and its latest count, shared by every clone.
     guest: Arc<RwLock<Option<String>>>,
     guest_usage: tokio::sync::watch::Sender<Option<GuestUsage>>,
+    /// The latest session token the proxy refused (a rotated signing key, a revoked
+    /// account): auth.rs signs out and opens the way back in.
+    rejected: tokio::sync::watch::Sender<Option<String>>,
 }
 
 /// The guest trial's answers for this hour, from the proxy's `X-MetaMate-Guest-*` headers.
@@ -268,6 +282,7 @@ impl Proxy {
             session: Arc::default(),
             guest: Arc::default(),
             guest_usage: tokio::sync::watch::channel(None).0,
+            rejected: tokio::sync::watch::channel(None).0,
         })
     }
 
@@ -307,6 +322,26 @@ impl Proxy {
         if let Some(usage) = usage {
             self.guest_usage.send_replace(Some(usage));
         }
+    }
+
+    pub fn watch_rejected(&self) -> tokio::sync::watch::Receiver<Option<String>> {
+        self.rejected.subscribe()
+    }
+
+    /// A 401 (or the speech socket's 4401) for a call that carried `sent`: if that is still
+    /// the session token, it is dropped at once, so the next call rides on the guest token
+    /// or the invite, and auth.rs hears of it. A session that replaced it meanwhile stays.
+    fn note_refused<T>(&self, sent: &str, result: Result<T, ProxyError>) -> Result<T, ProxyError> {
+        if let Err(error) = &result
+            && error.is_unauthorized()
+            && let Ok(mut session) = self.session.write()
+            && session.as_deref() == Some(sent)
+        {
+            *session = None;
+            self.rejected.send_replace(Some(sent.to_owned()));
+            return Err(ProxyError::SessionRefused);
+        }
+        result
     }
 
     /// What each call carries: the session token, else the guest token, else the invite.
@@ -373,10 +408,11 @@ impl Proxy {
         body: &Value,
         mut on_delta: impl FnMut(&str),
     ) -> Result<Answer, ProxyError> {
+        let credential = self.credential();
         let response = self
             .http
             .post(format!("{}/v1/responses", self.base))
-            .bearer_auth(self.credential())
+            .bearer_auth(&credential)
             .header("X-MetaMate-Call", kind.header())
             .json(body)
             .send()
@@ -388,7 +424,7 @@ impl Proxy {
             .get("x-metamate-model")
             .and_then(|value| value.to_str().ok())
             .map(str::to_owned);
-        let response = accepted(response).await?;
+        let response = self.note_refused(&credential, accepted(response).await)?;
         if body["stream"] != json!(true) {
             let raw = capped_body(response, JSON_MAX_BYTES).await?;
             let value: Value = serde_json::from_slice(&raw)
@@ -428,16 +464,17 @@ impl Proxy {
     /// settings (0.8..=1.3, already sanitized).
     pub async fn speak(&self, lang: &str, text: &str) -> Result<Speech, ProxyError> {
         let speed = crate::settings::voice_speed();
+        let credential = self.credential();
         let response = self
             .http
             .post(format!("{}/v1/tts", self.base))
-            .bearer_auth(self.credential())
+            .bearer_auth(&credential)
             .timeout(TTS_TIMEOUT)
             .json(&json!({"lang": lang, "text": text, "speed": speed}))
             .send()
             .await
             .map_err(network)?;
-        let response = accepted(response).await?;
+        let response = self.note_refused(&credential, accepted(response).await)?;
         let synth_ms = response
             .headers()
             .get("x-synth-ms")
@@ -450,16 +487,17 @@ impl Proxy {
     /// One picture from Muse Image for `prompt` (1..=1500 characters): the PNG's bytes. A
     /// 429 means today's image allowance is used up.
     pub async fn image(&self, prompt: &str) -> Result<Vec<u8>, ProxyError> {
+        let credential = self.credential();
         let response = self
             .slow_http
             .post(format!("{}/v1/image", self.base))
-            .bearer_auth(self.credential())
+            .bearer_auth(&credential)
             .timeout(IMAGE_TIMEOUT)
             .json(&json!({"prompt": prompt}))
             .send()
             .await
             .map_err(network)?;
-        let response = accepted(response).await?;
+        let response = self.note_refused(&credential, accepted(response).await)?;
         let raw = capped_body(response, IMAGE_JSON_MAX_BYTES).await?;
         let value: Value = serde_json::from_slice(&raw)
             .map_err(|_| ProxyError::Protocol("the picture answer is not JSON"))?;
@@ -489,16 +527,17 @@ impl Proxy {
             {"role": "system", "content": system},
             {"role": "user", "content": user}
         ]);
+        let credential = self.credential();
         let response = self
             .slow_http
             .post(format!("{}/v1/glimmer", self.base))
-            .bearer_auth(self.credential())
+            .bearer_auth(&credential)
             .timeout(GLIMMER_TIMEOUT)
             .json(&json!({"messages": messages, "max_tokens": max_tokens}))
             .send()
             .await
             .map_err(network)?;
-        let response = accepted(response).await?;
+        let response = self.note_refused(&credential, accepted(response).await)?;
         let raw = capped_body(response, GLIMMER_JSON_MAX_BYTES).await?;
         let value: Value = serde_json::from_slice(&raw)
             .map_err(|_| ProxyError::Protocol("the Glimmer answer is not JSON"))?;
@@ -526,8 +565,9 @@ impl Proxy {
             .map_err(|_| ProxyError::Timeout("connecting the speech socket"))?
             .map_err(network)?;
         let (mut sink, mut stream) = socket.split();
+        let credential = self.credential();
         let handshake = json!({
-            "authorization": {"accessToken": format!("Bearer {}", self.credential())},
+            "authorization": {"accessToken": format!("Bearer {credential}")},
             "audioEncoding": "PCM_24KHZ",
             "mode": "PUSH_TO_TALK",
             "partialMode": "CUMULATIVE",
@@ -535,17 +575,20 @@ impl Proxy {
         });
         send_within(&mut sink, Message::Text(handshake.to_string().into())).await?;
         let deadline = tokio::time::Instant::now() + ASR_ACK_TIMEOUT;
-        loop {
-            let message = timeout_at(deadline, stream.next(), "the speech handshake").await?;
-            if let Some(event) = asr_event(message)? {
-                if event["sessionId"].is_string() {
-                    break;
+        let acknowledged = async {
+            loop {
+                let message = timeout_at(deadline, stream.next(), "the speech handshake").await?;
+                if let Some(event) = asr_event(message)? {
+                    if event["sessionId"].is_string() {
+                        return Ok(());
+                    }
+                    return Err(ProxyError::Protocol(
+                        "the speech handshake was not acknowledged",
+                    ));
                 }
-                return Err(ProxyError::Protocol(
-                    "the speech handshake was not acknowledged",
-                ));
             }
-        }
+        };
+        self.note_refused(&credential, acknowledged.await)?;
         on_progress(AsrProgress::Ready);
 
         let mut ended_at = None;
@@ -689,6 +732,41 @@ fn asr_event(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_refused_session_is_dropped_only_while_it_is_current() {
+        let proxy = Proxy::new("http://127.0.0.1:9", "invite").unwrap();
+        let refused = || -> Result<(), ProxyError> {
+            Err(ProxyError::Refused {
+                status: 401,
+                message: String::new(),
+            })
+        };
+        proxy.set_session(Some("new".into()));
+        // A call made with an older token: the newer session stays.
+        assert!(proxy.note_refused("old", refused()).is_err());
+        assert_eq!(proxy.credential(), "new");
+        assert_eq!(*proxy.watch_rejected().borrow(), None);
+        // Any other failure keeps the session.
+        let busy: Result<(), ProxyError> = Err(ProxyError::Refused {
+            status: 503,
+            message: String::new(),
+        });
+        assert!(proxy.note_refused("new", busy).is_err());
+        assert!(
+            proxy
+                .note_refused("new", Err::<(), _>(ProxyError::Closed(4429)))
+                .is_err()
+        );
+        assert_eq!(proxy.credential(), "new");
+        // Refused while current: back to the invite at once, and reported.
+        assert!(matches!(
+            proxy.note_refused("new", Err::<(), _>(ProxyError::Closed(4401))),
+            Err(ProxyError::SessionRefused)
+        ));
+        assert_eq!(proxy.credential(), "invite");
+        assert_eq!(proxy.watch_rejected().borrow().as_deref(), Some("new"));
+    }
 
     #[test]
     fn an_empty_guest_hour_refills_after_reset() {

@@ -184,6 +184,7 @@ pub fn start(app: &AppHandle) -> Option<VoiceLoop> {
     // A kept sign-in replaces the built-in invite before the first call (D54). Before the
     // hook: without it signing in must still work (the sign-in window needs the proxy).
     crate::auth::restore(app, &proxy);
+    crate::auth::watch_rejected(app, &proxy);
     // Signed out: the guest trial (12 answers an hour) until a sign-in.
     crate::signin::start_guest(app, &proxy);
     // For the outlines SAM 3.1 draws when a point is on nothing UI Automation lists, and
@@ -739,7 +740,7 @@ async fn answer(
         Ok(Err(error)) => {
             eprintln!("voice: speech recognition: {error}");
             let generation = live_lesson(&lessons).map_or(generation, |lesson| lesson.generation);
-            return failed(&stream, generation);
+            return failed(&stream, generation, &error);
         }
         Err(_) => return, // cancelled
     };
@@ -970,6 +971,12 @@ async fn answer(
                 Ok(speech) => stream.send_wav(generation, sentence, &speech.wav),
                 Err(error) => {
                     eprintln!("voice: speech synthesis: {error}");
+                    if matches!(error, ProxyError::SessionRefused) {
+                        stream.send(AnswerMsg::Line {
+                            generation,
+                            key: error_line(&error),
+                        });
+                    }
                     stream.end_sentence(generation, sentence);
                 }
             }
@@ -1059,7 +1066,7 @@ async fn answer(
             eprintln!("voice: answer: {error}");
             stream.send(AnswerMsg::Line {
                 generation,
-                key: "robot.network_error",
+                key: error_line(&error),
             });
         }
     };
@@ -1199,16 +1206,25 @@ pub(crate) fn say_line(
     }
 }
 
-fn failed(stream: &AnswerStream, generation: u64) {
+fn failed(stream: &AnswerStream, generation: u64, error: &ProxyError) {
     // The phrases are not at hand here: the line shows in the bubble only.
     stream.send(AnswerMsg::Line {
         generation,
-        key: "robot.network_error",
+        key: error_line(error),
     });
     stream.send(AnswerMsg::State {
         generation,
         state: "idle",
     });
+}
+
+/// What Mate says when a call fails: a refused sign-in is not a lost connection.
+pub(crate) fn error_line(error: &ProxyError) -> &'static str {
+    if matches!(error, ProxyError::SessionRefused) {
+        "robot.sign_in_again"
+    } else {
+        "robot.network_error"
+    }
 }
 
 pub(crate) fn voice_of(locale: &str) -> &'static str {
