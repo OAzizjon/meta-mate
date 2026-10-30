@@ -1,8 +1,9 @@
 // Highlight overlay window (docs/architecture.md section 2, WP5): listens for the `"highlight"`
 // Tauri event from `src-tauri/src/highlight.rs`, validates the payload strictly, and draws the
 // glowing target ring (inflated 6 px, rounded corners, 1.5 s pulse), the warm-white light beam
-// polygon from `beamFrom` to the target's nearest edge, and the numeric `"2 / 3"` step badge.
-// Never calls `focus()` (invariant 1).
+// polygon from `beamFrom` to the target's nearest edge, the numeric `"2 / 3"` step badge, and the
+// X-ray scan while the model thinks (outlines sweeping top to bottom, hidden fields as dark tiles
+// with a lock). Never calls `focus()` (invariant 1).
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { parseSettings, SETTINGS_CHANGED_EVENT } from "./settings/model.ts";
@@ -14,14 +15,18 @@ import {
   CLEAR_FADE_MS,
   RING_PAD,
   RING_RADIUS,
+  SCAN_FADE_MS,
+  SCAN_LIFETIME_MS,
   computeBadgePosition,
   computeBeamPolygon,
   formatPolygonPoints,
   formatStepBadge,
+  lockCenter,
   missPath,
   num,
   parseHighlightMsg,
   ringRect,
+  scanDelay,
   shouldDim,
 } from "./highlight/geometry.ts";
 import type {
@@ -29,6 +34,7 @@ import type {
   CssSize,
   HighlightMsg,
   HighlightMissMsg,
+  HighlightScanMsg,
   HighlightTargetMsg,
 } from "./highlight/geometry.ts";
 
@@ -39,9 +45,14 @@ export {
   BEAM_COLOR,
   BEAM_HALF_WIDTH,
   CLEAR_FADE_MS,
+  LOCK_MIN_SIDE,
+  MAX_SCAN_RECTS,
   MAX_STEP_TOTAL,
   RING_PAD,
   RING_RADIUS,
+  SCAN_FADE_MS,
+  SCAN_LIFETIME_MS,
+  SCAN_SWEEP_MS,
   VIEWPORT_MARGIN,
   badgePosition,
   beamPolygon,
@@ -53,10 +64,12 @@ export {
   isValidPoint,
   isValidRect,
   isValidStep,
+  lockCenter,
   missPath,
   nearestRectEdge,
   parseHighlightMsg,
   ringRect,
+  scanDelay,
 } from "./highlight/geometry.ts";
 export type {
   CssPoint,
@@ -65,6 +78,7 @@ export type {
   HighlightClearMsg,
   HighlightMissMsg,
   HighlightMsg,
+  HighlightScanMsg,
   HighlightStep,
   HighlightTargetMsg,
   RectEdge,
@@ -73,6 +87,9 @@ export type {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+// A padlock about 10 x 13 CSS px around its center: the shackle's legs stand on the body.
+const LOCK_SHACKLE = "M -3 -1 V -3.5 A 3 3 0 0 1 3 -3.5 V -1";
+const LOCK_BODY = { x: -5, y: -1, width: 10, height: 7, rx: 1.5 } as const;
 
 export interface HighlightController {
   setSettings(raw: unknown): void;
@@ -185,7 +202,9 @@ export function mountHighlight(
   const missMask = svgEl("mask", { id: "miss-reveal", maskUnits: "userSpaceOnUse" });
   defs.append(missMask);
   scene.append(dim, beam, ringGroup, missGroup);
-  svgRoot.replaceChildren(defs, scene);
+  // After the scene: the Spotlight dim never covers the scan.
+  const scanGroup = svgEl("g", { class: "highlight-scan" });
+  svgRoot.replaceChildren(defs, scene, scanGroup);
 
   const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
   let reduceSetting = false;
@@ -263,6 +282,63 @@ export function mountHighlight(
     }
   };
 
+  let scanTimer: ReturnType<typeof setTimeout> | undefined;
+  const stopScanTimer = (): void => {
+    if (scanTimer !== undefined) clearTimeout(scanTimer);
+    scanTimer = undefined;
+  };
+  // Its elements go once the fade is over: nothing of the scan stays to animate.
+  const fadeScan = (): void => {
+    stopScanTimer();
+    if (!scanGroup.hasChildNodes()) return;
+    scanGroup.classList.remove("is-active");
+    scanTimer = setTimeout(() => {
+      scanTimer = undefined;
+      scanGroup.replaceChildren();
+    }, SCAN_FADE_MS);
+  };
+  const drawScan = (msg: HighlightScanMsg): void => {
+    // Nothing of this look on this monitor: the last scan here fades.
+    if (msg.rects.length + msg.locked.length === 0) {
+      fadeScan();
+      return;
+    }
+    stopScanTimer();
+    scanGroup.replaceChildren();
+    const height = viewportSize().height;
+    const box = (rect: CssRect): Record<string, string> => ({
+      x: num(rect.left),
+      y: num(rect.top),
+      width: num(rect.right - rect.left),
+      height: num(rect.bottom - rect.top),
+    });
+    // Each appears when the sweep passes its top (no sweep with reduced motion: CSS).
+    const sweep = (el: SVGElement, rect: CssRect): void => {
+      el.style.animationDelay = `${scanDelay(rect, height)}ms`;
+      scanGroup.append(el);
+    };
+    for (const rect of msg.rects) {
+      sweep(svgEl("rect", { class: "highlight-scan-outline", rx: 3, ry: 3, ...box(rect) }), rect);
+    }
+    for (const rect of msg.locked) {
+      // A dark tile and a lock, never words (invariant 7) or what the field holds.
+      const tile = svgEl("g", { class: "highlight-scan-locked" });
+      tile.append(svgEl("rect", { class: "highlight-scan-tile", rx: 3, ry: 3, ...box(rect) }));
+      const center = lockCenter(rect);
+      if (center) {
+        const lock = svgEl("g", {
+          class: "highlight-scan-lock",
+          transform: `translate(${num(center.x)} ${num(center.y)})`,
+        });
+        lock.append(svgEl("path", { d: LOCK_SHACKLE }), svgEl("rect", LOCK_BODY));
+        tile.append(lock);
+      }
+      sweep(tile, rect);
+    }
+    scanGroup.classList.add("is-active");
+    scanTimer = setTimeout(fadeScan, SCAN_LIFETIME_MS - SCAN_FADE_MS);
+  };
+
   const positionBadge = (rect: CssRect): void => {
     const pos = computeBadgePosition(rect, viewportSize(), measuredBadgeSize(badge));
     badge.style.left = `${num(pos.x)}px`;
@@ -282,6 +358,8 @@ export function mountHighlight(
 
   const drawTarget = (msg: HighlightTargetMsg): void => {
     stopClearTimer();
+    // The chosen element keeps its ring; the rest of what Mate read fades.
+    fadeScan();
     if (missRect && ((msg.step?.number ?? null) !== missStep ||
       (Object.keys(missRect) as (keyof CssRect)[]).some((key) => missRect?.[key] !== msg.rect[key]))) {
       stopMiss();
@@ -336,6 +414,7 @@ export function mountHighlight(
   const clear = (): void => {
     stopClearTimer();
     stopMiss();
+    fadeScan();
     activeTarget = null;
     scene.classList.remove("is-active");
     badge.classList.remove("is-active");
@@ -364,6 +443,10 @@ export function mountHighlight(
       drawMiss(msg);
       return;
     }
+    if (msg.type === "scan") {
+      drawScan(msg);
+      return;
+    }
     drawTarget(msg);
   };
 
@@ -388,9 +471,11 @@ export function mountHighlight(
     destroy() {
       stopClearTimer();
       stopMiss();
+      stopScanTimer();
       motionQuery.removeEventListener("change", syncMotion);
       window.removeEventListener("resize", onResize);
       scene.remove();
+      scanGroup.remove();
       defs.remove();
       badge.hidden = true;
       badge.textContent = "";

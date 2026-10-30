@@ -895,6 +895,8 @@ async fn answer(
                     look.redacted.painted,
                     since_key_up(tokio::time::Instant::now()),
                 );
+                // The X-ray look fills the wait for the model: rectangles only.
+                let _ = crate::highlight::scan(&app, &look);
                 let model = ModelChoice::from(crate::settings::model(&app));
                 let (list, image) = (&look.list, &look.redacted.image);
                 let (body, wait_phrase) = if intent == Intent::Safety {

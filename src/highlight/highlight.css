@@ -1,6 +1,7 @@
 /* Click-through highlight overlay (src/highlight.ts): a light beam from Mate, a soft glowing
    ring around the target rectangle (1.5 s pulse), and a numeric step badge ("2 / 3"). Everything
-   fades out in 200 ms on `clear`. */
+   fades out in 200 ms on `clear`. While the model thinks, the X-ray scan: faint outlines that
+   light up top to bottom, hidden fields as dark tiles with a lock. */
 
 #highlight {
   position: fixed;
@@ -83,13 +84,84 @@
   display: none;
 }
 
-.reduce-motion .highlight-ring {
+/* Finite animations only: once the scan has faded its elements are removed. */
+.highlight-scan {
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
+}
+
+.highlight-scan.is-active {
+  opacity: 1;
+}
+
+.highlight-scan-outline {
+  fill: #fff6c8;
+  fill-opacity: 0.04;
+  stroke: #fff6c8;
+  stroke-opacity: 0.45;
+  stroke-width: 1.5px;
+  animation: highlight-scan-sweep 700ms ease-out both;
+}
+
+.highlight-scan-locked {
+  animation: highlight-scan-appear 400ms ease-out both;
+}
+
+.highlight-scan-tile {
+  fill: #14161c;
+  fill-opacity: 0.85;
+  stroke: #fff6c8;
+  stroke-opacity: 0.35;
+  stroke-width: 1px;
+}
+
+.highlight-scan-lock path {
+  fill: none;
+  stroke: #fff6c8;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+}
+
+.highlight-scan-lock rect {
+  fill: #fff6c8;
+}
+
+.reduce-motion .highlight-ring,
+.reduce-motion .highlight-scan-outline,
+.reduce-motion .highlight-scan-locked {
   animation: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .highlight-ring {
+  .highlight-ring,
+  .highlight-scan-outline,
+  .highlight-scan-locked {
     animation: none !important;
+  }
+}
+
+@keyframes highlight-scan-sweep {
+  0% {
+    opacity: 0;
+    stroke-opacity: 0.9;
+  }
+  30% {
+    opacity: 1;
+    stroke-opacity: 0.9;
+  }
+  100% {
+    opacity: 1;
+    stroke-opacity: 0.45;
+  }
+}
+
+@keyframes highlight-scan-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 

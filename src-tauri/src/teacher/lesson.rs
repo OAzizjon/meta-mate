@@ -56,7 +56,11 @@ pub(crate) async fn teach(
     let mut asked_to_focus = false;
     let now = || u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let mut current = match look(&app, generation, own.clone(), target).await {
-        Ok(look) => Arc::new(look),
+        Ok(look) => {
+            // The X-ray look fills the first turn's wait: rectangles only.
+            let _ = crate::highlight::scan(&app, &look);
+            Arc::new(look)
+        }
         Err(failure) => {
             if stream.is_cancelled(generation) {
                 return;

@@ -9,17 +9,24 @@ import {
   BADGE_HEIGHT,
   BADGE_WIDTH,
   BEAM_HALF_WIDTH,
+  LOCK_MIN_SIDE,
+  MAX_SCAN_RECTS,
   MAX_STEP_TOTAL,
   RING_PAD,
+  SCAN_FADE_MS,
+  SCAN_LIFETIME_MS,
+  SCAN_SWEEP_MS,
   VIEWPORT_MARGIN,
   computeBadgePosition,
   computeBeamPolygon,
   formatPolygonPoints,
   formatStepBadge,
+  lockCenter,
   nearestRectEdge,
   missPath,
   parseHighlightMsg,
   ringRect,
+  scanDelay,
   shouldDim,
 } from "./geometry.ts";
 import type { CssPoint, CssRect } from "./geometry.ts";
@@ -378,6 +385,63 @@ test("spotlight is suppressed above half the monitor, including ring padding", (
   assert.equal(shouldDim({ left: -20, top: -20, right: 120, bottom: 120 }, viewport), false);
   assert.equal(shouldDim(RECT, { width: 0, height: 100 }), false);
   assert.equal(shouldDim({ left: -30, top: 20, right: 10, bottom: 30 }, viewport), true);
+});
+
+test("scan payloads parse into fresh copies within MAX_SCAN_RECTS", () => {
+  const field: CssRect = { left: 10, top: 300.5, right: 210, bottom: 330 };
+  const raw = { type: "scan", rects: [RECT, { ...RECT, top: 0 }], locked: [field] };
+  const parsed = parseHighlightMsg(raw);
+  assert.deepEqual(parsed, raw);
+  if (parsed?.type !== "scan") assert.fail("expected scan");
+  assert.notEqual(parsed.rects, raw.rects);
+  assert.notEqual(parsed.rects[0], raw.rects[0]);
+  assert.notEqual(parsed.locked[0], field);
+  assert.deepEqual(parseHighlightMsg({ type: "scan", rects: [], locked: [] }), {
+    type: "scan", rects: [], locked: [],
+  });
+  // MAX_LISTED in src-tauri/src/screen.rs: outlines and locks together.
+  assert.equal(MAX_SCAN_RECTS, 60);
+  const full = Array.from({ length: MAX_SCAN_RECTS }, () => RECT);
+  assert.equal(parseHighlightMsg({ type: "scan", rects: full, locked: [] })?.type, "scan");
+  assert.equal(parseHighlightMsg({ type: "scan", rects: [], locked: full })?.type, "scan");
+  const holed: unknown[] = [RECT];
+  holed.length = 2;
+  for (const bad of [
+    { type: "scan", rects: [] },
+    { type: "scan", rects: [], locked: [], extra: 1 },
+    { type: "scan", rects: null, locked: [] },
+    { type: "scan", rects: [], locked: RECT },
+    { type: "scan", rects: [RECT, { ...RECT, bottom: RECT.top }], locked: [] },
+    { type: "scan", rects: [], locked: [{ ...RECT, left: NaN }] },
+    { type: "scan", rects: [{ ...RECT, name: "Password" }], locked: [] },
+    { type: "scan", rects: holed, locked: [] },
+    { type: "scan", rects: [...full, RECT], locked: [] },
+    { type: "scan", rects: full.slice(1), locked: [RECT, RECT] },
+  ]) assert.equal(parseHighlightMsg(bad), null, inspect(bad));
+});
+
+test("the scan sweeps top to bottom and locks only tiles with room for one", () => {
+  const at = (top: number): CssRect => ({ ...RECT, top, bottom: top + 20 });
+  assert.equal(scanDelay(at(0), 1000), 0);
+  assert.equal(scanDelay(at(500), 1000), SCAN_SWEEP_MS / 2);
+  assert.equal(scanDelay(at(1000), 1000), SCAN_SWEEP_MS);
+  assert.ok(scanDelay(at(100), 1000) < scanDelay(at(200), 1000));
+  // Above or below the monitor (clipped by Rust anyway) and a bad viewport stay in range.
+  assert.equal(scanDelay(at(-40), 1000), 0);
+  assert.equal(scanDelay(at(5000), 1000), SCAN_SWEEP_MS);
+  assert.equal(scanDelay(at(500), 0), 0);
+  assert.equal(scanDelay(at(500), NaN), 0);
+  assert.equal(scanDelay(at(500), 1000, 2000), 1000);
+  // The whole sweep and its fade fit in the scan's lifetime.
+  assert.ok(SCAN_SWEEP_MS + SCAN_FADE_MS < SCAN_LIFETIME_MS && SCAN_LIFETIME_MS <= 4000);
+
+  assert.deepEqual(lockCenter({ left: 10, top: 20, right: 210, bottom: 50 }), { x: 110, y: 35 });
+  assert.deepEqual(
+    lockCenter({ left: 0, top: 0, right: LOCK_MIN_SIDE, bottom: LOCK_MIN_SIDE }),
+    { x: LOCK_MIN_SIDE / 2, y: LOCK_MIN_SIDE / 2 },
+  );
+  assert.equal(lockCenter({ left: 0, top: 0, right: LOCK_MIN_SIDE - 1, bottom: 40 }), null);
+  assert.equal(lockCenter({ left: 0, top: 0, right: 200, bottom: LOCK_MIN_SIDE - 0.5 }), null);
 });
 
 test("warmth accepts exactly ten levels and rejects malformed fields", () => {

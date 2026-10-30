@@ -222,6 +222,61 @@ impl Look {
         Some(rect)
     }
 
+    /// What the X-ray look draws of this look (highlight.rs `scan`), as rectangles only:
+    /// the listed elements' outlines, and every field painted over for privacy as a
+    /// locked tile. Both clipped to the captured region; nothing under a painted area.
+    pub fn scan(&self) -> (Vec<PhysRect>, Vec<PhysRect>) {
+        // `inner` lies wholly within `outer`.
+        fn inside(inner: PhysRect, outer: PhysRect) -> bool {
+            inner.left >= outer.left
+                && inner.top >= outer.top
+                && inner.right <= outer.right
+                && inner.bottom <= outer.bottom
+        }
+        let hidden = self.snapshot.hidden_ids();
+        let shown = |rect: PhysRect| {
+            if overlaps_any(rect, &self.painted) {
+                return None;
+            }
+            clip(rect, self.snapshot.frame)
+        };
+        let area = |r: PhysRect| {
+            (i64::from(r.right) - i64::from(r.left)) * (i64::from(r.bottom) - i64::from(r.top))
+        };
+        let mut fields: Vec<PhysRect> = self
+            .snapshot
+            .elements
+            .iter()
+            .filter(|element| !element.offscreen && hidden.contains(&element.id))
+            // A field half under another window keeps its tile: only one hidden entirely is
+            // dropped, so a lock never leaves part of a field bare.
+            .filter_map(|element| {
+                let rect = element.rect?;
+                if self.painted.iter().any(|&over| inside(rect, over)) {
+                    return None;
+                }
+                clip(rect, self.snapshot.frame)
+            })
+            .collect();
+        // A field's own text and children sit inside it: one tile for them all.
+        fields.sort_by_key(|&rect| std::cmp::Reverse(area(rect)));
+        let mut locked: Vec<PhysRect> = Vec::new();
+        for field in fields {
+            if !locked.iter().any(|&kept| inside(field, kept)) {
+                locked.push(field);
+            }
+        }
+        let rects = self
+            .list
+            .ids
+            .iter()
+            .filter(|id| !hidden.contains(id.as_str()))
+            .filter_map(|id| self.snapshot.element(id)?.rect)
+            .filter_map(shown)
+            .collect();
+        (rects, locked)
+    }
+
     /// The parser's settings for the answer to this look: only listed ids, pixels inside
     /// the image that was sent.
     pub fn parser_settings(&self, language: &str, mode: Mode) -> Settings {
@@ -1160,6 +1215,44 @@ mod tests {
             .push(element("peek", "Text", "revealed-secret", field));
         let look = prepare(snapshot, &capture(), &[]).unwrap();
         assert!(!look.list.text.contains("revealed-secret"));
+    }
+
+    #[test]
+    fn the_scan_outlines_what_was_listed_and_locks_what_was_painted() {
+        let mut page = snapshot();
+        let field = PhysRect::new(150, 200, 350, 230).unwrap();
+        let save = PhysRect::new(400, 300, 480, 330).unwrap();
+        // Text over the password and an offscreen field: no tiles of their own.
+        page.elements
+            .push(element("peek", "Text", "revealed-secret", field));
+        let mut offscreen = element(
+            "e9",
+            "Edit",
+            "PIN",
+            PhysRect::new(110, 60, 140, 80).unwrap(),
+        );
+        offscreen.password_like = true;
+        offscreen.offscreen = true;
+        page.elements.push(offscreen);
+        let look = prepare(page.clone(), &capture(), &[]).unwrap();
+        let (rects, locked) = look.scan();
+        assert_eq!(locked, vec![field]);
+        // The window, Save and the text; the listed password is a tile, not an outline.
+        assert_eq!(look.list.ids.len(), 4);
+        assert_eq!(rects.len(), 3);
+        assert!(rects.contains(&save) && rects.contains(&REGION));
+        assert!(!rects.contains(&field));
+        // Under another app's window: neither outlined nor locked.
+        let other = PhysRect::new(380, 280, 500, 350).unwrap();
+        let (rects, locked) = prepare(page, &capture(), &[other]).unwrap().scan();
+        assert_eq!(rects, vec![PhysRect::new(120, 70, 300, 90).unwrap()]);
+        assert_eq!(locked, vec![field]);
+        let look = prepare(snapshot(), &capture(), &[field]).unwrap();
+        assert!(look.scan().1.is_empty());
+        // Half under another window: the tile stays, so no part of the field is left bare.
+        let half = PhysRect::new(300, 190, 400, 240).unwrap();
+        let look = prepare(snapshot(), &capture(), &[half]).unwrap();
+        assert_eq!(look.scan().1, vec![field]);
     }
 
     #[test]

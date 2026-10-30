@@ -1,7 +1,8 @@
 // Pure geometry and wire validation for the click-through highlight window (docs/architecture.md
 // section 2, WP5): parses `HighlightMsg` payloads from Rust, inflates the target ring, builds the
-// light-beam polygon from `beamFrom` to the target's nearest edge, and keeps the step badge inside
-// the viewport. No DOM or Tauri imports, so Node tests run this module directly.
+// light-beam polygon from `beamFrom` to the target's nearest edge, keeps the step badge inside
+// the viewport, and times the scan's sweep and places its locks. No DOM or Tauri imports, so Node
+// tests run this module directly.
 
 import type { CssPoint, CssRect } from "../robot/types.ts";
 
@@ -43,7 +44,19 @@ export interface HighlightMissMsg {
   readonly rect: CssRect;
 }
 
-export type HighlightMsg = HighlightTargetMsg | HighlightClearMsg | HighlightWarmthMsg | HighlightMissMsg;
+/** What Mate read while the model thinks: outlines, and hidden fields as locked tiles. */
+export interface HighlightScanMsg {
+  readonly type: "scan";
+  readonly rects: readonly CssRect[];
+  readonly locked: readonly CssRect[];
+}
+
+export type HighlightMsg =
+  | HighlightTargetMsg
+  | HighlightClearMsg
+  | HighlightWarmthMsg
+  | HighlightMissMsg
+  | HighlightScanMsg;
 
 export type RectEdgeSide = "left" | "right" | "top" | "bottom";
 
@@ -72,6 +85,16 @@ export const BADGE_GAP = 4;
 export const VIEWPORT_MARGIN = 4;
 /** Duration of the fade-out when `"clear"` arrives (ms). */
 export const CLEAR_FADE_MS = 200;
+/** Most rectangles in one scan, outlines and locked tiles together (`MAX_LISTED` in src-tauri). */
+export const MAX_SCAN_RECTS = 60;
+/** Time for the scan to sweep from the top of the monitor to the bottom (ms). */
+export const SCAN_SWEEP_MS = 900;
+/** The scan is gone this long after it arrives, its fade-out included (ms). */
+export const SCAN_LIFETIME_MS = 4000;
+/** Duration of the scan's fade-out (ms). */
+export const SCAN_FADE_MS = 300;
+/** A locked tile gets its lock only when both sides are at least this long (CSS px). */
+export const LOCK_MIN_SIDE = 16;
 
 type JsonObject = Readonly<Record<string, unknown>>;
 
@@ -137,6 +160,13 @@ function parseMsg(raw: unknown): HighlightMsg | null {
     const rect = parseRect(raw.rect);
     return from && rect ? { type, from, rect } : null;
   }
+  if (type === "scan") {
+    if (!exact(raw, ["type", "rects", "locked"])) return null;
+    const rects = parseRects(raw.rects);
+    const locked = parseRects(raw.locked);
+    return rects && locked && rects.length + locked.length <= MAX_SCAN_RECTS
+      ? { type, rects, locked } : null;
+  }
   if (type !== "target") return null;
 
   const own = Object.keys(raw);
@@ -196,6 +226,18 @@ function parseRect(value: unknown): CssRect | null {
     return null;
   }
   return { left, top, right, bottom };
+}
+
+/** A plain array of at most `MAX_SCAN_RECTS` valid rects; one bad entry or hole rejects it. */
+function parseRects(value: unknown): CssRect[] | null {
+  if (!Array.isArray(value) || value.length > MAX_SCAN_RECTS) return null;
+  const rects: CssRect[] = [];
+  for (let i = 0; i < value.length; i++) {
+    const rect = parseRect(value[i]);
+    if (!rect) return null;
+    rects.push(rect);
+  }
+  return rects;
 }
 
 function parsePoint(value: unknown): CssPoint | null {
@@ -363,6 +405,24 @@ export function missPath(from: CssPoint, rect: CssRect): string | null {
   const cx = from.x / 2 + x / 2 - dy / distance * bend;
   const cy = from.y / 2 + y / 2 + dx / distance * bend;
   return `M ${num(from.x)} ${num(from.y)} Q ${num(cx)} ${num(cy)} ${num(x)} ${num(y)}`;
+}
+
+/** When the sweep reaches `rect`: its top's share of the monitor's height of `sweepMs`. */
+export function scanDelay(
+  rect: CssRect,
+  viewportHeight: number,
+  sweepMs: number = SCAN_SWEEP_MS,
+): number {
+  if (!Number.isFinite(viewportHeight) || viewportHeight <= 0) return 0;
+  return Math.round(clamp(rect.top / viewportHeight, 0, 1) * sweepMs);
+}
+
+/** The middle of a locked tile, where its lock goes; `null` when the tile is too small. */
+export function lockCenter(rect: CssRect): CssPoint | null {
+  if (!(rect.right - rect.left >= LOCK_MIN_SIDE && rect.bottom - rect.top >= LOCK_MIN_SIDE)) {
+    return null;
+  }
+  return { x: rect.left / 2 + rect.right / 2, y: rect.top / 2 + rect.bottom / 2 };
 }
 
 /** Formats polygon vertices for an SVG `points` attribute. */

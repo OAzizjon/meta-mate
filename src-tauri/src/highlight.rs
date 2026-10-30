@@ -1,7 +1,7 @@
 //! Rust → the highlight windows: the ring around the element Mate points at, the beam from
-//! Mate and the step badge (src/highlight.ts is the other end). Each monitor has its own
-//! window covering its area, so everything sent is CSS pixels relative to that monitor
-//! (invariant 2).
+//! Mate, the step badge and the X-ray scan of a look (src/highlight.ts is the other end).
+//! Each monitor has its own window covering its area, so everything sent is CSS pixels
+//! relative to that monitor (invariant 2).
 
 use std::fmt;
 
@@ -16,6 +16,9 @@ const EVENT: &str = "highlight";
 /// The highest step total the window draws a badge for (src/highlight.ts drops the
 /// whole message otherwise).
 const MAX_STEPS: u32 = 20;
+/// The most rectangles one scan carries, outlines and locked tiles together
+/// (src/highlight/geometry.ts drops the whole message otherwise).
+const MAX_SCAN: usize = crate::screen::MAX_LISTED;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(
@@ -37,6 +40,9 @@ pub enum HighlightMsg {
     Warmth { level: u8, on_target: bool },
     /// A gentle correction from the click to the target, on the same monitor only.
     Miss { from: Point, rect: Rect },
+    /// What Mate read while the model thinks: outlines of the listed elements and dark
+    /// tiles over the hidden fields. Rectangles only, never a name or a value.
+    Scan { rects: Vec<Rect>, locked: Vec<Rect> },
 }
 
 /// CSS pixels relative to the highlight window.
@@ -200,6 +206,60 @@ fn miss_message(
         from: transform.phys_to_css(at).into(),
         rect,
     })
+}
+
+/// The X-ray look of `look` while the model thinks: each monitor's window gets the part on
+/// its monitor (an empty one just fades the last scan there). Only rectangles leave this
+/// process, to our own windows, which every look hides before its copy (screen.rs `Hidden`).
+#[cfg(windows)]
+pub fn scan(app: &AppHandle, look: &crate::screen::Look) -> Result<(), HighlightError> {
+    let (rects, locked) = look.scan();
+    let mut result = Ok(());
+    for (index, monitor) in mm_win32::monitors::monitors().iter().enumerate() {
+        let sent = scan_message(monitor.area, monitor.scale(), &rects, &locked)
+            .and_then(|payload| send(app, &label(index), payload));
+        result = result.and(sent);
+    }
+    result
+}
+
+/// The scan for the monitor covering `area` at `scale`: what of `rects` and `locked` is on
+/// it, clipped to it, at most `MAX_SCAN` in all. Hidden fields go first, so the cap never
+/// drops a lock.
+fn scan_message(
+    area: PhysRect,
+    scale: f64,
+    rects: &[PhysRect],
+    locked: &[PhysRect],
+) -> Result<HighlightMsg, HighlightError> {
+    let area = valid(area)?;
+    let transform = MonitorTransform::new(
+        PhysPoint {
+            x: area.left,
+            y: area.top,
+        },
+        scale,
+    )?;
+    let on_monitor = |rects: &[PhysRect], room: usize| -> Vec<Rect> {
+        rects
+            .iter()
+            .filter_map(|&rect| {
+                let rect = valid(rect).ok()?;
+                PhysRect::new(
+                    rect.left.max(area.left),
+                    rect.top.max(area.top),
+                    rect.right.min(area.right),
+                    rect.bottom.min(area.bottom),
+                )
+                .ok()
+            })
+            .take(room)
+            .map(|visible| transform.phys_rect_to_css(visible).into())
+            .collect()
+    };
+    let locked = on_monitor(locked, MAX_SCAN);
+    let rects = on_monitor(rects, MAX_SCAN.saturating_sub(locked.len()));
+    Ok(HighlightMsg::Scan { rects, locked })
 }
 
 fn send(app: &AppHandle, label: &str, payload: HighlightMsg) -> Result<(), HighlightError> {
@@ -519,8 +579,94 @@ mod tests {
         );
     }
 
+    /// The outline and lock counts of a scan.
+    fn scan_counts(scanned: Result<HighlightMsg, HighlightError>) -> (usize, usize) {
+        match scanned {
+            Ok(HighlightMsg::Scan { rects, locked }) => (rects.len(), locked.len()),
+            other => panic!("not a scan: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn scan_sends_each_monitor_its_own_part_in_its_css_pixels() {
+        // 150 % at -1920,0: one outline on it, one across the edge, one on the primary.
+        let area = rect(-1920, 0, 0, 1080);
+        let rects = [
+            rect(-1500, 300, -1350, 450),
+            rect(-150, 0, 150, 30),
+            rect(100, 100, 200, 200),
+        ];
+        let locked = [rect(-1800, 600, -1650, 645), rect(-10, 10, -20, 40)];
+        assert_eq!(
+            scan_message(area, 1.5, &rects, &locked),
+            Ok(HighlightMsg::Scan {
+                rects: vec![
+                    css(280.0, 200.0, 380.0, 300.0),
+                    css(1180.0, 0.0, 1280.0, 20.0),
+                ],
+                locked: vec![css(80.0, 400.0, 180.0, 430.0)],
+            })
+        );
+        assert_eq!(
+            scan_message(primary(), 1.0, &rects[..1], &[]),
+            Ok(HighlightMsg::Scan {
+                rects: Vec::new(),
+                locked: Vec::new(),
+            })
+        );
+        assert_eq!(
+            scan_message(primary(), 0.0, &rects, &locked),
+            Err(HighlightError::Geometry(GeomError::InvalidScale))
+        );
+    }
+
+    #[test]
+    fn scan_carries_at_most_max_listed_rectangles_locks_first() {
+        assert_eq!(MAX_SCAN, 60, "src/highlight/geometry.ts MAX_SCAN_RECTS");
+        let many: Vec<PhysRect> = (0..70).map(|i| rect(i * 20, 0, i * 20 + 10, 10)).collect();
+        assert_eq!(
+            scan_counts(scan_message(primary(), 1.0, &many, &[])),
+            (MAX_SCAN, 0)
+        );
+        assert_eq!(
+            scan_counts(scan_message(primary(), 1.0, &many, &many[..5])),
+            (MAX_SCAN - 5, 5)
+        );
+        assert_eq!(
+            scan_counts(scan_message(primary(), 1.0, &many, &many)),
+            (0, MAX_SCAN)
+        );
+        // Rectangles off this monitor take no room.
+        let mut elsewhere = vec![rect(3000, 0, 3010, 10); 70];
+        elsewhere.push(button());
+        assert_eq!(
+            scan_counts(scan_message(primary(), 1.0, &[button()], &elsewhere)),
+            (1, 1)
+        );
+    }
+
     #[test]
     fn serializes_the_shape_the_window_expects() {
+        assert_eq!(
+            serde_json::to_value(HighlightMsg::Scan {
+                rects: vec![css(1.0, 2.0, 3.5, 4.0)],
+                locked: vec![css(5.0, 6.0, 7.0, 8.25)],
+            })
+            .unwrap(),
+            json!({
+                "type": "scan",
+                "rects": [{"left": 1.0, "top": 2.0, "right": 3.5, "bottom": 4.0}],
+                "locked": [{"left": 5.0, "top": 6.0, "right": 7.0, "bottom": 8.25}]
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(HighlightMsg::Scan {
+                rects: Vec::new(),
+                locked: Vec::new(),
+            })
+            .unwrap(),
+            json!({"type": "scan", "rects": [], "locked": []})
+        );
         let shown = HighlightMsg::Target {
             dim: true,
             rect: css(1.0, 2.0, 3.5, 4.0),
