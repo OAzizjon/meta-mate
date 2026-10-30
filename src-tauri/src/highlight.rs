@@ -35,6 +35,8 @@ pub enum HighlightMsg {
     Clear,
     /// Ten brightness levels; only a cursor actually on the target is steady.
     Warmth { level: u8, on_target: bool },
+    /// A gentle correction from the click to the target, on the same monitor only.
+    Miss { from: Point, rect: Rect },
 }
 
 /// CSS pixels relative to the highlight window.
@@ -154,6 +156,50 @@ pub fn warmth(app: &AppHandle, level: u8, on_target: bool) {
     let payload = HighlightMsg::Warmth { level, on_target };
     let _ = app.emit_to("mate", EVENT, payload.clone());
     let _ = send_all(app, |_| true, &payload);
+}
+
+/// Draws the correction in the existing click-through window; never spans monitors.
+#[cfg(windows)]
+pub fn miss(app: &AppHandle, at: PhysPoint, target: PhysRect) -> Result<(), HighlightError> {
+    let monitors = mm_win32::monitors::monitors();
+    let Some((index, monitor)) = monitors
+        .iter()
+        .enumerate()
+        .find(|(_, monitor)| monitor.area.contains(target.center()))
+    else {
+        return Ok(());
+    };
+    match miss_message(monitor.area, monitor.scale(), at, target) {
+        Ok(payload) => send(app, &label(index), payload),
+        Err(HighlightError::OtherMonitor) => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
+fn miss_message(
+    area: PhysRect,
+    scale: f64,
+    at: PhysPoint,
+    target: PhysRect,
+) -> Result<HighlightMsg, HighlightError> {
+    if !valid(area)?.contains(at) {
+        return Err(HighlightError::OtherMonitor);
+    }
+    // Reuse the target's validation, clipping and monitor transform.
+    let HighlightMsg::Target { rect, .. } = message(area, scale, target, None, None)? else {
+        unreachable!();
+    };
+    let transform = MonitorTransform::new(
+        PhysPoint {
+            x: area.left,
+            y: area.top,
+        },
+        scale,
+    )?;
+    Ok(HighlightMsg::Miss {
+        from: transform.phys_to_css(at).into(),
+        rect,
+    })
 }
 
 fn send(app: &AppHandle, label: &str, payload: HighlightMsg) -> Result<(), HighlightError> {
@@ -421,6 +467,56 @@ mod tests {
     fn labels_each_window_by_its_monitors_index() {
         assert_eq!(label(0), "highlight-0");
         assert_eq!(label(12), "highlight-12");
+    }
+
+    #[test]
+    fn miss_uses_the_targets_transform_and_wire_shape() {
+        let payload = miss_message(
+            rect(-1920, 0, 0, 1080),
+            1.5,
+            PhysPoint { x: -1800, y: 150 },
+            rect(-1500, 300, -1350, 450),
+        )
+        .unwrap();
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            json!({
+                "type": "miss",
+                "from": {"x": 80.0, "y": 100.0},
+                "rect": {"left": 280.0, "top": 200.0, "right": 380.0, "bottom": 300.0}
+            })
+        );
+    }
+
+    #[test]
+    fn miss_refuses_clicks_on_other_monitors_and_clips_the_target() {
+        for at in [PhysPoint { x: -1, y: 100 }, PhysPoint { x: 1920, y: 100 }] {
+            assert_eq!(
+                miss_message(primary(), 1.0, at, button()),
+                Err(HighlightError::OtherMonitor)
+            );
+        }
+        assert_eq!(
+            miss_message(
+                primary(),
+                1.0,
+                PhysPoint { x: 100, y: 100 },
+                rect(1850, 100, 1950, 150)
+            ),
+            Ok(HighlightMsg::Miss {
+                from: Point { x: 100.0, y: 100.0 },
+                rect: css(1850.0, 100.0, 1920.0, 150.0),
+            })
+        );
+        assert_eq!(
+            miss_message(
+                primary(),
+                1.0,
+                PhysPoint { x: 100, y: 100 },
+                rect(2000, 100, 2100, 150)
+            ),
+            Err(HighlightError::OtherMonitor)
+        );
     }
 
     #[test]

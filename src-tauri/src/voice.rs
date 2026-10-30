@@ -119,6 +119,9 @@ pub struct VoiceLoop {
 enum Input {
     Ptt(PttEvent, Option<Instant>),
     Text(String, Option<mm_platform::TargetWindow>, Option<u64>),
+    /// "What's this?" (explain.rs): a text question about one control, told the answer's
+    /// generation once that answer owns the screen.
+    Explain(String, oneshot::Sender<u64>),
     Line(&'static str),
 }
 
@@ -146,6 +149,13 @@ pub(crate) fn ask_chat(app: &AppHandle, text: String, epoch: u64) -> bool {
             .send(Input::Text(text, remembered_target(app), Some(epoch)))
             .is_ok()
     })
+}
+
+/// Queues Mate's "What's this?" question (explain.rs) like a typed one: the same sign-in
+/// gate, guest count and barge-in, always on the chat route.
+pub(crate) fn ask_explain(app: &AppHandle, text: String, started: oneshot::Sender<u64>) -> bool {
+    app.try_state::<TextQuestions>()
+        .is_some_and(|questions| questions.sender.send(Input::Explain(text, started)).is_ok())
 }
 
 pub(crate) fn remembered_target(app: &AppHandle) -> Option<mm_platform::TargetWindow> {
@@ -241,6 +251,7 @@ pub fn ask(app: &AppHandle, question: String) {
             transcript,
             None,
             Arc::default(),
+            None,
             None,
         )
         .await;
@@ -389,11 +400,19 @@ async fn run(
         {
             continue;
         }
+        // Anything new ends an open "What's this?" offer (explain.rs): a later click on Mate
+        // must stop this recording, not ask about the control.
+        if matches!(
+            event,
+            Input::Text(..) | Input::Line(_) | Input::Ptt(PttEvent::Start { .. }, _)
+        ) {
+            crate::explain::withdraw();
+        }
         // Signing in is required (signin.rs): a new question opens the sign-in window
         // instead; the key's release finds no recording and is dropped below.
         if matches!(
             event,
-            Input::Text(..) | Input::Ptt(PttEvent::Start { .. }, _)
+            Input::Text(..) | Input::Explain(..) | Input::Ptt(PttEvent::Start { .. }, _)
         ) && crate::signin::missing(&app)
         {
             next_generation += 1;
@@ -443,7 +462,18 @@ async fn run(
                     PttEvent::Start {
                         generation: next_generation,
                     },
-                    Some((text, target)),
+                    Some((text, target, None)),
+                )
+            }
+            Input::Explain(text, started) => {
+                crate::presence::wake(&app, false);
+                next_generation += 1;
+                recording = None;
+                (
+                    PttEvent::Start {
+                        generation: next_generation,
+                    },
+                    Some((text, None, Some(started))),
                 )
             }
             Input::Ptt(PttEvent::Start { generation }, _) => {
@@ -499,7 +529,14 @@ async fn run(
                 } else {
                     stop_pointing(&app);
                 }
-                if let Some((text, target)) = text {
+                if let Some((text, target, explained)) = text {
+                    // "What's this?" asks about one control, never about the window in
+                    // front: the chat route, whatever its words. Any earlier ring is gone
+                    // now, so explain.rs may light the control again.
+                    let route = explained.map(|started| {
+                        let _ = started.send(generation);
+                        Intent::Chat
+                    });
                     let transcript = tokio::spawn(async move {
                         Ok(Transcript {
                             text,
@@ -527,6 +564,7 @@ async fn run(
                             None,
                             Arc::clone(&lessons),
                             Some(target),
+                            route,
                         ))),
                     });
                     continue;
@@ -659,6 +697,7 @@ async fn run(
                         session.pressed_at,
                         Arc::clone(&lessons),
                         None,
+                        None,
                     )));
                 }
             }
@@ -692,6 +731,7 @@ async fn answer(
     pressed_at: Option<Instant>,
     lessons: Lessons,
     tray_target: Option<Option<mm_platform::TargetWindow>>,
+    route: Option<Intent>,
 ) {
     let stream = app.state::<AnswerStream>();
     let question = match transcript.await {
@@ -748,7 +788,7 @@ async fn answer(
         stop_pointing(&app);
     }
     let locale = stream.locale();
-    let intent = guess_intent(&question);
+    let intent = route.unwrap_or_else(|| guess_intent(&question));
     if tray_target == Some(None)
         && matches!(
             intent,

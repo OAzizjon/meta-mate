@@ -69,17 +69,53 @@ pub struct UiaWalker {
     walker: UITreeWalker,
 }
 
+/// One live hit test, kept for `UiaWalker::ancestry`: the window over the point may hide
+/// for the hit test alone and come back before the slower read of its ancestors.
+pub struct Hit(UIElement);
+
 impl UiaWalker {
     /// A live hit with the walk's cached properties; COM stays on the calling thread.
     pub fn element_at_point(&self, point: PhysPoint) -> Option<UiElement> {
-        let element = self
-            .automation
+        describe(&self.hit(point)?.0, "p0", None)
+    }
+
+    /// The element under `point`, with the walk's cached properties.
+    pub fn hit(&self, point: PhysPoint) -> Option<Hit> {
+        self.automation
             .element_from_point_build_cache(
                 uiautomation::types::Point::new(point.x, point.y),
                 &self.cache,
             )
-            .ok()?;
-        describe(&element, "p0", None)
+            .ok()
+            .map(Hit)
+    }
+
+    /// The hit element's process, and the element followed by its ancestors up to the
+    /// first window or the desktop's child, ids `p0`, `p1`, ... upwards (parents not
+    /// linked: the order is the ancestry). None when a provider does not answer or the
+    /// top is not reached within `max_levels` (fail closed).
+    pub fn ancestry(&self, hit: &Hit, max_levels: usize) -> Option<(u32, Vec<UiElement>)> {
+        let process_id = hit.0.get_process_id().ok()?;
+        let desktop = self.automation.get_root_element().ok()?;
+        let mut element = hit.0.clone();
+        let mut chain = Vec::new();
+        for level in 0..=max_levels {
+            let described = describe(&element, &format!("p{level}"), None)?;
+            let window = described.control_type == "Window";
+            chain.push(described);
+            if window {
+                return Some((process_id, chain));
+            }
+            let parent = self
+                .walker
+                .get_parent_build_cache(&element, &self.cache)
+                .ok()?;
+            if self.automation.compare_elements(&parent, &desktop).ok()? {
+                return Some((process_id, chain));
+            }
+            element = parent;
+        }
+        None
     }
 
     /// Initializes COM (multithreaded) on this thread and prepares the cache request.

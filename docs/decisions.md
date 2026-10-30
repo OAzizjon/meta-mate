@@ -68,6 +68,8 @@ Each decision records what we chose, why, and what we rejected. Add new entries 
 | D60 | **The UI language follows Windows by default, with a choice in Settings** (2026-10-30): judges need English, the owner's family Russian | Owner, 2026-10-30 |
 | D61 | **A chat window for typed messages** (2026-10-30): answers appear as text in the chat and Mate still speaks and points on screen when the question is about it | Owner, 2026-10-30 |
 | D62 | **Mate's right-click menu is HTML inside his own window** (2026-10-29): a native popup takes focus (`muda` calls `SetForegroundWindow` before `TrackPopupMenu`), which breaks invariant 1; the window grows with `SWP_NOACTIVATE` while the menu is open | Lead, verified in muda 0.20 |
+| D63 | **A second sign-in click joins the one already waiting in the browser** (2026-10-30): the owner saw a new tab on every click; the same provider within 2 minutes joins it, another provider or a later click replaces it, and sign-out ends it at once | Owner, 2026-10-30 |
+| D64 | **Demo features that make pointing easier to see and follow** (2026-10-30): Spotlight (the rest of the screen dims, a setting, on by default), Warmer, warmer (the ring follows the mouse's distance during a lesson step, a local poll only while a step is shown), a dotted trail from a wrong click to the ring (never red, never blaming), and Drop Mate on it (drag Mate onto a control, click him, he explains it: only the control's name, type and the app's file name leave the PC, after the click) | Owner asked for creative features; design, Claude worker |
 
 ## 2026-10-24: decisions before the start (conversation with the owner)
 

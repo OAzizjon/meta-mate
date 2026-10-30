@@ -42,7 +42,9 @@ pub async fn mate_drag_start(app: AppHandle, window: WebviewWindow, x: f64, y: f
                 break;
             }
             if !held {
-                crate::ptt::click();
+                if !crate::explain::clicked(&app) {
+                    crate::ptt::click();
+                }
                 break;
             }
             tokio::time::sleep(Duration::from_millis(16)).await;
@@ -89,7 +91,10 @@ fn frame(
         return false;
     };
     if gesture.update(cursor) && !held {
-        crate::ptt::click();
+        // While a "What's this?" offer is open the click asks it; otherwise it talks.
+        if !crate::explain::clicked(app) {
+            crate::ptt::click();
+        }
         return false;
     }
     // Nearest work area handles taskbars and gaps between connected monitors too.
@@ -121,6 +126,8 @@ fn frame(
     if !held {
         flight.set_home(rect);
         crate::settings::save_mate_home(app, rect);
+        // Let go on a control: offer to explain it (explain.rs). Nothing leaves the PC.
+        crate::explain::dropped(app, cursor);
     }
     held
 }

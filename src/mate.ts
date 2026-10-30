@@ -509,6 +509,19 @@ if (container) {
     ).catch((error: unknown) => {
       console.error("mate: home hint:", error);
     });
+    // Mate let go on a control (src-tauri/src/explain.rs): one click on him asks what it does.
+    void import("@tauri-apps/api/event").then(({ listen }) =>
+      listen<{ control?: unknown; ms?: unknown } | null>("explain-offer", (event) => {
+        const control = event.payload?.control;
+        const ms = event.payload?.ms;
+        if (sleeping || typeof control !== "string" || typeof ms !== "number" || !(ms > 0)) return;
+        stopOnboarding();
+        mountedBubble.setModel(null);
+        mountedBubble.show(t("mate.explain_offer", { control }), ms);
+      }),
+    ).catch((error: unknown) => {
+      console.error("mate: explain offer:", error);
+    });
   }
   if (import.meta.env.DEV) {
     window.__mate = devHook(robot, (locale) => {

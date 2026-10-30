@@ -37,7 +37,13 @@ export interface HighlightWarmthMsg {
   readonly onTarget: boolean;
 }
 
-export type HighlightMsg = HighlightTargetMsg | HighlightClearMsg | HighlightWarmthMsg;
+export interface HighlightMissMsg {
+  readonly type: "miss";
+  readonly from: CssPoint;
+  readonly rect: CssRect;
+}
+
+export type HighlightMsg = HighlightTargetMsg | HighlightClearMsg | HighlightWarmthMsg | HighlightMissMsg;
 
 export type RectEdgeSide = "left" | "right" | "top" | "bottom";
 
@@ -124,6 +130,12 @@ function parseMsg(raw: unknown): HighlightMsg | null {
       typeof level === "number" && Number.isInteger(level) && level >= 0 && level <= 9 &&
       typeof onTarget === "boolean"
       ? { type, level, onTarget } : null;
+  }
+  if (type === "miss") {
+    if (!exact(raw, ["type", "from", "rect"])) return null;
+    const from = parsePoint(raw.from);
+    const rect = parseRect(raw.rect);
+    return from && rect ? { type, from, rect } : null;
   }
   if (type !== "target") return null;
 
@@ -336,6 +348,22 @@ export function computeBeamPolygon(
 }
 
 export const beamPolygon = computeBeamPolygon;
+
+/** A softly bowed quadratic curve to the middle of the facing edge. */
+export function missPath(from: CssPoint, rect: CssRect): string | null {
+  const edge = nearestRectEdge(from, rect);
+  if (!edge) return null;
+  const x = edge.start.x / 2 + edge.end.x / 2;
+  const y = edge.start.y / 2 + edge.end.y / 2;
+  const dx = x - from.x;
+  const dy = y - from.y;
+  const distance = Math.hypot(dx, dy);
+  if (!Number.isFinite(distance) || distance <= 0) return null;
+  const bend = Math.min(48, distance * 0.18);
+  const cx = from.x / 2 + x / 2 - dy / distance * bend;
+  const cy = from.y / 2 + y / 2 + dx / distance * bend;
+  return `M ${num(from.x)} ${num(from.y)} Q ${num(cx)} ${num(cy)} ${num(x)} ${num(y)}`;
+}
 
 /** Formats polygon vertices for an SVG `points` attribute. */
 export function formatPolygonPoints(points: readonly CssPoint[]): string {

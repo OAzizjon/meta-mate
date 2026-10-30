@@ -20,6 +20,8 @@ mod debug_view;
 #[cfg(windows)]
 mod drag;
 #[cfg(windows)]
+mod explain;
+#[cfg(windows)]
 mod flight;
 #[cfg(windows)]
 mod highlight;

@@ -599,7 +599,25 @@ pub(crate) async fn teach(
                         }
                     }
                     if !stale {
+                        let click_at = match &input {
+                            TeacherInput::Click { at, .. }
+                            | TeacherInput::DoubleClick { at, .. } => Some(*at),
+                            _ => None,
+                        };
                         pending = teacher.input(input);
+                        if let Some(at) = click_at {
+                            let mut wrong_place = false;
+                            for command in &pending {
+                                match command {
+                                    TeacherCommand::Say(LineKey::WrongPlace) => wrong_place = true,
+                                    TeacherCommand::PointAt { rect, .. } if wrong_place => {
+                                        let _ = crate::highlight::miss(&app, at, *rect);
+                                        break;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                         if pending.iter().any(|command| matches!(command,
                             TeacherCommand::PointAt { .. }
                             | TeacherCommand::RequestScreenshot

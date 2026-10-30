@@ -199,5 +199,7 @@
   "tray.hide_hour": "Спрятать Mate на час",
   "tray.wake": "Вернуть Mate сейчас",
   "mate.hiding": "Вернусь в {time}. Чтобы позвать раньше, удерживайте {key}.",
-  "mate.menu_home": "Главная"
+  "mate.menu_home": "Главная",
+  "mate.explain_offer": "«{control}»: нажмите на меня — расскажу, для чего это.",
+  "mate.explain_question": "Объясните в двух коротких предложениях, для чего «{control}» ({type}) в программе {app}."
 }

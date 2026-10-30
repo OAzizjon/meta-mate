@@ -17,6 +17,7 @@ import {
   formatPolygonPoints,
   formatStepBadge,
   nearestRectEdge,
+  missPath,
   parseHighlightMsg,
   ringRect,
   shouldDim,
@@ -194,6 +195,56 @@ test("ringRect inflates the target by 6 px on every side", () => {
   });
   assert.equal(ring.right - ring.left, RECT.right - RECT.left + 2 * RING_PAD);
   assert.equal(ring.bottom - ring.top, RECT.bottom - RECT.top + 2 * RING_PAD);
+});
+
+test("miss payloads parse into fresh copies and reject malformed coordinates", () => {
+  const raw = { type: "miss", from: { x: -20.5, y: 40 }, rect: RECT };
+  const parsed = parseHighlightMsg(raw);
+  assert.deepEqual(parsed, raw);
+  assert.notEqual(parsed, raw);
+  if (parsed?.type !== "miss") assert.fail("expected miss");
+  assert.notEqual(parsed.from, raw.from);
+  assert.notEqual(parsed.rect, raw.rect);
+  for (const bad of [
+    { type: "miss", rect: RECT },
+    { ...raw, extra: true },
+    { ...raw, from: null },
+    { ...raw, from: { x: Infinity, y: 1 } },
+    { ...raw, from: { x: 1, y: NaN } },
+    { ...raw, from: { x: "1", y: 2 } },
+    { ...raw, from: { x: 1, y: 2, z: 3 } },
+    { ...raw, rect: { ...RECT, right: RECT.left } },
+  ]) assert.equal(parseHighlightMsg(bad), null, inspect(bad));
+});
+
+test("missPath curves from the click to the facing edge in all four directions", () => {
+  for (const [from, end] of [
+    [{ x: -20, y: 100 }, { x: 100, y: 100 }],
+    [{ x: 320, y: 100 }, { x: 220, y: 100 }],
+    [{ x: 160, y: -10 }, { x: 160, y: 80 }],
+    [{ x: 160, y: 200 }, { x: 160, y: 120 }],
+    [{ x: -20, y: -10 }, { x: 100, y: 100 }],
+  ]) {
+    const d = missPath(from, RECT);
+    assert.ok(d);
+    const parts = d.split(" ");
+    assert.equal(parts[0], "M");
+    assert.deepEqual(parts.slice(1, 3).map(Number), [from.x, from.y]);
+    assert.equal(parts[3], "Q");
+    assert.deepEqual(parts.slice(6).map(Number), [end.x, end.y]);
+    const [cx, cy] = parts.slice(4, 6).map(Number);
+    assert.ok(Number.isFinite(cx) && Number.isFinite(cy));
+    assert.ok(Math.abs((cx - from.x) * (end.y - from.y) -
+      (cy - from.y) * (end.x - from.x)) > 0);
+  }
+});
+
+test("missPath rejects inside, boundary and invalid geometry", () => {
+  for (const from of [
+    { x: 160, y: 100 }, { x: 100, y: 100 },
+    { x: NaN, y: 100 }, { x: 0, y: Infinity },
+  ]) assert.equal(missPath(from, RECT), null);
+  assert.equal(missPath({ x: 0, y: 0 }, { ...RECT, right: RECT.left }), null);
 });
 
 test("computeBeamPolygon widens from beamFrom to the nearest edge in all four directions", () => {

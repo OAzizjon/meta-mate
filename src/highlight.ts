@@ -18,6 +18,7 @@ import {
   computeBeamPolygon,
   formatPolygonPoints,
   formatStepBadge,
+  missPath,
   num,
   parseHighlightMsg,
   ringRect,
@@ -27,6 +28,7 @@ import type {
   CssRect,
   CssSize,
   HighlightMsg,
+  HighlightMissMsg,
   HighlightTargetMsg,
 } from "./highlight/geometry.ts";
 
@@ -51,6 +53,7 @@ export {
   isValidPoint,
   isValidRect,
   isValidStep,
+  missPath,
   nearestRectEdge,
   parseHighlightMsg,
   ringRect,
@@ -60,6 +63,7 @@ export type {
   CssRect,
   CssSize,
   HighlightClearMsg,
+  HighlightMissMsg,
   HighlightMsg,
   HighlightStep,
   HighlightTargetMsg,
@@ -72,7 +76,7 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 export interface HighlightController {
   setSettings(raw: unknown): void;
-  /** Applies a validated highlight message (`"target"` or `"clear"`). */
+  /** Applies a validated highlight message. */
   apply(msg: HighlightMsg): void;
   /** Parses an untrusted payload and applies it if valid; returns `true` when accepted. */
   handleRaw(raw: unknown): boolean;
@@ -177,19 +181,80 @@ export function mountHighlight(
     "stroke-width": 3,
   });
   ringGroup.append(ringGlow, ringStroke);
-  scene.append(dim, beam, ringGroup);
+  const missGroup = svgEl("g", { class: "highlight-miss" });
+  const missMask = svgEl("mask", { id: "miss-reveal", maskUnits: "userSpaceOnUse" });
+  defs.append(missMask);
+  scene.append(dim, beam, ringGroup, missGroup);
   svgRoot.replaceChildren(defs, scene);
 
   const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
   let reduceSetting = false;
+  let motionAnimations: Animation[] = [];
   const syncMotion = (): void => {
     svgRoot.classList.toggle("reduce-motion", reduceSetting || motionQuery.matches);
+    if (reduceSetting || motionQuery.matches) {
+      // Cancel drawing and ripple expansion immediately if the preference changes.
+      for (const animation of motionAnimations) animation.cancel();
+      motionAnimations = [];
+    }
   };
   syncMotion();
   motionQuery.addEventListener("change", syncMotion);
 
   let activeTarget: HighlightTargetMsg | null = null;
   let clearTimer: ReturnType<typeof setTimeout> | undefined;
+  let missTimer: ReturnType<typeof setTimeout> | undefined;
+  let missRect: CssRect | null = null;
+  // The lesson step the wrong click belonged to: the next step clears it, even on the same control.
+  let missStep: number | null = null;
+  const stopMiss = (): void => {
+    if (missTimer !== undefined) clearTimeout(missTimer);
+    missTimer = undefined;
+    missRect = null;
+    missStep = null;
+    for (const animation of motionAnimations) animation.cancel();
+    motionAnimations = [];
+    missGroup.getAnimations().forEach((animation) => animation.cancel());
+    missGroup.replaceChildren();
+    missMask.replaceChildren();
+  };
+  const drawMiss = (msg: HighlightMissMsg): void => {
+    stopMiss();
+    // Aim at the padded ring; clicks already inside its glow need no trail.
+    const d = missPath(msg.from, ringRect(msg.rect));
+    if (!d) return;
+    missRect = msg.rect;
+    missStep = activeTarget?.step?.number ?? null;
+    const reveal = svgEl("path", {
+      d, pathLength: 1, fill: "none", stroke: "white", "stroke-width": 12,
+    });
+    missMask.append(reveal);
+    const trail = svgEl("path", {
+      d, fill: "none", stroke: BEAM_COLOR, "stroke-width": 3,
+      "stroke-linecap": "round", "stroke-dasharray": "1 9", mask: "url(#miss-reveal)",
+    });
+    const ripple = svgEl("circle", {
+      cx: msg.from.x, cy: msg.from.y, r: 16, fill: "none",
+      stroke: BEAM_COLOR, "stroke-width": 2, "stroke-opacity": 0.65,
+    });
+    missGroup.append(ripple, trail);
+    missGroup.animate([
+      { opacity: 0 }, { opacity: 1, offset: 0.15 },
+      { opacity: 1, offset: 0.7 }, { opacity: 0 },
+    ], { duration: 1600, fill: "forwards" });
+    if (!(reduceSetting || motionQuery.matches)) {
+      motionAnimations = [
+        reveal.animate([
+          { strokeDasharray: "1", strokeDashoffset: "1" },
+          { strokeDasharray: "1", strokeDashoffset: "0" },
+        ], { duration: 700, delay: 100, fill: "both", easing: "ease-out" }),
+        ripple.animate([{ r: "4px", opacity: 0.8 }, { r: "24px", opacity: 0 }], {
+          duration: 700, fill: "forwards", easing: "ease-out",
+        }),
+      ];
+    }
+    missTimer = setTimeout(stopMiss, 1600);
+  };
 
   const stopClearTimer = (): void => {
     if (clearTimer !== undefined) {
@@ -217,6 +282,10 @@ export function mountHighlight(
 
   const drawTarget = (msg: HighlightTargetMsg): void => {
     stopClearTimer();
+    if (missRect && ((msg.step?.number ?? null) !== missStep ||
+      (Object.keys(missRect) as (keyof CssRect)[]).some((key) => missRect?.[key] !== msg.rect[key]))) {
+      stopMiss();
+    }
     activeTarget = msg;
     svgRoot.style.setProperty("--warmth", "0");
     svgRoot.style.setProperty("--warmth-period", "1.8s");
@@ -266,6 +335,7 @@ export function mountHighlight(
 
   const clear = (): void => {
     stopClearTimer();
+    stopMiss();
     activeTarget = null;
     scene.classList.remove("is-active");
     badge.classList.remove("is-active");
@@ -288,6 +358,10 @@ export function mountHighlight(
       svgRoot.style.setProperty("--warmth", String(msg.level / 9));
       svgRoot.style.setProperty("--warmth-period", `${1.8 - msg.level / 9 * 1.2}s`);
       svgRoot.classList.toggle("on-target", msg.onTarget);
+      return;
+    }
+    if (msg.type === "miss") {
+      drawMiss(msg);
       return;
     }
     drawTarget(msg);
@@ -313,6 +387,7 @@ export function mountHighlight(
     clear,
     destroy() {
       stopClearTimer();
+      stopMiss();
       motionQuery.removeEventListener("change", syncMotion);
       window.removeEventListener("resize", onResize);
       scene.remove();

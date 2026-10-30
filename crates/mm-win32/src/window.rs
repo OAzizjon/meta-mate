@@ -131,6 +131,23 @@ fn process_path(process_id: u32) -> Option<String> {
     Some(String::from_utf16_lossy(path))
 }
 
+/// The app's name as its executable's file name without ".exe" ("SystemSettings",
+/// "msedge"), never a window title (titles can hold private text). None when the process
+/// cannot be read.
+pub fn process_name(process_id: u32) -> Option<String> {
+    executable_stem(&process_path(process_id)?).map(str::to_owned)
+}
+
+fn executable_stem(path: &str) -> Option<&str> {
+    let file = path.rsplit(['\\', '/']).next()?;
+    let end = file.len().saturating_sub(4);
+    let stem = match file.get(end..) {
+        Some(extension) if extension.eq_ignore_ascii_case(".exe") => &file[..end],
+        _ => file,
+    };
+    (!stem.trim().is_empty()).then_some(stem)
+}
+
 fn settings_executable(path: &str) -> bool {
     path.rsplit(['\\', '/'])
         .next()
@@ -599,6 +616,21 @@ mod tests {
             "SystemSettings.exe.bak",
         ] {
             assert!(!settings_executable(path));
+        }
+    }
+
+    #[test]
+    fn the_app_name_is_the_executable_without_its_extension() {
+        assert_eq!(
+            executable_stem("C:\\Windows\\ImmersiveControlPanel\\SystemSettings.exe"),
+            Some("SystemSettings")
+        );
+        assert_eq!(executable_stem("C:/Apps/Telegram.EXE"), Some("Telegram"));
+        assert_eq!(executable_stem("C:\\Tools\\viewer"), Some("viewer"));
+        assert_eq!(executable_stem("C:\\Программы\\Почта.exe"), Some("Почта"));
+        assert_eq!(executable_stem("exe"), Some("exe"));
+        for path in ["", "C:\\Apps\\", "C:\\Apps\\.exe"] {
+            assert_eq!(executable_stem(path), None, "{path}");
         }
     }
 
