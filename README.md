@@ -1,5 +1,9 @@
 # MetaMate
 
+**Ask out loud how to do something on your PC, and Mate, a small light bulb on your desktop, answers and shines his beam on the exact button to click. He never clicks for you.** Made for older people and anyone lost in an unfamiliar app; built on Meta models (Muse Spark, Muse Voice Transcribe, SAM 3.1, MMS-TTS).
+
+![Mate points right here](assets/art/meme-right-here.png)
+
 Windows 10/11 x64 (the video can be watched anywhere).
 
 ## Try it in 60 seconds
@@ -22,8 +26,6 @@ Windows 10/11 x64 (the video can be watched anywhere).
 - [Changelog](CHANGELOG.md)
 
 ## What Mate does
-
-![Mate points right here](assets/art/meme-right-here.png)
 
 MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Hold **Right Ctrl** (or another talk key chosen in Settings) for push-to-talk voice in English or Russian, and Mate answers aloud with a live transcript in his bubble.
 

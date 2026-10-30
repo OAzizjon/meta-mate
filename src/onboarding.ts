@@ -25,7 +25,7 @@ let translator = (key: LocaleKey): string => key;
 export function setOnboardingTranslator(translate: (key: LocaleKey) => string): void {
   translator = translate;
 }
-export const ONBOARDING_STEP_MS = 6000;
+export const ONBOARDING_STEP_MS = 8000;
 export const ONBOARDING_EXAMPLE_COUNT = 3;
 
 export const ONBOARDING_EXAMPLE_KEYS = [
