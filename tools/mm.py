@@ -30,7 +30,11 @@
                                    the claim; flags missing files, lines past the end, ambiguous names
     mm map [--check]               regenerate docs/code-map.md (files, pub items, cross-language links)
     mm stats [--save] [--json]     code, tests, churn, hygiene and agent numbers, with deltas
-    mm agent check|test|where|cite|map|stats
+    mm difflint [PATCH|-]          leftovers in a patch's added lines: debug prints, unwraps, conflict
+                                   markers, UI strings outside the locales, secrets (default: git diff)
+    mm contracts                   Rust <-> TypeScript contracts: commands registered and called with
+                                   the right argument names, events emitted and listened, locale keys
+    mm agent check|test|where|cite|map|stats|difflint|contracts
                                    the restricted set for sandboxed agents: offline, no secrets, no GUI
 
 Agent mode is forced when MM_AGENT=1, when the project has no .git folder (the drafting agents'
@@ -314,7 +318,7 @@ def _load_checks():
     return mm_checks
 
 
-AGENT_SAFE_CHECKS = {'secrets', 'env-names', 'md-links', 'typos'}
+AGENT_SAFE_CHECKS = {'secrets', 'env-names', 'md-links', 'typos', 'contracts'}
 
 
 def _print_results(results):
@@ -404,7 +408,8 @@ def cmd_agent(args):
 
 # --- code tools: where, cite, map, stats (tools/mm_*.py) -----------------------
 
-TOOL_MODULES = {'where': 'mm_where', 'cite': 'mm_cite', 'map': 'mm_map', 'stats': 'mm_stats'}
+TOOL_MODULES = {'where': 'mm_where', 'cite': 'mm_cite', 'map': 'mm_map', 'stats': 'mm_stats',
+                'difflint': 'mm_difflint', 'contracts': 'mm_contracts'}
 
 
 def _run_tool(name, rest):
@@ -839,7 +844,9 @@ def build_parser():
     for name, text in (('where', 'where a name is defined and used'),
                        ('cite', "the code behind an answer's path:line references"),
                        ('map', 'regenerate docs/code-map.md'),
-                       ('stats', 'code, tests, churn and agent numbers')):
+                       ('stats', 'code, tests, churn and agent numbers'),
+                       ('difflint', "leftovers in a patch's added lines"),
+                       ('contracts', 'Rust <-> TypeScript contracts: commands, arguments, events, keys')):
         sp = sub.add_parser(name, help=text, add_help=False)
         sp.add_argument('rest', nargs=argparse.REMAINDER)
     sp = sub.add_parser('probe', help='Meta API probe: models | stream | click FIXTURE | ledger (uses keys)',
@@ -860,7 +867,7 @@ COMMANDS = {
     'doctor': cmd_doctor, 'status': cmd_status, 'plan': cmd_plan, 'check': cmd_check, 'test': cmd_test,
     'uia': cmd_uia, 'art': cmd_art, 'sounds': cmd_sounds, 'agents': cmd_agents, 'keys': cmd_keys,
     'agent': cmd_agent, 'probe': cmd_probe, 'phrases': cmd_phrases, 'release': cmd_release,
-    'where': cmd_tool, 'cite': cmd_tool, 'map': cmd_tool, 'stats': cmd_tool,
+    **{name: cmd_tool for name in TOOL_MODULES},
 }
 
 
@@ -877,7 +884,7 @@ def main(argv=None):
         parser.error('unrecognized arguments: ' + ' '.join(extra))
     reason = agent_mode_reason()
     if reason and args.command not in AGENT_COMMANDS:
-        print(f'mm {args.command}: refused in agent mode ({reason}). Allowed: mm agent check | test | where | cite | map | stats')
+        print(f'mm {args.command}: refused in agent mode ({reason}). Allowed: mm agent check | test | ' + ' | '.join(TOOL_MODULES))
         return 2
     return COMMANDS[args.command](args)
 

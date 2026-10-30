@@ -18,7 +18,7 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AREAS = ('crates/mm-core', 'crates/mm-win32', 'src-tauri/src', 'src',
+AREAS = ('crates/mm-core', 'crates/mm-platform', 'crates/mm-win32', 'src-tauri/src', 'src',
          'tools', 'server', 'tts')
 LANGUAGES = {'.rs': 'Rust', '.ts': 'TypeScript', '.tsx': 'TypeScript',
              '.js': 'JavaScript', '.mjs': 'JavaScript', '.cjs': 'JavaScript',

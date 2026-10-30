@@ -376,20 +376,24 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:101 first_line:116 agent_mode_reason:120 say:132 cmd_doctor:169 plan_sections:235 cmd_plan:258 cmd_status:285
-  cmd_check:333 cmd_test:357 cmd_agent:397 cmd_tool:421 cmd_release:427 cmd_uia:508 cmd_art:542 cmd_sounds:590
-  cmd_phrases:632 cmd_agents:645 wanted_key_names:658 parse_env:666 cmd_keys:721 build_parser:800 cmd_probe:851 main:867
+  run:105 first_line:120 agent_mode_reason:124 say:136 cmd_doctor:173 plan_sections:239 cmd_plan:262 cmd_status:289
+  cmd_check:337 cmd_test:361 cmd_agent:401 cmd_tool:426 cmd_release:432 cmd_uia:513 cmd_art:547 cmd_sounds:595
+  cmd_phrases:637 cmd_agents:650 wanted_key_names:663 parse_env:671 cmd_keys:726 build_parser:805 cmd_probe:858 main:874
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:12 workspace_graph:22 reverse_closure:37 affected_steps:53 changed_files:84 build_plan:96 cmd_changed:117
 - tools/mm_checks.py — Fast repository checks for the mm CLI.
   CheckResult:102 check_secrets:218 check_env_names:270 check_python:298 check_md_links:333 check_typos:373 check_rust:377 check_web:388
-  run_checks:421
+  check_contracts:399 run_checks:428
 - tools/mm_cite.py — mm cite: show the code behind every `path:line` an agent's answer cites, next to the claim.
   is_secret:42 references:48 project_files:80 resolve:93 show:120 read_source:163 main:175
+- tools/mm_contracts.py — Check Tauri commands, invoke arguments, events and locale keys offline.
+  findings:132 main:228
+- tools/mm_difflint.py — Lint added unified-diff lines for patch leftovers (standard library only).
+  AddedLine:27 FileDiff:34 Finding:41 is_secret:68 parse_diff:74 lint:171 working_diff:244 main:262
 - tools/mm_fixture.py — Pure fixture loading and geometry for recorded UIA probes.
   Fixture:21 load_fixture:40 unsafe_reason:71 FrameMap:93 element_list:140 Hit:156 hit_test:162 describe:178
 - tools/mm_map.py — Write docs/code-map.md: where things live, for agents that read files but have no shell.
-  mask:170 Source:261 Project:278 summary:336 outline:406 render:727 main:770
+  mask:170 Source:261 Project:278 summary:336 outline:406 render:733 main:776
 - tools/mm_probe.py — mm probe: the Meta Model API from the lead's machine (never from the agents' copies).
   ProbeError:80 is_plain_file:97 read_secret:108 scrub:124 provider_config:137 iter_sse:211 output_text:230 computer_actions:240
   point_actions:265 action_points:288 usage_tokens:300 cost_usd:305 ledger_total:334 ledger_unpriced:338 ledger_add:342 guard_budget:348
@@ -819,13 +823,15 @@ Per area: the test files and the source files with inline tests, with their numb
 - src/settings/model.test.ts: 15
 - src/settings/ptt-key.test.ts: 1
 
-### tools: 202 tests in 13 files
+### tools: 231 tests in 15 files
 
 - tools/tests/test_chat_ownership.py: 2
 - tools/tests/test_locales.py: 3
 - tools/tests/test_mm.py: 49
 - tools/tests/test_mm_changed.py: 14
 - tools/tests/test_mm_checks.py: 25
+- tools/tests/test_mm_contracts.py: 12
+- tools/tests/test_mm_difflint.py: 17
 - tools/tests/test_mm_fixture.py: 12
 - tools/tests/test_mm_map.py: 14
 - tools/tests/test_mm_probe.py: 25

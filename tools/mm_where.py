@@ -26,7 +26,7 @@ TEXT_EXTS = {'.rs', '.ts', '.tsx', '.js', '.mjs', '.py', '.html', '.css', '.json
              '.ps1', '.sh', '.txt', '.yml', '.yaml'}
 SKIP_FILES = {'package-lock.json', 'Cargo.lock'}
 MAX_BYTES = 1_000_000
-SELF = {'tools/mm_where.py', 'tools/tests/test_mm_where_cite.py'}
+SELF = {'tools/mm_where.py', 'tools/tests/test_mm_where_cite.py', 'docs/code-map.md'}
 
 # Order of the groups on screen: where a reader looks first.
 AREAS = (

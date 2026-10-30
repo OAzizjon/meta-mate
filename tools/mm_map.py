@@ -551,7 +551,8 @@ def _commands(project, rust, ts_literals):
     return out
 
 
-def _events(project, rust, ts):
+def _event_sites(project, rust, ts):
+    """Event names -> kinds -> sites, shared with the contract checker."""
     events = {}
     for files, pattern, side in ((rust, RUST_EVENT_CALL, 'rs'), (ts, TS_EVENT_CALL, 'ts')):
         table = _consts(project, files)
@@ -569,6 +570,11 @@ def _events(project, rust, ts):
                 kind = f'{side} emit' if m.group(1).startswith('emit') else f'{side} listen'
                 sites.setdefault(kind, []).append((rel, src.line(m.start(1))))
                 sites.setdefault('const', []).extend(defined)
+    return events
+
+
+def _events(project, rust, ts):
+    events = _event_sites(project, rust, ts)
     if not events:
         return []
     out = []

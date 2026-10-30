@@ -396,9 +396,16 @@ def check_web(ctx: _Context) -> CheckResult:
                                  for script in names if script in scripts])
 
 
+def check_contracts(ctx: _Context) -> CheckResult:
+    import mm_contracts
+
+    details = mm_contracts.findings(ctx.root)
+    return _result("contracts", f"{len(details)} cross-language contract findings", details)
+
+
 CHECKS = {"secrets": check_secrets, "env-names": check_env_names,
           "md-links": check_md_links, "typos": check_typos, "python": check_python,
-          "rust": check_rust, "web": check_web}
+          "contracts": check_contracts, "rust": check_rust, "web": check_web}
 
 
 def _run(name: str, root: Path, full: bool) -> CheckResult:
