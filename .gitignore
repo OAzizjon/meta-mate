@@ -16,6 +16,7 @@ __pycache__/
 /build/
 
 # Local data and media
+/.cache/mm-stats/
 *.log
 *.sqlite3
 *.sqlite3-*

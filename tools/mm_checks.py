@@ -50,7 +50,7 @@ SYSTEM_ENV = {
     "PATH", "PATHEXT", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "TEMP", "TMP", "TMPDIR",
     "ProgramFiles", "ProgramFiles(x86)", "ProgramData", "SystemRoot", "ComSpec", "USERNAME", "CI",
     "MM_AGENT", "CARGO_NET_OFFLINE", "NPM_CONFIG_OFFLINE", "MM_FIXTURES_REVIEWED",
-    "CARGO_TARGET_DIR", "CARGO_HOME", "RUSTC_WRAPPER", "RUSTFLAGS", "RUST_LOG", "RUST_BACKTRACE",
+    "CARGO_TARGET_DIR", "CARGO_BUILD_JOBS", "CARGO_HOME", "RUSTC_WRAPPER", "RUSTFLAGS", "RUST_LOG", "RUST_BACKTRACE",
 }
 # Cargo defines these for build scripts and at compile time (env!, option_env!). Names like
 # DEBUG or HOST read by the running app are real configuration, so they count only there.

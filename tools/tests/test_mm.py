@@ -146,9 +146,22 @@ class CliTests(unittest.TestCase):
     def test_all_lead_commands_are_refused(self):
         for argv in (['uia'], ['art'], ['keys', 'dummy'], ['sounds', 'normalize'], ['agents'], ['doctor'],
                      ['probe'], ['probe', '--help'], ['probe', 'stream', 'hi'],
-                     ['release'], ['release', '--dry-run'], ['release', '--allow-dirty']):
+                     ['release'], ['release', '--dry-run'], ['release', '--allow-dirty'],
+                     ['where', 'x'], ['cite', '-'], ['map'], ['stats']):
             with self.subTest(argv=argv), patch.object(mm, 'agent_mode_reason', return_value='test'), contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(mm.main(argv), 2)
+
+    def test_code_tools_run_with_their_own_flags_also_for_agents(self):
+        for argv, name, rest in ((['where', 'sign_out', '--all'], 'where', ['sign_out', '--all']),
+                                 (['cite', '-C', '3', 'answer.md'], 'cite', ['-C', '3', 'answer.md']),
+                                 (['agent', 'where', '--limit', '2', 'x'], 'where', ['--limit', '2', 'x']),
+                                 (['agent', 'map', '--check'], 'map', ['--check']),
+                                 (['stats', '--json'], 'stats', ['--json'])):
+            agent = argv[0] == 'agent'
+            with self.subTest(argv=argv), patch.object(mm, 'agent_mode_reason', return_value='test' if agent else None), \
+                    patch.object(mm, '_run_tool', return_value=0) as run_tool:
+                self.assertEqual(mm.main(argv), 0)
+                self.assertEqual(run_tool.call_args.args, (name, rest))
 
     def test_agent_values_and_git_file(self):
         with tempfile.TemporaryDirectory() as folder, patch.object(mm, 'ROOT', Path(folder)), patch.dict(os.environ, {'MM_AGENT': '0'}), patch.object(Path, 'absolute', return_value=Path('C:/project')), patch.object(Path, 'resolve', return_value=Path('C:/project')):
@@ -196,6 +209,14 @@ class CliTests(unittest.TestCase):
                             patch.object(mm.subprocess, 'call', return_value=0) as call, \
                             contextlib.redirect_stdout(io.StringIO()):
                         self.assertEqual(mm.cmd_test(argparse.Namespace(), agent=agent), 0)
+                        if agent:
+                            probe.assert_not_called()
+                            self.assertEqual(call.call_count, 2)
+                            self.assertEqual(call.call_args_list[1].args[0],
+                                             ['cargo', 'test', '-p', 'mm-core', '-p', 'mm-platform', '--offline'])
+                            self.assertEqual(call.call_args_list[1].kwargs['env']['CARGO_BUILD_JOBS'], '2')
+                            self.assertTrue(call.call_args_list[1].kwargs['env']['CARGO_TARGET_DIR'])
+                            continue
                         expected = ['cargo', 'nextest', 'run'] if nextest else ['cargo', 'test']
                         if agent:
                             expected.append('--offline')

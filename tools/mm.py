@@ -4,7 +4,10 @@
     mm status                      one screen: git, deadline, today's plan, agent queue
     mm plan [today|N]              the plan for today (or day N) from docs/plan.md
     mm check [--full] [--only a,b] fast checks (tools/mm_checks.py)
-    mm test                        unit tests (tools/tests; cargo and npm tests once they exist)
+    mm test [--changed] [--base REF] [--dry-run]
+                                   unit tests, optionally limited to changed files
+    mm check --changed [--base REF] [--dry-run]
+                                   the same affected test plan; docs select md-links,typos
     mm release [--allow-dirty] [--dry-run]
                                    check and build the Windows NSIS installer; print size and SHA-256
     mm uia [--delay S] [--depth N] [--save NAME]
@@ -20,7 +23,15 @@
                                    the Meta Model API from this machine: stream an answer with timings and
                                    cost, or one computer-use turn on a fixture with the element it hit
                                    (tools/mm_probe.py; reads the keys, never prints them)
-    mm agent check|test            the restricted set for sandboxed agents: offline, no secrets, no GUI
+    mm where TERM [--all]          where a name is defined and used across Rust, TS, Python, locales
+                                   and docs (sign_out also finds signOut, sign-out; Tauri commands
+                                   with their invoke() callers; a locale key with its en/ru text)
+    mm cite FILE|-|#JOB [-C N]     the code behind every path:line an agent's answer cites, next to
+                                   the claim; flags missing files, lines past the end, ambiguous names
+    mm map [--check]               regenerate docs/code-map.md (files, pub items, cross-language links)
+    mm stats [--save] [--json]     code, tests, churn, hygiene and agent numbers, with deltas
+    mm agent check|test|where|cite|map|stats
+                                   the restricted set for sandboxed agents: offline, no secrets, no GUI
 
 Agent mode is forced when MM_AGENT=1, when the project has no .git folder (the drafting agents'
 copies never contain one) or when it runs inside ~/.cache/draft-agents/sandboxes: every command
@@ -39,6 +50,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import mm_changed
 
 ROOT = Path(__file__).absolute().parent.parent
 TOOLS = ROOT / 'tools'
@@ -319,6 +332,8 @@ def _print_results(results):
 
 def cmd_check(args, agent=False):
     _extend_path()
+    if not agent and (getattr(args, 'changed', False) or getattr(args, 'dry_run', False)):
+        return mm_changed.cmd_changed(args, ROOT, run)
     checks = _load_checks()
     if not checks:
         return 1
@@ -336,11 +351,13 @@ def _offline_env():
     env.update({'CARGO_NET_OFFLINE': 'true', 'NPM_CONFIG_OFFLINE': 'true', 'MM_AGENT': '1',
                 # Agents' sandboxes may not reach the sccache server; an empty wrapper turns it off.
                 'RUSTC_WRAPPER': '', 'CARGO_INCREMENTAL': '0'})
-    return env
+    return mm_changed.agent_rust_env(env)
 
 
 def cmd_test(args, agent=False):
     _extend_path()
+    if not agent and (getattr(args, 'changed', False) or getattr(args, 'dry_run', False)):
+        return mm_changed.cmd_changed(args, ROOT, run)
     env = _offline_env() if agent else None
     steps = [('tools', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tools/tests', '-v'])]
     if (ROOT / 'server' / 'tests').is_dir():
@@ -350,9 +367,11 @@ def cmd_test(args, agent=False):
         # Text normalization needs no model dependencies.
         steps.append(('tts', [sys.executable, '-m', 'unittest', 'discover', '-s', 'tts/tests', '-t', 'tts']))
     if (ROOT / 'Cargo.toml').exists():
-        has_nextest = run(['cargo', 'nextest', '--version'], env=env)[0] == 0
+        has_nextest = not agent and run(['cargo', 'nextest', '--version'], env=env)[0] == 0
         offline = ['--offline'] if agent else []
-        steps.append(('rust', ['cargo', 'nextest', 'run', *offline] if has_nextest else ['cargo', 'test', *offline, '-q']))
+        rust = ['cargo', 'test', '-p', 'mm-core', '-p', 'mm-platform', '--offline'] if agent else (
+            ['cargo', 'nextest', 'run'] if has_nextest else ['cargo', 'test', '-q'])
+        steps.append(('rust', rust))
         if has_nextest:
             # nextest skips doctests, and the compile_fail ones guard the coordinate types.
             steps.append(('rust doc', ['cargo', 'test', '--doc', *offline, '-q']))
@@ -365,7 +384,10 @@ def cmd_test(args, agent=False):
         try:
             cmd[0] = shutil.which(cmd[0]) or cmd[0]
             code = subprocess.call(cmd, cwd=ROOT, env=env, stdin=subprocess.DEVNULL, timeout=600)
-        except (OSError, subprocess.TimeoutExpired):
+        except (OSError, subprocess.TimeoutExpired) as error:
+            print(f'{label}: {error}')
+            if label.startswith('rust') and env:
+                print('CARGO_TARGET_DIR=' + env['CARGO_TARGET_DIR'])
             code = 1
         failed |= code != 0
     print('\nmm test: ' + ('FAILED' if failed else 'OK'))
@@ -375,7 +397,29 @@ def cmd_test(args, agent=False):
 def cmd_agent(args):
     if args.what == 'check':
         return cmd_check(args, agent=True)
+    if args.what in TOOL_MODULES:
+        return _run_tool(args.what, args.rest)
     return cmd_test(args, agent=True)
+
+
+# --- code tools: where, cite, map, stats (tools/mm_*.py) -----------------------
+
+TOOL_MODULES = {'where': 'mm_where', 'cite': 'mm_cite', 'map': 'mm_map', 'stats': 'mm_stats'}
+
+
+def _run_tool(name, rest):
+    """One of the code tools, each a module of its own with `main(argv)`."""
+    sys.path.insert(0, str(TOOLS))
+    try:
+        module = __import__(TOOL_MODULES[name])
+    except ImportError:
+        print(f'mm {name}: tools/{TOOL_MODULES[name]}.py is not there yet')
+        return 2
+    return module.main(rest)
+
+
+def cmd_tool(args):
+    return _run_tool(args.command, args.rest)
 
 
 # --- release -----------------------------------------------------------------
@@ -763,7 +807,10 @@ def build_parser():
     sp = sub.add_parser('check', help='fast checks')
     sp.add_argument('--full', action='store_true')
     sp.add_argument('--only', help='comma-separated check names')
-    sub.add_parser('test', help='unit tests')
+    for sp in (sp, sub.add_parser('test', help='unit tests')):
+        sp.add_argument('--changed', action='store_true', help='run only steps affected by changed files')
+        sp.add_argument('--base', default='HEAD', help='Git ref for --changed (default: HEAD)')
+        sp.add_argument('--dry-run', action='store_true', help='print the changed-file plan without running it')
     sp = sub.add_parser('release', help='check and build the Windows NSIS installer')
     sp.add_argument('--allow-dirty', action='store_true', help='allow uncommitted or untracked files')
     sp.add_argument('--dry-run', action='store_true', help='print steps without executing them')
@@ -786,8 +833,15 @@ def build_parser():
     sp.add_argument('source', help='folder of the other project')
     sp.add_argument('--apply', action='store_true')
     sp = sub.add_parser('agent', help='restricted commands for sandboxed agents')
-    sp.add_argument('what', choices=('check', 'test'))
+    sp.add_argument('what', choices=('check', 'test', *TOOL_MODULES))
     sp.add_argument('--only', help='comma-separated check names')
+    sp.add_argument('rest', nargs=argparse.REMAINDER)
+    for name, text in (('where', 'where a name is defined and used'),
+                       ('cite', "the code behind an answer's path:line references"),
+                       ('map', 'regenerate docs/code-map.md'),
+                       ('stats', 'code, tests, churn and agent numbers')):
+        sp = sub.add_parser(name, help=text, add_help=False)
+        sp.add_argument('rest', nargs=argparse.REMAINDER)
     sp = sub.add_parser('probe', help='Meta API probe: models | stream | click FIXTURE | ledger (uses keys)',
                         add_help=False)
     sp.add_argument('rest', nargs=argparse.REMAINDER)
@@ -806,6 +860,7 @@ COMMANDS = {
     'doctor': cmd_doctor, 'status': cmd_status, 'plan': cmd_plan, 'check': cmd_check, 'test': cmd_test,
     'uia': cmd_uia, 'art': cmd_art, 'sounds': cmd_sounds, 'agents': cmd_agents, 'keys': cmd_keys,
     'agent': cmd_agent, 'probe': cmd_probe, 'phrases': cmd_phrases, 'release': cmd_release,
+    'where': cmd_tool, 'cite': cmd_tool, 'map': cmd_tool, 'stats': cmd_tool,
 }
 
 
@@ -814,14 +869,15 @@ def main(argv=None):
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     parser = build_parser()
     args, extra = parser.parse_known_args(argv)
-    # `mm probe` has its own parser: a leading option such as --help is not part of REMAINDER.
-    if args.command == 'probe':
+    # `mm probe` and the code tools have their own parsers: a leading option such as --help is
+    # not part of REMAINDER.
+    if args.command in ('probe', *TOOL_MODULES) or (args.command == 'agent' and args.what in TOOL_MODULES):
         args.rest = extra + args.rest
     elif extra:
         parser.error('unrecognized arguments: ' + ' '.join(extra))
     reason = agent_mode_reason()
     if reason and args.command not in AGENT_COMMANDS:
-        print(f'mm {args.command}: refused in agent mode ({reason}). Allowed: mm agent check | mm agent test')
+        print(f'mm {args.command}: refused in agent mode ({reason}). Allowed: mm agent check | test | where | cite | map | stats')
         return 2
     return COMMANDS[args.command](args)
 

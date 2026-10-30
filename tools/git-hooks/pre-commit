@@ -35,6 +35,13 @@ if [ -n "$fixtures" ] && [ "${MM_FIXTURES_REVIEWED:-}" != "1" ]; then
 	blocked=1
 fi
 
+# 4. docs/code-map.md is what file-only agents read to find their way: keep it fresh.
+if git diff --cached --name-only --diff-filter=ACMRD | grep -Eq '\.(rs|ts|py)$|^locales/' \
+		&& [ -f tools/mm_map.py ] && ! python tools/mm.py map --check >/dev/null 2>&1; then
+	echo "pre-commit: docs/code-map.md is stale: run 'python tools/mm.py map' and stage it." >&2
+	blocked=1
+fi
+
 if [ "$blocked" -ne 0 ]; then
 	echo "pre-commit: commit aborted. Keep secrets in environment variables (see env_keys_names.txt)." >&2
 	exit 1
