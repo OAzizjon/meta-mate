@@ -3,8 +3,8 @@
     mm map            regenerate docs/code-map.md
     mm map --check    exit 1 when docs/code-map.md is stale
 
-Three parts: every source file with its purpose (the leading `//!` doc comment, the first
-comment, the module docstring) and its public items as `name:line`; the cross-language links
+Three parts: every source file with its purpose (module comments/docstrings, falling back
+to the first public item's documentation) and its public items as `name:line`; the cross-language links
 that grep finds poorly (Tauri commands and their TypeScript callers, events, proxy routes and
 the Rust URLs that reach them, `X-MetaMate-Call` kinds, locale keys); the tests per area.
 Rust and TypeScript are read by regex over copies with the comments and the literals blanked
@@ -269,6 +269,7 @@ class Source:
 
     def __init__(self, rel, text, lang):
         self.rel, self.lang = rel, lang
+        self.text = text
         self.code, self.bare, self.strings, self.comments = mask(text, lang)
         self._lines = [0] + [m.end() for m in re.finditer(r'\n', text)]
         self._tests = _test_spans(self.bare) if lang == 'rust' else []
@@ -296,6 +297,8 @@ class Project:
         return sorted(found)
 
     def text(self, rel):
+        if is_secret(Path(rel).name):
+            raise ValueError('refusing to read a secrets file')
         return (self.root / rel).read_text(encoding='utf-8-sig', errors='replace')
 
     def source(self, rel):
@@ -407,7 +410,62 @@ def _rust_items(src):
         pos = m.start()
         if depth == 0 and not src.in_test(m.start()):
             items.append((m.group(1), src.line(m.start(1))))
-    return items
+    methods = {}
+    for block in re.finditer(r'\bimpl\s*(?:<[^{}]*?>\s*)?([\w:]+)(?:\s*<[^{}]*>)?\s*(?:where\s+[^{}]+)?\{', src.bare):
+        if src.in_test(block.start()):
+            continue
+        end = _item_end(src.bare, block.end() - 1)
+        for m in RUST_ITEM.finditer(src.bare, block.end(), end):
+            gap = src.bare[block.end():m.start()]
+            if gap.count('{') != gap.count('}') or not re.search(r'\bfn\s+$', m.group()[:m.start(1) - m.start()]):
+                continue
+            if not src.in_test(m.start()):
+                methods.setdefault(block.group(1), []).append((m.group(1), src.line(m.start(1))))
+    for name, entries in methods.items():
+        items += [(f'{name}::{method}', line) for method, line in entries[:12]]
+        if len(entries) > 12:
+            items.append((f'{name}::+{len(entries) - 12}', entries[12][1]))
+    for m in re.finditer(r'\bpub\s+use\s+([^;]+);', src.bare):
+        gap = src.bare[:m.start()]
+        if gap.count('{') != gap.count('}') or src.in_test(m.start()):
+            continue
+        # Leaf names (including aliases) of a possibly nested use tree.
+        for leaf in re.finditer(r'(\w+|\*)(?:\s+as\s+(\w+))?\s*(?=[,}]|$)', m.group(1)):
+            items.append(((leaf.group(2) or leaf.group(1)) + '^', src.line(m.start())))
+    return sorted(items, key=lambda item: item[1])
+
+
+def _item_doc(src, line, marker):
+    """Doc comment directly before the first item, allowing Rust attributes."""
+    offset = src._lines[line - 1]
+    comments = [(start, body) for start, body in src.comments if start < offset]
+    lines, end = [], offset
+    for start, body in reversed(comments):
+        gap = src.code[start + len(body):end]
+        if not body.startswith(marker) or re.sub(r'#\[[^\]]*\]', '', gap).strip():
+            break
+        lines = _comment_lines(body) + lines
+        end = start
+    return summary('\n'.join(lines))
+
+
+def _ts_items(src):
+    items = [(m.group(1), src.line(m.start(1))) for m in TS_EXPORT.finditer(src.bare)]
+    for m in re.finditer(r'\bexport\s*(?:\{([^}]+)\}|(\*)(?:\s+as\s+(\w+))?)', src.bare):
+        if m.group(1):
+            for entry in m.group(1).split(','):
+                names = re.findall(r'[\w$]+', entry)
+                if names:
+                    items.append((names[-1] + '^', src.line(m.start())))
+        else:
+            items.append(((m.group(3) or '*') + '^', src.line(m.start())))
+    if not re.search(r'\bexport\b', src.bare):
+        for m in re.finditer(r'\b(?:async\s+)?function\s+([\w$]+)\s*\(', src.bare):
+            gap = src.bare[:m.start()]
+            if gap.count('{') == gap.count('}'):
+                items.append((m.group(1) + '·', src.line(m.start(1))))
+        items = items[:10]
+    return sorted(items, key=lambda item: item[1])
 
 
 def outline(project, rel, lang):
@@ -416,24 +474,42 @@ def outline(project, rel, lang):
         tree = project.tree(rel)
         if tree is None:
             return 'does not parse', []
-        items = [(node.name, node.lineno) for node in tree.body
+        public = [node for node in tree.body
                  if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
                  and not node.name.startswith('_')]
-        return summary(ast.get_docstring(tree) or ''), items
+        nodes = {node.lineno: node for node in public}
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+                    isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute)
+                    and isinstance(d.func.value, ast.Name) and d.func.value.id in ('app', 'router')
+                    and d.func.attr in ROUTE_METHODS for d in node.decorator_list):
+                nodes[node.lineno] = node
+        items = [(node.name, line) for line, node in sorted(nodes.items())]
+        doc = ast.get_docstring(tree) or (ast.get_docstring(public[0]) if public else '')
+        return summary(doc or ''), items
     src = project.source(rel)
     if lang == 'rust':
-        return _rust_purpose(src), _rust_items(src)
-    return _ts_purpose(src), [(m.group(1), src.line(m.start(1))) for m in TS_EXPORT.finditer(src.bare)]
+        items = _rust_items(src)
+        return _rust_purpose(src) or (_item_doc(src, items[0][1], '///') if items else ''), items
+    items = _ts_items(src)
+    return _ts_purpose(src) or (_item_doc(src, items[0][1], '/**') if items else ''), items
 
 
 def _chunks(tokens, size):
     return [tokens[k:k + size] for k in range(0, len(tokens), size)]
 
 
+def _item_token(name, line):
+    marker = name[-1] if name.endswith(('^', '·')) else ''
+    return f'{name[:-1] if marker else name}:{line}{marker}'
+
+
 def _sources_part(project, sources):
     out = []
+    counts = _test_counts(project, [rel for _, rel, lang in sources if lang == 'rust'])
     _block(out, '## Source files', 'Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`) '
-           'items outside impl blocks and test code, TypeScript exports, Python top-level `def` and `class`.')
+           'items and inherent methods, TypeScript exports, Python public definitions and route handlers. '
+           '`^`: re-export; `·`: module-local TS function (first 10); methods: first 12 per type, then +N. Test code is excluded.')
     area = None
     for file_area, rel, lang in sources:
         if file_area != area:
@@ -441,7 +517,14 @@ def _sources_part(project, sources):
             _block(out, f'### {area}')
         purpose, items = outline(project, rel, lang)
         out.append(f'- {rel} — {purpose}' if purpose else f'- {rel}')
-        out += ['  ' + ' '.join(chunk) for chunk in _chunks([f'{name}:{line}' for name, line in items], ITEMS_PER_LINE)]
+        out += ['  ' + ' '.join(chunk) for chunk in _chunks([_item_token(name, line) for name, line in items], ITEMS_PER_LINE)]
+        matches = _matching_tests(rel, counts)
+        if matches:
+            out.append('  tests: ' + ', '.join(f'{path} ({counts[path]})' for path in matches))
+        if lang == 'rust' and counts.get(rel) and any(
+                re.search(r'\bmod\s+\w+\s*\{', project.source(rel).bare[start:end])
+                for start, end in project.source(rel)._tests):
+            out.append(f'  inline tests ({counts[rel]})')
     return out
 
 
@@ -558,6 +641,60 @@ def _commands(project, rust, ts_literals):
     return out
 
 
+def _channels(project, rust, ts):
+    commands = {}
+    for rel in rust:
+        src = project.source(rel)
+        for m in TAURI_COMMAND.finditer(src.bare):
+            paren = src.bare.find('(', m.end())
+            args = _call_args(src.bare, paren)
+            if (not src.in_test(m.start()) and args
+                    and re.search(r'\bChannel\s*<', src.bare[paren:args[-1][1]])):
+                commands[m.group(1)] = (rel, src.line(m.start(1)))
+    if not commands:
+        return []
+    sites = {}
+    for rel in ts:
+        src = project.source(rel)
+        for m in re.finditer(r'\b(?:const|let)\s+(\w+)\s*=\s*new\s+Channel\b', src.bare):
+            # Follow the channel binding within the enclosing block, including async setup.
+            stack = []
+            for k, char in enumerate(src.bare[:m.start()]):
+                if char == '{':
+                    stack.append(k)
+                elif char == '}' and stack:
+                    stack.pop()
+            end = _item_end(src.bare, stack[-1]) if stack else len(src.bare)
+            for call in re.finditer(r'\binvoke\s*(?:<[^()]*>\s*)?\(', src.bare[m.end():end]):
+                paren = m.end() + call.end() - 1
+                args = _call_args(src.bare, paren)
+                if len(args) < 2:
+                    continue
+                name, _ = _arg_value(src, args[0], {})
+                if name in commands and re.search(r'\b' + re.escape(m.group(1)) + r'\b',
+                                                  src.bare[args[1][0]:args[-1][1]]):
+                    sites.setdefault(name, []).append((rel, src.line(src.bare.index('new', m.start(), m.end()))))
+    out = []
+    _block(out, '### Tauri Channels', 'Commands accepting `Channel<...>` <- TypeScript `new Channel` bindings passed to them.')
+    for name, (rel, line) in sorted(commands.items()):
+        out.append(f'- `{name}` {rel}:{line} <- {_sites(sites[name]) if name in sites else "no TypeScript Channel site"}')
+    return out
+
+
+def _disk_files(project, rust):
+    files = {}
+    for name, entries in _consts(project, rust).items():
+        for value, rel, line in entries:
+            if re.fullmatch(r'[^/\\\s]+\.(?:json|bin|id|txt|log|wav|tmp)', value):
+                files.setdefault(value, []).append((rel, line))
+    if not files:
+        return []
+    out = []
+    _block(out, '### Files on disk', 'File names declared as Rust string constants (read or written by the app).')
+    out += [f'- `{value}`: {_sites(sites)}' for value, sites in sorted(files.items())]
+    return out
+
+
 def _event_sites(project, rust, ts):
     """Event names -> kinds -> sites, shared with the contract checker."""
     events = {}
@@ -669,25 +806,41 @@ def _call_kinds(project, rust, server):
     return out
 
 
-def _locale_keys(project, rust_literals, ts_literals):
+def _locale_keys(project, rust_literals, ts_literals, ts=()):
     path = project.root / LOCALE
     try:
         keys = sorted(json.loads(path.read_text(encoding='utf-8-sig')))
     except (OSError, ValueError, TypeError):
         return []
-    out, unused = [], []
-    _block(out, '### Locale keys', f'Keys of {LOCALE} found as string literals in Rust (rs: crates, src-tauri) and '
-           'TypeScript (ts: `t("key")`, key tables).')
+    out, unused, ui = [], [], {}
+    dynamic = {}
+    for rel in ts:
+        src = project.source(rel)
+        for m in re.finditer(r'`([^`$\n]+)\$\{', src.code):
+            # Only real template literals, never text within another string.
+            if src.text[m.start()] == '`' and src.bare[m.start()] == '"':
+                dynamic.setdefault(m.group(1), []).append((rel, src.line(m.start())))
+    _block(out, '### Locale keys', f'Keys of {LOCALE}: Rust uses (rs) and keys without literal use are listed '
+           'individually; TS-only keys are grouped by prefix. Literal template prefixes count as use.')
     for key in keys:
-        parts = [f'{side} {_sites(index[key])}' for side, index in (('rs', rust_literals), ('ts', ts_literals))
+        ts_sites = ts_literals.get(key, []) + [site for prefix, sites in dynamic.items()
+                                             if key.startswith(prefix) for site in sites]
+        parts = [f'{side} {_sites(index[key])}' for side, index in (('rs', rust_literals), ('ts', {key: ts_sites} if ts_sites else {}))
                  if key in index]
-        if parts:
+        if key in rust_literals:
             out.append(f'- `{key}`: ' + '; '.join(parts))
+        elif ts_sites:
+            group = ui.setdefault(key.split('.')[0], [0, set()])
+            group[0] += 1
+            group[1].update(path for path, _ in ts_sites)
         else:
-            unused.append(f'`{key}`')
+            unused.append(key)
+    for prefix, (count, paths) in sorted(ui.items()):
+        out.append(f'- `{prefix}.*` ({count} keys): ' + ', '.join(sorted(paths)))
     if unused:
-        out.append('- no literal use (built at run time, or unused):')
-        out += ['  ' + ' '.join(chunk) for chunk in _chunks(unused, ITEMS_PER_LINE)]
+        prefixes = ', '.join(f'`{prefix}.*`' for prefix in sorted({key.split('.')[0] for key in unused}))
+        out.append(f'- no literal use ({len(unused)} keys); prefixes: {prefixes}')
+        out += [f'- `{key}`: no literal use' for key in unused]
     return out
 
 
@@ -702,7 +855,7 @@ def _test_area(rel):
     return '/'.join(parts[:2]) if parts[0] == 'crates' else parts[0]
 
 
-def _tests_part(project, rust):
+def _test_counts(project, rust):
     counts = {}
     for rel in project.files(*RUST_TESTS) + rust:
         counts[rel] = len(RUST_TEST.findall(project.source(rel).bare))
@@ -712,18 +865,35 @@ def _tests_part(project, rust):
         tree = project.tree(rel)
         counts[rel] = sum(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith('test')
                           for node in ast.walk(tree)) if tree else 0
+    return counts
+
+
+def _matching_tests(rel, counts):
+    path = PurePosixPath(rel)
+    stem = path.stem
+    if path.suffix == '.rs':
+        base = rel.split('/src/', 1)[0] + '/tests/'
+        return sorted(test for test in counts if test == base + stem + '.rs' or test.startswith(base + stem + '/'))
+    if path.suffix == '.ts':
+        return [test for test in sorted(counts) if test == str(path.with_suffix('.test.ts'))]
+    base = rel.split('/')[0] + '/tests/test_' + stem + '.py'
+    return [base] if base in counts else []
+
+
+def _tests_part(project, rust):
+    counts = _test_counts(project, rust)
     areas = {}
     for rel, count in counts.items():
         if count:
             areas.setdefault(_test_area(rel), []).append((rel, count))
     out = []
-    _block(out, '## Tests', 'Per area: the test files and the source files with inline tests, with their number of '
-           'tests (Rust `#[test]`, TypeScript `test(`/`it(`, Python `test*` methods).')
+    _block(out, '## Tests', 'Counts include standalone test files and source files with inline tests. '
+           'Rust `#[test]`, TypeScript `test(`/`it(`, Python `test*` methods.')
+    out += ['| Area | Tests | Files |', '|---|---:|---:|']
     order = {name: k for k, name in enumerate(TEST_AREAS)}
     for area in sorted(areas, key=lambda name: (order.get(name.split('/')[0], len(order)), name)):
         files = sorted(areas[area])
-        _block(out, f'### {area}: {sum(n for _, n in files)} tests in {len(files)} files')
-        out += [f'- {rel}: {count}' for rel, count in files]
+        out.append(f'| {area} | {sum(n for _, n in files)} | {len(files)} |')
     return out
 
 
@@ -753,9 +923,10 @@ def render(root=ROOT):
 
     out = [HEADER, '# Code map', '', INTRO]
     _extend(out, _sources_part(project, sorted(sources, key=lambda s: (_area_rank(s[0]), s[0], s[1]))))
-    links = [part for part in (_commands(project, rust, ts_literals), _events(project, rust, ts),
+    links = [part for part in (_commands(project, rust, ts_literals), _channels(project, rust, ts),
+                               _disk_files(project, rust), _events(project, rust, ts),
                                _routes(project, server, rust_literals), _call_kinds(project, rust, server),
-                               _locale_keys(project, rust_literals, ts_literals)) if part]
+                               _locale_keys(project, rust_literals, ts_literals, ts)) if part]
     if links:
         _block(out, '## Cross-language links')
         for part in links:

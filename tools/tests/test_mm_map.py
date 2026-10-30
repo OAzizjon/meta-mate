@@ -259,9 +259,9 @@ class CodeMapTests(unittest.TestCase):
         self.assertIn(f'- {rel} — Demo crate: shapes and their names.', self.lines)
         expected = ' '.join(f'{name}:{self.line(rel, needle)}' for name, needle in (
             ('shapes', 'pub mod shapes'), ('area', 'pub fn area'), ('LIMIT', 'pub(crate) const'),
-            ('Square', 'pub struct'), ('later', 'pub async fn later')))
+            ('Square', 'pub struct'), ('Square::side', 'pub fn side'), ('later', 'pub async fn later')))
         self.assertEqual(self.items_after(f'- {rel} — Demo crate: shapes and their names.'), '  ' + expected)
-        for hidden in ('fake', 'hidden', 'side:', 'only_for_tests', 'RAW', 'QUOTE'):
+        for hidden in ('fake', 'hidden', 'only_for_tests', 'RAW', 'QUOTE'):
             self.assertNotIn(hidden, self.text)
         self.assertIn('- crates/demo/src/shapes.rs — Shapes.', self.lines)
 
@@ -279,8 +279,10 @@ class CodeMapTests(unittest.TestCase):
     def test_python_purpose_and_public_items(self):
         rel = 'server/metamate_proxy/app.py'
         entry = f'- {rel} — The proxy app: routes.'
-        self.assertEqual(self.items_after(entry), f'  CallKind:{self.line(rel, "class CallKind")} '
-                                                  f'register:{self.line(rel, "def register")}')
+        self.assertEqual(self.items_after(entry), '  ' + ' '.join(
+            f'{name}:{self.line(rel, needle)}' for name, needle in (
+                ('CallKind', 'class CallKind'), ('register', 'def register'),
+                ('responses', 'def responses'), ('start', 'def start'), ('tts', 'def tts'), ('asr', 'def asr'))))
         self.assertIn('- tools/demo.py — Demo tool.', self.lines)
         sections = [line for line in self.lines if line.startswith('### ')]
         self.assertEqual(sections[:5], ['### crates/demo', '### src-tauri', '### src', '### tools',
@@ -324,18 +326,145 @@ class CodeMapTests(unittest.TestCase):
     def test_locale_keys_from_rust_and_typescript(self):
         rust, ts = 'src-tauri/src/lib.rs', 'src/settings.ts'
         self.assertIn(f'- `robot.hello`: rs {rust}:{self.line(rust, "robot.hello")}', self.lines)
-        self.assertIn(f'- `chat.send`: ts {ts}:{self.line(ts, "chat.send")}', self.lines)
-        unused = self.lines.index('- no literal use (built at run time, or unused):')
-        self.assertEqual(self.lines[unused + 1], '  `robot.unused` `settings.key_f9`')
+        self.assertIn(f'- `chat.*` (1 keys): {ts}', self.lines)
+        self.assertIn(f'- `settings.*` (1 keys): {ts}', self.lines)
+        self.assertIn('- no literal use (1 keys); prefixes: `robot.*`', self.lines)
+        self.assertIn('- `robot.unused`: no literal use', self.lines)
 
     def test_tests_index_counts_real_tests_only(self):
         tests = self.lines[self.lines.index('## Tests'):]
-        for expected in ('### crates/demo: 4 tests in 2 files', '- crates/demo/src/lib.rs: 2',
-                         '- crates/demo/tests/shapes.rs: 2', '### src-tauri: 1 tests in 1 files',
-                         '- src-tauri/src/lib.rs: 1', '### src: 3 tests in 1 files', '- src/settings.test.ts: 3',
-                         '### tools: 2 tests in 1 files', '- tools/tests/test_demo.py: 2'):
+        for expected in ('| crates/demo | 4 | 2 |', '| src-tauri | 1 | 1 |',
+                         '| src | 3 | 1 |', '| tools | 2 | 1 |'):
             self.assertIn(expected, tests)
         self.assertNotIn('- crates/demo/src/shapes.rs: 0', tests)
+        self.assertIn('  tests: crates/demo/tests/shapes.rs (2)', self.lines)
+        self.assertIn('  tests: src/settings.test.ts (3)', self.lines)
+        self.assertIn('  tests: tools/tests/test_demo.py (2)', self.lines)
+        self.assertIn('  inline tests (2)', self.lines)
+
+    def write(self, rel, text):
+        path = self.root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(textwrap.dedent(text).lstrip('\n'), encoding='utf-8')
+
+    def test_first_public_item_docs(self):
+        cases = (
+            ('crates/demo/src/docs.rs', 'rust', '''
+                use crate::Square;
+                /// A documented parser.
+                /// More detail.
+                #[derive(Debug)]
+                pub struct Parser;
+            ''', 'A documented parser.'),
+            ('src/docs.ts', 'ts', '''
+                import { x } from "x";
+                const privateValue = 0;
+                /** An exported helper. More detail. */
+                export function helper() {}
+            ''', 'An exported helper.'),
+            ('tools/docs.py', 'python', '''
+                def _private():
+                    """Private description."""
+                def helper():
+                    """A public helper. More detail."""
+            ''', 'A public helper.'),
+        )
+        for rel, lang, text, purpose in cases:
+            with self.subTest(lang=lang):
+                self.write(rel, text)
+                self.assertEqual(mm_map.outline(mm_map.Project(self.root), rel, lang)[0], purpose)
+
+    def test_inherent_methods_reexports_and_caps(self):
+        rel = 'crates/demo/src/extra.rs'
+        self.write(rel, 'pub struct Extra;\nimpl<T> Extra<T> {\n' +
+                   ''.join(f' pub fn method{n}() {{}}\n' for n in range(14)) +
+                   '}\nimpl Trait for Extra {\n pub fn hidden() {}\n}\n' +
+                   'pub use a::{B, nested::{C as D, E}};\npub use parser::Parser;\n')
+        items = mm_map.outline(mm_map.Project(self.root), rel, 'rust')[1]
+        names = [name for name, _ in items]
+        self.assertIn('Extra::method11', names)
+        self.assertIn('Extra::+2', names)
+        self.assertNotIn('Extra::method12', names)
+        self.assertNotIn('Extra::hidden', names)
+        for name in ('B^', 'D^', 'E^', 'Parser^'):
+            self.assertIn(name, names)
+        self.assertIn(f'Parser:{self.line(rel, "pub use parser")}^', mm_map.render(self.root))
+
+    def test_ts_reexports_and_page_functions(self):
+        self.write('src/reexport.ts', 'export { a, type B, c as alias };\nexport * from "x";\nexport * as ns from "y";\n')
+        self.assertEqual([n for n, _ in mm_map.outline(mm_map.Project(self.root), 'src/reexport.ts', 'ts')[1]],
+                         ['a^', 'B^', 'alias^', '*^', 'ns^'])
+        self.write('src/page.ts', 'function first() { function nested() {} }\n' +
+                   ''.join(f'async function local{n}() {{}}\n' for n in range(12)))
+        names = [n for n, _ in mm_map.outline(mm_map.Project(self.root), 'src/page.ts', 'ts')[1]]
+        self.assertEqual(len(names), 10)
+        self.assertEqual(names[0], 'first·')
+        self.assertNotIn('nested·', names)
+        self.assertIn('first:1·', mm_map.render(self.root))
+
+    def test_nested_router_handler_and_module_doc_priority(self):
+        self.write('tools/route.py', '''
+            """Module description."""
+            def register(router):
+                """Register description."""
+                @router.post('/answer')
+                async def _answer(): pass
+                def hidden(): pass
+        ''')
+        purpose, items = mm_map.outline(mm_map.Project(self.root), 'tools/route.py', 'python')
+        self.assertEqual(purpose, 'Module description.')
+        self.assertEqual([n for n, _ in items], ['register', '_answer'])
+
+    def test_test_associations_nested_rust_and_server(self):
+        self.write('crates/demo/tests/shapes/edges.rs', '#[test]\nfn edge() {}\n')
+        self.write('server/tests/test_app.py', 'def test_route(): pass\n')
+        text = mm_map.render(self.root)
+        self.assertIn('  tests: crates/demo/tests/shapes.rs (2), crates/demo/tests/shapes/edges.rs (1)', text)
+        self.assertIn('  tests: server/tests/test_app.py (1)', text)
+
+    def test_channels_and_disk_constants_ignore_comments_and_tests(self):
+        rel = 'src-tauri/src/channels.rs'
+        self.write(rel, '''
+            const SETTINGS: &str = "settings.json";
+            const SESSION: &'static str = r#"session.bin"#;
+            // const FAKE: &str = "fake.log";
+            #[tauri::command]
+            pub fn subscribe(channel: Channel<Vec<Message>>) {}
+            #[tauri::command]
+            fn orphan(channel: Channel<Message>) {}
+            #[cfg(test)]
+            mod tests { const TEST: &str = "test.tmp"; }
+        ''')
+        self.write('src/channel.ts', '''
+            async function setup() {
+              const stream = new Channel<unknown>();
+              await invoke("subscribe", { channel: stream });
+            }
+            // const fake = new Channel(); invoke("orphan", {fake});
+        ''')
+        text = mm_map.render(self.root)
+        self.assertIn(f'- `subscribe` {rel}:5 <- src/channel.ts:2', text)
+        self.assertIn(f'- `orphan` {rel}:7 <- no TypeScript Channel site', text)
+        self.assertIn(f'- `settings.json`: {rel}:1', text)
+        self.assertIn(f'- `session.bin`: {rel}:2', text)
+        self.assertNotIn('`fake.log`', text)
+        self.assertNotIn('`test.tmp`', text)
+
+    def test_dynamic_locale_prefixes_and_secret_files(self):
+        self.write('src/dynamic.ts', 't(`robot.${kind}`);\nt(`home.where_${place}`);\n// t(`chat.${fake}`)\n')
+        keys = dict(LOCALE, **{'home.where_left': 'Left', 'home.where_right': 'Right', 'absent.key': 'Unused'})
+        self.write('locales/en.json', json.dumps(keys))
+        self.write('tools/.env.py', 'def secret_definition(): pass\n')
+        self.write('src/.env.ts', 'export const SECRET_ITEM = 1;\n')
+        text = mm_map.render(self.root)
+        self.assertIn('- `home.*` (2 keys): src/dynamic.ts', text)
+        self.assertIn('- `robot.*` (1 keys): src/dynamic.ts', text)
+        self.assertIn('- `robot.hello`: rs ', text)
+        self.assertIn('- no literal use (1 keys); prefixes: `absent.*`', text)
+        self.assertNotIn('SECRET_ITEM', text)
+        self.assertNotIn('secret_definition', text)
+        with self.assertRaises(ValueError):
+            mm_map.Project(self.root).text('tools/.env.py')
 
     def test_main_writes_then_check_detects_stale_file(self):
         out = io.StringIO()

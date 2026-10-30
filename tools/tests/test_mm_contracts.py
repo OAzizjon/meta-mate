@@ -37,6 +37,167 @@ class ContractTests(unittest.TestCase):
     def findings(self):
         return mm_contracts.findings(self.root)
 
+    def shape(self, rust, ts, *, name='Wire', ts_name='Wire'):
+        self.write('src-tauri/src/wire.rs', rust)
+        self.write('src/wire.ts', ts)
+        pairs = {('wire.rs', name): ('src/wire.ts', ts_name)}
+        with patch.object(mm_contracts, 'SHAPE_PAIRS', pairs):
+            return self.findings()
+
+    def test_serde_rename_all_and_explicit_rename_report_both_locations(self):
+        result = self.shape('''#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Wire {
+    first_name: String,
+    #[serde(rename = "wireId")]
+    identifier: u32,
+}''', '''interface Wire {
+  firstName: string;
+  id: number;
+}''')
+        self.assertEqual(result, [
+            "src-tauri/src/wire.rs:3  serde Wire: required TS field never sent 'id'; src/wire.ts:3 (Wire)",
+            "src-tauri/src/wire.rs:6  serde Wire: Rust-only field 'wireId'; src/wire.ts:1 (Wire)",
+        ])
+
+    def test_serde_tag_variant_and_field_renames(self):
+        rust = '''#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case", rename_all_fields = "camelCase")]
+enum Wire {
+    StartNow { sample_rate: u32 },
+    #[serde(rename = "end")]
+    StopNow { #[serde(rename = "why")] reason: String },
+    Done,
+}'''
+        ts = '''type Wire =
+  | { kind: "start_now"; sampleRate: number }
+  | { kind: "end"; why: string }
+  | { kind: "done" };'''
+        self.assertEqual(self.shape(rust, ts), [])
+        result = self.shape(rust, ts.replace('sampleRate', 'sample_rate').replace('"done"', '"finished"'))
+        self.assertEqual(len(result), 4)
+        self.assertTrue(any('Rust-only enum member' in item for item in result))
+        self.assertTrue(any('TS-only enum member' in item for item in result))
+        self.assertTrue(any("Rust-only field 'sampleRate'" in item for item in result))
+
+    def test_serde_skip_optional_skip_if_and_default(self):
+        self.assertEqual(self.shape('''#[derive(Serialize, Deserialize)]
+#[serde(default)]
+struct Wire {
+    #[serde(skip)] hidden: String,
+    #[serde(skip_serializing)] internal: bool,
+    value: Option<String>,
+    #[serde(skip_serializing_if = "String::is_empty")] text: String,
+    #[serde(default)] count: u32,
+}''', '''interface Wire {
+  value?: string;
+  text?: string;
+  count: number;
+  future?: boolean;
+}'''), [])
+        result = self.shape('''#[derive(Deserialize)]
+struct Wire { #[serde(default)] count: u32 }''', 'interface Wire {}')
+        self.assertEqual(len(result), 1)
+        self.assertIn("Rust-only field 'count'", result[0])
+
+    def test_serde_flatten_is_unknown_and_not_a_partial_comparison(self):
+        result = self.shape('''#[derive(Serialize)]
+struct Wire { visible: u32, #[serde(flatten)] extra: Other }''', 'interface Wire { needed: string }')
+        self.assertEqual(len(result), 1)
+        self.assertIn('unknown shape (serde flatten has unknown fields)', result[0])
+        self.assertIn('src/wire.ts:1', result[0])
+
+    def test_serde_string_enum_const_union_and_one_sided_members(self):
+        result = self.shape('''#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+enum Wire { RightCtrl, #[serde(rename = "last")] End, #[serde(skip)] Hidden }''',
+                            '''const KEYS = ["rightCtrl", "extra"] as const;
+type Wire = (typeof KEYS)[number];''')
+        self.assertEqual(len(result), 2)
+        self.assertTrue(any("Rust-only enum member 'last'" in item for item in result))
+        self.assertTrue(any("TS-only enum member 'extra'" in item for item in result))
+
+    def test_serde_case_rules_match_serde_acronyms_and_fields(self):
+        for rule, expected in [('snake_case', 'h_t_t_p_error'),
+                               ('SCREAMING_SNAKE_CASE', 'H_T_T_P_ERROR'),
+                               ('kebab-case', 'h-t-t-p-error'),
+                               ('SCREAMING-KEBAB-CASE', 'H-T-T-P-ERROR'),
+                               ('lowercase', 'httperror'), ('UPPERCASE', 'HTTPERROR'),
+                               ('PascalCase', 'HTTPError'), ('camelCase', 'hTTPError')]:
+            with self.subTest(rule=rule):
+                self.assertEqual(self.shape(
+                    f'#[derive(Serialize)] #[serde(rename_all = "{rule}")] enum Wire {{ HTTPError }}',
+                    f'type Wire = "{expected}";'), [])
+        self.assertEqual(self.shape('''#[derive(Serialize)]
+#[serde(rename_all = "lowercase")] struct Wire { snake_field: u32 }''',
+                                    'interface Wire { snake_field: number }'), [])
+
+    def test_serde_named_union_aliases_imports_and_extract(self):
+        self.write('src/base.ts', '''export type Base =
+  | { type: "model"; model: string | null }
+  | { type: "other"; extra: number };''')
+        self.assertEqual(self.shape('''#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum Wire { Model { model: Option<String> }, Pcm { samples: u32 } }''',
+                                    '''import type { Base } from "./base.ts";
+interface Pcm { type: "pcm"; samples: number }
+type Wire = Extract<Base, { type: "model" }> | Pcm;'''), [])
+
+    def test_serde_inline_property_and_function_return_selectors(self):
+        self.assertEqual(self.shape('''#[derive(Serialize)]
+#[serde(rename_all = "lowercase")] enum Wire { Person, Mate }''',
+                                    'interface Message { role: "person" | "mate" }',
+                                    ts_name='Message.role'), [])
+        self.assertEqual(self.shape('''#[derive(Serialize)] struct Wire { left: u32 }''',
+                                    'function usage(raw: unknown): { left: number } | null { return null; }',
+                                    ts_name='@usage'), [])
+
+    def test_serde_imported_diagnostics_point_to_the_defining_file(self):
+        self.write('src/base.ts', '''interface Model {
+  type: "model";
+  required: number;
+}''')
+        result = self.shape('''#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum Wire { Model { extra: u32 } }''',
+                            'import type { Model } from "./base.ts"; type Wire = Model;')
+        self.assertEqual(result, [
+            "src-tauri/src/wire.rs:3  serde Wire.model: Rust-only field 'extra'; src/base.ts:2 (Wire)",
+            "src-tauri/src/wire.rs:3  serde Wire.model: required TS field never sent 'required'; src/base.ts:3 (Wire)",
+        ])
+
+    def test_serde_variant_rename_all_overrides_container_field_rule(self):
+        self.assertEqual(self.shape('''#[derive(Serialize)]
+#[serde(tag = "type", rename_all = "snake_case", rename_all_fields = "camelCase")]
+enum Wire {
+    #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+    Start { first_name: String },
+    #[serde(skip)] Hidden { ignored: u32 },
+}''', '''type Wire = { 'type': "start"; 'FIRST_NAME': string };'''), [])
+
+    def test_serde_unknown_alias_and_missing_definition_fail_closed(self):
+        rust = '#[derive(Serialize)] struct Wire { value: u32 }'
+        for ts in ('type Wire = Dynamic<Other>;', 'interface Other { value: number }'):
+            with self.subTest(ts=ts):
+                result = self.shape(rust, ts)
+                self.assertEqual(len(result), 1)
+                self.assertIn('unknown shape', result[0])
+
+    def test_serde_allowlist_is_specific_to_type_variant_kind_and_member(self):
+        rust = '#[derive(Serialize)] struct Wire { first: u32, second: u32 }'
+        with patch.object(mm_contracts, 'SHAPE_ALLOWLIST', {
+                ('wire.rs', 'Wire', '', 'Rust-only field', 'first'): 'Consumer ignores metadata.'}):
+            result = self.shape(rust, 'interface Wire {}')
+        self.assertEqual(len(result), 1)
+        self.assertIn("'second'", result[0])
+
+    def test_serde_comments_literals_and_test_types_do_not_create_shapes(self):
+        self.assertEqual(self.shape('''// #[derive(Serialize)] struct Wire { fake: u32 }
+const EXAMPLE: &str = "struct Wire { fake: u32 }";
+#[cfg(test)] mod tests { #[derive(Serialize)] struct Wire { fake: u32 } }
+#[derive(Serialize)] struct Wire { real: u32 }''',
+                                    '/* interface Wire { fake: number } */ interface Wire { real: number }'), [])
+
     def test_registration_both_directions_and_unknown_invoke(self):
         self.command()
         self.write('src-tauri/src/lib.rs', 'tauri::generate_handler![voice::typo];')

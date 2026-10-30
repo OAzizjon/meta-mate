@@ -159,6 +159,23 @@ def _secret_value(text):
     return bool(SECRET_PATTERN.search(text) or ASSIGNMENT.search(text))
 
 
+def _code_part(text):
+    """A Rust or TS line without its comment: a doc or block-comment line is empty, and a
+    trailing `//` comment goes (one outside quotes: `"https://..."` stays)."""
+    if text.lstrip().startswith(('//', '/*', '*')):
+        return ''
+    quote = None
+    for index, char in enumerate(text):
+        if quote:
+            if char == quote and text[index - 1] != '\\':
+                quote = None
+        elif char in '"\'`':
+            quote = char
+        elif text.startswith('//', index):
+            return text[:index]
+    return text
+
+
 def _dom_literal(text):
     # Match literals at the DOM sink, so a lookup elsewhere on the line cannot
     # hide an inline label. Empty strings clear the UI and need no locale key.
@@ -197,11 +214,14 @@ def lint(files, root):
             def emit(rule):
                 findings.append(Finding(path, added.number, rule, display))
 
+            # The code rules look at code only: "// never println!() here" is advice, not a leftover.
+            code = _code_part(text) if rust or ts else text
+
             if re.match(r'^\s*(?:<{7}|={7}|>{7}|\|{7})(?:\s|$)', text):
                 emit('ERROR_CONFLICT')
-            if path.startswith('crates/mm-core/') and re.search(r'\b(?:dbg|e?println)\s*!\s*\(', text):
+            if path.startswith('crates/mm-core/') and re.search(r'\b(?:dbg|e?println)\s*!\s*\(', code):
                 emit('ERROR_CORE_DEBUG')
-            if path.startswith('src/') and not test and re.search(r'\bconsole\s*\.\s*log\s*\(', text):
+            if path.startswith('src/') and not test and re.search(r'\bconsole\s*\.\s*log\s*\(', code):
                 emit('ERROR_CONSOLE_LOG')
             if test and re.search(r'\.\s*only\s*\(|\btest\s*\.\s*only\b', text):
                 emit('ERROR_TEST_ONLY')
@@ -210,17 +230,17 @@ def lint(files, root):
             if secret:
                 emit('ERROR_SECRET')
             if rust and path.startswith(('src-tauri/', 'crates/')) and not test:
-                if re.search(r'\.\s*(?:unwrap\s*\(\s*\)|expect\s*\()', text):
+                if re.search(r'\.\s*(?:unwrap\s*\(\s*\)|expect\s*\()', code):
                     emit('WARN_RUST_PANIC')
-            if re.search(r'\b(?:todo|unimplemented)\s*!\s*\(', text):
+            if re.search(r'\b(?:todo|unimplemented)\s*!\s*\(', code):
                 emit('WARN_UNIMPLEMENTED')
             if re.search(r'\b(?:TODO|FIXME|XXX)\b', text):
                 emit('WARN_TODO')
             if ts and re.search(r'\bas\s+any\b|//\s*@ts-ignore\b', text):
                 emit('WARN_TS_ESCAPE')
-            if ts and _dom_literal(text):
+            if ts and _dom_literal(code):
                 emit('WARN_UI_LITERAL')
-            if re.search(r'\bunsafe\s*\{', text) and not path.startswith('crates/mm-win32/'):
+            if re.search(r'\bunsafe\s*\{', code) and not path.startswith('crates/mm-win32/'):
                 emit('WARN_UNSAFE')
         size = len(disk_lines) if disk is not None else max((a.number for a in file.added), default=0)
         if size > 800:

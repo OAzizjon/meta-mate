@@ -131,6 +131,17 @@ class DiffLintTests(unittest.TestCase):
         self.assertEqual(self.rules(diff('crates/mm-core/src/b.rs',
                                          '#[cfg(test)]', 'x.unwrap();')), [])
 
+    def test_code_rules_skip_comments_but_keep_code_before_them(self):
+        for path, line in (('crates/mm-core/src/a.rs', '// never println!() in the core'),
+                           ('src-tauri/src/a.rs', '/// the caller may .expect("ready")'),
+                           ('src-tauri/src/a.rs', '    // unsafe { is not allowed here'),
+                           ('src/a.ts', '// use the logger, not console.log(x)'),
+                           ('src/a.ts', ' * el.textContent = "Example"')):
+            with self.subTest(line=line):
+                self.assertEqual(self.rules(diff(path, line)), [])
+        self.assertEqual(self.rules(diff('src-tauri/src/a.rs', 'x.unwrap(); // fine')), ['WARN_RUST_PANIC'])
+        self.assertEqual(self.rules(diff('src/a.ts', 'go("https://a.b"); console.log(1)')), ['ERROR_CONSOLE_LOG'])
+
     def test_cfg_test_on_disk_and_deleted_marker(self):
         path = 'src-tauri/src/a.rs'
         self.write(path, 'fn production() {}\n#[cfg(test)]\nmod tests {}\n')
