@@ -30,9 +30,12 @@ Windows 10/11 x64 (the video can be watched anywhere).
 MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Hold **Right Ctrl** (or another talk key chosen in Settings) for push-to-talk voice in English or Russian, and Mate answers aloud with a live transcript in his bubble.
 
 - **Home window:** An accessible starting hub (`home.html`) featuring an animated Right Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
+- **Chat window:** Type a question instead of speaking (`chat.html`): the answer appears as text after a "Mate is thinking..." bubble, and Mate still points on screen.
 - **Scam check ("Is this safe?"):** Evaluates suspicious emails, pop-ups, and websites in the active window. Muse Spark 1.3 delivers an immediate verdict via Mate's expression (`<mood calm>`, `<mood surprised>`, or `<mood sad>`), explains the specific red flags detected (mismatched domains, artificial urgency, fake security warnings), and shines a beam on the worst one—without ever telling the user to click, call, or pay.
 - **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it.
+- **Spotlight:** While Mate points, the rest of the screen dims around a soft opening on the target, so the button stands out even in a small video call window (`src/highlight.ts`; Settings: "Dim the rest of the screen while I point").
 - **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and automatically escalates to Muse Wonder 1.0 after two misses on Quick.
+- **Warmer, warmer:** During a lesson step, the ring and Mate's glow brighten as the mouse nears the right button and hold steady once it is on it, guiding the hand before the click (`src-tauri/src/pointing.rs`).
 - **Keepsake lesson cards:** After completing a lesson, Mate produces a printable recap card saved in `Pictures\MetaMate` with steps rewritten into plain language by Muse Glimmer 30B and illustrated in a soft gouache style by Muse Image.
 
 ## Built with Meta
