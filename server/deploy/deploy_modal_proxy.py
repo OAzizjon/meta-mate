@@ -34,6 +34,10 @@ SECRET_NAME = 'metamate-proxy'
 APP_FILE = ROOT / 'server' / 'deploy' / 'modal_proxy.py'
 GLIMMER_URL = 'https://obdazizjon--metamate-glimmer-serve.us-east.modal.run'
 URL = re.compile(r'https://[A-Za-z0-9.-]+\.modal\.run')
+# The Modal CLI prints a check mark; a Windows console code page (cp1251) can't encode it and
+# the deploy fails after the secret was already replaced (2026-10-30).
+MODAL_ENV = {**os.environ, 'PYTHONIOENCODING': 'utf-8', 'PYTHONUTF8': '1'}
+
 # Copied from the secrets file when present (the Meta key under either name).
 FROM_SECRETS = ('META_API_KEY', 'META_KEY', 'META_API_BASE', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET',
                 'PROXY_JUDGE_EMAILS', 'PROXY_PRICES', 'PROXY_REQUIRE_SIGN_IN')
@@ -41,6 +45,10 @@ FROM_SECRETS = ('META_API_KEY', 'META_KEY', 'META_API_BASE', 'GOOGLE_CLIENT_ID',
 # (owner, 2026-10-29: Google only in the judges' build for now). Without them the proxy
 # answers GitHub sign-in with 'not available' instead of a GitHub error page.
 GITHUB_SECRETS = ('GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET')
+
+
+def modal(*args: str, **kwargs) -> subprocess.CompletedProcess:
+    return subprocess.run(['modal', *args], env=MODAL_ENV, **kwargs)
 
 
 def load(path: Path) -> dict:
@@ -60,8 +68,8 @@ def store_secret(values: dict) -> None:
     try:
         with os.fdopen(handle, 'w', encoding='utf-8') as out:
             json.dump(values, out)
-        subprocess.run(['modal', 'secret', 'create', '--force', SECRET_NAME, '--from-json', path],
-                       check=True, stdout=subprocess.DEVNULL)
+        modal('secret', 'create', '--force', SECRET_NAME, '--from-json', path,
+              check=True, stdout=subprocess.DEVNULL)
     finally:
         Path(path).unlink(missing_ok=True)
 
@@ -69,8 +77,8 @@ def store_secret(values: dict) -> None:
 def restart_containers() -> bool:
     """Stops this app's running containers; Modal starts a fresh one (min_containers=1) in a
     few seconds, so deploy outside judging hours. False when that could not be done."""
-    listed = subprocess.run(['modal', 'container', 'list', '--json'], capture_output=True, text=True,
-                            encoding='utf-8', errors='replace')
+    listed = modal('container', 'list', '--json', capture_output=True, text=True,
+                   encoding='utf-8', errors='replace')
     try:
         containers = json.loads(listed.stdout) if listed.returncode == 0 else None
     except ValueError:
@@ -80,8 +88,8 @@ def restart_containers() -> bool:
     ok = True
     for container in containers:
         if isinstance(container, dict) and container.get('app_name') == 'metamate-proxy':
-            stopped = subprocess.run(['modal', 'container', 'stop', '-y', str(container.get('container_id'))],
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            stopped = modal('container', 'stop', '-y', str(container.get('container_id')),
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             ok = ok and stopped.returncode == 0
     return ok
 
@@ -125,8 +133,8 @@ def main() -> int:
     for _ in range(2):
         values['PROXY_PUBLIC_URL'] = url
         store_secret(values)
-        deployed = subprocess.run(['modal', 'deploy', str(APP_FILE)], capture_output=True, text=True,
-                                  encoding='utf-8', errors='replace')
+        deployed = modal('deploy', str(APP_FILE), capture_output=True, text=True,
+                         encoding='utf-8', errors='replace')
         if deployed.returncode != 0:
             print('modal deploy failed; its last lines:')
             print(deployed.stderr[-2000:])
