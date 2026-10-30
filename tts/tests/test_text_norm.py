@@ -168,7 +168,7 @@ class NormalizeTests(unittest.TestCase):
         self.assertEqual(normalize('en', "Нажмите Save, затем File! Ёж?"), 'Save, File!?')
         self.assertEqual(normalize('en', "It's  easy-to-use. Really?"), "It's easy-to-use. Really?")
         for lang in ('en', 'ru'):
-            for text in ('', ' \n\t ', '...!? -', '/ : # $ % = 😀', '你好'):
+            for text in ('', ' \n\t ', '...!? -', '/ : # $ % 😀', '你好'):
                 with self.subTest(lang=lang, text=text):
                     self.assertEqual(normalize(lang, text), '')
         self.assertEqual(normalize('en', 'Только кириллица'), '')
@@ -182,6 +182,51 @@ class NormalizeTests(unittest.TestCase):
     def test_unsupported_language(self):
         with self.assertRaises(ValueError):
             normalize('fr', 'bonjour')
+
+    def test_minus_fraction_and_equals_keep_their_meaning(self):
+        cases = [
+            ('-5', 'minus five', 'минус пять'),
+            ('−2.5', 'minus two point five', 'минус два запятая пять'),
+            ('5 − 2 = 3', 'five minus two equals three', 'пять минус два равно три'),
+            ('(-3)', 'minus three', 'минус три'),
+            ('5/10', 'five of ten', 'пять из десяти'),
+            ('5 / 10', 'five of ten', 'пять из десяти'),
+            ('=', 'equals', 'равно'),
+        ]
+        for text, en, ru in cases:
+            for lang, expected in [('en', en), ('ru', ru)]:
+                with self.subTest(text=text, lang=lang):
+                    self.assertEqual(normalize(lang, text), expected)
+
+    def test_an_address_in_angle_brackets_is_read(self):
+        self.assertIn('support', normalize('en', 'The sender is <support@example.com>. Avoid it.'))
+        self.assertEqual(normalize('en', '<mood happy>Press Enter.</mood>'), 'Press Enter.')
+
+    def test_review_cases_keep_keys_pauses_and_dates(self):
+        self.assertIn('Enter', normalize('en', 'Press <Enter> to confirm.'))
+        self.assertIn('continue', normalize('en', 'If it is <slow, continue.'))
+        self.assertEqual(normalize('en', '- **Choose** Save.'), 'Choose Save.')
+        self.assertIn('.', normalize('en', 'Visit https://example.com. Choose Save.'))
+        self.assertNotIn(' of ', normalize('en', 'Saved on 2026/10/30.'))
+        self.assertIn('minus five', normalize('en', 'Type "-5" here.'))
+
+    def test_a_dash_between_words_is_a_pause_not_a_minus(self):
+        self.assertNotIn('minus', normalize('en', 'Press Save - and you are done.'))
+        self.assertNotIn('минус', normalize('ru', 'Нажмите Сохранить - и готово.'))
+        self.assertNotIn('minus', normalize('en', 'Wait 5-10 seconds.'))
+
+    def test_russian_keeps_latin_button_labels_and_progress(self):
+        self.assertEqual(normalize('ru', 'Нажмите Save: 5/10, затем File.'),
+                         'Нажмите Сейв, пять из десяти, затем Файл.')
+
+    def test_markdown_links_and_code_are_not_read_aloud(self):
+        text = ('## Next\n1. Choose **Save**.\n'
+                '- Open [Settings](https://example.com).\n'
+                '```python\nprint("do not speak")\n```\n'
+                '<mood happy>Press `Enter`. https://example.com/path')
+        self.assertEqual(normalize('en', text), 'Next Choose Save. Open Settings. Press Enter.')
+        self.assertEqual(normalize('ru', '**Нажмите** [Save](https://example.com).'),
+                         'Нажмите Сейв.')
 
 
 class SynthesizeTests(unittest.TestCase):

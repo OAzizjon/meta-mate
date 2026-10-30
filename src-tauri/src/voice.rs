@@ -908,7 +908,7 @@ async fn answer(
                         CHECKING,
                     )
                 } else {
-                    let effort = ReasoningEffort::Minimal;
+                    let effort = ReasoningEffort::SPOKEN;
                     (
                         point_request(model, effort, &question, list, image),
                         LOOKING,
@@ -934,7 +934,7 @@ async fn answer(
     } else {
         let body = chat_request(
             ModelChoice::from(crate::settings::model(&app)),
-            ReasoningEffort::Minimal,
+            ReasoningEffort::SPOKEN,
             Some(&locale),
             &question,
         );
@@ -1056,7 +1056,11 @@ async fn answer(
                 model: model_chip(answer.model.as_deref()),
             });
         }
-        emit(parser.finish());
+        // A failed transport may end halfway through a word or instruction.
+        // Only a successful response may flush that pending speech.
+        if result.is_ok() {
+            emit(parser.finish());
+        }
         // The parser never invents `<end>` at EOF, and the model often omits it: the
         // timeline always ends here, so the player reaches `End` and Mate goes idle.
         if !ended.load(Ordering::Relaxed) {

@@ -445,22 +445,35 @@ fn is_verdict(words: &[&str], at: usize) -> bool {
 
 /// A verb that asks for an action on the screen (any form: "нажимай", "открывай", "clicking").
 fn action_word(word: &str) -> bool {
-    [
-        "click",
-        "press",
-        "open",
-        "do",
-        "tap",
-        "нажм",
-        "нажим",
-        "откр",
-        "сдела",
-        "кликн",
-        "щёлкн",
-        "щелкн",
-    ]
-    .iter()
-    .any(|stem| word.starts_with(stem))
+    // English words whole ("Downloads" is no "do"), Russian ones by stem.
+    matches!(
+        word,
+        "click" | "clicking" | "press" | "pressing" | "open" | "opening" | "do" | "tap"
+    ) || ["нажм", "нажим", "откр", "сдела", "кликн", "щёлкн", "щелкн"]
+        .iter()
+        .any(|stem| word.starts_with(stem))
+}
+
+/// A command addressed to Mate ("click", "нажми"), not an infinitive ("открыть").
+fn command_word(word: &str) -> bool {
+    matches!(
+        word,
+        "click"
+            | "press"
+            | "open"
+            | "нажми"
+            | "нажмите"
+            | "открой"
+            | "откройте"
+            | "сделай"
+            | "сделайте"
+            | "кликни"
+            | "кликните"
+            | "щёлкни"
+            | "щёлкните"
+            | "щелкни"
+            | "щелкните"
+    )
 }
 
 /// Conservative English/Russian fallback when the classifier is unavailable. A scam
@@ -475,20 +488,32 @@ pub fn guess_intent(question: &str) -> Intent {
     // "Don't click", "не нажимай": a negated action is neither guidance nor delegation.
     // Only a negation right before an action word counts: "I can't find the font, it's not
     // there" still finds it.
-    if words.windows(2).any(|pair| {
-        matches!(pair[0], "dont" | "not" | "never" | "не" | "никогда") && action_word(pair[1])
-    }) {
+    // "Don't double-click it" too: "double", "right" and "left" may sit in between.
+    let negated_action = (0..words.len()).any(|index| {
+        matches!(words[index], "dont" | "not" | "never" | "не" | "никогда")
+            && match words.get(index + 1) {
+                Some(&("double" | "right" | "left")) => {
+                    words.get(index + 2).is_some_and(|word| action_word(word))
+                }
+                Some(word) => action_word(word),
+                None => false,
+            }
+    });
+    if negated_action {
         return Intent::Chat;
     }
     let imperative = words
         .iter()
         .find(|word| !matches!(**word, "please" | "mate" | "пожалуйста"))
-        .is_some_and(|word| {
-            matches!(
-                *word,
-                "click" | "press" | "open" | "нажми" | "нажмите" | "открой" | "откройте"
-            )
-        });
+        .is_some_and(|word| command_word(word));
+    // "Не знаю, нажми за меня": a command to Mate anywhere with "за меня", "сам" or
+    // "yourself" hands it over (a negated action already went to Chat above); "как мне
+    // открыть настройки? Я сам хочу разобраться" has no command, so it stays How.
+    let handed_over = words.iter().any(|word| command_word(word))
+        && (has_phrase(&words, &["за", "меня"])
+            || words
+                .iter()
+                .any(|word| matches!(*word, "сам" | "сами" | "yourself")));
     // Asking about Mate's abilities is conversation, not delegation. Other task
     // cues in the same request still win over this small-talk phrase.
     let for_me = words.windows(2).enumerate().any(|(index, phrase)| {
@@ -496,22 +521,14 @@ pub fn guess_intent(question: &str) -> Intent {
             && !(index >= 4 && words[index - 4..index] == ["what", "can", "you", "do"])
     });
     // A bare "сделай" (or "сделай это", "сделай сам") hands the task over; "сделай шрифт
-    // крупнее" asks how.
+    // крупнее" is an imperative, so How.
     let do_this = words.iter().enumerate().any(|(index, word)| {
         matches!(*word, "сделай" | "сделайте")
             && words.get(index + 1).is_none_or(|next| {
                 matches!(*next, "это" | "сам" | "сами" | "за" | "пожалуйста" | "уже")
             })
     });
-    if asks_do_it(question)
-        || do_this
-        || imperative
-            && (has_phrase(&words, &["за", "меня"])
-                || words
-                    .iter()
-                    .any(|word| matches!(*word, "сам" | "сами" | "yourself")))
-        || has_phrase(&words, &["do", "it"])
-        || for_me
+    if asks_do_it(question) || do_this || handed_over || has_phrase(&words, &["do", "it"]) || for_me
     {
         return Intent::Do;
     }

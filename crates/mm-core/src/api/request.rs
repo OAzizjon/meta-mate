@@ -554,8 +554,14 @@ mod tests {
         assert!(text.contains("Answer in the language the user spoke."));
         assert!(text.contains("heard \"ru\""));
         assert!(text.contains("Start every answer with <lang CODE>"));
-        assert!(text.contains("the first sentence carries the answer (the action or the place)"));
+        assert!(text.contains("The first sentence carries the answer: the place for a"));
         assert!(text.contains("at most two short sentences for a simple action"));
+        assert!(text.contains("use 1-3 short sentences. The first sentence carries the answer"));
+        assert!(text.contains("the place for a \"where\" question, the next action for a \"how\""));
+        assert!(text.contains("English (en) and Russian (ru) only"));
+        assert!(text.contains("no markdown, lists, URLs, code"));
+        assert!(text.contains("Expand abbreviations"));
+        assert!(text.contains("exact visible button or menu label plus where it is"));
         assert!(text.contains("Never invent a menu or button name that is not on the screen"));
         assert!(text.contains("or in the element list; if unsure, say so plainly"));
         assert!(text.contains("instead of guessing."));
@@ -587,7 +593,7 @@ mod tests {
         assert_eq!(content[1]["image_url"], DATA_URL);
         let text = instructions(&body);
         assert!(text.contains("with an id from the list"));
-        assert!(text.contains("the first sentence carries the answer (the action or the place)"));
+        assert!(text.contains("The first sentence carries the answer: the place for a"));
         assert!(text.contains("at most two short sentences for a simple action"));
         assert!(text.contains("Never invent a menu or button name that is not on the screen"));
         assert!(text.contains("if unsure, say so plainly instead of guessing."));
@@ -815,8 +821,8 @@ mod tests {
             instructions(&safety),
         ] {
             assert!(spoken.contains("Answer in the language the user spoke."));
-            assert!(spoken.contains("the first sentence carries the answer"));
-            assert!(spoken.contains("(the action or the place)"));
+            assert!(spoken.contains("The first sentence carries the answer"));
+            assert!(spoken.contains("the place for a \"where\" question"));
             assert!(spoken.contains("at most two short sentences for a simple action"));
             assert!(
                 spoken.contains("Never invent a menu or button name that is not on the screen")

@@ -90,6 +90,8 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Fixed
 
+- Mate presses again when asked: "click Font", "нажми Шрифт" and "открой настройки" start a guided lesson even when the classifier is down, and "do it for me" ("сделай за меня", "нажми сам") offers each click at once; every click still needs its own spoken yes.
+- Clearer answers: one to three short sentences with the next action first, the exact button label and where it is, no Markdown or links read aloud; an answer cut by the network does not speak its half-word. The voice reads a minus sign, "5/10" ("five of ten") and "=" instead of dropping them.
 - A sign-in the proxy no longer accepts (after its signing key changed) no longer looks like a lost connection: Mate signs out, opens the sign-in window and says so, instead of "I can't connect" on every question.
 - A saved Toggle push-to-talk mode survives restarts.
 - A microphone failure also ends a click-to-talk recording.

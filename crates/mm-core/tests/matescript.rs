@@ -531,3 +531,29 @@ fn show_debug_hides_text_but_golden_preserves_it() {
         format!("Lang(\"en\")\nSay#1 \"Hello.\" [Show({text:?})]\nBound(Show({text:?}))")
     );
 }
+
+#[test]
+fn wrapped_instruction_and_invalid_tags_stay_out_of_the_bubble() {
+    let input =
+        "<lang en><mood happy>Choose Save, the disk button at the top left.</mood> Then wait.";
+    let expected = parse(input, false);
+    assert_eq!(
+        speech(&expected),
+        [
+            "Choose Save, the disk button at the top left.",
+            "Then wait."
+        ]
+    );
+    assert_eq!(chunked(input, &[1], false), expected);
+    assert_eq!(chunked(input, &[7, 2, 13], false), expected);
+    assert!(expected.iter().any(|item| matches!(item, Item::BadTag)));
+}
+
+#[test]
+fn chunks_do_not_flush_unfinished_words_or_sentences() {
+    let mut parser = Parser::new(settings(false));
+    for chunk in ["<la", "ng ru>Наж", "мите ", "Save, зат", "ем подождите."] {
+        assert!(speech(&parser.push(chunk)).is_empty());
+    }
+    assert_eq!(speech(&parser.finish()), ["Нажмите Save, затем подождите."]);
+}

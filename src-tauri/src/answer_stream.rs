@@ -24,6 +24,7 @@ pub enum AnswerMsg {
     },
     Item {
         generation: u64,
+        /// Parsed timeline data only: raw model deltas must never reach the bubble.
         item: Item,
     },
     /// PCM16LE mono, base64. Sentence 0 is a cached phrase outside the timeline; an empty
@@ -36,29 +37,18 @@ pub enum AnswerMsg {
         samples_b64: String,
     },
     /// Barge-in: everything of generations up to this one stops.
-    Cancel {
-        generation: u64,
-    },
+    Cancel { generation: u64 },
     /// A locale key the WebView shows in the bubble.
-    Line {
-        generation: u64,
-        key: &'static str,
-    },
+    Line { generation: u64, key: &'static str },
     /// The person's current transcript, capped at 200 characters; never log its text.
-    Heard {
-        generation: u64,
-        text: String,
-    },
+    Heard { generation: u64, text: String },
     /// A closed display id, never the proxy's raw model header.
     Model {
         generation: u64,
         model: Option<&'static str>,
     },
     /// The microphone's RMS level (0..=1) while listening, ~12 Hz: Mate's ears move.
-    Level {
-        generation: u64,
-        level: f32,
-    },
+    Level { generation: u64, level: f32 },
 }
 
 /// The subscribed channel and Windows locale the WebView reported, and what it reported
@@ -99,6 +89,37 @@ pub fn model_chip(served: Option<&str>) -> Option<&'static str> {
 #[cfg(test)]
 mod model_tests {
     use super::{AnswerMsg, model_chip};
+
+    #[test]
+    fn streamed_tags_never_become_bubble_or_speech_text() {
+        use mm_core::matescript::{Item, Parser};
+
+        let mut parser = Parser::default();
+        let mut items = Vec::new();
+        for chunk in [
+            "<la",
+            "ng en><mood happy><show Save>Choose Sa",
+            "ve.</mood>",
+        ] {
+            items.extend(parser.push(chunk));
+        }
+        items.extend(parser.finish());
+        let messages: Vec<_> = items
+            .into_iter()
+            .filter(|item| matches!(item, Item::Say(_)))
+            .map(|item| {
+                serde_json::to_value(AnswerMsg::Item {
+                    generation: 7,
+                    item,
+                })
+                .unwrap()
+            })
+            .collect();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0]["item"]["value"]["text"], "Choose Save.");
+        let bound = messages[0]["item"]["value"]["bound"].as_array().unwrap();
+        assert!(bound.iter().any(|tag| tag["value"] == "Save"), "{bound:?}");
+    }
 
     #[test]
     fn model_message_uses_the_answer_wire_format() {

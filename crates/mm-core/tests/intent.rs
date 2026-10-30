@@ -17,6 +17,8 @@ fn imperatives_guide_unless_the_user_explicitly_delegates() {
         "открой настройки",
         "open Settings and click Font",
         "Пожалуйста, нажмите Шрифт",
+        "кликни Шрифт",
+        "щёлкните Сохранить",
     ] {
         assert_eq!(guess_intent(text), Intent::How, "{text}");
     }
@@ -59,7 +61,23 @@ fn imperatives_guide_unless_the_user_explicitly_delegates() {
         assert_eq!(guess_intent(text), expected, "{text}");
     }
     // "Сделай шрифт крупнее" asks for a change, it does not hand the clicks over.
-    assert_ne!(guess_intent("сделай шрифт крупнее"), Intent::Do);
+    assert_eq!(guess_intent("сделай шрифт крупнее"), Intent::How);
+    assert_eq!(guess_intent("open Settings, not Downloads"), Intent::How);
+    assert_eq!(guess_intent("не знаю, нажми за меня"), Intent::Do);
+    assert_eq!(
+        guess_intent("Как мне открыть настройки? Я сам нажму."),
+        Intent::How
+    );
+    assert_eq!(guess_intent("Don't double-click it for me"), Intent::Chat);
+    assert_eq!(
+        guess_intent("Where is the button to not download?"),
+        Intent::Where
+    );
+    assert_eq!(
+        guess_intent("Как мне открыть настройки? Я сам хочу разобраться"),
+        Intent::How
+    );
+    assert_eq!(guess_intent("I'm not sure, click it for me"), Intent::Do);
 }
 
 #[test]

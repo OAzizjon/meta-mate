@@ -91,7 +91,8 @@ impl Parser {
                 }
             }
             State::Lt => {
-                if ch.is_ascii_lowercase() {
+                // A closing "</mood>" is a (bad) tag too; "A<B" stays text.
+                if ch.is_ascii_lowercase() || ch == '/' {
                     if self.sentence.boundary(None, true) {
                         self.flush();
                     }

@@ -135,14 +135,35 @@ def normalize(lang: str, text: str) -> str:
     """
     if lang not in ('en', 'ru'):
         raise ValueError(f'no MMS-TTS checkpoint for {lang!r}')
+    # Last defence if the model ignores the spoken-text rules. Keep link labels
+    # and inline button labels, but never read fenced code or web addresses.
+    text = re.sub(r'```.*?(?:```|\Z)', ' ', text, flags=re.DOTALL)
+    text = re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', text)
+    # The address goes, the full stop or comma after it stays a pause.
+    text = re.sub(r'(?:https?://|www\.)\S*?(?=[.,!?:;)]*(?:\s|$))', ' ', text,
+                  flags=re.IGNORECASE)
+    text = re.sub(r'(?m)^[ \t]*(?:#{1,6}[ \t]+|[-*][ \t]+|[0-9]+[.)][ \t]+)', '', text)
+    # Closed MateScript tags only: "<support@example.com>" is an address and "<Enter>" a
+    # key to read, and an unclosed "<" never swallows the rest of the sentence.
+    text = re.sub(r'</?(?:lang|mood|sfx|amb|pause|point|show|end|step|wait)\b[^<>]*>',
+                  ' ', text, flags=re.IGNORECASE)
+    text = text.replace('`', '').replace('*', '').replace('_', ' ')
+    # A sign, before number expansion (which introduces English hyphens): "-5", "(−2)",
+    # "5 − 2". A dash between words ("Save - and done") and a range ("5-10") stay pauses.
+    text = re.sub(r'−|(?:(?<=^)|(?<=[\s(=\[«"\']))-(?=[0-9])',
+                  ' minus ' if lang == 'en' else ' минус ', text)
+    # "5/10" is a count; "2026/10/30" (a date or a path) keeps its slashes.
+    text = re.sub(r'(?<![0-9/])([0-9]{1,3})\s*/\s*([0-9]{1,3})(?![0-9/])',
+                  r'\1 of \2' if lang == 'en' else r'\1 из \2', text)
     # Match raw dotted forms before number spacing or Latin transliteration.
     for pattern, expansion in _ABBREVIATIONS[lang].items():
         text = re.sub(r'(?<!\w)' + pattern + r'(?!\w)', expansion, text, flags=re.IGNORECASE)
     text = _TIME.sub(lambda match: ' '.join(_integer(lang, int(part))
                                            for part in match.groups()), text)
     text = _NUMBER.sub(lambda match: _number(lang, match), text)
-    symbols = {'+': ('plus', 'плюс'), '&': ('and', 'и'), '@': ('at', 'собака')}
-    text = re.sub(r'[+&@]', lambda match: ' ' + symbols[match.group()][lang == 'ru'] + ' ', text)
+    symbols = {'+': ('plus', 'плюс'), '=': ('equals', 'равно'),
+               '&': ('and', 'и'), '@': ('at', 'собака')}
+    text = re.sub(r'[+=&@]', lambda match: ' ' + symbols[match.group()][lang == 'ru'] + ' ', text)
     text = re.sub(r'[A-Za-z]+', lambda match: _word(lang, match.group()), text)
     alphabet = 'A-Za-z' if lang == 'en' else 'А-Яа-яЁё'
     text = re.sub(r'[:;]', ',', text)  # a pause the voice can make
