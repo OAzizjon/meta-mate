@@ -243,6 +243,33 @@ html.reduce-motion *,
   color: #b91c1c;
 }
 
+@media (prefers-color-scheme: dark) {
+  #mate-menu,
+  #mate-bubble,
+  #mate-onboarding,
+  #mate-keycap,
+  #mate-trial {
+    background: #1c2230;
+    color: #f1f5f9;
+    border-color: #6b7a93;
+  }
+
+  #mate-menu button:hover,
+  #mate-menu button:focus-visible {
+    background: #2d374d;
+  }
+
+  .mate-model-chip {
+    background: #2d374d;
+    color: #cbd5e1;
+  }
+
+  #mate-trial.is-empty {
+    border-color: #fca5a5;
+    color: #fca5a5;
+  }
+}
+
 @media (forced-colors: active) {
   #mate-trial {
     border-color: CanvasText;

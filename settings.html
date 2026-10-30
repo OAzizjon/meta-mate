@@ -111,6 +111,14 @@
         color: var(--text-muted);
       }
 
+      .settings-saved-note {
+        margin: 0;
+        flex-basis: 100%;
+        font-size: 18px;
+        line-height: 1.4;
+        color: var(--text-muted);
+      }
+
       .settings-form {
         display: flex;
         flex-direction: column;
@@ -158,6 +166,14 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
+      }
+
+      @media (min-width: 480px) {
+        .settings-group:has(input[name="pttKey"]) > .settings-options {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: inherit;
+        }
       }
 
       /* Each choice is a whole card to click, at least as tall as a Home button. */
@@ -364,7 +380,7 @@
         line-height: 1.2;
         text-align: center;
         border-radius: 12px;
-        border: 2px solid var(--btn-secondary-border);
+        border: 2px solid var(--option-border);
         background: var(--btn-secondary-bg);
         color: var(--btn-secondary-text);
         cursor: pointer;
@@ -454,6 +470,23 @@
       .settings-size-option input[type="radio"]:focus-visible {
         outline: 3px solid var(--accent);
         outline-offset: 2px;
+      }
+
+      @media (max-width: 400px) {
+        .settings-group {
+          padding-inline: 10px;
+        }
+
+        .settings-radio-option,
+        .settings-checkbox-option,
+        .settings-size-option {
+          padding-inline: 8px;
+          gap: 10px;
+        }
+
+        .settings-header {
+          padding-inline: 12px;
+        }
       }
 
       /* Windows contrast themes drop the tints: the chosen option and the waiting button keep
