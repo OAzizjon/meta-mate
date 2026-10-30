@@ -288,6 +288,14 @@ def locale_stats(root, texts):
                       if ('${' in value or '{' in value) and re.match(r'[a-z]+\.', value)})
     counts['unused'] = sorted(key for key in set(english) - literals
                               if not (prefixes and key.startswith(prefixes))) if english is not None else None
+    # Mate's cached spoken lines (assets/phrases/keys.txt) are built into WAVs by tools/phrases.py:
+    # one no code plays is marked, not counted as a plain dead key.
+    try:
+        phrases = set((root / 'assets' / 'phrases' / 'keys.txt').read_text(encoding='utf-8').split())
+    except OSError:
+        phrases = set()
+    if counts['unused'] is not None:
+        counts['unused'] = [f'{key} (cached phrase)' if key in phrases else key for key in counts['unused']]
     return counts
 
 

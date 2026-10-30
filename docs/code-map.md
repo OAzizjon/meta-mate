@@ -534,8 +534,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_stats.py — mm stats [--save] [--json] [--since DAYS]
   area:34 crate:39 source_files:46 read:61 run:68 code_summary:78 parse_scc:90 collect_code:104
   mask_code:128 count_tests:153 production_rust:168 is_test:191 related_test:197 parse_numstat:215 churn_summary:239 locale_stats:270
-  first_table:294 parse_agents:316 agents_report:343 contracts_report:363 collect:371 totals:413 previous_snapshot:420 compare_snapshot:431
-  save_snapshot:444 render:454 render_full:505 main:544
+  first_table:302 parse_agents:324 agents_report:351 contracts_report:371 collect:379 totals:421 previous_snapshot:428 compare_snapshot:439
+  save_snapshot:452 render:462 render_full:513 main:552
   tests: tools/tests/test_mm_stats.py (23)
 - tools/mm_where.py — mm where TERM: where a name is defined and used, across Rust, TypeScript, Python, locales and docs.
   is_secret:63 variants:70 area_of:92 is_test_path:99 tracked_files:104 searchable:121 read_lines:127 first_test_line:137
@@ -761,21 +761,15 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.*` (37 keys): src/settings.ts, src/settings/choices-view.ts, src/settings/ptt-key.ts, src/settings/voice-speed-view.ts
 - `signin.*` (6 keys): src/signin.ts
 - `tray.*` (2 keys): src/settings/choices-view.ts
-- no literal use (18 keys); prefixes: `card.*`, `landing.*`, `robot.*`, `settings.*`, `tray.*`
+- no literal use (12 keys); prefixes: `card.*`, `robot.*`, `settings.*`, `tray.*`
 - `card.window_title`: no literal use
-- `landing.benefit`: no literal use
-- `landing.headline`: no literal use
-- `landing.safety`: no literal use
 - `robot.calm_mode`: no literal use
 - `robot.found_it`: no literal use
 - `robot.fun_mode`: no literal use
 - `robot.login_page`: no literal use
 - `robot.password_covered`: no literal use
-- `robot.pointing_here`: no literal use
 - `robot.security_prompt`: no literal use
 - `robot.wake`: no literal use
-- `settings.invite_code`: no literal use
-- `settings.own_api_key`: no literal use
 - `settings.sound_volume`: no literal use
 - `tray.about`: no literal use
 - `tray.hide_robot`: no literal use
