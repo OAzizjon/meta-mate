@@ -26,6 +26,7 @@ meta-mate/
 │   ├── audio/                AudioWorklet ring buffer, speech/sfx/ambience buses
 │   ├── robot/                Mate's SVG layers and animations
 │   ├── views/                robot, highlight, settings, transcript, debug
+│   ├── theme.css             the normal windows' shared look (Home, Settings, Chat, sign-in); styles.css is Mate's overlays
 │   └── mate-menu.ts          Mate's right-click menu, drawn in his own page (never takes focus)
 ├── locales/                  en.json, ru.json (one key set, tested)
 ├── assets/

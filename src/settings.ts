@@ -7,6 +7,7 @@
 
 import { getLocale, setLocale, t } from "./i18n/index.ts";
 import type { LocaleCode } from "./i18n/index.ts";
+import { bulbBadge } from "./bulb-badge.ts";
 import { buildAccountSection } from "./settings/account-view.ts";
 import {
   buildLanguageGroup,
@@ -214,7 +215,10 @@ export function mountSettings(
 
   const savedNote = document.createElement("p");
   savedNote.className = "settings-saved-note";
-  header.append(titleHeading, savedNote);
+  const headerText = document.createElement("div");
+  headerText.className = "settings-header-text";
+  headerText.append(titleHeading, savedNote);
+  header.append(bulbBadge(), headerText);
 
   const form = document.createElement("form");
   form.className = "settings-form";

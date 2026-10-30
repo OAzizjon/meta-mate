@@ -1,92 +1,35 @@
 <!doctype html>
-<!-- Home window (WP89a): the start page for older users, src/home.ts. Mate greets them
-     beside a big Right Ctrl keycap that shows how to talk to him; three "Try it"
-     questions; what Mate never does; where the keepsake cards are saved. Sized for the
-     720x640 window: the greeting, the keycap and the questions show without scrolling,
-     the rest scrolls above a footer that keeps the start-up checkbox, Settings and Close
-     in view. Supports dark mode, Windows contrast themes and reduced motion. -->
+<!-- Home window (WP89a): the start page for older users, src/home.ts. Mate greets them in a
+     warm header card; under the greeting, how to talk to him, with a big keycap for the talk
+     key; three "Try it" questions; what Mate never does; where the keepsake cards are saved.
+     Sized for the 720x640 window: the greeting, the keycap and the questions show without
+     scrolling, the rest scrolls above a footer that keeps the start-up switch, Chat, Settings,
+     Close and Quit in view. Works from 360px wide. The shared look (palette, type, buttons,
+     focus rings, dark mode, contrast themes, reduced motion) is src/theme.css. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title></title>
+    <link rel="stylesheet" href="/src/theme.css" />
     <style>
       :root {
-        color-scheme: light dark;
-        --bg: #fffdf7;
-        --panel-bg: #ffffff;
-        --panel-border: #d0d8e5;
-        --text: #1f2a44;
-        --text-muted: #475569;
-        --accent: #1d4ed8;
-        --accent-hover: #1e40af;
-        --accent-contrast: #ffffff;
-        --accent-soft: #eff6ff;
-        --hero-bg: linear-gradient(135deg, #fff1c9 0%, #fffaf0 60%, #fffdf7 100%);
-        --hero-border: #f0d68a;
-        --glow: rgba(255, 200, 40, 0.38);
-        --keycap-bg: linear-gradient(#ffffff, #f4f1e6);
+        --pad-x: max(clamp(14px, 4vw, 24px), calc((100% - 760px) / 2));
+        --keycap-bg: linear-gradient(#ffffff, #f6f1e2);
         --keycap-border: #1f2a44;
         --keycap-text: #1f2a44;
-        --safe-mark-bg: #dcfce7;
-        --safe-mark-text: #166534;
-        --error: #b91c1c;
-        --error-soft: #fef2f2;
-        --quiet-border: #475569;
-        --btn-secondary-bg: #f1f5f9;
-        --btn-secondary-border: #cbd5e1;
-        --btn-secondary-text: #1f2a44;
-        --btn-secondary-hover: #e2e8f0;
-        --shadow: 0 4px 18px rgba(31, 42, 68, 0.08);
-        --radius: 16px;
-        --pad-x: max(clamp(12px, 3vw, 20px), calc((100% - 860px) / 2));
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
-          --bg: #131722;
-          --panel-bg: #1c2230;
-          --panel-border: #2e384d;
-          --text: #f1f5f9;
-          --text-muted: #cbd5e1;
-          --accent: #ffd23f;
-          --accent-hover: #facc15;
-          --accent-contrast: #131722;
-          --accent-soft: #252f42;
-          --hero-bg: linear-gradient(135deg, #2e2814 0%, #1f2230 65%, #1c2230 100%);
-          --hero-border: #5a4d22;
-          --glow: rgba(255, 210, 63, 0.22);
-          --keycap-bg: linear-gradient(#f8fafc, #e2e8f0);
-          --keycap-border: #94a3b8;
-          --keycap-text: #131722;
-          --safe-mark-bg: #14532d;
-          --safe-mark-text: #bbf7d0;
-          --error: #fca5a5;
-          --error-soft: #3a1f24;
-          --quiet-border: #6b7a93;
-          --btn-secondary-bg: #2d374d;
-          --btn-secondary-border: #64748b;
-          --btn-secondary-text: #f1f5f9;
-          --btn-secondary-hover: #3b4760;
-          --shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
+          --keycap-bg: linear-gradient(#fbf9f3, #e4dece);
+          --keycap-border: #8790a6;
         }
-      }
-
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
       }
 
       html,
       body {
-        margin: 0;
-        padding: 0;
         height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font: clamp(18px, 2.6vw, 19px)/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
-        overflow-wrap: anywhere;
       }
 
       /* The content scrolls; the footer below it always stays in view. */
@@ -96,14 +39,16 @@
         flex-direction: column;
       }
 
+      /* A stable gutter: a status line that adds a scrollbar never moves the cards sideways. */
       .home-content {
         flex: 1 1 auto;
         min-height: 0;
         overflow-y: auto;
+        scrollbar-gutter: stable;
         display: flex;
         flex-direction: column;
-        gap: 16px;
-        padding: 14px var(--pad-x) 24px;
+        gap: 24px;
+        padding: 20px var(--pad-x) 28px;
       }
 
       .home-content > * {
@@ -111,130 +56,157 @@
         min-width: 0;
       }
 
-      /* Header: Mate in a warm glow beside the greeting and the Right Ctrl keycap. */
+      /* Header: Mate in a warm glow beside the greeting; how to talk to him below, full width. */
       .home-hero {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
-        gap: 18px;
-        align-items: center;
-        padding: 14px clamp(12px, 3vw, 20px);
+        grid-template-areas:
+          "mate title"
+          "mate intro"
+          "talk talk";
+        column-gap: 20px;
+        padding: 20px clamp(14px, 4vw, 24px) clamp(14px, 4vw, 24px);
         background: var(--hero-bg);
-        border: 2px solid var(--hero-border);
-        border-radius: var(--radius);
+        border: 1px solid var(--hero-border);
+        border-radius: var(--radius-lg);
         box-shadow: var(--shadow);
       }
 
-      /* Room for the L size (160x148, src/robot/types.ts); smaller boxes fit a smaller Mate. */
+      /* Only a wrapper: the header's grid lays out its title, line and talk card. */
+      .home-hero-text {
+        display: contents;
+      }
+
+      /* Room for the L size (160x148, src/robot/types.ts); a smaller box fits a smaller Mate. */
       .home-mate {
-        width: clamp(112px, 20vw, 168px);
-        aspect-ratio: 168 / 156;
+        grid-area: mate;
+        align-self: center;
+        width: 168px;
+        height: 156px;
         display: grid;
         place-items: center;
         border-radius: 50%;
         background: radial-gradient(circle at 50% 45%, var(--glow) 0%, transparent 68%);
       }
 
-      .home-hero-text {
-        min-width: 0;
-      }
-
       .home-title {
+        grid-area: title;
+        align-self: end;
         margin: 0;
-        font-size: clamp(24px, 4vw, 30px);
-        font-weight: 800;
+        font-size: var(--text-2xl);
+        font-weight: 700;
         line-height: 1.2;
         overflow-wrap: break-word;
       }
 
       .home-intro {
-        margin: 4px 0 0;
+        grid-area: intro;
+        align-self: start;
+        margin: 6px 0 0;
+        color: var(--text-muted);
         text-wrap: pretty;
       }
 
+      /* How to talk to Mate: a white card inside the header. */
       .home-talk {
-        margin-top: 12px;
+        grid-area: talk;
+        margin-top: 16px;
+        padding: 16px clamp(14px, 3vw, 20px);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
       }
 
       .home-section-title {
-        margin: 0 0 6px;
-        font-size: 22px;
+        margin: 0;
+        font-size: var(--text-xl);
         font-weight: 700;
-        line-height: 1.25;
+        line-height: 1.3;
+      }
+
+      .home-talk .home-section-title {
+        margin-bottom: 12px;
+        font-size: var(--text-lg);
       }
 
       .home-talk-row {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 8px 18px;
+        gap: 12px 22px;
       }
 
-      /* A real key: a raised bottom edge like the first-launch keycap (styles.css), larger.
-         It presses down now and then, unless motion is reduced. Only transform animates:
-         a shadow in the keyframes kept the key's own layer repainting every frame, and
-         WebView2 showed a pale square over part of its label while it caught up. */
+      /* A real key: a raised bottom edge like the first-launch keycap (styles.css), larger, in
+         a soft yellow halo. It presses down now and then, unless motion is reduced. Only
+         transform animates: a shadow in the keyframes kept the key's own layer repainting every
+         frame, and WebView2 showed a pale square over part of its label while it caught up. */
       .home-keycap {
         flex: none;
         display: inline-block;
-        min-width: min(140px, 100%);
+        min-width: min(128px, 100%);
         max-width: 100%;
-        padding: 8px clamp(12px, 3vw, 20px);
+        padding: 10px 20px;
         border: 2px solid var(--keycap-border);
         border-bottom-width: 6px;
         border-radius: 12px;
         background: var(--keycap-bg);
         color: var(--keycap-text);
-        font: 800 22px/1.2 "Segoe UI", system-ui, sans-serif;
+        font: 700 20px / 1.2 var(--font);
         text-align: center;
         white-space: normal;
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+        box-shadow:
+          0 0 0 6px var(--glow),
+          0 3px 8px rgb(0 0 0 / 0.14);
         animation: home-key-press 4s ease-in-out infinite;
       }
 
-      /* Beside the keycap; its lines wrap there rather than dropping under it. */
+      /* Beside the keycap; under it when there is no room. */
       .home-talk-steps {
-        flex: 1 1 180px;
+        flex: 1 1 220px;
         min-width: 0;
         margin: 0;
         padding-left: 1.4em;
         font-weight: 600;
       }
 
+      .home-talk-step + .home-talk-step {
+        margin-top: 2px;
+      }
+
       .home-talk-step::marker {
-        font-weight: 800;
+        font-weight: 700;
       }
 
       .home-talk-where {
-        margin: 6px 0 0;
-        font-size: 18px;
+        margin: 12px 0 0;
+        font-size: var(--text-sm);
         color: var(--text-muted);
+      }
+
+      .home-talk-where + .home-talk-where {
+        margin-top: 2px;
+      }
+
+      .home-section-head {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
 
       .home-section-intro {
         margin: 0;
-        font-size: 18px;
+        font-size: var(--text-sm);
         color: var(--text-muted);
+        text-wrap: pretty;
       }
 
-      /* The line beside a title, under it when there is no room. */
-      .home-section-head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: 0 16px;
-      }
-
-      .home-section-head .home-section-title {
-        margin-bottom: 0;
-      }
-
-      /* Try it: cards wrap as space allows, each with its own big button. */
+      /* Try it: cards wrap as space allows, each with its own button. */
       .home-try-list {
         list-style: none;
-        margin: 10px 0 0;
+        margin: 14px 0 0;
         padding: 0;
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
         gap: 12px;
       }
 
@@ -242,22 +214,22 @@
         display: flex;
         flex-direction: column;
         gap: 6px;
-        padding: 14px;
-        background: var(--panel-bg);
-        border: 2px solid var(--panel-border);
-        border-radius: 14px;
+        padding: 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
         box-shadow: var(--shadow);
       }
 
       .home-try-question {
         margin: 0;
-        font-size: 19px;
+        font-size: var(--text-lg);
         font-weight: 700;
-        line-height: 1.3;
+        line-height: 1.35;
         overflow-wrap: break-word;
       }
 
-      /* Quoted as spoken, in the page language's quotes. */
+      /* Quoted as spoken, in the page language's quotes; the marks in Mate's gold. */
       .home-try-question {
         quotes: "\201C" "\201D";
       }
@@ -268,49 +240,53 @@
 
       .home-try-question::before {
         content: open-quote;
+        color: var(--accent-line);
       }
 
       .home-try-question::after {
         content: close-quote;
+        color: var(--accent-line);
       }
 
       .home-try-hint {
         flex: 1 1 auto;
         margin: 0;
-        font-size: 18px;
-        line-height: 1.35;
+        font-size: var(--text-sm);
         color: var(--text-muted);
       }
 
       .home-try-btn {
-        margin-top: 6px;
+        position: relative;
+        width: 100%;
+        margin-top: 8px;
       }
 
       .home-try-btn.is-busy {
         cursor: progress;
       }
 
+      /* Busy: a bar along the button's bottom edge, so the label never moves. */
       .home-try-btn.is-busy::after {
         content: "";
-        flex: none;
-        width: 18px;
-        height: 18px;
-        margin-left: 10px;
-        border: 2px solid currentColor;
-        border-right-color: transparent;
-        border-radius: 50%;
-        animation: home-try-spin 800ms linear infinite;
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 6px;
+        height: 3px;
+        border-radius: 2px;
+        background: currentColor;
+        opacity: 0.5;
+        animation: home-try-busy 1.2s ease-in-out infinite;
       }
 
       /* No display here when empty: nothing shifts until a line is shown. */
       .home-try-status {
-        margin: 10px 0 0;
-        padding: 14px;
-        border: 2px solid var(--accent);
-        border-radius: 12px;
+        margin: 14px 0 0;
+        padding: 12px 16px;
+        border: 1px solid var(--accent-line);
+        border-radius: var(--radius);
         background: var(--accent-soft);
-        font-size: 20px;
-        font-weight: 700;
+        font-weight: 600;
       }
 
       .home-try-status:empty {
@@ -319,18 +295,27 @@
 
       .home-try-status.is-error {
         color: var(--error);
-        border-color: var(--error);
+        border-color: currentColor;
         background: var(--error-soft);
+      }
+
+      .home-never,
+      .home-cards {
+        padding: 18px clamp(14px, 4vw, 24px) 20px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
       }
 
       /* What Mate never does: one calm green mark per line. */
       .home-never-list {
         list-style: none;
-        margin: 0;
+        margin: 12px 0 0;
         padding: 0;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
       }
 
       .home-never-item {
@@ -345,32 +330,46 @@
         flex: none;
         display: grid;
         place-items: center;
-        width: 30px;
-        height: 30px;
+        width: 26px;
+        height: 26px;
         margin-top: -1px;
         border-radius: 50%;
-        background: var(--safe-mark-bg);
-        color: var(--safe-mark-text);
-        font-weight: 800;
+        background: var(--success-bg);
+        color: var(--success-text);
+        font-size: var(--text-sm);
+        font-weight: 700;
         line-height: 1;
       }
 
-      .home-never,
-      .home-cards {
-        padding: 16px 20px;
-        background: var(--panel-bg);
-        border: 2px solid var(--panel-border);
-        border-radius: var(--radius);
+      .home-cards .home-section-intro {
+        margin-top: 8px;
+        font-size: var(--text-md);
+        color: var(--text);
       }
 
+      /* The folder in a pill with a small folder outline. */
       .home-cards-folder {
-        display: inline-block;
-        margin: 8px 0 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: 100%;
+        margin: 12px 0 0;
         padding: 6px 14px;
-        border-radius: 10px;
+        border: 1px solid var(--accent-soft-border);
+        border-radius: var(--radius-sm);
         background: var(--accent-soft);
-        font-weight: 700;
+        font-weight: 600;
         overflow-wrap: anywhere;
+      }
+
+      .home-cards-folder::before {
+        content: "";
+        flex: none;
+        width: 20px;
+        height: 20px;
+        background: currentColor;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.5h8.4A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z'/%3E%3C/svg%3E") center / contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.5h8.4A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z'/%3E%3C/svg%3E") center / contain no-repeat;
       }
 
       .home-footer {
@@ -378,135 +377,60 @@
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        justify-content: space-between;
-        gap: 10px 16px;
-        padding: 10px var(--pad-x);
-        background: var(--panel-bg);
-        border-top: 2px solid var(--panel-border);
+        gap: 8px 12px;
+        padding: 10px var(--pad-x) 14px;
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        box-shadow: 0 -6px 18px rgb(31 42 68 / 0.05);
       }
 
+      /* The start-up switch on its own line; the whole line is its label. */
       .home-start-option {
-        flex: 1 1 260px;
+        flex: 1 1 100%;
         min-width: 0;
         display: flex;
         align-items: center;
         gap: 12px;
-        min-height: 52px;
-        padding: 6px 12px 6px 8px;
-        border-radius: 10px;
-        font-size: 18px;
-        font-weight: 600;
-        line-height: 1.3;
+        min-height: 44px;
+        font-size: var(--text-sm);
+        line-height: 1.35;
         cursor: pointer;
       }
 
-      .home-start-input {
-        flex: none;
-        width: 26px;
-        height: 26px;
-        margin: 0;
-        accent-color: var(--accent);
-        cursor: pointer;
-      }
-
-      .home-start-input:disabled,
-      .home-start-input:disabled + .home-start-text {
+      .home-start-option:has(.home-start-input:disabled) {
         cursor: default;
+      }
+
+      .home-start-input:disabled + .home-start-text {
         opacity: 0.6;
-      }
-
-      .home-actions {
-        display: flex;
-        flex-wrap: wrap;
-        min-width: 0;
-        max-width: 100%;
-        gap: 12px;
-      }
-
-      .home-actions .btn {
-        flex: 1 1 130px;
-      }
-
-      /* Quit follows navigation in keyboard order, with space before it. */
-      #home-quit-btn {
-        flex: 0 1 130px;
-        margin-left: auto;
       }
 
       .home-start-text {
         min-width: 0;
       }
 
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 52px;
+      .home-actions {
+        flex: 1 1 100%;
+        display: flex;
+        flex-wrap: wrap;
         min-width: 0;
-        max-width: 100%;
-        white-space: normal;
-        overflow-wrap: anywhere;
-        padding: 10px clamp(12px, 3vw, 24px);
-        font-family: inherit;
-        font-size: 20px;
-        font-weight: 700;
-        line-height: 1.2;
-        border-radius: 12px;
-        cursor: pointer;
-        user-select: none;
-        transition:
-          background-color 140ms ease-out,
-          border-color 140ms ease-out;
+        gap: 10px;
       }
 
-      /* A press darkens the button but never shrinks it: a shaking hand stays on target. */
-      .btn:active {
-        filter: brightness(0.9);
+      .home-actions .btn {
+        flex: 0 1 auto;
       }
 
-      .btn-primary {
-        background: var(--accent);
-        color: var(--accent-contrast);
-        border: 2px solid var(--accent);
-      }
-
-      .btn-primary:hover {
-        background: var(--accent-hover);
-        border-color: var(--accent-hover);
-      }
-
-      .btn-quiet {
-        background: transparent;
-        color: var(--text-muted);
-        border: 2px solid var(--quiet-border);
-      }
-
-      .btn-secondary {
-        background: var(--btn-secondary-bg);
-        color: var(--btn-secondary-text);
-        border: 2px solid var(--btn-secondary-border);
-      }
-
-      .btn-secondary:hover {
-        background: var(--btn-secondary-hover);
-      }
-
-      .btn:focus-visible,
-      .home-start-option:focus-within {
-        outline: 4px solid var(--accent);
-        outline-offset: 3px;
-      }
-
-      .home-start-input:focus-visible {
-        outline: 3px solid var(--accent);
-        outline-offset: 2px;
+      /* Quit follows navigation in keyboard order, with space before it. */
+      #home-quit-btn {
+        margin-left: auto;
       }
 
       /* A short window: a smaller Mate (M fits) and tighter gaps keep the questions in view. */
       @media (max-height: 600px) {
         .home-content {
-          gap: 12px;
-          padding-top: 10px;
+          gap: 16px;
+          padding-top: 14px;
         }
 
         .home-mate {
@@ -515,54 +439,55 @@
         }
 
         .home-talk {
-          margin-top: 8px;
+          margin-top: 12px;
         }
       }
 
-      /* A narrow window: Mate above the greeting; the question grid wraps naturally. */
+      /* A narrow window: Mate above the greeting, the buttons share the rows. */
       @media (max-width: 600px) {
         .home-hero {
           grid-template-columns: minmax(0, 1fr);
-          justify-items: start;
-        }
-
-        .home-talk-row {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        .home-talk-steps {
-          flex: auto;
-        }
-
-        .home-actions {
-          flex: 1 1 100%;
-        }
-      }
-
-      @media (max-width: 460px) {
-        .home-hero {
+          grid-template-areas:
+            "mate"
+            "title"
+            "intro"
+            "talk";
           justify-items: center;
           text-align: center;
         }
 
         .home-mate {
-          width: 96px;
-          height: auto;
+          width: 112px;
+          height: 104px;
         }
 
-        .home-talk-row {
-          align-items: center;
-        }
-
-        .home-talk-steps {
-          max-width: 100%;
+        .home-talk {
+          justify-self: stretch;
           text-align: left;
+        }
+
+        .home-actions .btn {
+          flex: 1 1 auto;
+        }
+
+        #home-quit-btn {
+          margin-left: 0;
         }
       }
 
-      /* Windows contrast themes drop the backgrounds: the keycap and the marks keep a ring. */
+      /* Windows contrast themes drop the fills: the cards, the keycap and the marks keep a
+         ring, the icons take the text colour. */
       @media (forced-colors: active) {
+        .home-hero,
+        .home-talk,
+        .home-try-card,
+        .home-never,
+        .home-cards,
+        .home-cards-folder,
+        .home-try-status {
+          border: 1px solid CanvasText;
+        }
+
         .home-keycap,
         .home-never-item::before {
           border: 2px solid CanvasText;
@@ -571,11 +496,25 @@
         .home-keycap {
           border-bottom-width: 6px;
         }
+
+        .home-cards-folder::before {
+          forced-color-adjust: none;
+          background: CanvasText;
+        }
+
+        .home-try-btn.is-busy::after {
+          forced-color-adjust: none;
+          background: ButtonText;
+        }
       }
 
-      @keyframes home-try-spin {
-        to {
-          transform: rotate(360deg);
+      @keyframes home-try-busy {
+        0%,
+        100% {
+          transform: scaleX(0.15);
+        }
+        50% {
+          transform: scaleX(1);
         }
       }
 
@@ -588,24 +527,6 @@
         45%,
         95% {
           transform: translateY(3px);
-        }
-      }
-
-      .reduce-motion *,
-      .reduce-motion *::before,
-      .reduce-motion *::after {
-        animation: none !important;
-        transition: none !important;
-        scroll-behavior: auto !important;
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          animation: none !important;
-          transition: none !important;
-          scroll-behavior: auto !important;
         }
       }
     </style>

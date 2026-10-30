@@ -340,8 +340,9 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
     question.id = `${id}-question`;
     const hint = el("p", "home-try-hint", t(HOME_TRY_HINTS[key]));
     hint.id = `${id}-hint`;
-    // Three buttons say "Try it": each is described by its own question.
-    const button = el("button", "btn btn-primary home-try-btn", t("home.try_button"));
+    // Three buttons say "Try it": each is described by its own question. Soft, so the footer's
+    // "Write to Mate" stays the one main button.
+    const button = el("button", "btn btn-soft home-try-btn", t("home.try_button"));
     button.type = "button";
     button.id = `${id}-btn`;
     button.setAttribute("aria-describedby", `${question.id} ${hint.id}`);
@@ -386,7 +387,8 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   const footer = el("footer", "home-footer");
   const startOption = el("label", "home-start-option");
   startOption.htmlFor = "home-show-at-start";
-  const startInput = el("input", "home-start-input");
+  // Still a checkbox, drawn as an on/off switch (src/theme.css).
+  const startInput = el("input", "home-start-input switch");
   startInput.type = "checkbox";
   startInput.id = "home-show-at-start";
   // Enabled once the person's settings are in: saving earlier would reset the others.

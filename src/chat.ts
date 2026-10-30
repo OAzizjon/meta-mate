@@ -1,30 +1,13 @@
 // Chat is a normal, deliberately opened window. DOM focus never activates its HWND.
 import { Channel, invoke } from "@tauri-apps/api/core";
+import { bulbBadge } from "./bulb-badge.ts";
 import { getLocale, t } from "./i18n/index.ts";
 import { canSend, parseHistory, sendsOnKey } from "./chat/model.ts";
 import { followSettingsLocale } from "./i18n/settings.ts";
 import type { Message } from "./chat/model.ts";
 
-const SVG_NS = "http://www.w3.org/2000/svg";
 // A cancelled answer never arrives: the thinking bubble gives up after this long.
 const THINKING_LIMIT_MS = 120_000;
-
-/** Mate's light bulb as a small decorative header badge (createElementNS, no innerHTML). */
-function bulbBadge(): HTMLSpanElement {
-  const badge = document.createElement("span");
-  badge.className = "badge";
-  badge.setAttribute("aria-hidden", "true");
-  const svg = document.createElementNS(SVG_NS, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  // Glass, then the two lines of the base.
-  for (const d of ["M8.5 15.5C8.5 13.5 6 12.5 6 9.5a6 6 0 0 1 12 0c0 3-2.5 4-2.5 6z", "M9 18.5h6", "M10 21.5h4"]) {
-    const path = document.createElementNS(SVG_NS, "path");
-    path.setAttribute("d", d);
-    svg.append(path);
-  }
-  badge.append(svg);
-  return badge;
-}
 
 const root = document.getElementById("chat-app")!;
 const header = document.createElement("header");
@@ -34,6 +17,7 @@ const title = document.createElement("h1");
 brand.append(bulbBadge(), title);
 const clear = document.createElement("button");
 clear.type = "button";
+clear.className = "btn btn-secondary";
 header.append(brand, clear);
 const log = document.createElement("ol");
 log.id = "messages";
@@ -73,6 +57,7 @@ hint.id = "chat-hint";
 const send = document.createElement("button");
 send.id = "send";
 send.type = "submit";
+send.className = "btn btn-primary";
 actions.append(hint, send);
 form.append(label, input, actions);
 root.append(header, log, status, form);

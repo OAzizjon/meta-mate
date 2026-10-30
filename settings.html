@@ -1,120 +1,64 @@
 <!doctype html>
-<!-- Settings window (WP24): src/settings.ts and its sections in src/settings/. It looks like
-     the Home window (home.html): the same palette, type scale, card sections, buttons and
-     focus rings, copied here by hand (keep the two in step). Every choice is a whole card to
-     click; the chosen one is tinted and outlined. Sized for the 560x720 window. Supports dark
-     mode, Windows contrast themes and reduced motion. -->
+<!-- Settings window (WP24): src/settings.ts and its sections in src/settings/. The Home
+     window's look from src/theme.css: the same palette, type scale, cards, buttons and focus
+     rings. A warm header with Mate's bulb, then one card per setting; every choice is a whole
+     card to click, the chosen one tinted and rimmed in gold; on/off settings are switches.
+     Short choices sit two to a row when there is room. Sized for the 560x720 window, works
+     from 360px wide. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title></title>
+    <link rel="stylesheet" href="/src/theme.css" />
     <style>
-      /* The Home window's palette, plus the shades of the option cards. */
-      :root {
-        color-scheme: light dark;
-        --bg: #fffdf7;
-        --panel-bg: #ffffff;
-        --panel-border: #d0d8e5;
-        --text: #1f2a44;
-        --text-muted: #475569;
-        --accent: #1d4ed8;
-        --accent-soft: #eff6ff;
-        --hero-bg: linear-gradient(135deg, #fff1c9 0%, #fffaf0 60%, #fffdf7 100%);
-        --hero-border: #f0d68a;
-        --error: #b91c1c;
-        --btn-secondary-bg: #f1f5f9;
-        --btn-secondary-border: #cbd5e1;
-        --btn-secondary-text: #1f2a44;
-        --btn-secondary-hover: #e2e8f0;
-        --option-bg: #f8fafc;
-        --option-border: #7b8aa0;
-        --option-selected-bg: #dbeafe;
-        --option-hover: #f1f5f9;
-        --shadow: 0 4px 18px rgba(31, 42, 68, 0.08);
-        --radius: 16px;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #131722;
-          --panel-bg: #1c2230;
-          --panel-border: #2e384d;
-          --text: #f1f5f9;
-          --text-muted: #cbd5e1;
-          --accent: #ffd23f;
-          --accent-soft: #252f42;
-          --hero-bg: linear-gradient(135deg, #2e2814 0%, #1f2230 65%, #1c2230 100%);
-          --hero-border: #5a4d22;
-          --error: #fca5a5;
-          --btn-secondary-bg: #22293a;
-          --btn-secondary-border: #3b4760;
-          --btn-secondary-text: #f1f5f9;
-          --btn-secondary-hover: #2d374d;
-          --option-bg: #22293a;
-          --option-border: #6b7a93;
-          --option-selected-bg: #3d3820;
-          --option-hover: #2d374d;
-          --shadow: 0 4px 22px rgba(0, 0, 0, 0.4);
-        }
-      }
-
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
+      /* The page scrolls: a stable gutter keeps the cards still when it starts to. */
+      html {
+        scrollbar-gutter: stable;
       }
 
       html,
       body {
-        margin: 0;
-        padding: 0;
         min-height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font: 19px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
-        overflow-wrap: anywhere;
       }
 
       #settings-app {
         width: min(100%, 640px);
         margin: 0 auto;
-        padding: 14px clamp(12px, 3vw, 20px) 32px;
+        padding: 20px clamp(14px, 4vw, 24px) 32px;
       }
 
-      /* The title in the Home window's warm header band. */
+      /* The title and the saved note beside Mate's bulb, in the Home window's warm header. */
       .settings-header {
-        margin-bottom: 16px;
-        padding: 14px 20px;
         display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 4px 16px;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        padding: 18px clamp(14px, 4vw, 22px);
         background: var(--hero-bg);
-        border: 2px solid var(--hero-border);
-        border-radius: var(--radius);
+        border: 1px solid var(--hero-border);
+        border-radius: var(--radius-lg);
         box-shadow: var(--shadow);
+      }
+
+      .settings-header-text {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
       }
 
       .settings-title {
         margin: 0;
-        font-size: clamp(24px, 4vw, 30px);
-        font-weight: 800;
+        font-size: var(--text-2xl);
+        font-weight: 700;
         line-height: 1.2;
         overflow-wrap: break-word;
       }
 
-      .settings-language-note {
-        margin: 0;
-        font-size: 18px;
-        color: var(--text-muted);
-      }
-
       .settings-saved-note {
         margin: 0;
-        flex-basis: 100%;
-        font-size: 18px;
+        font-size: var(--text-sm);
         line-height: 1.4;
         color: var(--text-muted);
       }
@@ -125,27 +69,25 @@
         gap: 16px;
       }
 
-      /* Each section is a card like the Home window's. */
+      /* Each setting is a card like the Home window's. */
       .settings-group {
-        margin: 0;
-        padding: 16px clamp(12px, 3vw, 20px);
-        background: var(--panel-bg);
-        border: 2px solid var(--panel-border);
-        border-radius: var(--radius);
-      }
-
-      fieldset.settings-group {
         min-width: 0;
+        margin: 0;
+        padding: 18px clamp(14px, 4vw, 20px) 20px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
       }
 
-      /* Section titles at the Home window's size. */
       .settings-legend,
       .settings-label,
       .settings-account-title {
         margin: 0;
-        font-size: 22px;
+        font-family: var(--font-display);
+        font-size: var(--text-lg);
         font-weight: 700;
-        line-height: 1.25;
+        line-height: 1.3;
         color: var(--text);
       }
 
@@ -155,7 +97,7 @@
         float: left;
         width: 100%;
         padding: 0;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
       }
 
       .settings-legend + * {
@@ -165,29 +107,29 @@
       .settings-options {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
       }
 
-      @media (min-width: 480px) {
-        .settings-group:has(input[name="pttKey"]) > .settings-options {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: inherit;
-        }
+      /* Short names (talk keys, sounds, sizes) two to a row when there is room. */
+      .settings-options-grid,
+      .settings-size-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
+        gap: 10px;
       }
 
-      /* Each choice is a whole card to click, at least as tall as a Home button. */
+      /* Each choice is a whole card to click, at least as tall as a button. */
       .settings-radio-option,
       .settings-checkbox-option,
       .settings-size-option {
         display: flex;
         align-items: flex-start;
-        gap: 14px;
+        gap: 12px;
         min-height: 52px;
-        padding: 12px 14px;
-        border-radius: 12px;
-        border: 2px solid var(--option-border);
-        background: var(--option-bg);
+        padding: 13px 14px;
+        border: 2px solid var(--border-soft);
+        border-radius: var(--radius);
+        background: var(--surface-soft);
         cursor: pointer;
         transition:
           background-color 140ms ease-out,
@@ -197,27 +139,51 @@
       .settings-radio-option:hover,
       .settings-checkbox-option:hover,
       .settings-size-option:hover {
-        background: var(--option-hover);
+        background: var(--surface-hover);
+        border-color: var(--border-strong);
       }
 
       .settings-radio-option.is-selected,
       .settings-checkbox-option.is-selected,
       .settings-size-option.is-selected {
-        background: var(--option-selected-bg);
-        border-color: var(--accent);
-        box-shadow: inset 0 0 0 1px var(--accent);
+        background: var(--accent-soft);
+        border-color: var(--accent-line);
+        box-shadow: inset 0 0 0 1px var(--accent-line);
       }
 
-      /* The size of the Home window's checkbox, level with the first line of the title. */
+      .settings-radio-option.is-selected:hover,
+      .settings-checkbox-option.is-selected:hover,
+      .settings-size-option.is-selected:hover {
+        background: var(--accent-soft-hover);
+      }
+
+      /* Level with the first line of the title. */
       .settings-radio-option input[type="radio"],
-      .settings-checkbox-option input[type="checkbox"],
       .settings-size-option input[type="radio"] {
         flex: none;
-        width: 26px;
-        height: 26px;
-        margin: 0;
-        accent-color: var(--accent);
+        width: 22px;
+        height: 22px;
+        margin: 1px 0 0;
+        accent-color: var(--control);
         cursor: pointer;
+      }
+
+      .settings-size-option,
+      .settings-checkbox-option {
+        align-items: center;
+      }
+
+      .settings-size-option input[type="radio"] {
+        margin-top: 0;
+      }
+
+      /* An on/off setting: its words first, the switch at the end, as in Windows Settings. */
+      .settings-checkbox-option .switch {
+        order: 1;
+      }
+
+      .settings-checkbox-option .option-text {
+        flex: 1 1 auto;
       }
 
       .option-text {
@@ -228,53 +194,37 @@
       }
 
       .option-title {
-        font-size: 19px;
-        font-weight: 700;
-        line-height: 1.35;
+        font-size: var(--text-md);
+        font-weight: 600;
+        line-height: 1.5;
         overflow-wrap: break-word;
       }
 
       .option-hint {
-        font-size: 18px;
-        line-height: 1.35;
+        font-size: var(--text-sm);
+        line-height: 1.45;
         color: var(--text-muted);
-      }
-
-      /* Two sizes per row: four in a row leave no room for the Russian names in the 560px
-         window. */
-      .settings-size-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      @media (max-width: 520px) {
-        .settings-size-grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
-      }
-
-      .settings-size-option {
-        align-items: center;
       }
 
       .settings-range-header {
         display: flex;
         flex-wrap: wrap;
-        align-items: baseline;
+        align-items: center;
         justify-content: space-between;
         gap: 8px 12px;
-        margin-bottom: 12px;
+        margin-bottom: 6px;
       }
 
-      /* The speed in a pill like the Home window's cards folder. */
+      /* The speed in a pill as wide as its widest value: the label never moves. */
       .settings-range-output {
-        padding: 2px 14px;
-        border-radius: 10px;
+        min-width: 4.5em;
+        padding: 2px 12px;
+        border: 1px solid var(--accent-soft-border);
+        border-radius: 999px;
         background: var(--accent-soft);
-        font-size: 20px;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
+        text-align: center;
         color: var(--text);
       }
 
@@ -285,38 +235,41 @@
         height: 44px;
         margin: 0;
         appearance: none;
+        border-radius: 999px;
         background: transparent;
-        accent-color: var(--accent);
+        accent-color: var(--control);
         cursor: pointer;
       }
 
       .settings-range-input::-webkit-slider-runnable-track {
         height: 8px;
-        border-radius: 4px;
-        background: var(--option-border);
+        border-radius: 999px;
+        background: var(--border-strong);
       }
 
+      /* The thumb is a little bulb: yellow with Mate's navy rim. */
       .settings-range-input::-webkit-slider-thumb {
         appearance: none;
         width: 28px;
         height: 28px;
         margin-top: -10px;
-        border: 2px solid var(--text);
+        border: 2px solid #1f2a44;
         border-radius: 50%;
         background: var(--accent);
+        box-shadow: 0 0 0 4px var(--glow);
       }
 
       .settings-range-input::-moz-range-track {
         height: 8px;
-        border-radius: 4px;
-        background: var(--option-border);
+        border-radius: 999px;
+        background: var(--border-strong);
       }
 
       .settings-range-input::-moz-range-thumb {
         width: 28px;
         height: 28px;
         box-sizing: border-box;
-        border: 2px solid var(--text);
+        border: 2px solid #1f2a44;
         border-radius: 50%;
         background: var(--accent);
       }
@@ -327,13 +280,13 @@
         gap: 4px 16px;
         justify-content: space-between;
         color: var(--text-muted);
-        font-size: 18px;
+        font-size: var(--text-sm);
       }
 
       .settings-toggles {
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
       }
 
       .settings-account-title {
@@ -342,85 +295,25 @@
 
       .settings-account-why {
         margin: 0;
-        font-size: 18px;
-        line-height: 1.4;
+        font-size: var(--text-sm);
+        line-height: 1.45;
         color: var(--text-muted);
       }
 
-      /* Stacked full width in the 560px window; side by side when there is room. */
+      /* Side by side when both fit, stacked full width when not. */
       .settings-account-buttons {
         display: flex;
         flex-wrap: wrap;
-        flex-direction: column;
-        gap: 12px;
+        gap: 10px;
         margin-top: 14px;
       }
 
-      @media (min-width: 640px) {
-        .settings-account-buttons {
-          flex-direction: row;
-        }
-      }
-
-      /* The account buttons are the Home window's secondary buttons. */
-      .settings-account-btn,
-      .settings-account-sign-out {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 52px;
-        min-width: 0;
-        max-width: 100%;
-        white-space: normal;
-        overflow-wrap: anywhere;
-        padding: 10px clamp(12px, 3vw, 24px);
-        font-family: inherit;
-        font-size: 20px;
-        font-weight: 700;
-        line-height: 1.2;
-        text-align: center;
-        border-radius: 12px;
-        border: 2px solid var(--option-border);
-        background: var(--btn-secondary-bg);
-        color: var(--btn-secondary-text);
-        cursor: pointer;
-        user-select: none;
-        transition:
-          background-color 140ms ease-out,
-          border-color 140ms ease-out;
-      }
-
       .settings-account-btn {
-        flex: 1 1 auto;
+        flex: 1 1 200px;
       }
 
-      .settings-account-btn:hover:not(:disabled),
-      .settings-account-sign-out:hover:not(:disabled) {
-        background: var(--btn-secondary-hover);
-      }
-
-      /* A press darkens the button but never shrinks it: a shaking hand stays on target. */
-      .settings-account-btn:active:not(:disabled),
-      .settings-account-sign-out:active:not(:disabled) {
-        filter: brightness(0.9);
-      }
-
-      .settings-account-btn:disabled,
-      .settings-account-sign-out:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-
-      /* The button waiting for the browser stays readable while both are disabled. */
-      .settings-account-btn.is-waiting {
-        background: var(--accent-soft);
-        border-color: var(--accent);
-        opacity: 1;
-        cursor: progress;
-      }
-
+      /* Its display (flex or none) is set by src/settings/account-view.ts. */
       .settings-account-signed-in {
-        display: flex;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
@@ -430,7 +323,6 @@
 
       .settings-account-user {
         min-width: 0;
-        font-size: 19px;
         font-weight: 600;
         overflow-wrap: anywhere;
         color: var(--text);
@@ -438,8 +330,8 @@
 
       .settings-account-status {
         margin-top: 10px;
-        font-size: 18px;
-        line-height: 1.4;
+        font-size: var(--text-sm);
+        line-height: 1.45;
         color: var(--text-muted);
       }
 
@@ -449,49 +341,45 @@
 
       .settings-account-status.is-error {
         color: var(--error);
-        font-weight: 700;
+        font-weight: 600;
       }
 
-      /* Focus rings as in the Home window: a wide ring around the button or the whole option,
-         and with the keyboard a ring on the radio, checkbox or slider itself, which Windows
-         contrast themes keep. */
-      .settings-account-btn:focus-visible,
-      .settings-account-sign-out:focus-visible,
-      .settings-radio-option:focus-within,
-      .settings-checkbox-option:focus-within,
-      .settings-size-option:focus-within {
-        outline: 4px solid var(--accent);
-        outline-offset: 3px;
-      }
-
-      .settings-range-input:focus-visible,
-      .settings-radio-option input[type="radio"]:focus-visible,
-      .settings-checkbox-option input[type="checkbox"]:focus-visible,
-      .settings-size-option input[type="radio"]:focus-visible {
-        outline: 3px solid var(--accent);
+      /* With the keyboard, the ring goes around the whole option rather than the small control
+         inside it; Windows contrast themes keep it. */
+      .settings-radio-option:has(input:focus-visible),
+      .settings-checkbox-option:has(input:focus-visible),
+      .settings-size-option:has(input:focus-visible) {
+        outline: 3px solid var(--focus);
         outline-offset: 2px;
       }
 
-      @media (max-width: 400px) {
-        .settings-group {
-          padding-inline: 10px;
-        }
+      .settings-radio-option input:focus-visible,
+      .settings-checkbox-option input:focus-visible,
+      .settings-size-option input:focus-visible {
+        outline: none;
+      }
 
+      @media (max-width: 400px) {
         .settings-radio-option,
         .settings-checkbox-option,
         .settings-size-option {
-          padding-inline: 8px;
+          padding-inline: 12px;
           gap: 10px;
         }
 
         .settings-header {
-          padding-inline: 12px;
+          gap: 12px;
         }
       }
 
-      /* Windows contrast themes drop the tints: the chosen option and the waiting button keep
-         a Highlight border. */
+      /* Windows contrast themes drop the tints: the cards keep a rim, the chosen option a
+         Highlight border. */
       @media (forced-colors: active) {
+        .settings-header,
+        .settings-group {
+          border: 1px solid CanvasText;
+        }
+
         .settings-range-input::-webkit-slider-thumb {
           background: Highlight;
           border-color: ButtonText;
@@ -499,27 +387,8 @@
 
         .settings-radio-option.is-selected,
         .settings-checkbox-option.is-selected,
-        .settings-size-option.is-selected,
-        .settings-account-btn.is-waiting {
+        .settings-size-option.is-selected {
           border-color: Highlight;
-        }
-      }
-
-      .reduce-motion *,
-      .reduce-motion *::before,
-      .reduce-motion *::after {
-        animation: none !important;
-        transition: none !important;
-        scroll-behavior: auto !important;
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          animation: none !important;
-          transition: none !important;
-          scroll-behavior: auto !important;
         }
       }
     </style>

@@ -17,7 +17,7 @@ export function buildPttKeyGroup(onSelect: (key: PttKey) => void): RadioGroupRef
       value: key,
       labelKey: `settings.key_${key}` as LocaleKey,
     })),
-    "settings-options",
+    "settings-options settings-options-grid",
     "settings-radio-option",
     onSelect,
   );
@@ -97,7 +97,7 @@ export function buildSoundGroup(onSelect: (sound: SoundMode) => void): RadioGrou
         labelKey: "tray.sounds_fun",
       },
     ],
-    "settings-options",
+    "settings-options settings-options-grid",
     "settings-radio-option",
     onSelect,
   );

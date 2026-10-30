@@ -1,176 +1,104 @@
 <!doctype html>
 <!-- Sign-in window (src-tauri/src/signin.rs, src/signin.ts): signing in is required before
-     Mate answers. Mate, one sentence, two big buttons (Google, GitHub) and what happens next.
-     The Home window's palette and buttons, copied by hand (keep them in step). Sized for the
-     560x600 window. Supports dark mode, Windows contrast themes and reduced motion. -->
+     Mate answers. A welcome column: Mate in his glow, one sentence, two big buttons (Google,
+     GitHub), what happens next, and the guest trial under a divider. The Home window's look
+     from src/theme.css. Sized for the 560x600 window, works from 360px wide. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title></title>
+    <link rel="stylesheet" href="/src/theme.css" />
     <style>
-      :root {
-        color-scheme: light dark;
-        --bg: #fffdf7;
-        --panel-bg: #ffffff;
-        --panel-border: #d0d8e5;
-        --text: #1f2a44;
-        --text-muted: #475569;
-        --accent: #1d4ed8;
-        --accent-soft: #eff6ff;
-        --hero-bg: linear-gradient(135deg, #fff1c9 0%, #fffaf0 60%, #fffdf7 100%);
-        --hero-border: #f0d68a;
-        --glow: rgba(255, 200, 40, 0.38);
-        --error: #b91c1c;
-        --btn-bg: #f1f5f9;
-        --btn-border: #64748b;
-        --btn-text: #1f2a44;
-        --btn-hover: #e2e8f0;
-        --radius: 16px;
-      }
-
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #131722;
-          --panel-bg: #1c2230;
-          --panel-border: #2e384d;
-          --text: #f1f5f9;
-          --text-muted: #cbd5e1;
-          --accent: #ffd23f;
-          --accent-soft: #252f42;
-          --hero-bg: linear-gradient(135deg, #2e2814 0%, #1f2230 65%, #1c2230 100%);
-          --hero-border: #5a4d22;
-          --glow: rgba(255, 210, 63, 0.22);
-          --error: #fca5a5;
-          --btn-bg: #22293a;
-          --btn-border: #7b8aa0;
-          --btn-text: #f1f5f9;
-          --btn-hover: #2d374d;
-        }
-      }
-
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
+      html {
+        scrollbar-gutter: stable;
       }
 
       html,
       body {
-        margin: 0;
         min-height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font: 19px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif;
-        overflow-wrap: anywhere;
       }
 
       #signin-app {
-        width: min(100%, 560px);
+        width: min(100%, 520px);
         margin: 0 auto;
-        padding: clamp(16px, 4vw, 24px) clamp(12px, 3vw, 20px) 28px;
+        padding: clamp(16px, 4vh, 32px) clamp(16px, 5vw, 28px) 28px;
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 16px;
       }
 
+      /* Mate above the title, centered like a welcome card. */
       .signin-hero {
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 16px;
-        padding: 16px clamp(12px, 3vw, 20px);
-        border: 2px solid var(--hero-border);
-        border-radius: var(--radius);
-        background: var(--hero-bg);
+        gap: 4px;
+        padding-bottom: 4px;
+        text-align: center;
       }
 
+      /* Room for the M size (96x89, src/robot/types.ts). */
       .signin-mate {
-        flex: 0 0 auto;
+        flex: none;
         width: 120px;
-        height: 112px;
+        height: 108px;
         display: grid;
         place-items: center;
         border-radius: 50%;
-        background: radial-gradient(circle at 50% 45%, var(--glow) 0%, transparent 68%);
-      }
-
-      .signin-title {
-        margin: 0 0 6px;
-        font-size: clamp(24px, 4vw, 30px);
-        line-height: 1.2;
-      }
-
-      .signin-intro {
-        margin: 0;
-        font-size: 20px;
+        background: radial-gradient(circle at 50% 45%, var(--glow) 0%, transparent 70%);
       }
 
       .signin-words {
         min-width: 0;
       }
 
+      .signin-title {
+        margin: 4px 0 6px;
+        font-size: var(--text-2xl);
+        font-weight: 700;
+        line-height: 1.2;
+      }
+
+      .signin-intro {
+        margin: 0 auto;
+        max-width: 36em;
+        color: var(--text-muted);
+        text-wrap: pretty;
+      }
+
       .signin-buttons {
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 12px;
       }
 
+      /* The two ways in: large, equal, white, so neither looks like the "right" one. */
       .signin-btn {
-        min-height: 64px;
-        min-width: 0;
-        max-width: 100%;
-        white-space: normal;
-        overflow-wrap: anywhere;
-        padding: 12px clamp(12px, 3vw, 24px);
-        font: inherit;
-        font-size: clamp(20px, 3vw, 22px);
-        font-weight: 700;
-        border-radius: 14px;
-        border: 2px solid var(--btn-border);
-        background: var(--btn-bg);
-        color: var(--btn-text);
-        cursor: pointer;
-        transition: background-color 140ms ease-out;
+        min-height: 56px;
+        font-size: var(--text-lg);
       }
 
-      .signin-btn:hover:not(:disabled) {
-        background: var(--btn-hover);
-      }
-
-      /* A press darkens the button but never shrinks it: a shaking hand stays on target. */
-      .signin-btn:active:not(:disabled) {
-        filter: brightness(0.9);
-      }
-
-      .signin-btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-
-      .signin-btn.is-waiting {
-        background: var(--accent-soft);
-        border-color: var(--accent);
-        opacity: 1;
-        cursor: progress;
-      }
-
-      .signin-btn:focus-visible {
-        outline: 4px solid var(--accent);
-        outline-offset: 3px;
+      .signin-buttons .signin-btn {
+        box-shadow: var(--shadow-sm);
       }
 
       .signin-browser {
         margin: 0;
         color: var(--text-muted);
-        font-size: 18px;
+        font-size: var(--text-sm);
+        text-align: center;
+        text-wrap: pretty;
       }
 
       .signin-guest {
         display: flex;
         flex-direction: column;
         gap: 10px;
-        padding-top: 14px;
-        border-top: 2px solid var(--panel-border);
+        margin-top: 4px;
+        padding-top: 16px;
+        border-top: 1px solid var(--border);
+        text-align: center;
       }
 
       .signin-guest[hidden] {
@@ -179,19 +107,24 @@
 
       .signin-guest-line {
         margin: 0;
-        font-size: 18px;
+        font-size: var(--text-sm);
+        color: var(--text-muted);
       }
 
       .signin-btn-quiet {
-        min-height: 52px;
-        font-size: 19px;
-        background: transparent;
+        min-height: 48px;
+        font-size: var(--text-md);
       }
 
+      /* No display when empty: nothing shifts until a line is shown. */
       .signin-status {
         margin: 0;
-        font-size: 20px;
-        font-weight: 700;
+        padding: 12px 16px;
+        border: 1px solid var(--accent-line);
+        border-radius: var(--radius);
+        background: var(--accent-soft);
+        font-weight: 600;
+        text-align: center;
       }
 
       .signin-status:empty {
@@ -200,32 +133,13 @@
 
       .signin-status.is-error {
         color: var(--error);
+        border-color: currentColor;
+        background: var(--error-soft);
       }
 
       @media (forced-colors: active) {
-        .signin-hero,
-        .signin-btn {
-          border-color: CanvasText;
-          background: Canvas;
-        }
-
-        .signin-btn.is-waiting,
-        .signin-btn:focus-visible {
-          border-color: Highlight;
-          outline-color: Highlight;
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        .signin-btn {
-          transition: none;
-        }
-      }
-
-      @media (max-width: 460px) {
-        .signin-hero {
-          flex-direction: column;
-          text-align: center;
+        .signin-status {
+          border: 1px solid CanvasText;
         }
       }
     </style>

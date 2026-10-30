@@ -1,6 +1,6 @@
 # MetaMate
 
-**Ask out loud how to do something on your PC, and Mate, a small light bulb on your desktop, answers and shines his beam on the exact button to click. He never clicks for you.** Made for older people and anyone lost in an unfamiliar app; built on Meta models (Muse Spark, Muse Voice Transcribe, SAM 3.1, MMS-TTS).
+**Ask out loud how to do something on your PC, and Mate, a small light bulb on your desktop, answers and shines his beam on the exact button to click. He presses it for you only when you ask and say yes.** Made for older people and anyone lost in an unfamiliar app; built on Meta models (Muse Spark, Muse Voice Transcribe, SAM 3.1, MMS-TTS).
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
@@ -81,7 +81,7 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 
 **What leaves my PC?** Only during a question: a screenshot of the window you are using, with password fields painted black first, and your words. Nothing is captured or sent between questions.
 
-**Does Mate click for me?** No. Mate lights up the button and guides you step by step; you click. He never clicks payment, delete or password actions.
+**Does Mate click for me?** Only when you ask. Mate lights up the button and guides you step by step; say "do it for me" and he asks "Shall I press it?" before each click and presses only after you say yes. He never presses payment, purchase, delete, money transfer or password buttons.
 
 **No Right Ctrl on my laptop?** Pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings, or simply click Mate to start and stop talking. You can also type in the chat window.
 

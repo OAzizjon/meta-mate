@@ -60,7 +60,7 @@ function mount(root: HTMLElement): void {
     ["github", "auth.github"],
   ];
   const providerButtons = providers.map(([provider, key]) => {
-    const button = el("button", "signin-btn", t(key));
+    const button = el("button", "btn btn-secondary signin-btn", t(key));
     button.type = "button";
     button.addEventListener("click", () => {
       void store.signIn(provider);
@@ -76,7 +76,7 @@ function mount(root: HTMLElement): void {
   guest.hidden = true;
   const guestLine = el("p", "signin-guest-line");
   guestLine.setAttribute("role", "status");
-  const guestButton = el("button", "signin-btn signin-btn-quiet", t("signin.guest_try"));
+  const guestButton = el("button", "btn btn-quiet signin-btn signin-btn-quiet", t("signin.guest_try"));
   guestButton.type = "button";
   guest.append(guestLine, guestButton);
   let guestUsage: unknown = null;

@@ -41,12 +41,12 @@ export function buildAccountSection(accountStore: AccountStore): AccountSectionR
   const googleBtn = document.createElement("button");
   googleBtn.type = "button";
   googleBtn.id = "settings-auth-google";
-  googleBtn.className = "settings-account-btn settings-account-btn-google";
+  googleBtn.className = "btn btn-secondary settings-account-btn settings-account-btn-google";
 
   const githubBtn = document.createElement("button");
   githubBtn.type = "button";
   githubBtn.id = "settings-auth-github";
-  githubBtn.className = "settings-account-btn settings-account-btn-github";
+  githubBtn.className = "btn btn-secondary settings-account-btn settings-account-btn-github";
 
   buttonsRow.append(googleBtn, githubBtn);
   signedOutView.append(buttonsRow);
@@ -70,7 +70,7 @@ export function buildAccountSection(accountStore: AccountStore): AccountSectionR
   const signOutBtn = document.createElement("button");
   signOutBtn.type = "button";
   signOutBtn.id = "settings-auth-signout";
-  signOutBtn.className = "settings-account-sign-out";
+  signOutBtn.className = "btn btn-secondary settings-account-sign-out";
 
   signOutBtn.addEventListener("click", () => {
     void accountStore.signOut();

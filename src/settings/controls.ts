@@ -126,8 +126,10 @@ export function buildCheckbox(
   wrapper.className = "settings-checkbox-option";
   wrapper.htmlFor = id;
 
+  // Still a checkbox, drawn as an on/off switch (src/theme.css).
   const input = document.createElement("input");
   input.type = "checkbox";
+  input.className = "switch";
   input.id = id;
 
   const textWrap = document.createElement("span");

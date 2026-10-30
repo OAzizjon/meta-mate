@@ -166,7 +166,7 @@
   "mate.trial": "Trial: {left} of {limit} this hour",
   "robot.guest_limit": "The free messages for this hour are used. Please sign in.",
   "home.greeting": "Hello! I'm {name}.",
-  "home.intro": "Ask me out loud, and I light up the button you need. You do the clicking. You can always find me in the bottom right corner of the screen.",
+  "home.intro": "Ask me out loud, and I light up the button you need. Click it yourself, or say \"do it for me\" and I press it after you say yes. You can always find me in the bottom right corner of the screen.",
   "robot.click_stop": "Click me again when you finish.",
   "home.talk_click": "Or click me once, speak, and click me again.",
   "home.talk_title": "How to talk to me",
