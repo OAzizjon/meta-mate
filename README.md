@@ -7,7 +7,7 @@ Windows 10/11 x64 (the video can be watched anywhere).
 1. **Download:** Get the release installer (built for our hosted proxy — no API keys or invite codes needed).
 2. **SmartScreen:** If SmartScreen shows "Windows protected your PC", click the small **More info** link, then **Run anyway** (the installer is not code-signed yet).
 3. **Sign in or try as a guest:** The sign-in window opens at first launch. Click **Try without signing in** (12 messages an hour; the count shows under Mate) or **Sign in with Google** for your own daily allowance.
-4. **Ask:** Press **Win+I** to open Windows Settings. Hold **Right Ctrl** while you speak, ask *"How do I make the text bigger?"*, then let go, or click Mate once, speak, and click him again. Hold only the talk key: pressing any other key cancels the question. No Right Ctrl on your laptop? Open **Settings** (Home window, or right-click the tray icon) and pick Right Alt, Caps Lock, Insert, F9 or F10. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
+4. **Ask:** Press **Win+I** to open Windows Settings. Hold **Right Ctrl** while you speak, ask *"How do I make the text bigger?"*, then let go, or click Mate once, speak, and click him again (or just pause: he stops listening on his own). Hold only the talk key: pressing any other key cancels the question. No Right Ctrl on your laptop? Open **Settings** (Home window, or right-click the tray icon) and pick Right Alt, Caps Lock, Insert, F9 or F10. Mate answers aloud with a live transcript in the bubble and shines his beam on the target.
 5. **Type instead:** Right-click the tray icon (or Mate) and choose **Chat with Mate**: typed questions get the same answer as text in the chat, and Mate still points on screen.
 
 ## Links
@@ -79,7 +79,7 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 
 **Which Meta models?** Muse Voice Transcribe hears you while you talk, Muse Spark 1.3 answers and finds the button, Muse Wonder 1.0 takes over after two misses, SAM 3.1 outlines controls in apps without an accessibility tree, MMS-TTS (Meta open weights) speaks, and Muse Glimmer with Muse Image make the keepsake lesson card.
 
-**Languages?** English and Russian for speech, voice and the interface; it follows Windows, and you can switch in Settings > Language.
+**Languages?** English and Russian for speech, voice and the interface; it follows Windows, and you can switch it in Settings under Language.
 
 **How do I quit?** Right-click Mate and choose Quit, or right-click the MetaMate icon in the notification area.
 
