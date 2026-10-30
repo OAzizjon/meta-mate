@@ -6,8 +6,8 @@
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use base64::Engine;
@@ -28,6 +28,10 @@ const BROWSER_WAIT: Duration = Duration::from_secs(300);
 /// read may wait `READ_WAIT` more).
 const REQUEST_WAIT: Duration = Duration::from_secs(2);
 const READ_WAIT: Duration = Duration::from_secs(1);
+/// A second click on the same provider within this time joins the sign-in already waiting
+/// in the browser instead of opening one more tab; later, it is a forgotten tab and a new
+/// sign-in replaces it.
+const JOIN_WAIT: Duration = Duration::from_secs(120);
 const REQUEST_MAX_BYTES: usize = 8192;
 const CHANGED_EVENT: &str = "auth-changed";
 const PROVIDERS: [&str; 2] = ["google", "github"];
@@ -66,6 +70,30 @@ impl std::fmt::Debug for Session {
 pub struct Auth {
     session: Mutex<Option<Session>>,
     attempts: AtomicU64,
+    waiting: Mutex<Option<Waiting>>,
+}
+
+/// The sign-in whose browser tab is open now. The sign-in window and Settings both have the
+/// buttons, and a window opened again forgets it is waiting: a click there joins this one.
+struct Waiting {
+    provider: String,
+    started: Instant,
+    attempt: u64,
+    outcome: Arc<Outcome>,
+}
+
+type Outcome = tokio::sync::watch::Sender<Option<Result<AuthStatus, String>>>;
+
+/// The first outcome stays: a sign-out's "cancelled" is never overwritten by the sign-in it
+/// ended, and a success published under the session lock is never turned into a failure.
+fn settle(outcome: &Outcome, result: Result<AuthStatus, String>) {
+    outcome.send_if_modified(|current| {
+        if current.is_some() {
+            return false;
+        }
+        *current = Some(result);
+        true
+    });
 }
 
 impl Auth {
@@ -115,12 +143,77 @@ pub async fn sign_in(app: AppHandle, provider: String) -> Result<AuthStatus, Str
     if !PROVIDERS.contains(&provider.as_str()) {
         return Err("auth.unavailable".into());
     }
-    let (Some(auth), Some(proxy)) = (app.try_state::<Auth>(), app.try_state::<Proxy>()) else {
+    let Some(auth) = app.try_state::<Auth>() else {
         return Err("auth.unavailable".into());
     };
-    let attempt = auth.attempts.fetch_add(1, Ordering::AcqRel) + 1;
+    // Joined or started under one lock, with its attempt number, so two quick clicks never
+    // open two tabs and a click on the other provider always gets the newest attempt.
+    let (outcome, attempt) = {
+        let mut waiting = auth
+            .waiting
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let joinable = waiting.as_ref().filter(|w| {
+            w.provider == provider
+                && w.started.elapsed() < JOIN_WAIT
+                && auth.is_latest(w.attempt)
+                && w.outcome.borrow().is_none()
+        });
+        match joinable {
+            Some(w) => (Arc::clone(&w.outcome), None),
+            None => {
+                let outcome = Arc::new(Outcome::new(None));
+                let attempt = auth.attempts.fetch_add(1, Ordering::AcqRel) + 1;
+                *waiting = Some(Waiting {
+                    provider: provider.clone(),
+                    started: Instant::now(),
+                    attempt,
+                    outcome: Arc::clone(&outcome),
+                });
+                (outcome, Some(attempt))
+            }
+        }
+    };
+    let Some(attempt) = attempt else {
+        let mut joined = outcome.subscribe();
+        return match joined.wait_for(Option::is_some).await {
+            Ok(result) => result.clone().unwrap_or_else(|| Err("auth.failed".into())),
+            Err(_) => Err("auth.cancelled".into()),
+        };
+    };
+    let result = sign_in_once(&app, &auth, &provider, attempt, &outcome).await;
+    settle(&outcome, result);
+    // Every caller gets the settled outcome: a sign-out's "cancelled" wins for this one too.
+    let result = outcome
+        .borrow()
+        .clone()
+        .unwrap_or_else(|| Err("auth.failed".into()));
+    let mut waiting = auth
+        .waiting
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    // A newer sign-in (another provider, or after JOIN_WAIT) keeps its own entry.
+    if waiting
+        .as_ref()
+        .is_some_and(|w| Arc::ptr_eq(&w.outcome, &outcome))
+    {
+        *waiting = None;
+    }
+    result
+}
+
+async fn sign_in_once(
+    app: &AppHandle,
+    auth: &Auth,
+    provider: &str,
+    attempt: u64,
+    outcome: &Outcome,
+) -> Result<AuthStatus, String> {
+    let Some(proxy) = app.try_state::<Proxy>() else {
+        return Err("auth.unavailable".into());
+    };
     let proxy = proxy.inner().clone();
-    let session = sign_in_with(&app, &proxy, &provider, attempt).await?;
+    let session = sign_in_with(app, &proxy, provider, attempt).await?;
     // Under the session lock, which `sign_out` holds while it counts: either the sign-out
     // comes after this and undoes it, or it came before and this is dropped. The event goes
     // out under the lock too, so the windows never see the two in the wrong order.
@@ -133,14 +226,16 @@ pub async fn sign_in(app: AppHandle, provider: String) -> Result<AuthStatus, Str
     proxy.set_session(Some(session.token.clone()));
     // Signed in: the trial's token is not needed any more.
     proxy.set_guest(None);
-    if let Err(error) = save(&app, &session) {
+    if let Err(error) = save(app, &session) {
         // Signed in for this run all the same; the next start asks again.
         eprintln!("auth: could not keep the session: {error}");
     }
     let status = status_of(Some(&session));
     *current = Some(session);
     let _ = app.emit(CHANGED_EVENT, status.clone());
-    crate::signin::close(&app);
+    // Joined clicks hear of it before a sign-out can take the session lock.
+    settle(outcome, Ok(status.clone()));
+    crate::signin::close(app);
     Ok(status)
 }
 
@@ -151,8 +246,18 @@ pub fn sign_out(app: AppHandle, auth: State<'_, Auth>) {
             .session
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // A sign-in still waiting for its browser tab ends too.
+        // A sign-in still waiting for its browser tab ends too, and so do the clicks that
+        // joined it: at once, not when its tab gives up. Counted under the lock that sign-ins
+        // register under, so none starts between the count and the removal.
+        let mut waiting = auth
+            .waiting
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
         auth.attempts.fetch_add(1, Ordering::AcqRel);
+        if let Some(waiting) = waiting.take() {
+            settle(&waiting.outcome, Err("auth.cancelled".into()));
+        }
+        drop(waiting);
         *current = None;
         if let Some(proxy) = app.try_state::<Proxy>() {
             proxy.set_session(None);
@@ -273,7 +378,7 @@ fn wait_for_code(
             continue;
         };
         let ok = found.1 == expected && !found.0.is_empty();
-        let page = page(if ok { &pages.done } else { &pages.failed });
+        let page = page(if ok { &pages.done } else { &pages.failed }, ok);
         let _ = stream.write_all(page.as_bytes());
         if ok {
             return Ok(found.0);
@@ -319,14 +424,30 @@ fn callback_params(request: &str) -> Option<(String, String)> {
     Some((code?, state?))
 }
 
-fn page(text: &str) -> String {
+/// The tab's last page. After a sign-in that worked it tries to close itself: browsers allow
+/// that only to a tab whose history is this one page (the provider signed the person in
+/// without a page of its own); otherwise its text says to close it.
+fn page(text: &str, done: bool) -> String {
     let escaped = text
         .replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;");
+    let (mark, close) = if done {
+        (
+            "\u{2713}",
+            "<script>setTimeout(()=>window.close(),1500)</script>",
+        )
+    } else {
+        ("!", "")
+    };
     let body = format!(
-        "<!doctype html><meta charset=\"utf-8\"><title>MetaMate</title>\
-         <p style=\"font:22px system-ui;margin:3em\">{escaped}</p>"
+        "<!doctype html><meta charset=\"utf-8\"><meta name=\"color-scheme\" content=\"light dark\">\
+         <title>MetaMate</title><body style=\"margin:0;min-height:100vh;display:grid;\
+         place-items:center;font:22px/1.45 system-ui,sans-serif\"><main style=\"max-width:28em;\
+         padding:2em;text-align:center\"><div style=\"width:64px;height:64px;margin:0 auto 1em;\
+         border-radius:50%;background:#ffd76a;color:#3a2a00;display:grid;place-items:center;\
+         font-size:34px;box-shadow:0 0 40px #ffd76a88\">{mark}</div><p style=\"margin:0\">\
+         {escaped}</p></main>{close}</body>"
     );
     format!(
         "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {}\r\n\
@@ -483,8 +604,10 @@ mod tests {
             Ok("real".into())
         );
         let seen = browser.join().unwrap();
-        assert!(seen[0].ends_with("failed</p>") && seen[1].ends_with("failed</p>"));
-        assert!(seen[2].ends_with("done</p>"));
+        let says = |page: &str, text: &str| page.contains(&format!(">{text}</p>"));
+        assert!(says(&seen[0], "failed") && says(&seen[1], "failed"));
+        assert!(!seen[0].contains("window.close") && !seen[1].contains("window.close"));
+        assert!(says(&seen[2], "done") && seen[2].contains("window.close"));
     }
 
     #[test]
@@ -504,9 +627,11 @@ mod tests {
 
     #[test]
     fn the_browser_page_escapes_its_text() {
-        let page = page("<b>&</b>");
+        let page = page("<b>&</b>", false);
         assert!(page.contains("&lt;b&gt;&amp;&lt;/b&gt;"));
         assert!(page.starts_with("HTTP/1.1 200 OK\r\n"));
+        assert!(!page.contains("window.close"));
+        assert!(super::page("ok", true).contains("window.close"));
     }
 
     #[test]

@@ -87,9 +87,13 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 - A saved Toggle push-to-talk mode survives restarts.
 - A microphone failure also ends a click-to-talk recording.
+- A second click on Sign in with the same provider, from the sign-in window or Settings, joins the sign-in already waiting in the browser (2 minutes) instead of opening another tab; signing out ends it at once.
+- The app's own Rust tests (153) run on Windows again: the test binaries get the Common Controls manifest the app has (`src-tauri/build.rs`).
 
 ### Changed
 
+- The browser's last sign-in page is clearer and closes itself after a successful sign-in when the browser allows.
+- Home: the try-it cards wrap by width, Quit comes last and stands apart, dark-mode buttons stand out more, and a busy question shows a spinner.
 - The chat's empty state suggests an example question; opening the chat from the tray brings it to the front.
 - Mate appears sooner after startup, and push-to-talk polls less often while idle.
 - Privacy round 7: Telegram windows with an empty UI Automation tree ask for consent on each look; login and email codes are always painted.
