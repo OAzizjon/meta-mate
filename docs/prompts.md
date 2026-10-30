@@ -70,9 +70,9 @@ Request: Responses API, always `model: muse-spark-1.3`, `reasoning: {"effort": "
 ```
 Classify the user's request. Reply with one word:
 WHERE  - they want to find one thing on the screen
-HOW    - they want to do a task that needs several steps
+HOW    - they want guidance through a task, including imperatives like "click X", "press OK", or "open Settings"
 CHAT   - conversation, a story, a joke, a question not about the screen
-DO     - they ask you to do it for them
+DO     - they ask you to do it for them: "do it", "click it for me", "сделай", or an imperative with "за меня", "сам", or "yourself"
 ```
 
 ## 4. SAM 3.1 call (fallback contour)

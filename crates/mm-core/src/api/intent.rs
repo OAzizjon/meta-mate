@@ -14,9 +14,9 @@ pub enum Intent {
 
 const CLASSIFIER: &str = "Classify the user's request. Reply with one word:\n\
 WHERE  - they want to find one thing on the screen\n\
-HOW    - they want to do a task that needs several steps\n\
+HOW    - they want guidance through a task, including imperatives like \"click X\", \"press OK\", or \"open Settings\"\n\
 CHAT   - conversation, a story, a joke, a question not about the screen\n\
-DO     - they ask you to do it for them\n";
+DO     - they ask you to do it for them: \"do it\", \"click it for me\", \"сделай\", or an imperative with \"за меня\", \"сам\", or \"yourself\"\n";
 
 /// A non-streamed Responses API body; send it with proxy call kind `intent`.
 pub fn intent_request(question: &str) -> Value {
@@ -443,6 +443,26 @@ fn is_verdict(words: &[&str], at: usize) -> bool {
         .any(|stem| word.starts_with(*stem))
 }
 
+/// A verb that asks for an action on the screen (any form: "нажимай", "открывай", "clicking").
+fn action_word(word: &str) -> bool {
+    [
+        "click",
+        "press",
+        "open",
+        "do",
+        "tap",
+        "нажм",
+        "нажим",
+        "откр",
+        "сдела",
+        "кликн",
+        "щёлкн",
+        "щелкн",
+    ]
+    .iter()
+    .any(|stem| word.starts_with(stem))
+}
+
 /// Conservative English/Russian fallback when the classifier is unavailable. A scam
 /// check wins over delegation (Mate looks before anyone presses), delegation over
 /// finding, and finding over teaching when cues overlap.
@@ -450,21 +470,47 @@ pub fn guess_intent(question: &str) -> Intent {
     if asks_safety(question) {
         return Intent::Safety;
     }
-    let lower = question.to_lowercase();
+    let lower = spoken_words(question);
     let words: Vec<&str> = words(&lower).collect();
+    // "Don't click", "не нажимай": a negated action is neither guidance nor delegation.
+    // Only a negation right before an action word counts: "I can't find the font, it's not
+    // there" still finds it.
+    if words.windows(2).any(|pair| {
+        matches!(pair[0], "dont" | "not" | "never" | "не" | "никогда") && action_word(pair[1])
+    }) {
+        return Intent::Chat;
+    }
+    let imperative = words
+        .iter()
+        .find(|word| !matches!(**word, "please" | "mate" | "пожалуйста"))
+        .is_some_and(|word| {
+            matches!(
+                *word,
+                "click" | "press" | "open" | "нажми" | "нажмите" | "открой" | "откройте"
+            )
+        });
     // Asking about Mate's abilities is conversation, not delegation. Other task
     // cues in the same request still win over this small-talk phrase.
     let for_me = words.windows(2).enumerate().any(|(index, phrase)| {
         phrase == ["for", "me"]
             && !(index >= 4 && words[index - 4..index] == ["what", "can", "you", "do"])
     });
-    if [
-        &["do", "it"][..],
-        &["сделай", "за", "меня"][..],
-        &["нажми", "за", "меня"][..],
-    ]
-    .iter()
-    .any(|phrase| has_phrase(&words, phrase))
+    // A bare "сделай" (or "сделай это", "сделай сам") hands the task over; "сделай шрифт
+    // крупнее" asks how.
+    let do_this = words.iter().enumerate().any(|(index, word)| {
+        matches!(*word, "сделай" | "сделайте")
+            && words.get(index + 1).is_none_or(|next| {
+                matches!(*next, "это" | "сам" | "сами" | "за" | "пожалуйста" | "уже")
+            })
+    });
+    if asks_do_it(question)
+        || do_this
+        || imperative
+            && (has_phrase(&words, &["за", "меня"])
+                || words
+                    .iter()
+                    .any(|word| matches!(*word, "сам" | "сами" | "yourself")))
+        || has_phrase(&words, &["do", "it"])
         || for_me
     {
         return Intent::Do;
@@ -476,7 +522,8 @@ pub fn guess_intent(question: &str) -> Intent {
     {
         return Intent::Where;
     }
-    if has_phrase(&words, &["how", "do", "i"])
+    if imperative
+        || has_phrase(&words, &["how", "do", "i"])
         || has_phrase(&words, &["how", "to"])
         || has_phrase(&words, &["what", "can", "i", "do", "here"])
         || words.contains(&"научи")

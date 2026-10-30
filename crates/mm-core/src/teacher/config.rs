@@ -6,6 +6,8 @@ pub struct TeacherConfig {
     pub auto_escalate: bool,
     pub keyboard_steps: bool,
     pub do_it_for_me: bool,
+    /// Offer each eligible step immediately; this never authorizes a click.
+    pub delegated: bool,
     pub offer_after_failures: u8,
     pub max_turns: u8,
     pub hit_tolerance_px: u32,
@@ -20,6 +22,7 @@ impl Default for TeacherConfig {
             auto_escalate: false,
             keyboard_steps: false,
             do_it_for_me: false,
+            delegated: false,
             offer_after_failures: 2,
             max_turns: 12,
             hit_tolerance_px: 8,

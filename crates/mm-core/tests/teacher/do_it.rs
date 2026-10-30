@@ -26,6 +26,146 @@ fn offer() -> Command {
 }
 
 #[test]
+fn delegated_steps_offer_immediately_and_each_click_needs_its_own_yes() {
+    let mut teacher = Teacher::new(TeacherConfig {
+        do_it_for_me: true,
+        delegated: true,
+        ..Default::default()
+    });
+    let out = teacher.input(do_it_turn(vec![
+        Action::Wait,
+        click_action(),
+        click_action(),
+    ]));
+    assert_eq!(out.last(), Some(&offer()));
+    assert!(
+        !out.iter()
+            .any(|cmd| matches!(cmd, Command::PerformClick { .. }))
+    );
+    assert!(teacher.input(Input::Tick { now_ms: 1 }).is_empty());
+    for now_ms in [2, 4] {
+        let out = teacher.input(Input::DoItAnswer { yes: true, now_ms });
+        assert_eq!(
+            out.iter()
+                .filter(|cmd| matches!(cmd, Command::PerformClick { .. }))
+                .count(),
+            1
+        );
+        assert!(
+            teacher
+                .input(Input::DoItAnswer { yes: true, now_ms })
+                .is_empty()
+        );
+        let out = teacher.input(Input::DoItDone {
+            ok: true,
+            now_ms: now_ms + 1,
+        });
+        assert!(
+            !out.iter()
+                .any(|cmd| matches!(cmd, Command::PerformClick { .. }))
+        );
+        assert!(!ack(&out));
+        assert_eq!(out.contains(&offer()), now_ms == 2);
+    }
+    assert_eq!(
+        teacher.input(Input::Tick { now_ms: 605 }),
+        vec![Command::RequestScreenshot]
+    );
+    // Delegation persists across screenshot/model turns, but carries no consent.
+    let out = teacher.input(do_it_turn(vec![click_action()]));
+    assert_eq!(out.last(), Some(&offer()));
+    assert!(
+        !out.iter()
+            .any(|cmd| matches!(cmd, Command::PerformClick { .. }))
+    );
+    teacher.input(Input::DoItAnswer {
+        yes: false,
+        now_ms: 606,
+    });
+    assert!(
+        teacher
+            .input(Input::DoItAnswer {
+                yes: true,
+                now_ms: 607,
+            })
+            .is_empty()
+    );
+    assert!(
+        !teacher
+            .input(Input::Tick { now_ms: 608 })
+            .contains(&offer())
+    );
+}
+
+#[test]
+fn delegation_preserves_offer_guards_and_how_still_starts_with_pointing() {
+    for (enabled, delegated, checked) in [
+        (true, false, false),
+        (false, true, false),
+        (true, true, true),
+    ] {
+        let mut teacher = Teacher::new(TeacherConfig {
+            do_it_for_me: enabled,
+            delegated,
+            ..Default::default()
+        });
+        let out = teacher.input(if checked {
+            turn(vec![click_action()])
+        } else {
+            do_it_turn(vec![click_action()])
+        });
+        assert!(!out.contains(&offer()));
+        assert!(
+            teacher
+                .input(Input::DoItAnswer {
+                    yes: true,
+                    now_ms: 1,
+                })
+                .is_empty()
+        );
+        if checked {
+            assert!(ack(&teacher.input(click(110, 2))));
+        }
+    }
+    for action in [
+        Action::DoubleClick { x: 150, y: 100 },
+        drag_action(),
+        Action::Type {
+            text: "hello".into(),
+        },
+        Action::Keypress {
+            keys: vec!["Enter".into()],
+        },
+        Action::Click {
+            x: 150,
+            y: 100,
+            button: "right".into(),
+        },
+    ] {
+        let mut teacher = Teacher::new(TeacherConfig {
+            do_it_for_me: true,
+            delegated: true,
+            keyboard_steps: true,
+            ..Default::default()
+        });
+        let out = teacher.input(do_it_turn(vec![action]));
+        assert!(!out.contains(&offer()));
+        assert!(
+            !out.iter()
+                .any(|cmd| matches!(cmd, Command::PerformClick { .. }))
+        );
+        assert!(
+            teacher
+                .input(Input::DoItAnswer {
+                    yes: true,
+                    now_ms: 1,
+                })
+                .is_empty()
+        );
+    }
+}
+
+#[test]
 fn speech_after_an_offer_cancels_it_before_a_later_yes() {
     for automatic in [false, true] {
         let mut teacher = Teacher::new(TeacherConfig {

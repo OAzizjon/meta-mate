@@ -4,6 +4,65 @@ use mm_core::api::intent::{
 use serde_json::json;
 
 #[test]
+fn imperatives_guide_unless_the_user_explicitly_delegates() {
+    for text in [
+        "click Font",
+        "press OK",
+        "press Cancel",
+        "click it",
+        "Please click Font",
+        "нажми",
+        "нажми Шрифт",
+        "нажми на кнопку",
+        "открой настройки",
+        "open Settings and click Font",
+        "Пожалуйста, нажмите Шрифт",
+    ] {
+        assert_eq!(guess_intent(text), Intent::How, "{text}");
+    }
+    for text in [
+        "click Font for me",
+        "press OK yourself",
+        "open Settings yourself and click Font",
+        "click it for me",
+        "do it",
+        "сделай",
+        "нажми Шрифт за меня",
+        "открой настройки сам",
+        "нажмите Шрифт сами",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Do, "{text}");
+    }
+    for text in [
+        "don\'t click",
+        "don’t click Font for me",
+        "do not press OK yourself",
+        "не нажимай",
+        "не нажми Шрифт",
+        "не открывай настройки за меня",
+        "не сделай это",
+        "clickbait",
+        "нажми2",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Chat, "{text}");
+    }
+    // A negation elsewhere in the question keeps its intent.
+    for (text, expected) in [
+        ("I don't know how to change the font", Intent::How),
+        ("where is the Save button, I can't see it", Intent::Where),
+        ("не могу найти, где шрифт", Intent::Where),
+        ("я не знаю, как изменить шрифт", Intent::How),
+        ("как сделать шрифт крупнее", Intent::How),
+        ("сделай это", Intent::Do),
+        ("сделай пожалуйста", Intent::Do),
+    ] {
+        assert_eq!(guess_intent(text), expected, "{text}");
+    }
+    // "Сделай шрифт крупнее" asks for a change, it does not hand the clicks over.
+    assert_ne!(guess_intent("сделай шрифт крупнее"), Intent::Do);
+}
+
+#[test]
 fn labels_tolerate_case_punctuation_and_markdown() {
     for (text, expected) in [
         ("WHERE", Intent::Where),

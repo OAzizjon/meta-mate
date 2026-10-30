@@ -838,6 +838,7 @@ async fn answer(
             Arc::clone(&phrases),
             generation,
             question,
+            intent == Intent::Do,
             locale,
             own,
             received,

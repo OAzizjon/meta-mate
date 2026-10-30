@@ -422,6 +422,9 @@ impl Teacher {
         } else {
             out.push(TeacherCommand::Say(LineKey::StepN));
             self.point(out);
+            if self.config.delegated && !self.offered {
+                self.offer_do_it(out);
+            }
         }
     }
 

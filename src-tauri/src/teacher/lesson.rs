@@ -44,6 +44,7 @@ pub(crate) async fn teach(
     phrases: Phrases,
     generation: u64,
     question: String,
+    delegated: bool,
     locale: String,
     own: Vec<isize>,
     mut words: mpsc::UnboundedReceiver<Words>,
@@ -84,6 +85,7 @@ pub(crate) async fn teach(
         configured_model: model,
         auto_escalate: true,
         do_it_for_me: true,
+        delegated,
         keyboard_steps: keys.is_some(),
         ..TeacherConfig::default()
     };
@@ -172,6 +174,19 @@ pub(crate) async fn teach(
                 }
                 Err(error) => {
                     eprintln!("teacher: model turn: {error}");
+                    if matches!(error, crate::proxy::ProxyError::SessionRefused) {
+                        // auth.rs signs out and opens the sign-in window; a retry would
+                        // only end in "I can't connect".
+                        say_line(
+                            &stream,
+                            &phrases,
+                            &locale,
+                            generation,
+                            "robot.sign_in_again",
+                        );
+                        finish(&app, &stream, generation);
+                        return;
+                    }
                     let commands = teacher.input(TeacherInput::ModelFailed { now_ms: now() });
                     (commands, None, true)
                 }

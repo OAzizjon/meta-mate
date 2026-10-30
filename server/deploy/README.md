@@ -15,7 +15,8 @@ python server/deploy/deploy_modal_proxy.py     # secrets into Modal, deploy, lin
 the local secrets file and hands them to the Modal secret `metamate-proxy` through a
 temporary file (never a command line, nothing printed). It makes a judge invite once and
 keeps it with the URL in `server/.prod-proxy.json` (git-ignored), where `mm release` finds
-both. Each run signs a new session secret, so earlier sign-ins end. Register the two
+both. Each run signs a new session secret, so earlier sign-ins end. The app notices the
+first refused call, signs out, opens the sign-in window and Mate asks to sign in again. Register the two
 redirect URIs it prints in the Google and GitHub OAuth apps. `--budget USD` sets the daily
 cap (15 by default).
 
