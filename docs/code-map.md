@@ -533,9 +533,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: tools/tests/test_mm_probe.py (25)
 - tools/mm_stats.py — mm stats [--save] [--json] [--since DAYS]
   area:34 crate:39 source_files:46 read:61 run:68 code_summary:78 parse_scc:90 collect_code:104
-  mask_code:128 count_tests:153 production_rust:168 is_test:191 related_test:197 parse_numstat:215 churn_summary:239 locale_stats:266
-  first_table:290 agents_report:312 collect:332 totals:367 save_snapshot:374 render:398 main:437
-  tests: tools/tests/test_mm_stats.py (17)
+  mask_code:128 count_tests:153 production_rust:168 is_test:191 related_test:197 parse_numstat:215 churn_summary:239 locale_stats:270
+  first_table:294 parse_agents:316 agents_report:343 contracts_report:363 collect:371 totals:413 previous_snapshot:420 compare_snapshot:431
+  save_snapshot:444 render:454 render_full:505 main:544
+  tests: tools/tests/test_mm_stats.py (23)
 - tools/mm_where.py — mm where TERM: where a name is defined and used, across Rust, TypeScript, Python, locales and docs.
   is_secret:63 variants:70 area_of:92 is_test_path:99 tracked_files:104 searchable:121 read_lines:127 first_test_line:137
   search:145 is_comment:179 constants_holding:183 via_constants:198 trimmed:212 report:217 locale_text:260 keys_with_text:274
@@ -791,6 +792,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 173 | 20 |
 | src | 197 | 23 |
-| tools | 254 | 16 |
+| tools | 260 | 16 |
 | server | 86 | 4 |
 | tts | 27 | 2 |

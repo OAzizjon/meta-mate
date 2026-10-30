@@ -62,6 +62,14 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(rows['tools/b.py']['with_tests'], 3)
         self.assertEqual(rows['tools/a.py']['without_tests'], 3)
         self.assertEqual(rows['tools/b.py']['test_files'], {'tools/tests/test_b.py': 3})
+        self.assertEqual(result['test_cochanges'], {'with_tests': 1, 'without_tests': 1})
+
+    def test_cochange_totals_include_files_outside_top_ten(self):
+        commits = [{'changes': [{'path': f'tools/{i}.py', 'added': 1, 'removed': 0}
+                                for i in range(12)]}]
+        result = stats.churn_summary(commits)
+        self.assertEqual(len(result['cochanges']), 10)
+        self.assertEqual(result['test_cochanges'], {'with_tests': 0, 'without_tests': 12})
 
     def test_test_associations_and_inline_rust(self):
         self.assertTrue(stats.related_test('src/audio/a.ts', 'src/audio/a.test.ts'))
@@ -111,6 +119,24 @@ fn more() { d . unwrap (); } // e.unwrap()
         plain = 'Agent    Jobs\n-------  ----\nlocal    2\n'
         self.assertEqual(stats.first_table('Report\n\n' + plain + '\nOther\n'), plain)
 
+    def test_agents_parse_percentages_missing_values_and_bad_rows(self):
+        report = ('Report\nagent    mode      runs ok median useful rated applied patches\n'
+                  'gemini   review    20 65% 42s 50% 10 25% 4\n'
+                  'local    ask       5 100% - - 0 - 0\n'
+                  'broken   row\n'
+                  'bad edit nope 0% - - 0 - 0\n\nOther table\n')
+        rows = stats.parse_agents(report)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0], {'agent': 'gemini', 'mode': 'review', 'runs': 20,
+                                  'ok': 65, 'median': '42s', 'useful': 50, 'rated': 10,
+                                  'applied': 25, 'patches': 4})
+        self.assertIsNone(rows[1]['median'])
+        self.assertIsNone(rows[1]['useful'])
+        self.assertIsNone(rows[1]['applied'])
+        self.assertIsNone(stats.parse_agents(None))
+        self.assertIsNone(stats.parse_agents('no report'))
+        self.assertEqual(stats.parse_agents('agent mode runs ok median useful rated applied patches\n'), [])
+
 
 class DashboardTests(unittest.TestCase):
     def setUp(self):
@@ -125,7 +151,8 @@ class DashboardTests(unittest.TestCase):
 
     def snapshot(self):
         with patch.object(stats, 'run', return_value=None), patch.object(stats.shutil, 'which', return_value=None), \
-                patch.object(stats, 'agents_report', return_value=None):
+                patch.object(stats, 'agents_report', return_value=None), \
+                patch.object(stats, 'contracts_report', return_value=None):
             return stats.collect(self.root, 7)
 
     def test_missing_tools_leave_scan_sections_working(self):
@@ -143,8 +170,61 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(sum(result['hygiene']['todos'].values()), 3)
         self.assertEqual(result['hygiene']['locales'], {'en': 2, 'ru': 1, 'unused': ['unused']})
         screen = stats.render(result)
-        for label in ('Code: n/a', 'Churn: n/a', 'Tests: 3', 'agents: n/a'):
+        for label in ('Code: n/a', 'Churn: n/a', 'Tests: 3', 'Agents: n/a',
+                      'Contracts: n/a', 'new since the last snapshot: n/a'):
             self.assertIn(label, screen)
+        self.assertEqual(result['hygiene']['unwrap_files'], {'crates/mm-core/src/lib.rs': 1})
+
+    def test_alert_selection_and_compact_layout(self):
+        result = self.snapshot()
+        result['agent_rows'] = stats.parse_agents(
+            'agent mode runs ok median useful rated applied patches\n'
+            'gemini review 5 65% 30s 60% 5 - 0\n'
+            'local edit 8 80% - 59% 5 - 0\n'
+            'good edit 5 80% - 60% 5 - 0\n'
+            'few review 4 0% - 0% 4 - 0\n'
+            'unrated ask 5 100% - - 0 - 0\n')
+        result['hygiene']['locales']['unused'] = [f'key{i}' for i in range(10)]
+        result['hygiene']['new_unwrap_files'] = ['src/new.rs']
+        result['contracts'] = ['first', 'second', 'third', 'fourth']
+        commits = [{'changes': [{'path': 'tools/a.py', 'added': 1, 'removed': 0}]}] * 3
+        result['churn'] = stats.churn_summary(commits)
+        screen = stats.render(result)
+        self.assertTrue(screen.startswith('ALERTS\n'))
+        self.assertLess(screen.index('ACTIVITY (last 7 days)'), screen.index('BASELINE'))
+        for text in ('tools/a.py (3 changes)', 'gemini review 65% ok', 'local edit 59% useful',
+                     '10 — key0, key1', 'new since the last snapshot: src/new.rs',
+                     'Contracts: 4 findings — first; second; third', '0/1 files with/without tests'):
+            self.assertIn(text, screen)
+        for text in ('good edit', 'few review', 'unrated ask', 'key8', 'fourth', 'Languages:'):
+            self.assertNotIn(text, screen)
+        result['agent_rows'] = []
+        result['churn'] = stats.churn_summary([])
+        result['contracts'] = []
+        self.assertIn('Agents: none', stats.render(result))
+        self.assertIn('Hot spots without tests (heuristic): none', stats.render(result))
+        self.assertIn('Contracts: 0 findings', stats.render(result))
+
+    def test_snapshot_tracks_per_file_unwrap_increases_even_when_total_is_equal(self):
+        self.write('crates/mm-core/src/a.rs', 'fn a() { a.unwrap(); a.unwrap(); }')
+        first = self.snapshot()
+        path = stats.save_snapshot(first, self.root)
+        self.assertIsNone(first['hygiene']['new_unwrap_files'])
+        self.write('crates/mm-core/src/a.rs', 'fn a() { a.unwrap(); }')
+        self.write('crates/mm-core/src/b.rs', 'fn b() { b.unwrap(); }')
+        second = self.snapshot()
+        stats.save_snapshot(second, self.root)
+        saved = json.loads(path.read_text(encoding='utf-8'))
+        self.assertEqual(saved['hygiene']['unwrap_files'],
+                         {'crates/mm-core/src/a.rs': 1, 'crates/mm-core/src/b.rs': 1})
+        self.assertEqual(saved['hygiene']['new_unwrap_files'], ['crates/mm-core/src/b.rs'])
+        self.assertEqual(second['deltas']['unwraps'], 0)
+        third = self.snapshot()
+        stats.compare_snapshot(third, second)
+        self.assertEqual(third['hygiene']['new_unwrap_files'], [])
+        del first['hygiene']['unwrap_files']
+        stats.compare_snapshot(third, first)
+        self.assertIsNone(third['hygiene']['new_unwrap_files'])
 
     def test_fallback_counts_only_tracked_source_and_handles_missing_file(self):
         self.write('tools/a.py', '# comment\n\nx = 1\n')
@@ -178,7 +258,7 @@ class DashboardTests(unittest.TestCase):
         stats.save_snapshot(second, self.root)
         self.assertEqual(second['deltas'], {'loc': 4, 'tests': 2, 'todos': 1, 'unwraps': 0})
         self.assertEqual(json.loads(path.read_text(encoding='utf-8'))['deltas'], second['deltas'])
-        self.assertIn('(+4)', stats.render(second))
+        self.assertIn('4 LOC (scc, +4)', stats.render(second))
 
     def test_counter_method_change_suppresses_loc_delta(self):
         first = self.snapshot()
@@ -200,7 +280,30 @@ class DashboardTests(unittest.TestCase):
                 patch.object(Path, 'is_file', return_value=True), \
                 patch.object(stats, 'run', return_value='Report\n' + table + '\nEnd') as run:
             self.assertEqual(stats.agents_report(self.root), table)
-        self.assertEqual(run.call_args.args[0][-1], 'report')
+        self.assertEqual(run.call_args.args[0][-3:], ['report', '--days', '7'])
+
+    def test_contracts_missing_module_and_findings(self):
+        with patch.dict(sys.modules, {'mm_contracts': None}):
+            self.assertIsNone(stats.contracts_report(self.root))
+        with patch('mm_contracts.findings', return_value=['one']) as findings:
+            self.assertEqual(stats.contracts_report(self.root), ['one'])
+        findings.assert_called_once_with(self.root)
+
+    def test_default_reads_previous_snapshot_and_full_keeps_details(self):
+        first = self.snapshot()
+        stats.save_snapshot(first, self.root)
+        current = self.snapshot()
+        current['tests']['total'] = 3
+        with patch.object(stats, 'ROOT', self.root), patch.object(stats, 'collect', return_value=current), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(stats.main([]), 0)
+        self.assertIn('Tests: 3 (+3)', output.getvalue())
+        with patch.object(stats, 'ROOT', self.root), patch.object(stats, 'collect', return_value=current), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(stats.main(['--full']), 0)
+        self.assertTrue(output.getvalue().startswith('MetaMate stats | last 7 days'))
+        self.assertIn('Hygiene: TODO/FIXME/XXX=', output.getvalue())
+        self.assertNotIn('ALERTS', output.getvalue())
 
     def test_json_save_and_invalid_since(self):
         with patch.object(stats, 'ROOT', self.root), patch.object(stats, 'collect', return_value=self.snapshot()), \

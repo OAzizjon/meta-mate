@@ -257,9 +257,13 @@ def churn_summary(commits, inline_tests=()):
     production = [r for r in rows if not is_test(r['path'])]
     return {'commits': len(commits), 'added': sum(r['added'] for r in rows),
             'removed': sum(r['removed'] for r in rows),
+            'test_cochanges': {'with_tests': sum(r['with_tests'] > 0 for r in production),
+                               'without_tests': sum(r['with_tests'] == 0 for r in production)},
             'most_changed': sorted(rows, key=lambda r: (-r['lines'], r['path']))[:10],
             'cochanges': sorted(production, key=lambda r: (-r['changes'], r['path']))[:10],
-            'hot_spots': sorted((r for r in production if r['changes'] >= 3 and r['with_tests'] == 0),
+            # Code only: a locale file, the changelog or a doc has no unit test to miss.
+            'hot_spots': sorted((r for r in production if r['changes'] >= 3 and r['with_tests'] == 0
+                                 and r['path'].endswith(('.rs', '.ts', '.tsx', '.py'))),
                                 key=lambda r: (-r['changes'], r['path']))[:10]}
 
 
@@ -309,7 +313,34 @@ def first_table(text):
     return None
 
 
-def agents_report(root):
+def parse_agents(text):
+    """Parse the team's space-aligned table; retain missing cells as None."""
+    columns = 'agent mode runs ok median useful rated applied patches'.split()
+    lines = (text or '').splitlines()
+    start = next((i for i, line in enumerate(lines) if line.split() == columns), None)
+    if start is None:
+        return None
+    rows = []
+    for line in lines[start + 1:]:
+        if not line.strip():
+            break
+        cells = line.split()
+        if len(cells) != len(columns):
+            continue
+        row = dict(zip(columns, cells))
+        try:
+            for key in ('runs', 'rated', 'patches'):
+                row[key] = None if row[key] == '-' else int(row[key])
+            for key in ('ok', 'useful', 'applied'):
+                row[key] = None if row[key] == '-' else float(row[key].removesuffix('%'))
+        except ValueError:
+            continue
+        row['median'] = None if row['median'] == '-' else row['median']
+        rows.append(row)
+    return rows
+
+
+def agents_report(root, days=7):
     # Use the same gate as mm.py, including sandbox detection and symlinked .git.
     import mm
     if mm.agent_mode_reason():
@@ -317,7 +348,7 @@ def agents_report(root):
     team = Path.home() / '.claude/skills/draft-agents/scripts/team.py'
     if not team.is_file():
         return None
-    report = run([sys.executable, str(team), 'report'], root)
+    report = run([sys.executable, str(team), 'report', '--days', str(days)], root)
     if not report:
         return None
     # team.py prints a space-aligned table under an "agent  mode ..." header.
@@ -327,6 +358,14 @@ def agents_report(root):
         end = next((i for i in range(start, len(lines)) if not lines[i].strip()), len(lines))
         return '\n'.join(lines[start:end]) + '\n'
     return first_table(report)
+
+
+def contracts_report(root):
+    try:
+        import mm_contracts
+    except ImportError:
+        return None
+    return mm_contracts.findings(root)
 
 
 def collect(root, days):
@@ -339,6 +378,7 @@ def collect(root, days):
     node = 0
     todos = Counter({a: 0 for a in AREAS})
     unwraps = Counter()
+    unwrap_files = {}
     inline = set()
     for path, text in texts.items():
         todos[area(path)] += len(re.findall(r'\b(?:TODO|FIXME|XXX)\b', text))
@@ -347,21 +387,27 @@ def collect(root, days):
             rust[name] += count_tests(text, 'Rust')
             if count_tests(text, 'Rust'):
                 inline.add(path)
-            unwraps[name] += (0 if is_test(path) else
-                              len(re.findall(r'\.\s*unwrap\s*\(\s*\)', production_rust(text))))
+            count = (0 if is_test(path) else
+                     len(re.findall(r'\.\s*unwrap\s*\(\s*\)', production_rust(text))))
+            unwraps[name] += count
+            if count:
+                unwrap_files[path] = count
         elif path.startswith('src/') and path.endswith('.test.ts'):
             node += count_tests(text, 'Node')
         elif path.endswith('.py') and any(path.startswith(a + '/tests/') for a in python):
             python[area(path)] += count_tests(text, 'Python')
     log = run(['git', 'log', f'--since={days}.days', '--numstat', '-z', '--format=%x1e%H%x00'], root)
+    agents = agents_report(root, days)
     return {'created': dt.datetime.now().isoformat(timespec='seconds'), 'since_days': days,
             'code': collect_code(root),
             'tests': {'rust': dict(rust), 'node': node, 'python': dict(python),
                       'total': sum(rust.values()) + node + sum(python.values())},
             'churn': churn_summary(parse_numstat(log), inline) if log is not None else None,
             'hygiene': {'todos': dict(todos), 'unwraps': dict(unwraps),
+                        'unwrap_files': unwrap_files,
                         'locales': locale_stats(root, texts)},
-            'agents': agents_report(root)}
+            'agents': agents, 'agent_rows': parse_agents(agents),
+            'contracts': contracts_report(root)}
 
 
 def totals(snapshot):
@@ -371,24 +417,34 @@ def totals(snapshot):
             'unwraps': sum(snapshot['hygiene']['unwraps'].values())}
 
 
-def save_snapshot(snapshot, root):
+def previous_snapshot(root):
     folder = root / '.cache/mm-stats'
-    folder.mkdir(parents=True, exist_ok=True)
-    previous = None
     for path in sorted(folder.glob('*.json'), reverse=True):
         try:
             candidate = json.loads(path.read_text(encoding='utf-8'))
             totals(candidate)
-            previous = candidate
-            break
+            return candidate
         except (OSError, ValueError, KeyError, TypeError):
             continue
+
+
+def compare_snapshot(snapshot, previous):
     current = totals(snapshot)
     old = totals(previous) if previous else {}
     snapshot['deltas'] = {key: value - old[key] if value is not None and old.get(key) is not None else None
                           for key, value in current.items()}
     if previous and (snapshot['code'] or {}).get('method') != (previous['code'] or {}).get('method'):
         snapshot['deltas']['loc'] = None
+    old_files = previous['hygiene'].get('unwrap_files') if previous else None
+    snapshot['hygiene']['new_unwrap_files'] = (
+        sorted(path for path, count in snapshot['hygiene']['unwrap_files'].items()
+               if count > old_files.get(path, 0)) if old_files is not None else None)
+
+
+def save_snapshot(snapshot, root):
+    folder = root / '.cache/mm-stats'
+    folder.mkdir(parents=True, exist_ok=True)
+    compare_snapshot(snapshot, previous_snapshot(root))
     path = folder / (dt.datetime.now().strftime('%Y-%m-%dT%H-%M') + '.json')
     # Repeated saves in one minute compare to the file before replacing it.
     path.write_text(json.dumps(snapshot, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
@@ -396,6 +452,57 @@ def save_snapshot(snapshot, root):
 
 
 def render(snapshot):
+    """A short lead dashboard; detailed lists remain available through --full."""
+    def value(number):
+        return str(number) if number is not None else 'n/a'
+
+    def delta(key):
+        number = snapshot.get('deltas', {}).get(key)
+        return f'{number:+d}' if number is not None else 'n/a'
+
+    code, tests, churn, hygiene = (snapshot[k] for k in ('code', 'tests', 'churn', 'hygiene'))
+    hot = ('; '.join(f'{r["path"]} ({r["changes"]} changes)' for r in churn['hot_spots']) or 'none'
+           if churn is not None else 'n/a')
+    new = hygiene.get('new_unwrap_files')
+    unused = hygiene['locales']['unused']
+    agents = snapshot.get('agent_rows')
+    warnings = []
+    for row in agents or []:
+        if (row['runs'] or 0) < 5:
+            continue
+        scores = [f'{row[key]:g}% {key}' for key, limit in (('ok', 80), ('useful', 60))
+                  if row[key] is not None and row[key] < limit]
+        if scores:
+            warnings.append(f'{row["agent"]} {row["mode"]} ' + ', '.join(scores))
+    contracts = snapshot.get('contracts')
+    lines = ['ALERTS',
+             '  Hot spots without tests (heuristic): ' + hot,
+             f'  Production unwraps: {sum(hygiene["unwraps"].values())} ({delta("unwraps")})'
+             + ' — new since the last snapshot: ' + (', '.join(new) or 'none' if new is not None else 'n/a'),
+             '  Unused locale keys (heuristic): ' +
+             (f'{len(unused)} — ' + (', '.join(unused[:8]) or 'none') if unused is not None else 'n/a'),
+             '  Agents: ' + ('; '.join(warnings) or 'none' if agents is not None else 'n/a'),
+             '  Contracts: ' + (f'{len(contracts)} findings' +
+                                (' — ' + '; '.join(contracts[:3]) if contracts else '')
+                                if contracts is not None else 'n/a'),
+             '', f'ACTIVITY (last {snapshot["since_days"]} days)']
+    churn_text, cochanges = 'n/a', 'n/a'
+    if churn is not None:
+        churn_text = f'{churn["commits"]} commits, +{churn["added"]}/-{churn["removed"]}'
+        counts = churn.get('test_cochanges')
+        if counts is not None:
+            cochanges = f'{counts["with_tests"]}/{counts["without_tests"]} files with/without tests'
+    lines.extend([f'  Churn: {churn_text} | Tests: {tests["total"]} ({delta("tests")})'
+                  + f' | Test co-changes: {cochanges}', '', 'BASELINE'])
+    code_text = f'{code["loc"]} LOC ({code["method"]}, {delta("loc")})' if code else 'n/a'
+    locales = hygiene['locales']
+    lines.append(f'  Code: {code_text} | TODO/FIXME/XXX: {sum(hygiene["todos"].values())}'
+                 + f' | Tests: Rust {sum(tests["rust"].values())}; Node {tests["node"]}; Python {sum(tests["python"].values())}'
+                 + f' | Locale keys: en {value(locales["en"])}, ru {value(locales["ru"])}')
+    return '\n'.join(lines)
+
+
+def render_full(snapshot):
     def delta(key):
         value = snapshot.get('deltas', {}).get(key)
         return f' ({value:+d})' if value is not None else ''
@@ -437,6 +544,7 @@ def render(snapshot):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--json', action='store_true', help='print the full snapshot as JSON')
+    parser.add_argument('--full', action='store_true', help='print the detailed dashboard')
     parser.add_argument('--save', action='store_true', help='save snapshot and compare to the previous one')
     parser.add_argument('--since', type=int, default=7, metavar='DAYS')
     args = parser.parse_args(argv)
@@ -449,5 +557,8 @@ def main(argv=None):
         except OSError as exc:
             print(f'mm stats: cannot save snapshot: {exc}', file=sys.stderr)
             return 1
-    print(json.dumps(snapshot, indent=2, ensure_ascii=False) if args.json else render(snapshot))
+    if not args.json and not args.save:
+        compare_snapshot(snapshot, previous_snapshot(ROOT))
+    print(json.dumps(snapshot, indent=2, ensure_ascii=False) if args.json else
+          render_full(snapshot) if args.full else render(snapshot))
     return 0
