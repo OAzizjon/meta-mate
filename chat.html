@@ -5,12 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title></title>
     <style>
-      :root { color-scheme: light dark; --bg: #f4f6fa; --panel: #fff; --text: #1f2a44; --person: #fff0ae; --edge: #69758b; }
+      :root {
+        color-scheme: light dark; --bg: #f4f6fa; --panel: #fff; --text: #1f2a44; --person: #fff0ae; --edge: #69758b;
+        --muted: #4f5a6e; --accent: #c08000; --bulb: #ffd76a; --shadow: 0 1px 3px rgb(31 42 68 / .14), 0 4px 12px rgb(31 42 68 / .08);
+      }
       * { box-sizing: border-box; }
       html, body { height: 100%; margin: 0; background: var(--bg); color: var(--text); font: 19px/1.5 "Segoe UI", system-ui, sans-serif; }
       #chat-app { height: 100%; display: flex; flex-direction: column; }
-      header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; }
-      h1 { margin: 0; font-size: 24px; }
+      header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--edge); }
+      .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+      .badge { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: var(--bulb); color: #5b4300; box-shadow: 0 0 0 4px rgb(255 215 106 / .3), 0 0 16px rgb(255 215 106 / .75); }
+      .badge svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+      .badge path:first-child { fill: #fff6cc; }
+      h1 { margin: 0; font-size: 24px; overflow-wrap: anywhere; }
       button, textarea { font: inherit; color: inherit; border: 2px solid var(--edge); border-radius: 10px; background: var(--panel); }
       button { min-height: 52px; padding: 10px 18px; cursor: pointer; }
       button:disabled { opacity: .6; cursor: default; }
@@ -18,26 +25,43 @@
       #messages { position: relative; flex: 1; min-height: 0; overflow-y: auto; margin: 0; padding: 16px; list-style: none; }
       .empty-state { position: absolute; inset: 16px; display: grid; place-items: center; margin: 0; color: var(--edge); font-size: 19px; text-align: center; }
       .empty-state[hidden] { display: none; }
-      .message { width: fit-content; max-width: 90%; margin: 0 auto 14px 0; padding: 12px 16px; border: 1px solid var(--edge); border-radius: 14px; background: var(--panel); overflow-wrap: anywhere; }
-      .message.person { margin-left: auto; margin-right: 0; background: var(--person); }
-      .message p { margin: 4px 0; white-space: pre-wrap; }
-      .message time { display: block; font-size: 16px; }
-      form { flex: none; padding: 12px 16px 16px; border-top: 1px solid var(--edge); }
+      .message { display: flex; flex-direction: column; align-items: flex-start; margin: 0 0 16px; }
+      .message.person { align-items: flex-end; }
+      .from { margin: 0 6px 4px; font-size: 16px; font-weight: 600; color: var(--muted); }
+      .bubble { max-width: 82%; padding: 12px 16px; border-radius: 14px; background: var(--panel); box-shadow: var(--shadow); overflow-wrap: anywhere; }
+      .mate .bubble { border-left: 4px solid var(--accent); }
+      .person .bubble { background: var(--person); }
+      .bubble p { margin: 4px 0; white-space: pre-wrap; }
+      .bubble time { display: block; text-align: right; font-size: 16px; color: var(--muted); }
+      .thinking .bubble { color: var(--muted); }
+      .dots { display: inline-flex; gap: 6px; margin-left: 10px; vertical-align: middle; }
+      .dots span { width: 10px; height: 10px; border-radius: 50%; background: currentColor; animation: thinking 1.2s ease-in-out infinite; }
+      .dots span:nth-child(2) { animation-delay: .2s; }
+      .dots span:nth-child(3) { animation-delay: .4s; }
+      @keyframes thinking { 0%, 70%, 100% { opacity: .3; transform: translateY(0); } 35% { opacity: 1; transform: translateY(-4px); } }
+      form { flex: none; padding: 12px 16px 16px; border-top: 1px solid var(--edge); background: var(--panel); }
       label { display: block; font-weight: 600; }
-      textarea { display: block; width: 100%; min-height: 110px; max-height: 30vh; resize: vertical; padding: 12px; margin: 6px 0 12px; }
+      textarea { display: block; width: 100%; min-height: 88px; max-height: 30vh; resize: vertical; padding: 12px; margin: 6px 0 12px; }
       .compose-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
       .compose-actions span { flex: 1; font-size: 16px; }
       #send { background: var(--person); font-weight: 700; min-width: 120px; }
       #status { margin: 0; padding: 0 16px; }
       @media (prefers-color-scheme: dark) {
-        :root { --bg: #131722; --panel: #222a3a; --text: #f1f5f9; --person: #524414; --edge: #a0acc0; }
+        :root {
+          --bg: #131722; --panel: #222a3a; --text: #f1f5f9; --person: #524414; --edge: #a0acc0;
+          --muted: #c3ccda; --accent: #ffd76a; --shadow: 0 1px 3px rgb(0 0 0 / .45), 0 4px 12px rgb(0 0 0 / .3);
+        }
       }
       @media (forced-colors: active) {
-        .message, button, textarea { border: 2px solid CanvasText; }
+        .bubble, .badge, button, textarea { border: 2px solid CanvasText; }
+        .mate .bubble { border-left-width: 6px; }
+        .badge { color: CanvasText; }
+        .badge path:first-child { fill: Canvas; }
+        .dots span { forced-color-adjust: none; background: CanvasText; }
         :focus-visible { outline-color: Highlight; }
       }
-      /* No animations or smooth scrolling, including when reduced motion is requested. */
-      @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+      /* No smooth scrolling; the thinking dots, the only animation, stand still when reduced motion is requested. */
+      @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } .dots span { animation: none; } }
     </style>
   </head>
   <body>
