@@ -61,6 +61,11 @@ class MappingTests(unittest.TestCase):
         plan = mm_changed.build_plan(['locales/en.json', 'locales/ru.json'], {})
         self.assertEqual([name for name, _ in plan], ['locales', 'web'])
         self.assertIn('test_locales.py', plan[0][1])
+        inputs = {'docs/prompts.md': {'mm-core'}, 'fixtures/replay/': {'mm-core'}, 'assets/phrases': {'metamate'}}
+        self.assertEqual(mm_changed.affected_steps(['docs/prompts.md'], {}, inputs), {'docs', 'rust:mm-core'})
+        self.assertEqual(mm_changed.affected_steps(['fixtures/replay/a/b.json'], {}, inputs), {'rust:mm-core'})
+        self.assertEqual(mm_changed.affected_steps(['assets/phrases/en/x.wav'], {}, inputs), {'rust:metamate'})
+        self.assertEqual(mm_changed.affected_steps(['assets/phrasesX/y'], {}, inputs), set())
         self.assertEqual(mm_changed.affected_steps(['locales/en.json', 'tools/mm.py'], {}),
                          {'tools', 'web'})
 

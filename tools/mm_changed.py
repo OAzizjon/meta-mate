@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
@@ -50,14 +51,41 @@ def reverse_closure(changed, graph):
     return selected
 
 
-def affected_steps(files, graph):
-    """Map repo-relative paths to logical steps; Rust steps are rust:<package>."""
+EMBEDDED = re.compile(r'"(?:\.\./)+((?:docs|fixtures|locales|assets)/[^"]*)"')
+
+
+def embedded_inputs(root):
+    """{path or folder prefix: packages} for the files Rust compiles into its tests or reads
+    from them (`include_str!("../../../docs/prompts.md")`, `concat!("../../../fixtures/replay/",
+    ...)`): a change there runs those packages' tests although it is not code."""
+    inputs = {}
+    folders = [(p, p.name) for p in Path(root, 'crates').glob('*') if p.is_dir()]
+    folders.append((Path(root, 'src-tauri'), 'metamate'))
+    for folder, package in folders:
+        if not folder.is_dir():
+            continue
+        for source in folder.rglob('*.rs'):
+            try:
+                text = source.read_text(encoding='utf-8', errors='replace')
+            except OSError:
+                continue
+            for match in EMBEDDED.finditer(text):
+                inputs.setdefault(match.group(1), set()).add(package)
+    return inputs
+
+
+def affected_steps(files, graph, inputs=None):
+    """Map repo-relative paths to logical steps; Rust steps are rust:<package>. `inputs` maps
+    the non-code files that Rust tests embed (paths, or folder prefixes ending in /) to packages."""
     steps, packages = set(), set()
     for filename in files:
         path = PurePosixPath(filename.replace('\\', '/'))
         parts = path.parts
         if not parts:
             continue
+        for prefix, users in (inputs or {}).items():
+            if str(path) == prefix.rstrip('/') or str(path).startswith(prefix.rstrip('/') + '/'):
+                packages.update(users)
         top = parts[0]
         # Documentation inside a crate or tools does not change executable code.
         if top == 'docs' or path.suffix.lower() == '.md':
@@ -93,9 +121,9 @@ def changed_files(base, run):
     return sorted(files)
 
 
-def build_plan(files, graph):
+def build_plan(files, graph, inputs=None):
     """Return ordered (label, argv) steps; no subprocesses or filesystem access."""
-    selected = affected_steps(files, graph)
+    selected = affected_steps(files, graph, inputs)
     plan = []
     if 'docs' in selected:
         plan.append(('docs', [sys.executable, 'tools/mm.py', 'check', '--only', 'md-links,typos']))
@@ -122,13 +150,14 @@ def cmd_changed(args, root, run):
     try:
         files = changed_files(getattr(args, 'base', 'HEAD'), run)
         graph = {}
-        if any(s.startswith('rust:') for s in affected_steps(files, {})) or any(
+        inputs = embedded_inputs(root)
+        if any(s.startswith('rust:') for s in affected_steps(files, {}, inputs)) or any(
                 p in ('Cargo.toml', 'Cargo.lock') or p.startswith('.cargo/') for p in files):
             code, output = run(['cargo', 'metadata', '--no-deps', '--format-version', '1'])
             if code:
                 raise ValueError('cargo metadata failed: ' + output)
             graph = workspace_graph(json.loads(output))
-        plan = build_plan(files, graph)
+        plan = build_plan(files, graph, inputs)
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(f'Changed-file plan failed: {error}')
         return 1

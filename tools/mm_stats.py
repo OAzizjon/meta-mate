@@ -48,6 +48,10 @@ def source_files(root):
             dirs[:] = sorted(d for d in dirs if d not in SKIP and not (Path(folder) / d).is_symlink())
             for name in sorted(files):
                 path = Path(folder) / name
+                # A secrets file is never read, whatever its extension (`.env.py`).
+                lower = name.lower()
+                if lower == '.env' or lower.startswith('.env.'):
+                    continue
                 if path.suffix in LANGUAGES and not path.is_symlink():
                     yield path
 

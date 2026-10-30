@@ -380,7 +380,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   cmd_check:337 cmd_test:361 cmd_agent:401 cmd_tool:426 cmd_release:432 cmd_uia:513 cmd_art:547 cmd_sounds:595
   cmd_phrases:637 cmd_agents:650 wanted_key_names:663 parse_env:671 cmd_keys:726 build_parser:805 cmd_probe:858 main:874
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
-  agent_rust_env:12 workspace_graph:22 reverse_closure:37 affected_steps:53 changed_files:84 build_plan:96 cmd_changed:117
+  agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
 - tools/mm_checks.py — Fast repository checks for the mm CLI.
   CheckResult:102 check_secrets:218 check_env_names:270 check_python:298 check_md_links:333 check_typos:373 check_rust:377 check_web:388
   check_contracts:399 run_checks:428
@@ -393,16 +393,16 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_fixture.py — Pure fixture loading and geometry for recorded UIA probes.
   Fixture:21 load_fixture:40 unsafe_reason:71 FrameMap:93 element_list:140 Hit:156 hit_test:162 describe:178
 - tools/mm_map.py — Write docs/code-map.md: where things live, for agents that read files but have no shell.
-  mask:170 Source:261 Project:278 summary:336 outline:406 render:733 main:776
+  is_secret:25 mask:176 Source:267 Project:284 summary:343 outline:413 render:740 main:783
 - tools/mm_probe.py — mm probe: the Meta Model API from the lead's machine (never from the agents' copies).
   ProbeError:80 is_plain_file:97 read_secret:108 scrub:124 provider_config:137 iter_sse:211 output_text:230 computer_actions:240
   point_actions:265 action_points:288 usage_tokens:300 cost_usd:305 ledger_total:334 ledger_unpriced:338 ledger_add:342 guard_budget:348
   record:360 report:370 multipart:380 wav_info:392 cmd_asr:404 cmd_models:440 add_reasoning:448 cmd_stream:455
   verdict:530 computer_tool:541 png_size:547 cmd_click:558 cmd_sam:655 cmd_ledger:731 build_parser:753 main:793
 - tools/mm_stats.py — A standard-library-only project dashboard; mm.py owns command dispatch.
-  area:32 crate:37 source_files:44 read:55 run:62 code_summary:72 parse_scc:84 collect_code:98
-  mask_code:122 count_tests:147 production_rust:162 is_test:185 related_test:191 parse_numstat:209 churn_summary:233 locale_stats:260
-  first_table:284 agents_report:306 collect:326 totals:361 save_snapshot:368 render:392 main:431
+  area:32 crate:37 source_files:44 read:59 run:66 code_summary:76 parse_scc:88 collect_code:102
+  mask_code:126 count_tests:151 production_rust:166 is_test:189 related_test:195 parse_numstat:213 churn_summary:237 locale_stats:264
+  first_table:288 agents_report:310 collect:330 totals:365 save_snapshot:372 render:396 main:435
 - tools/mm_where.py — mm where TERM: where a name is defined and used, across Rust, TypeScript, Python, locales and docs.
   is_secret:61 variants:68 area_of:90 is_test_path:97 tracked_files:102 searchable:119 read_lines:125 first_test_line:135
   search:143 is_comment:177 constants_holding:181 via_constants:196 trimmed:210 report:215 locale_text:258 keys_with_text:272
@@ -823,7 +823,7 @@ Per area: the test files and the source files with inline tests, with their numb
 - src/settings/model.test.ts: 15
 - src/settings/ptt-key.test.ts: 1
 
-### tools: 231 tests in 15 files
+### tools: 232 tests in 16 files
 
 - tools/tests/test_chat_ownership.py: 2
 - tools/tests/test_locales.py: 3
@@ -838,6 +838,7 @@ Per area: the test files and the source files with inline tests, with their numb
 - tools/tests/test_mm_stats.py: 17
 - tools/tests/test_mm_where_cite.py: 14
 - tools/tests/test_phrases.py: 9
+- tools/tests/test_secret_filters.py: 1
 - tools/tests/test_sounds_commons.py: 16
 - tools/tests/test_window_layout.py: 2
 
