@@ -83,8 +83,15 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - For screen answers and lesson steps, SAM 3.1 outlines a target when the UI Automation tree has fewer than three named interactive elements; rich trees still refuse uncertain targets (`crates/mm-core/`, `src-tauri/src/sam.rs`).
 - Toggle push-to-talk starts on a tap and ends on a second tap or 1.2 seconds of speech silence (30 seconds maximum); microphone level animates Mate (`crates/mm-core/src/vad.rs`, `src-tauri/`, `src/`).
 
+### Fixed
+
+- A saved Toggle push-to-talk mode survives restarts.
+- A microphone failure also ends a click-to-talk recording.
+
 ### Changed
 
+- The chat's empty state suggests an example question; opening the chat from the tray brings it to the front.
+- Mate appears sooner after startup, and push-to-talk polls less often while idle.
 - Privacy round 7: Telegram windows with an empty UI Automation tree ask for consent on each look; login and email codes are always painted.
 - Idle audio and animations sleep to save CPU; screenshot downscaling and redaction are faster.
 - Privacy round 6: inputs beside private labels are painted unless their name shows a non-secret purpose; long pages are checked for them before truncation clears; article images no longer ask for consent.
