@@ -113,9 +113,16 @@ impl Pointing {
 
     /// The generation that had a look, if any; the look is dropped (its screenshot too).
     pub fn take(&self) -> Option<u64> {
+        // The look goes first: a target drawn on the UI thread meanwhile then finds no
+        // generation and starts no warmth poll, or started it before this stops it.
+        let taken = self
+            .current
+            .lock()
+            .ok()
+            .and_then(|mut current| current.take())
+            .map(|(generation, _)| generation);
         self.stop_following();
-        let mut current = self.current.lock().ok()?;
-        current.take().map(|(generation, _)| generation)
+        taken
     }
 
     pub fn generation(&self) -> Option<u64> {
@@ -467,7 +474,9 @@ fn render_target(
         && let Ok(mut warmth) = pointing.warmth.lock()
     {
         warmth.take();
-        if step.is_some() {
+        // Under the warmth lock, after the check: a stop that drops this look either came
+        // first (no poll starts) or takes the poll right after (Pointing::take).
+        if step.is_some() && pointing.generation() == Some(generation) {
             *warmth = start_warmth(app, target, scale);
         }
     }
