@@ -418,11 +418,14 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: src/ipc/answer-stream.test.ts (15)
 - src/ipc/timeline.ts — The MateScript timeline as it arrives from Rust: one `{"kind", "value"}` object per item (`crates/mm-core/src/matescript/timeline.rs`, serde adjacent tagging).
   Level:6 Sound:9 Point:16 Step:21 Bound:28 Say:36 TimelineItem:43 parseTimelineItem:65
+- src/mate-logic.ts — Mate's answer presentation policy, independent of the DOM, Tauri and the audio engine.
+  CANT_FIND_HOLD_MS:11 Bubble:13 createMateAnswerRouter:33 interruptLesson:160 awakeBubble:167 createMateWindowEvents:186 guestTrialView:214 signedIn:223
+  tests: src/mate-logic.test.ts (15)
 - src/mate-menu.ts — Page controls in Mate's unfocusable WebView; never use a native popup or focus().
   MATE_MENU_ITEMS:4 guestUsageOf:15 hideReturnTime:22 mountMateMenu:29
   tests: src/mate-menu.test.ts (3)
 - src/mate.ts — Mate's window: mounts the robot (src/robot) idle and calm.
-  devHook:70· mountBubble:102· startLiveAnswers:155· createRouter:189·
+  devHook:70· mountBubble:90· startLiveAnswers:143· createRouter:177·
 - src/onboarding.ts — First-run onboarding in Mate's window (WP25).
   setOnboardingPttKey:15 ONBOARDING_STORAGE_KEY:20 setOnboardingTranslator:25 ONBOARDING_STEP_MS:28 ONBOARDING_EXAMPLE_COUNT:29 ONBOARDING_EXAMPLE_KEYS:31 OnboardingExampleKey:40 StorageLike:43
   OnboardingClock:49 OnboardingSink:58 OnboardingOptions:67 OnboardingController:84 resetOnboardingSession:100 claimFirstRun:120 pickExampleKeys:146 startOnboarding:176
@@ -608,11 +611,11 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_clear` src-tauri/src/chat.rs:299 <- src/chat.ts:163
 - `chat_send` src-tauri/src/chat.rs:269 <- src/chat.ts:148
 - `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:187
-- `guest_usage` src-tauri/src/signin.rs:148 <- src/mate.ts:498, src/signin.ts:99
+- `guest_usage` src-tauri/src/signin.rs:148 <- src/mate.ts:370, src/signin.ts:99
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:25
 - `load_settings` src-tauri/src/settings.rs:255 <- src/highlight.ts:494, src/home.ts:174, src/i18n/settings.ts:20, src/settings/model.ts:243
-- `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:411
+- `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:289
 - `mate_menu_size` src-tauri/src/presence.rs:143 <- src/mate-menu.ts:43,51
 - `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:405, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
@@ -648,18 +651,18 @@ File names declared as Rust string constants (read or written by the app).
 
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
-- `auth-changed`: rs emit src-tauri/src/auth.rs:235,307; ts listen src/mate.ts:494, src/settings.ts:153, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
+- `auth-changed`: rs emit src-tauri/src/auth.rs:235,307; ts listen src/mate.ts:366, src/settings.ts:153, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:416; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
-- `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:514; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:112; ts listen src/mate.ts:493, src/signin.ts:101; const src-tauri/src/signin.rs:17
-- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:447; ts listen src/highlight.ts:503, src/mate.ts:457; const src-tauri/src/highlight.rs:15
-- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:503
+- `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:386; const src-tauri/src/explain.rs:39
+- `guest-usage`: rs emit src-tauri/src/signin.rs:112; ts listen src/mate.ts:365, src/signin.ts:101; const src-tauri/src/signin.rs:17
+- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:447; ts listen src/highlight.ts:503, src/mate.ts:343; const src-tauri/src/highlight.rs:15
+- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:375
 - `lesson-card`: rs emit src-tauri/src/card.rs:466; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
-- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:527; ts listen src/mate.ts:226; const src/mate.ts:34
-- `mate-hiding`: rs emit src-tauri/src/presence.rs:54; ts listen src/mate.ts:463
-- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:195; ts listen src/mate.ts:462
-- `mate-woke`: rs emit src-tauri/src/presence.rs:103; ts listen src/mate.ts:474
+- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:527; ts listen src/mate.ts:214; const src/mate.ts:34
+- `mate-hiding`: rs emit src-tauri/src/presence.rs:54; ts listen src/mate.ts:349
+- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:195; ts listen src/mate.ts:348
+- `mate-woke`: rs emit src-tauri/src/presence.rs:103; ts listen src/mate.ts:350
 - `settings-changed`: rs emit src-tauri/src/settings.rs:283,314; ts listen src/highlight.ts:499, src/home-page.ts:19, src/i18n/settings.ts:16, src/mate.ts:52, src/settings.ts:141; const src-tauri/src/settings.rs:24, src/settings/model.ts:27
 
 ### Proxy routes
@@ -699,11 +702,11 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.unavailable`: rs src-tauri/src/auth.rs:144,147,213,335; ts src/settings/account.ts:75
 - `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:173
 - `mate.explain_question`: rs src-tauri/src/explain.rs:304
-- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate.ts:284
+- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:143
 - `robot.cant_look`: rs src-tauri/src/screen.rs:377, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:30
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
 - `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:486,611,612; ts src/ipc/answer-stream.ts:35
-- `robot.click_stop`: rs src-tauri/src/voice.rs:581; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:28, src/mate.ts:331,361
+- `robot.click_stop`: rs src-tauri/src/voice.rs:581; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:28, src/mate-logic.ts:94,115
 - `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:369,377,585,590, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:45
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:77; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:41
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:63
@@ -785,7 +788,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 173 | 20 |
-| src | 197 | 23 |
+| src | 212 | 24 |
 | tools | 260 | 16 |
 | server | 86 | 4 |
 | tts | 27 | 2 |

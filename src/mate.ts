@@ -5,19 +5,21 @@
 // __mate.setState("pointing"); __mate.aimAt({ left: 20, top: 20, right: 120, bottom: 60 }).
 import { parseHighlightMsg } from "./highlight/geometry.ts";
 import { createAudioEngine } from "./audio";
-import { BUBBLE_LINGER_MS, bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
+import { bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
 import { getLocale, setLocale, t } from "./i18n";
-import { guestUsageOf, hideReturnTime, mountMateMenu } from "./mate-menu";
+import { hideReturnTime, mountMateMenu } from "./mate-menu";
 import { pttKeyLabel } from "./settings/ptt-key";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
-import { AnswerGenerations, HeldPresentation } from "./ipc/answer-generation";
+import { awakeBubble, createMateAnswerRouter, createMateWindowEvents, guestTrialView, interruptLesson, signedIn } from "./mate-logic.ts";
+import type { Bubble } from "./mate-logic.ts";
 import type { LocaleKey } from "./i18n";
 import { mountOnboarding, setOnboardingTranslator, setOnboardingPttKey, stopOnboarding } from "./onboarding";
 import { createTimelinePlayer } from "./player";
+import type { TimelinePlayer } from "./player";
 import { isRobotMood, isRobotState, mountRobot } from "./robot";
-import type { CssRect, RobotController, RobotState } from "./robot";
+import type { CssRect, RobotController } from "./robot";
 import {
   SETTINGS_CHANGED_EVENT,
   startMateSettings,
@@ -29,8 +31,6 @@ import type {
   SettingsSubscribe,
 } from "./settings/apply";
 
-/** How long the timeline holds on "can't find"; the bubble stays its reading time (WP85). */
-const CANT_FIND_HOLD_MS = 3000;
 const LESSON_INTERRUPT_EVENT = "lesson-interrupt";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const MATE_STATE_EVENT = "mate-state-changed";
@@ -85,18 +85,6 @@ function devHook(robot: RobotController, setUiLocale: (locale: LocaleCode) => vo
       setUiLocale(locale);
     },
   };
-}
-
-interface Bubble {
-  /** Puts the model chip under the text (null clears it); it goes when the bubble hides. */
-  setModel(model: AnswerModel | null): void;
-  /** Shows `text` (null hides the bubble), for `ms` when given; the chip is left as it is. */
-  show(text: string | null, ms?: number): void;
-  /**
-   * Hides the bubble once its text was on screen for its reading time, and no sooner than
-   * `ms` from now, unless something else is shown first.
-   */
-  hideAfter(ms: number): void;
 }
 
 function mountBubble(element: HTMLElement): Bubble {
@@ -224,156 +212,46 @@ async function createRouter(
   const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
   void getCurrentWebviewWindow()
     .listen<unknown>(LESSON_INTERRUPT_EVENT, (event) => {
-      if (
-        typeof event.payload === "number" &&
-        Number.isSafeInteger(event.payload) &&
-        event.payload >= 0
-      ) {
-        audio.interrupt(event.payload);
-      }
+      interruptLesson(event.payload, (generation) => audio.interrupt(generation));
     })
     .catch((error: unknown) => {
       console.error("[mate] lesson-interrupt listener failed", error);
     });
-  let listening = false;
-  let listeningGeneration: number | null = null;
-  let clickListening = false;
-  let showingHeard = false;
-  const generations = new AnswerGenerations();
-  const presentation = new HeldPresentation();
-  const present = (key: string, update: () => void): void => {
-    presentation.apply(key, generations.holdPresentation, update);
-  };
-  let idle = false;
-  const setState = (state: RobotState): void => {
-    idle = state === "idle";
-    // The chip stays while the bubble lingers after the answer; the bubble clears it.
-    if (listening && state !== "listening") {
-      listening = false;
-      listeningGeneration = null;
-      clickListening = false;
-      if (showingHeard) bubble.show(null);
-      showingHeard = false;
-      robot.setVoiceLevel(0);
-    } else {
-      listening = state === "listening";
-    }
-    robot.setState(state);
-  };
-  const player = createTimelinePlayer({
+  const router = createMateAnswerRouter({
+    robot, bubble,
+    player: {
+      push: (generation, item) => player.push(generation, item),
+      cancel: (generation) => player.cancel(generation),
+    },
+    t, stopOnboarding, reportPlayback,
+    sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    onPcm: (msg) => {
+      const samples = decodePcm(msg.samplesB64);
+      audio.pushPcm({
+        generationId: msg.generation,
+        sentenceId: msg.sentence,
+        sampleRate: msg.sampleRate,
+        eos: msg.eos,
+        samples,
+      });
+      void reportPlayback("pcm", msg.generation, `s=${msg.sentence} n=${samples.length}`);
+    },
+  });
+  const player: TimelinePlayer = createTimelinePlayer({
     // Answer tags select speech voices; UI labels keep the person's preference.
     setLocale: () => setLocale(settings.get().language),
     robot: {
-      setState: (state) => present("state", () => setState(state)),
-      setMood: (mood) => present("mood", () => robot.setMood(mood)),
-      aimAt: (target) => present("aim", () => robot.aimAt(target)),
+      setState: (state) => router.present("state", () => router.setState(state)),
+      setMood: (mood) => router.present("mood", () => robot.setMood(mood)),
+      aimAt: (target) => router.present("aim", () => robot.aimAt(target)),
     },
     audio,
     resolveTarget: (point, generation, step) => pointAt(generation, point, step),
-    showBubble: (text) => {
-      present("bubble", () => {
-        showingHeard = false;
-        bubble.show(text);
-      });
-    },
-    onLine(line) {
-      // The only line a timeline raises today; nothing speaks it here.
-      if (line !== "CantFind") return;
-      present("bubble", () => {
-        showingHeard = false;
-        const text = t("robot.cant_find");
-        bubble.show(text, bubbleReadMs(text));
-      });
-      return new Promise<void>((resolve) => setTimeout(resolve, CANT_FIND_HOLD_MS));
-    },
-    onDone(doneGeneration) {
-      if (doneGeneration !== generations.answer) return;
-      present("state", () => setState("idle"));
-      present("bubble-hide", () => bubble.hideAfter(BUBBLE_LINGER_MS));
-      // Every sentence before `End` was played out: the worklet reported its end.
-      void reportPlayback("done", doneGeneration);
-    },
+    showBubble: router.showBubble,
+    onLine: router.onLine,
+    onDone: router.onDone,
   });
-  return (msg) => {
-    const newest = generations.newest;
-    const answer = generations.answer;
-    if (!generations.accept(msg)) return;
-    if (msg.type === "cancel" || generations.answer > answer) presentation.clear();
-    if (!generations.holdPresentation) presentation.release();
-    if (generations.newest > newest) {
-      idle = false;
-      bubble.setModel(null);
-    }
-    // The first sign of a real answer ends the first-run examples.
-    stopOnboarding();
-    switch (msg.type) {
-      case "model":
-        present("model", () => {
-          if (!idle) bubble.setModel(msg.model);
-        });
-        return;
-      case "state":
-        if (msg.generation !== generations.listening && generations.holdPresentation) {
-          present("state", () => setState(msg.state));
-          return;
-        }
-        setState(msg.state);
-        if (msg.state === "listening") {
-          listeningGeneration = msg.generation;
-          clickListening = false;
-          showingHeard = false;
-          bubble.show(null);
-        }
-        return;
-      case "heard":
-        if (listening && msg.generation === listeningGeneration) {
-          bubble.show(clickListening
-            ? [msg.text, t("robot.click_stop")].filter(Boolean).join("\n")
-            : msg.text || null);
-          showingHeard = true;
-        }
-        return;
-      case "level":
-        if (listening) robot.setVoiceLevel(msg.level);
-        return;
-      case "item":
-        player.push(msg.generation, msg.item);
-        void reportPlayback("trace", msg.generation, `item ${msg.item.kind}`);
-        return;
-      case "pcm": {
-        const samples = decodePcm(msg.samplesB64);
-        audio.pushPcm({
-          generationId: msg.generation,
-          sentenceId: msg.sentence,
-          sampleRate: msg.sampleRate,
-          eos: msg.eos,
-          samples,
-        });
-        void reportPlayback("pcm", msg.generation, `s=${msg.sentence} n=${samples.length}`);
-        return;
-      }
-      case "cancel":
-        // Cancels the audio engine too.
-        player.cancel(msg.generation);
-        if (generations.canIdle(msg.generation)) setState("idle");
-        return;
-      case "line":
-        if (msg.key === "robot.click_stop") {
-          if (listening && msg.generation === listeningGeneration) {
-            clickListening = true;
-            showingHeard = true;
-            bubble.show(t(msg.key));
-          }
-          return;
-        }
-        present("bubble", () => {
-          showingHeard = false;
-          const text = t(msg.key);
-          bubble.show(text, bubbleReadMs(text));
-        });
-        return;
-    }
-  };
+  return router.route;
 }
 
 const container = document.getElementById("mate");
@@ -445,14 +323,22 @@ if (container) {
   window.addEventListener("resize", onEnvironmentChange);
   const mountedBubble = bubble ? mountBubble(bubble) : null;
   // An answer already playing must not replace the hide explanation or sleeping state.
-  const liveBubble: Bubble | null = mountedBubble ? {
-    setModel: (model) => { if (!sleeping) mountedBubble.setModel(model); },
-    show: (text, ms) => { if (!sleeping) mountedBubble.show(text, ms); },
-    hideAfter: (ms) => { if (!sleeping) mountedBubble.hideAfter(ms); },
-  } : null;
+  const liveBubble = mountedBubble ? awakeBubble(mountedBubble, () => sleeping) : null;
   const live =
     liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, settings) : null;
   if (mountedBubble && inTauri) {
+    const events = createMateWindowEvents({
+      bubble: mountedBubble, robot,
+      isSleeping: () => sleeping,
+      setSleeping: (value) => { sleeping = value; },
+      closeMenu: () => menu?.close(),
+      stopOnboarding,
+      hidingText: (minutes) => t("mate.hiding", {
+        time: hideReturnTime(minutes, Date.now(), getLocale()),
+        key: pttKeyLabel(settings.get().pttKey, t),
+      }),
+      explainText: (control) => t("mate.explain_offer", { control }),
+    });
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
       await listen<unknown>("highlight", (event) => {
         const msg = parseHighlightMsg(event.payload);
@@ -460,39 +346,25 @@ if (container) {
         else if (msg?.type === "clear") robot.setWarmth(null, false);
       });
       await listen("mate-menu-outside", () => menu?.close());
-      await listen<{ minutes: number }>("mate-hiding", (event) => {
-        menu?.close();
-        stopOnboarding();
-        sleeping = true;
-        robot.setState("sleeping");
-        mountedBubble.setModel(null);
-        mountedBubble.show(t("mate.hiding", {
-          time: hideReturnTime(event.payload.minutes, Date.now(), getLocale()),
-          key: pttKeyLabel(settings.get().pttKey, t),
-        }), 3000);
-      });
-      await listen("mate-woke", () => {
-        sleeping = false;
-        mountedBubble.show(null);
-        robot.setState("idle");
-      });
+      await listen<{ minutes: number }>("mate-hiding", (event) => events.hide(event.payload.minutes));
+      await listen("mate-woke", () => events.wake());
       // The guest trial's count (src-tauri/src/signin.rs): always in view while it runs.
       const trial = document.getElementById("mate-trial");
       let trialUsage: unknown = null;
       const showTrial = (usage: unknown): void => {
         trialUsage = usage;
         if (!trial) return;
-        const counted = guestUsageOf(usage);
+        const counted = guestTrialView(usage);
         trial.hidden = counted === null;
         if (counted) {
-          trial.textContent = t("mate.trial", { left: String(counted.left), limit: String(counted.limit) });
-          trial.classList.toggle("is-empty", counted.left === 0);
+          trial.textContent = t("mate.trial", { left: counted.left, limit: counted.limit });
+          trial.classList.toggle("is-empty", counted.empty);
         }
       };
       refreshTrial = () => showTrial(trialUsage);
       await listen<unknown>("guest-usage", (event) => showTrial(event.payload));
       await listen<unknown>("auth-changed", (event) => {
-        if ((event.payload as { signedIn?: unknown } | null)?.signedIn === true) showTrial(null);
+        if (signedIn(event.payload)) showTrial(null);
       });
       const { invoke } = await import("@tauri-apps/api/core");
       showTrial(await invoke("guest_usage").catch(() => null));
@@ -512,12 +384,7 @@ if (container) {
     // Mate let go on a control (src-tauri/src/explain.rs): one click on him asks what it does.
     void import("@tauri-apps/api/event").then(({ listen }) =>
       listen<{ control?: unknown; ms?: unknown } | null>("explain-offer", (event) => {
-        const control = event.payload?.control;
-        const ms = event.payload?.ms;
-        if (sleeping || typeof control !== "string" || typeof ms !== "number" || !(ms > 0)) return;
-        stopOnboarding();
-        mountedBubble.setModel(null);
-        mountedBubble.show(t("mate.explain_offer", { control }), ms);
+        events.explain(event.payload);
       }),
     ).catch((error: unknown) => {
       console.error("mate: explain offer:", error);
