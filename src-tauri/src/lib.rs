@@ -84,6 +84,18 @@ pub fn run() {
         .position(|arg| arg == "--card-selftest")
         .map(|at| args.get(at + 1).is_some_and(|language| language == "ru"));
 
+    // One MetaMate per session (plain starts only: the self-tests and `--ask` may run beside
+    // the app). A second start asks the running one to show Home and leaves.
+    #[cfg(windows)]
+    let instance = if args.len() == 1 {
+        match mm_win32::instance::start(mm_core::constants::APP_NAME) {
+            mm_win32::instance::Start::Again => std::process::exit(0),
+            mm_win32::instance::Start::First(instance) => instance,
+        }
+    } else {
+        None
+    };
+
     let result = tauri::Builder::default()
         .manage(answer_stream::AnswerStream::default())
         .manage(chat::Chat::default())
@@ -116,6 +128,18 @@ pub fn run() {
             signin::try_as_guest
         ])
         .setup(move |app| {
+            #[cfg(windows)]
+            if let Some(instance) = instance {
+                let handle = app.handle().clone();
+                instance.on_start_again(move || {
+                    let app = handle.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(error) = home::open(&app) {
+                            eprintln!("home: window: {error}");
+                        }
+                    });
+                });
+            }
             {
                 use tauri::Manager;
                 app.manage(settings::SettingsStore::new(settings::load(app.handle())));

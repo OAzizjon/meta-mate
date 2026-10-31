@@ -191,8 +191,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   ConfirmedElement::matches_target:539 PendingConfirmation:552 PendingConfirmation::element:555 PendingConfirmation::answer:560 recheck_element:591 check_confirmation:626
   inline tests (16)
 - crates/mm-win32/src/instance.rs — One MetaMate per Windows session.
-  Instance:14 Start:19 start:27 Instance::on_start_again:55
-  inline tests (1)
+  Instance:15 Start:20 start:28 Instance::on_start_again:60
+  inline tests (2)
 - crates/mm-win32/src/keyboard.rs — The push-to-talk key from a low-level keyboard hook (spike S2).
   RIGHT_CTRL:29 set_ptt_key:32 KeyEvent:38 HookError:49 KeyboardHook:72 start:98 start_mapped:104 key_down:138
 - crates/mm-win32/src/lib.rs — MetaMate's Windows layer: the only crate that calls Win32 (docs/project-structure.md).
@@ -818,7 +818,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 |---|---:|---:|
 | crates/mm-core | 261 | 34 |
 | crates/mm-platform | 43 | 6 |
-| crates/mm-win32 | 61 | 11 |
+| crates/mm-win32 | 62 | 11 |
 | src-tauri | 179 | 20 |
 | src | 249 | 28 |
 | tools | 298 | 19 |

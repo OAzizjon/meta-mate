@@ -11,6 +11,7 @@ pub mod dpapi;
 pub mod dpi;
 pub mod focus;
 pub mod input;
+pub mod instance;
 pub mod keyboard;
 pub mod locale;
 pub mod monitors;
