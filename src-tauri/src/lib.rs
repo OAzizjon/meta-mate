@@ -257,11 +257,10 @@ fn finish_startup(app: &tauri::AppHandle) {
         // Signing in is required: before Mate answers, the sign-in window opens
         // (after Home, so it is the one on top).
         let sign_in = signin::required() && !app.state::<auth::Auth>().signed_in();
-        if app
-            .state::<settings::SettingsStore>()
-            .get()
-            .show_home_at_start
-        {
+        // Home also opens while the person has not been asked their name yet (first run),
+        // even when "show Home at start" is off: the question lives there.
+        let start = app.state::<settings::SettingsStore>().get();
+        if start.show_home_at_start || !start.profile_asked {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(error) = home::open(&app) {

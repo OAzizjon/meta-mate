@@ -28,6 +28,9 @@
   --border-strong: #8a8371;
   --text: #1f2a44;
   --text-muted: #55607a;
+  --panel-ink: #1f2a44;
+  --panel-shadow: #1f2a44;
+  --font-comic: "Segoe Print", "Comic Sans MS", var(--font);
   /* The bulb's yellow fills; navy text sits on it in both themes. */
   --accent: #ffcd3c;
   --accent-hover: #ffc21a;
@@ -62,7 +65,7 @@
   --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
   /* One place to make every window's text larger. Many of Mate's people are older: body
      text stays at 18 px, as the windows had before this theme. */
-  --text-sm: 16px;
+  --text-sm: 18px;
   --text-md: 18px;
   --text-lg: 20px;
   --text-xl: 22px;
@@ -80,6 +83,9 @@
   --border-strong: #8790a6;
   --text: #f4f1e8;
   --text-muted: #c3c8d4;
+  --panel-ink: #aab2c5;
+  --panel-shadow: #090b10;
+  --font-comic: "Segoe Print", "Comic Sans MS", var(--font);
   --accent: #ffd23f;
   --accent-hover: #ffdc66;
   --on-accent: #1f2a44;
@@ -109,7 +115,7 @@
   --radius-sm: 10px;
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --text-sm: 16px;
+  --text-sm: 18px;
   --text-md: 18px;
   --text-lg: 20px;
   --text-xl: 22px;
@@ -143,6 +149,28 @@ h2,
 h3 {
   font-family: var(--font-display);
   text-wrap: balance;
+}
+
+/* Halftone belongs in the gutters; each comic panel has an opaque fill. */
+.comic-page {
+  background-image: radial-gradient(var(--chat-dot) 1px, transparent 1.5px);
+  background-size: 12px 12px;
+}
+
+.comic-page .btn {
+  border-color: var(--panel-ink);
+  box-shadow: 3px 3px 0 var(--panel-shadow);
+}
+
+@media (forced-colors: active) {
+  .comic-page {
+    background-image: none;
+  }
+
+  .comic-page .btn {
+    border-color: ButtonText;
+    box-shadow: none;
+  }
 }
 
 button,
