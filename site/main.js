@@ -21,6 +21,9 @@
       window.CSS.supports('scroll-snap-type', 'x mandatory') &&
       window.CSS.supports('display', 'flex')
   );
+  if (supportsSnap) {
+    document.documentElement.classList.add('has-js');
+  }
 
   var hashAliases = {
     features: 'how-it-works',
@@ -40,6 +43,12 @@
 
   function isHorizontalMode() {
     return supportsSnap && wideQuery.matches && strip.scrollWidth > strip.clientWidth + 1;
+  }
+
+  function resetDocumentScroll() {
+    if (window.scrollTo && (window.scrollY || document.documentElement.scrollTop)) {
+      window.scrollTo(0, 0);
+    }
   }
 
   function prefersReducedMotion() {
@@ -207,6 +216,7 @@
     function () {
       syncWheelBinding();
       if (isHorizontalMode()) {
+        resetDocumentScroll();
         updateIndicators(getCurrentIndex());
       }
     },
@@ -289,8 +299,13 @@
 
   syncWheelBinding();
   var initialIndex = resolveHashIndex(window.location.hash);
-  if (isHorizontalMode() && initialIndex >= 0) {
-    scrollToPanel(initialIndex, true);
+  if (isHorizontalMode()) {
+    resetDocumentScroll();
+    if (initialIndex >= 0) {
+      scrollToPanel(initialIndex, true);
+    } else {
+      updateIndicators(0);
+    }
   } else {
     updateIndicators(0);
   }

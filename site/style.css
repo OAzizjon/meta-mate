@@ -352,6 +352,29 @@ a:focus-visible,
   box-shadow: 5px 5px 0 var(--ink-shadow);
 }
 
+.hero-meta-bar { margin-top: 18px; display: grid; gap: 10px; }
+
+.hero-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  padding: 9px 14px;
+  background: var(--card-bg);
+  color: var(--text);
+  border: 2.5px solid var(--frame-ink);
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 var(--ink-shadow);
+  font-size: 15px;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.hero-meta-strip:hover { border-color: var(--accent); color: var(--text); }
+.hero-meta-label { color: var(--accent); font-family: var(--font-comic); font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; text-decoration: underline; }
+.hero-meta-models { font-weight: 600; color: var(--text-muted); }
+.proof-caption { margin: 0; padding: 8px 12px; background: var(--bulb-soft); color: var(--bulb-ink); border: 2px solid var(--bulb-border); border-radius: 8px; font-size: 15px; font-weight: 600; line-height: 1.45; }
+
 /* Speech bubbles with tails */
 .speech-bubble {
   position: relative;
@@ -563,6 +586,9 @@ a:focus-visible,
   color: var(--text-muted);
 }
 
+.panel-footnote { margin: 16px 0 0; padding: 10px 14px; background: var(--card-bg); color: var(--text-muted); border: 2.5px solid var(--frame-ink); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink-shadow); font-size: 16px; line-height: 1.45; }
+.panel-footnote strong { color: var(--text); }
+
 /* Download panel */
 .download-card {
   padding: 26px 20px;
@@ -662,22 +688,22 @@ a:focus-visible,
   box-shadow: 2px 2px 0 var(--ink-shadow);
 }
 
-/* Horizontal comic layout on >= 700px when supported */
+/* Horizontal comic layout on >= 700px when JS and scroll-snap are active */
 @supports (scroll-snap-type: x mandatory) and (display: flex) {
   @media (min-width: 700px) {
-    html, body {
+    html.has-js, html.has-js body {
       height: 100vh;
       height: 100dvh;
       overflow: hidden;
     }
-    body {
+    html.has-js body {
       display: flex;
       flex-direction: column;
     }
-    .site-header {
+    html.has-js .site-header {
       flex: 0 0 auto;
     }
-    .comic-strip {
+    html.has-js .comic-strip {
       flex: 1 1 auto;
       min-height: 0;
       display: flex;
@@ -687,7 +713,7 @@ a:focus-visible,
       scroll-snap-type: x mandatory;
       scroll-behavior: smooth;
     }
-    .panel {
+    html.has-js .panel {
       flex: 0 0 100vw;
       width: 100vw;
       height: 100%;
@@ -696,22 +722,22 @@ a:focus-visible,
       overflow-x: hidden;
       padding: 14px 18px 18px;
     }
-    .panel-frame {
+    html.has-js .panel-frame {
       min-height: 100%;
       display: flex;
       flex-direction: column;
       padding: 20px 0 24px;
     }
-    .site-footer {
+    html.has-js .site-footer {
       flex: 0 0 auto;
       padding: 8px 0;
     }
-    .footer-inner {
+    html.has-js .footer-inner {
       flex-direction: row;
       flex-wrap: wrap;
       justify-content: space-between;
     }
-    .panel-nav {
+    html.has-js .panel-nav {
       display: flex;
       align-items: center;
       gap: 14px;
