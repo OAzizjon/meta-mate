@@ -8,7 +8,20 @@ import type { LocaleKey } from "../i18n/index.ts";
 import { buildCheckbox, buildRadioGroup } from "./controls.ts";
 import type { CheckboxRefs, RadioGroupRefs } from "./controls.ts";
 import { PTT_KEYS, ROBOT_SIZES } from "./model.ts";
-import type { Language, ModelChoice, PttKey, PttMode, RobotSize, SoundMode } from "./model.ts";
+import type { Language, ModelChoice, PttKey, PttMode, RobotSize, SoundMode, Theme } from "./model.ts";
+
+export function buildThemeGroup(onSelect: (theme: Theme) => void): RadioGroupRefs<Theme> {
+  return buildRadioGroup<Theme>(
+    "theme",
+    "settings.background",
+    [
+      { id: "settings-theme-light", value: "light", labelKey: "settings.theme_light" },
+      { id: "settings-theme-dark", value: "dark", labelKey: "settings.theme_dark" },
+    ],
+    "segments",
+    onSelect,
+  );
+}
 
 export function buildPttKeyGroup(onSelect: (key: PttKey) => void): RadioGroupRefs<PttKey> {
   return buildRadioGroup<PttKey>(

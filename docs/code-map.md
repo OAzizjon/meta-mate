@@ -308,11 +308,11 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src-tauri/src/selftest.rs — Spike S1 without a person at the desk: run with `--s1-selftest`.
   spawn:41 spawn_control:151
 - src-tauri/src/settings.rs — The user's settings (WP30): the settings window (settings.html, src/settings/model.ts) reads them with `load_settings` and saves them with `save_settings`.
-  MIN_VOICE_SPEED:26 MAX_VOICE_SPEED:27 DEFAULT_VOICE_SPEED:28 VOICE_SPEED_STEP:30 Language:40 Language::resolve:48 language:65 Model:75
-  Ptt:92 PttKey:99 PttKey::virtual_key:110 PttKey::locale_key:121 Sound:142 RobotSize:149 MateHome:159 Settings:168
-  Settings::sanitized:212 SettingsStore:228 SettingsStore::new:231 SettingsStore::get:243 load_settings:255 save_settings:262 model:294 save_mate_home:301
-  voice_speed:318 load:323
-  inline tests (18)
+  MIN_VOICE_SPEED:26 MAX_VOICE_SPEED:27 DEFAULT_VOICE_SPEED:28 VOICE_SPEED_STEP:30 Language:40 Theme:49 Language::resolve:61 language:78
+  Model:88 Ptt:105 PttKey:112 PttKey::virtual_key:123 PttKey::locale_key:134 Sound:155 RobotSize:162 MateHome:172
+  Settings:181 Settings::sanitized:228 SettingsStore:244 SettingsStore::new:247 SettingsStore::get:259 load_settings:271 save_settings:278 model:310
+  save_mate_home:317 voice_speed:334 load:339
+  inline tests (19)
 - src-tauri/src/signin.rs — Signing in is required (owner, 2026-10-29): until the person signs in with Google or GitHub, Mate answers nothing and the sign-in window (signin.html, src/signin.ts) is open.
   required:56 invite_for_proxy:63 guest_used_up:73 missing:81 refusal_line:92 start_guest:102 guest_usage:203 try_as_guest:214
   open:227 open_later:258 close:272
@@ -422,8 +422,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/i18n/interpolate.ts — Pure {placeholder} interpolation with a default {name} fallback.
   TemplateVars:3 interpolate:14
   tests: src/i18n/interpolate.test.ts (3)
-- src/i18n/settings.ts — Page entries share the saved language and follow changes from other windows.
-  followSettingsLocale:5
+- src/i18n/settings.ts — Page entries share the saved language and background and follow changes from other windows.
+  followSettingsLocale:6
 - src/ipc/answer-generation.ts — Recordings can interrupt a lesson without replacing its answer generation.
   AnswerGenerations:4 HeldPresentation:47
   tests: src/ipc/answer-generation.test.ts (10)
@@ -441,7 +441,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   MATE_MENU_ITEMS:4 guestUsageOf:15 hideReturnTime:22 mountMateMenu:29
   tests: src/mate-menu.test.ts (3)
 - src/mate.ts — Mate's window: mounts the robot (src/robot) idle and calm.
-  devHook:70· mountBubble:90· startLiveAnswers:143· createRouter:177·
+  devHook:71· mountBubble:91· startLiveAnswers:144· createRouter:178·
 - src/onboarding.ts — First-run onboarding in Mate's window (WP25).
   setOnboardingPttKey:15 ONBOARDING_STORAGE_KEY:20 setOnboardingTranslator:25 ONBOARDING_STEP_MS:28 ONBOARDING_EXAMPLE_COUNT:29 ONBOARDING_EXAMPLE_KEYS:31 OnboardingExampleKey:40 StorageLike:43
   OnboardingClock:49 OnboardingSink:58 OnboardingOptions:67 OnboardingController:84 resetOnboardingSession:100 claimFirstRun:120 pickExampleKeys:146 startOnboarding:176
@@ -462,28 +462,28 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/robot/geometry.ts — Mate's locked B1 "classic glow" look (D29) with the v1.1 refresh (docs/robot.md), ported from bulbMate('classic') in assets/art/src/mate-lib.js as plain data: the same 260 x 240 viewBox, paths and …
   INK:8 GLASS_PATH:9 VIEW_W:11 VIEW_H:12 ViewPoint:15 SvgTag:21 SvgAttrs:22 SvgNode:24
   GradientSpec:31 GLASS_GRADIENT:39 AURA_GRADIENT:52 AURA_CORE_GRADIENT:62 METAL_GRADIENT:73 BEAM_COLOR:85 BEAM_STOPS:86 CONTOUR_COLOR:90
-  SHADOW:94 auraNodes:98 baseNodes:105 STATUS_LIGHT:113 glassNodes:121 SLEEP_Z:140 EyeShape:155 MouthShape:156
-  CheekStyle:157 BrowStyle:159 Face:161 EYES:173 BROWS:214 MOUTHS:219 CHEEKS:230 MOOD_FACES:235
-  ArmPose:247 MIRROR_TRANSFORM:251 ARM_L:270 ARM_R:277 FLASHLIGHT:284 SHOULDER:295 NOZZLE:296 BEAM_HALF_WIDTH:298
-  THINKING_GAZE:302 ArmAim:304 STRAIGHT_AIM:308 clamp:311 rectCenter:315 viewScale:320 viewToCss:328 cssToView:335
-  armAim:342 nozzleInView:350 gazeToward:360 openMouthRy:370 computeBeamPolygon:379
+  SHADOW:94 auraNodes:98 baseNodes:105 STATUS_LIGHT:113 glassNodes:121 SLEEP_Z:140 SPARK_CENTER:149 SPARK_ANGLES:153
+  SPARKS:163 EyeShape:187 MouthShape:188 CheekStyle:189 BrowStyle:191 Face:193 EYES:205 BROWS:246
+  MOUTHS:251 CHEEKS:262 MOOD_FACES:267 ArmPose:279 MIRROR_TRANSFORM:283 ARM_L:302 ARM_R:309 FLASHLIGHT:316
+  SHOULDER:327 NOZZLE:328 BEAM_HALF_WIDTH:330 THINKING_GAZE:334 ArmAim:336 STRAIGHT_AIM:340 clamp:343 rectCenter:347
+  viewScale:352 viewToCss:360 cssToView:367 armAim:374 nozzleInView:382 gazeToward:392 openMouthRy:402 computeBeamPolygon:411
 - src/robot/index.ts — The robot's public face: mounts Mate (svg.ts), his beam (beam.ts), the state and mood machine (states.ts) and flight (flight.ts) into one container.
   ROBOT_MOODS:15^ ROBOT_STATES:15^ isRobotMood:15^ isRobotState:15^ RobotController:17 mountRobot:38
 - src/robot/states.ts — Mate's two channels (docs/robot.md "States"): the state (what he is doing, set by the app) and the mood (his face, set by MateScript <mood>).
-  LOOKING_SWEEP_MS:27 StateAnimator:29 createStateAnimator:126
-  tests: src/robot/states.test.ts (11)
+  LOOKING_SWEEP_MS:28 StateAnimator:30 createStateAnimator:171
+  tests: src/robot/states.test.ts (14)
 - src/robot/svg.ts — Builds Mate's layered SVG from geometry.ts with createElementNS only (no innerHTML), and swaps the face and arm layers in place.
-  LAYERS:34 LayerName:47 MateSvgRefs:49 uniqueId:65 svgEl:70 setAttr:77 num:84 buildMateSvg:107
-  setEyes:165 setMouth:169 setMouthOpen:174 setGaze:181 setArmPose:187
+  LAYERS:35 LayerName:49 MateSvgRefs:51 uniqueId:67 svgEl:72 setAttr:79 num:86 buildMateSvg:109
+  setLeftHandRaised:173 setEyes:187 setMouth:191 setMouthOpen:196 setGaze:203 setArmPose:209
 - src/robot/types.ts — The robot's vocabulary, shared with Rust: states (mm-platform overlay.rs `RobotState`), moods (mm-core matescript/vocabulary.rs `MOODS`), sizes (docs/robot.md) and CSS-pixel geometry (mm-core geom.rs …
   ROBOT_STATES:5 RobotState:19 ROBOT_MOODS:21 RobotMood:22 RobotSizePreset:24 ROBOT_SIZE_PX:27 DEFAULT_ROBOT_SIZE:28 CssPoint:34
   CssRect:40 isRobotState:47 isRobotMood:51
 - src/settings.ts — Settings window controller (WP24): renders accessible controls for every `Settings` field using localized labels (`src/i18n`, invariant 7), loads initial state with `invoke("load_settings")`, and …
-  AUTH_CHANGED_EVENT:79^ AUTH_PROVIDERS:79^ createAccountStore:79^ isAuthProvider:79^ isAuthStatus:79^ DEFAULT_SETTINGS:79^ MAX_VOICE_SPEED:79^ MIN_VOICE_SPEED:79^
-  MODEL_CHOICES:79^ PTT_MODES:79^ PTT_KEYS:79^ ROBOT_SIZES:79^ SETTINGS_CHANGED_EVENT:79^ SETTINGS_KEYS:79^ SOUND_MODES:79^ VOICE_SPEED_STEP:79^
-  createSettingsStore:79^ defaultSettings:79^ formatVoiceSpeed:79^ isModelChoice:79^ isPttMode:79^ isPttKey:79^ isRobotSize:79^ isSoundMode:79^
-  isValidVoiceSpeed:79^ parseSettings:79^ snapVoiceSpeed:79^ subscribeSettingsChanged:79^ updateSettings:79^ loadSettings:166 saveSettings:171 MountSettingsOptions:175
-  SettingsController:181 mountSettings:196
+  AUTH_CHANGED_EVENT:81^ AUTH_PROVIDERS:81^ createAccountStore:81^ isAuthProvider:81^ isAuthStatus:81^ DEFAULT_SETTINGS:81^ MAX_VOICE_SPEED:81^ MIN_VOICE_SPEED:81^
+  MODEL_CHOICES:81^ PTT_MODES:81^ PTT_KEYS:81^ ROBOT_SIZES:81^ SETTINGS_CHANGED_EVENT:81^ SETTINGS_KEYS:81^ SOUND_MODES:81^ VOICE_SPEED_STEP:81^
+  createSettingsStore:81^ defaultSettings:81^ formatVoiceSpeed:81^ isModelChoice:81^ isPttMode:81^ isPttKey:81^ isRobotSize:81^ isSoundMode:81^
+  isValidVoiceSpeed:81^ parseSettings:81^ snapVoiceSpeed:81^ subscribeSettingsChanged:81^ updateSettings:81^ loadSettings:168 saveSettings:173 MountSettingsOptions:177
+  SettingsController:183 mountSettings:198
 - src/settings/account-view.ts — The Settings window's Account section (src/settings.ts): sign in with Google or GitHub, who is signed in, sign out, and the notice lines for screen readers.
   AccountSectionRefs:10 buildAccountSection:17
 - src/settings/account.ts — Pure account state machine, validation, and store (WP67b).
@@ -500,20 +500,24 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   toAudioSettings:139 applySettingsToMate:151 MateSettingsBindingOptions:195 MateSettingsBinding:202 startMateSettings:221
   tests: src/settings/apply.test.ts (5)
 - src/settings/choices-view.ts — The Settings window's choices (src/settings.ts): how Mate thinks, how to talk to him, the sound mode and his size as radio groups, and the two on/off toggles.
-  buildPttKeyGroup:13 buildModelGroup:35 buildPttGroup:60 buildSoundGroup:83 buildSizeGroup:105 TogglesRefs:121 buildToggles:129 buildLanguageGroup:154
+  buildThemeGroup:13 buildPttKeyGroup:26 buildModelGroup:48 buildPttGroup:73 buildSoundGroup:96 buildSizeGroup:118 TogglesRefs:134 buildToggles:142
+  buildLanguageGroup:167
 - src/settings/controls.ts — The Settings window's form controls (src/settings.ts): a radio group in a fieldset and a checkbox, each choice a whole clickable option.
   RadioSpec:7 RadioLayout:19 RadioGroupRefs:21 buildRadioGroup:38 syncRadioSelection:125 CheckboxRefs:139 buildCheckbox:146
   tests: src/settings/controls.test.ts (4)
 - src/settings/model.ts — Pure settings model, validation, and in-memory store (WP24).
   MODEL_CHOICES:4 ModelChoice:5 PTT_MODES:7 PttMode:8 PTT_KEYS:10 PttKey:11 isPttKey:13 SOUND_MODES:17
   SoundMode:18 ROBOT_SIZES:20 RobotSize:21 MIN_VOICE_SPEED:23 MAX_VOICE_SPEED:24 VOICE_SPEED_STEP:25 DEFAULT_VOICE_SPEED:26 SETTINGS_CHANGED_EVENT:27
-  Language:29 Settings:31 SETTINGS_KEYS:45 DEFAULT_SETTINGS:59 defaultSettings:74 isModelChoice:78 isPttMode:82 isSoundMode:86
-  isRobotSize:90 isValidVoiceSpeed:94 snapVoiceSpeed:108 parseSettings:135 updateSettings:179 formatVoiceSpeed:186 VoiceSpeedPace:192 voiceSpeedPace:195
-  SettingsInvoke:203 SettingsSubscribe:209 SettingsStore:213 createSettingsStore:230 subscribeSettingsChanged:277
+  Language:29 THEMES:31 Theme:32 isTheme:34 Settings:38 SETTINGS_KEYS:53 DEFAULT_SETTINGS:68 defaultSettings:84
+  isModelChoice:88 isPttMode:92 isSoundMode:96 isRobotSize:100 isValidVoiceSpeed:104 snapVoiceSpeed:118 parseSettings:145 updateSettings:191
+  formatVoiceSpeed:198 VoiceSpeedPace:204 voiceSpeedPace:207 SettingsInvoke:215 SettingsSubscribe:221 SettingsStore:225 createSettingsStore:242 subscribeSettingsChanged:289
   tests: src/settings/model.test.ts (15)
 - src/settings/ptt-key.ts — Pure localized key rendering shared by Home and onboarding.
   pttKeyLabel:5 pttKeycapLabel:9 withPttKey:13
   tests: src/settings/ptt-key.test.ts (1)
+- src/settings/theme.ts — Shared by the page language subscription, Settings, and Mate's settings binding.
+  ThemeTarget:5 applyTheme:9 followWindowSettings:16
+  tests: src/settings/theme.test.ts (5)
 - src/settings/voice-speed-view.ts — The Settings window's voice speed slider (src/settings.ts): the speed beside its label, and in words for screen readers.
   VoiceSpeedRefs:23 buildVoiceSpeedGroup:32
 - src/signin.ts — The sign-in window's entry (signin.html, src-tauri/src/signin.rs): signing in is required before Mate answers.
@@ -640,11 +644,11 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_clear` src-tauri/src/chat.rs:299 <- src/chat.ts:160
 - `chat_send` src-tauri/src/chat.rs:269 <- src/chat.ts:145
 - `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:184
-- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:375, src/signin.ts:104
+- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:377, src/signin.ts:104
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:25
-- `load_settings` src-tauri/src/settings.rs:255 <- src/highlight.ts:514, src/home.ts:158, src/i18n/settings.ts:20, src/settings/model.ts:243
-- `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:289
+- `load_settings` src-tauri/src/settings.rs:271 <- src/highlight.ts:514, src/home.ts:158, src/settings/model.ts:255, src/settings/theme.ts:31
+- `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:290
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:397, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
@@ -652,7 +656,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:262
 - `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:415, src/mate-menu.ts:11
 - `report_playback` src-tauri/src/answer_stream.rs:299 <- src/ipc/answer-stream.ts:281
-- `save_settings` src-tauri/src/settings.rs:262 <- src/settings/model.ts:257
+- `save_settings` src-tauri/src/settings.rs:278 <- src/settings/model.ts:269
 - `sign_in` src-tauri/src/auth.rs:177 <- src/settings/account.ts:254
 - `sign_out` src-tauri/src/auth.rs:278 <- src/settings/account.ts:275
 - `subscribe_answer_stream` src-tauri/src/answer_stream.rs:325 <- src/ipc/answer-stream.ts:291
@@ -680,19 +684,19 @@ File names declared as Rust string constants (read or written by the app).
 
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
-- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:371, src/settings.ts:154, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
+- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:373, src/settings.ts:156, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:66; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
-- `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:391; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:370, src/signin.ts:106; const src-tauri/src/signin.rs:18
-- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:348; const src-tauri/src/highlight.rs:15
-- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:380
+- `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:393; const src-tauri/src/explain.rs:39
+- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:372, src/signin.ts:106; const src-tauri/src/signin.rs:18
+- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:350; const src-tauri/src/highlight.rs:15
+- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:382
 - `lesson-card`: rs emit src-tauri/src/card.rs:500; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
-- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:524; ts listen src/mate.ts:214; const src/mate.ts:34
-- `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:354
-- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:353
-- `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:355
-- `settings-changed`: rs emit src-tauri/src/settings.rs:283,314; ts listen src/highlight.ts:519, src/home-page.ts:19, src/i18n/settings.ts:16, src/mate.ts:52, src/settings.ts:142; const src-tauri/src/settings.rs:24, src/settings/model.ts:27
+- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:524; ts listen src/mate.ts:215; const src/mate.ts:35
+- `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:356
+- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:355
+- `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:357
+- `settings-changed`: rs emit src-tauri/src/settings.rs:299,330; ts listen src/highlight.ts:519, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:53, src/settings.ts:144; const src-tauri/src/settings.rs:24, src/settings/model.ts:27
 
 ### Proxy routes
 
@@ -765,18 +769,18 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.window_closed`: rs src-tauri/src/pointing.rs:346; ts src/ipc/answer-stream.ts:31
 - `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:80; ts src/i18n/index.ts:67, src/ipc/answer-stream.ts:48
 - `robot.wrong_place`: rs src-tauri/src/teacher/presentation.rs:69; ts src/i18n/index.ts:60, src/ipc/answer-stream.ts:41
-- `settings.key_capsLock`: rs src-tauri/src/settings.rs:125; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
-- `settings.key_f10`: rs src-tauri/src/settings.rs:128; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
-- `settings.key_f9`: rs src-tauri/src/settings.rs:127; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
-- `settings.key_insert`: rs src-tauri/src/settings.rs:126; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
-- `settings.key_rightAlt`: rs src-tauri/src/settings.rs:124; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
-- `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:123; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
+- `settings.key_capsLock`: rs src-tauri/src/settings.rs:138; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
+- `settings.key_f10`: rs src-tauri/src/settings.rs:141; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
+- `settings.key_f9`: rs src-tauri/src/settings.rs:140; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
+- `settings.key_insert`: rs src-tauri/src/settings.rs:139; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
+- `settings.key_rightAlt`: rs src-tauri/src/settings.rs:137; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
+- `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:136; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
 - `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:96
 - `tray.chat`: rs src-tauri/src/lib.rs:275; ts src/mate-menu.ts:5
 - `tray.hide_hour`: rs src-tauri/src/lib.rs:341,394; ts src/mate-menu.ts:9
 - `tray.open_home`: rs src-tauri/src/lib.rs:274
 - `tray.quit`: rs src-tauri/src/lib.rs:334,396
-- `tray.settings`: rs src-tauri/src/lib.rs:327,393,503; ts src/home.ts:399, src/mate-menu.ts:7, src/settings.ts:328,330
+- `tray.settings`: rs src-tauri/src/lib.rs:327,393,503; ts src/home.ts:399, src/mate-menu.ts:7, src/settings.ts:335,337
 - `tray.tooltip`: rs src-tauri/src/lib.rs:432
 - `tray.try_bigger`: rs src-tauri/src/home.rs:6,74; ts src/home.ts:33,41
 - `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:32,40
@@ -791,7 +795,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `model.*` (4 keys): src/mate.ts
 - `onboarding.*` (7 keys): src/onboarding.ts
 - `robot.*` (2 keys): src/i18n/index.ts, src/onboarding.ts
-- `settings.*` (38 keys): src/home.ts, src/settings.ts, src/settings/choices-view.ts, src/settings/ptt-key.ts, src/settings/voice-speed-view.ts
+- `settings.*` (41 keys): src/home.ts, src/settings.ts, src/settings/choices-view.ts, src/settings/ptt-key.ts, src/settings/voice-speed-view.ts
 - `signin.*` (6 keys): src/signin.ts
 - `tray.*` (2 keys): src/settings/choices-view.ts
 - no literal use (14 keys); prefixes: `card.*`, `robot.*`, `settings.*`, `tray.*`
@@ -819,8 +823,8 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-core | 262 | 34 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
-| src-tauri | 183 | 20 |
-| src | 250 | 28 |
-| tools | 298 | 19 |
+| src-tauri | 184 | 20 |
+| src | 258 | 29 |
+| tools | 303 | 20 |
 | server | 94 | 4 |
 | tts | 27 | 2 |

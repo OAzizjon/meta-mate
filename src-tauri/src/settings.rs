@@ -44,6 +44,19 @@ pub enum Language {
     Ru,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Theme {
+    #[default]
+    Light,
+    Dark,
+}
+
+fn deserialize_theme<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Theme, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(serde_json::from_value(value).unwrap_or_default())
+}
+
 impl Language {
     pub fn resolve(self, system: &str) -> &'static str {
         match self {
@@ -168,6 +181,8 @@ pub struct MateHome {
 pub struct Settings {
     #[serde(default, deserialize_with = "deserialize_language")]
     pub language: Language,
+    #[serde(default, deserialize_with = "deserialize_theme")]
+    pub theme: Theme,
     pub model: Model,
     pub ptt: Ptt,
     #[serde(default, deserialize_with = "deserialize_ptt_key")]
@@ -189,6 +204,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             language: Language::Auto,
+            theme: Theme::Light,
             model: Model::Quick,
             ptt: Ptt::Hold,
             ptt_key: PttKey::RightCtrl,
@@ -378,6 +394,7 @@ mod tests {
     fn changed() -> Settings {
         Settings {
             language: Language::Auto,
+            theme: Theme::Light,
             model: Model::Thorough,
             ptt: Ptt::Toggle,
             ptt_key: PttKey::RightCtrl,
@@ -428,12 +445,32 @@ mod tests {
     }
 
     #[test]
+    fn theme_defaults_validates_and_round_trips_without_resetting_other_preferences() {
+        assert_eq!(parse(r#"{"sound":"fun"}"#).theme, Theme::Light);
+        for (value, expected) in [
+            (json!("light"), Theme::Light),
+            (json!("dark"), Theme::Dark),
+            (json!("future"), Theme::Light),
+            (json!("Dark"), Theme::Light),
+            (json!(null), Theme::Light),
+            (json!(42), Theme::Light),
+            (json!({}), Theme::Light),
+        ] {
+            let settings = parse(&json!({"theme": value, "sound": "fun"}).to_string());
+            assert_eq!(settings.theme, expected);
+            assert_eq!(settings.sound, Sound::Fun);
+            assert_eq!(parse(&serde_json::to_string(&settings).unwrap()), settings);
+        }
+    }
+
+    #[test]
     fn defaults_match_the_window_model() {
         let defaults = serde_json::to_value(Settings::default()).unwrap();
         assert_eq!(
             defaults,
             json!({
                 "language": "auto",
+                "theme": "light",
                 "model": "quick",
                 "ptt": "hold",
                 "pttKey": "rightCtrl",
@@ -588,6 +625,7 @@ mod tests {
             Settings {
                 model: Model::Thorough,
                 robot_size: RobotSize::L,
+                theme: Theme::Dark,
                 ..Settings::default()
             }
         );

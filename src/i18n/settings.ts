@@ -1,22 +1,20 @@
-// Page entries share the saved language and follow changes from other windows.
+// Page entries share the saved language and background and follow changes from other windows.
 import { getLocale, setLocale } from "./index.ts";
-import { parseSettings, SETTINGS_CHANGED_EVENT } from "../settings/model.ts";
+import { SETTINGS_CHANGED_EVENT } from "../settings/model.ts";
+import { applyTheme, followWindowSettings } from "../settings/theme.ts";
 
 export async function followSettingsLocale(render: () => void): Promise<void> {
+  if (typeof document === "undefined") return;
+  applyTheme(undefined, document.documentElement);
   if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return;
   const { listen } = await import("@tauri-apps/api/event");
   const { invoke } = await import("@tauri-apps/api/core");
-  const apply = (raw: unknown): void => {
+  await followWindowSettings(document.documentElement, invoke, async (onChanged) => {
+    return listen<unknown>(SETTINGS_CHANGED_EVENT, (event) => onChanged(event.payload));
+  }, (settings) => {
     const previous = getLocale();
-    const locale = setLocale(parseSettings(raw).language);
+    const locale = setLocale(settings.language);
     document.documentElement.lang = locale;
     if (locale !== previous) render();
-  };
-  let changed = false;
-  await listen<unknown>(SETTINGS_CHANGED_EVENT, (event) => {
-    changed = true;
-    apply(event.payload);
   });
-  const initial = await invoke("load_settings");
-  if (!changed) apply(initial);
 }

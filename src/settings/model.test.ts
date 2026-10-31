@@ -42,6 +42,7 @@ test("defaultSettings returns a fresh copy of the expected defaults", () => {
   const defaults = defaultSettings();
   assert.deepEqual(defaults, {
     language: "auto",
+    theme: "light",
     model: "quick",
     ptt: "hold",
     pttKey: "rightCtrl",
@@ -77,6 +78,7 @@ test("parseSettings accepts every valid enum combination and boundary voiceSpeed
           for (const voiceSpeed of [MIN_VOICE_SPEED, 0.95, 1, 1.15, MAX_VOICE_SPEED]) {
             const raw: Settings = {
               language: "auto",
+              theme: "light",
               model,
               ptt,
               pttKey: "rightCtrl",
@@ -116,6 +118,7 @@ test("parseSettings drops unknown fields and preserves valid ones", () => {
   assert.deepEqual(Object.keys(parsed), [...SETTINGS_KEYS]);
   assert.deepEqual(parsed, {
     language: "auto",
+    theme: "light",
     model: "thorough",
     ptt: "toggle",
     pttKey: "rightCtrl",
@@ -143,6 +146,7 @@ test("parseSettings replaces out-of-range and wrong-type fields with defaults pe
     }),
     {
       language: "auto",
+      theme: "light",
       model: "thorough",
       ptt: DEFAULT_SETTINGS.ptt,
       pttKey: "rightCtrl",
@@ -308,6 +312,7 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
   assert.equal(calls[0].cmd, "load_settings");
   assert.deepEqual(loaded, {
     language: "auto",
+    theme: "light",
     model: "thorough",
     ptt: "toggle",
     pttKey: "rightCtrl",
@@ -359,6 +364,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
 
   emitChanged!({
     language: "auto",
+    theme: "light",
     model: "thorough",
     ptt: "toggle",
     pttKey: "rightCtrl",
@@ -373,6 +379,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
   assert.equal(refreshed.length, 1);
   assert.deepEqual(refreshed[0], {
     language: "auto",
+    theme: "light",
     model: "thorough",
     ptt: "toggle",
     pttKey: "rightCtrl",

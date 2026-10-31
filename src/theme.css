@@ -2,7 +2,7 @@
    Mate's palette (docs/robot.md: warm glass, navy ink, bulb yellow), the type scale, buttons,
    switches, the bulb badge and focus rings. Each page keeps only its own layout in its <style>.
    Not for the transparent overlays (src/styles.css). Local fonts only. Light and warm
-   whatever the Windows theme (owner, 2026-10-31; the dark palette waits behind data-theme="dark"),
+   by default; the saved Background choice sets data-theme="dark" for the dark palette, with
    Windows contrast themes and reduced motion. */
 
 :root {
@@ -61,15 +61,16 @@
   --surface-soft: #232836;
   --surface-hover: #2b3142;
   --border: #2e3445;
-  --border-soft: #3c4357;
+  --border-soft: #8790a6;
   --border-strong: #8790a6;
   --text: #f4f1e8;
   --text-muted: #c3c8d4;
   --accent: #ffd23f;
   --accent-hover: #ffdc66;
+  --on-accent: #1f2a44;
   --accent-soft: #3a321a;
   --accent-soft-hover: #4a4020;
-  --accent-soft-border: #6b5b24;
+  --accent-soft-border: #a18d4c;
   --accent-line: #ffd23f;
   --control: #ffd23f;
   --focus: #ffd23f;
@@ -81,9 +82,19 @@
   --error: #ffa59a;
   --error-soft: #3b2023;
   --scrollbar: #4a5168;
-  --selection: #6b5a1f;
+  --selection: #4a4020;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.28);
+  --radius-lg: 20px;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --text-sm: 16px;
+  --text-md: 18px;
+  --text-lg: 20px;
+  --text-xl: 22px;
+  --text-2xl: clamp(24px, 2vw + 16px, 30px);
 }
 
 *,

@@ -9,6 +9,7 @@ import { createFrameUpdate } from "./frame-update.ts";
 import {
   BEAM_HALF_WIDTH,
   MOOD_FACES,
+  SPARK_ANGLES,
   THINKING_GAZE,
   armAim,
   clamp,
@@ -20,7 +21,7 @@ import {
   viewToCss,
 } from "./geometry.ts";
 import type { BrowStyle, CheekStyle, EyeShape, Face, MouthShape, ViewPoint } from "./geometry.ts";
-import { setArmPose, setAttr, setEyes, setGaze, setMouth, setMouthOpen } from "./svg.ts";
+import { setArmPose, setAttr, setEyes, setGaze, setLeftHandRaised, setMouth, setMouthOpen } from "./svg.ts";
 import type { MateSvgRefs } from "./svg.ts";
 import type { CssPoint, CssRect, RobotMood, RobotState } from "./types.ts";
 
@@ -98,6 +99,50 @@ const EYE_MOVES: Partial<Record<RobotState, OneShot>> = {
   },
 };
 
+// A mood's little reaction when it arrives (a scam verdict flinches, "be careful" jumps, joy
+// wiggles). Individual transform properties, so they ride on the idle float; skipped when motion
+// is reduced.
+const MOOD_MOVES: Partial<Record<RobotMood, OneShot>> = {
+  surprised: {
+    keyframes: [{ translate: "0 0" }, { translate: "0 -10px", offset: 0.35 }, { translate: "0 0" }],
+    options: { duration: 380, easing: "ease-out" },
+  },
+  sad: {
+    keyframes: [
+      { translate: "0 0" },
+      { translate: "-2px 1px", offset: 0.2 },
+      { translate: "2px 2px", offset: 0.4 },
+      { translate: "-2px 2px", offset: 0.6 },
+      { translate: "1px 2px", offset: 0.8 },
+      { translate: "0 0" },
+    ],
+    options: { duration: 520, easing: "ease-in-out" },
+  },
+  happy: {
+    keyframes: [{ rotate: "0deg" }, { rotate: "-6deg", offset: 0.25 }, { rotate: "6deg", offset: 0.6 }, { rotate: "0deg" }],
+    options: { duration: 560, easing: "ease-in-out" },
+  },
+  proud: {
+    keyframes: [{ scale: "1" }, { scale: "1.06", offset: 0.4 }, { scale: "1" }],
+    options: { duration: 500, easing: "ease-out" },
+  },
+};
+
+// Hello: the raised left hand rocks twice (on start, on waking, on coming back from hiding).
+const WAVE: OneShot = {
+  keyframes: [
+    { transform: "rotate(0deg)" },
+    { transform: "rotate(-14deg)", offset: 0.2 },
+    { transform: "rotate(10deg)", offset: 0.45 },
+    { transform: "rotate(-14deg)", offset: 0.7 },
+    { transform: "rotate(0deg)" },
+  ],
+  options: { duration: 1100, easing: "ease-in-out" },
+};
+
+/** How far the success sparks fly out from their places (viewBox units). */
+const SPARK_FLIGHT = 16;
+
 /** The glow at rest (robot.css) and how much the voice adds while speaking. */
 const AURA_REST = 0.45;
 const AURA_VOICE = 0.35;
@@ -139,6 +184,11 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   let overrideTimer: ReturnType<typeof setTimeout> | undefined;
   let blinkTimer: ReturnType<typeof setTimeout> | undefined;
   let oneShots: Animation[] = [];
+  // Mood reactions and the wave outlive a state change: a mood often arrives just before
+  // "speaking", which would otherwise cancel its flinch at once.
+  let gestures: Animation[] = [];
+  let waving: Animation | null = null;
+  let greeted = false;
   const voiceFrame = createFrameUpdate(() => {
     if (hidden || state !== "speaking") return;
     renderMouth();
@@ -253,6 +303,60 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     oneShots = [];
   }
 
+  function stopWave(): void {
+    waving?.cancel();
+    waving = null;
+    setLeftHandRaised(refs, false);
+  }
+
+  function stopGestures(): void {
+    for (const animation of gestures) animation.cancel();
+    gestures = [];
+    stopWave();
+  }
+
+  function gesture(animation: Animation, after?: () => void): void {
+    gestures.push(animation);
+    animation.finished
+      ?.then(() => {
+        gestures = gestures.filter((other) => other !== animation);
+        after?.();
+      })
+      .catch(() => {});
+  }
+
+  function wave(): void {
+    if (hidden || state !== "idle" || isMotionReduced()) return;
+    stopWave();
+    setLeftHandRaised(refs, true);
+    const animation = refs.layers["arm-l"].animate(WAVE.keyframes, WAVE.options);
+    waving = animation;
+    animation.finished
+      ?.then(() => {
+        if (waving === animation) stopWave();
+      })
+      .catch(() => {});
+  }
+
+  function burstSparks(): void {
+    const sparks = Array.from(refs.layers.sparks.children) as SVGElement[];
+    sparks.forEach((spark, i) => {
+      const angle = ((SPARK_ANGLES[i] ?? 0) * Math.PI) / 180;
+      const dx = Math.round(Math.cos(angle) * SPARK_FLIGHT);
+      const dy = Math.round(Math.sin(angle) * SPARK_FLIGHT);
+      oneShots.push(
+        spark.animate(
+          [
+            { transform: "translate(0px, 0px) scale(0)", opacity: 0 },
+            { transform: `translate(${dx / 2}px, ${dy / 2}px) scale(1.25)`, opacity: 1, offset: 0.35 },
+            { transform: `translate(${dx}px, ${dy}px) scale(0)`, opacity: 0 },
+          ],
+          { duration: 800, delay: i * 40, easing: "ease-out", fill: "both" },
+        ),
+      );
+    });
+  }
+
   function playOneShots(): void {
     stopOneShots();
     if (hidden || state === "sleeping") return;
@@ -262,6 +366,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     const eyeMove = EYE_MOVES[state];
     if (eyeMove && !reduced) oneShots.push(refs.eyes.animate(eyeMove.keyframes, eyeMove.options));
     if (state === "success") oneShots.push(refs.layers.aura.animate(FLASH.keyframes, FLASH.options));
+    if (state === "success" && !reduced) burstSparks();
   }
 
   function scheduleBlink(): void {
@@ -285,6 +390,10 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   return {
     setState(next) {
       // A repeated state replays its one-shot (a second oops tilts again).
+      const woke = state === "sleeping" && next !== "sleeping";
+      if (next !== "idle") stopWave();
+      // A mood move already running would pull the flashlight off the target.
+      if (BEAM_STATES.has(next)) stopGestures();
       state = next;
       voiceFrame.cancel();
       clearTimeout(blinkTimer);
@@ -294,11 +403,21 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       startOverride();
       render();
       playOneShots();
+      if (next === "idle" && (woke || !greeted)) {
+        greeted = true;
+        wave();
+      }
     },
     setMood(next) {
+      const changed = next !== mood;
       mood = next;
       setAttr(refs.svg, "data-mood", mood);
       renderFace();
+      const move = MOOD_MOVES[mood];
+      if (changed && move && !hidden && state !== "sleeping" && !BEAM_STATES.has(state) && !isMotionReduced()) {
+        // Never while the beam is on a target: the body would pull the flashlight off it.
+        gesture(refs.body.animate(move.keyframes, move.options));
+      }
     },
     setWarmth(level, steady) {
       warmthActive = level !== null;
@@ -330,7 +449,10 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     setReduceMotion(reduce) {
       reduceMotion = reduce;
       refs.svg.classList.toggle("reduce-motion", reduce);
-      if (isMotionReduced()) stopOneShots();
+      if (isMotionReduced()) {
+        stopOneShots();
+        stopGestures();
+      }
       renderPose();
     },
     setHidden(next) {
@@ -339,11 +461,14 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       clearTimeout(blinkTimer);
       blinking = false;
       voiceFrame.cancel();
-      if (hidden) stopOneShots();
-      else {
+      if (hidden) {
+        stopOneShots();
+        stopGestures();
+      } else {
         renderFace();
         renderAura();
         scheduleBlink();
+        wave();
       }
     },
     destroy() {
@@ -351,6 +476,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       clearTimeout(overrideTimer);
       clearTimeout(blinkTimer);
       stopOneShots();
+      stopGestures();
       beam.hide();
     },
   };

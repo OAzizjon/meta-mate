@@ -429,3 +429,63 @@ test("warmth brightens the waiting aura with reduced motion and becomes steady o
   h.animator.setState("idle");
   assert.equal(h.refs.layers.aura.style.opacity, "");
 });
+
+test("success bursts the six sparks outward once, and reduced motion keeps them still", (t) => {
+  const h = createHarness();
+  t.after(() => h.cleanup());
+  h.animator.setState("success");
+  const sparks = h.refs.layers.sparks.children;
+  assert.equal(sparks.length, 6);
+  for (const spark of sparks) {
+    assert.equal(spark.animations.length, 1);
+    assert.equal(spark.animations[0].options.fill, "both");
+  }
+  h.animator.setState("idle");
+  for (const spark of sparks) assert.equal(spark.animations[0].cancelled, true);
+
+  const still = createHarness();
+  t.after(() => still.cleanup());
+  still.animator.setReduceMotion(true);
+  still.animator.setState("success");
+  for (const spark of still.refs.layers.sparks.children) assert.equal(spark.animations.length, 0);
+});
+
+test("a new mood reacts once (a scam verdict flinches), a repeated mood does not", (t) => {
+  const h = createHarness();
+  t.after(() => h.cleanup());
+  const before = h.refs.body.animations.length;
+  h.animator.setMood("sad");
+  assert.equal(h.refs.body.animations.length, before + 1);
+  assert.ok("translate" in h.refs.body.animations[before].keyframes[1]);
+  h.animator.setMood("sad");
+  assert.equal(h.refs.body.animations.length, before + 1);
+  // The flinch survives the "speaking" that follows the mood tag.
+  h.animator.setState("speaking");
+  assert.equal(h.refs.body.animations[before].cancelled, false);
+  h.animator.setMood("calm");
+  assert.equal(h.refs.body.animations.length, before + 1, "calm has no reaction");
+});
+
+test("Mate waves hello on his first idle and after waking, never with reduced motion", (t) => {
+  const h = createHarness();
+  t.after(() => h.cleanup());
+  h.animator.setState("idle");
+  const armL = h.refs.layers["arm-l"];
+  assert.equal(armL.getAttribute("data-raised"), "true");
+  assert.equal(armL.animations.length, 1);
+  h.animator.setState("idle");
+  assert.equal(armL.animations.length, 1, "only the first idle greets");
+  h.animator.setState("listening");
+  assert.equal(armL.getAttribute("data-raised"), null, "a new state lowers the hand");
+  h.animator.setState("sleeping");
+  h.animator.setState("idle");
+  assert.equal(armL.animations.length, 2, "waking greets again");
+
+  const still = createHarness();
+  t.after(() => still.cleanup());
+  still.animator.setReduceMotion(true);
+  still.animator.setState("idle");
+  assert.equal(still.refs.layers["arm-l"].animations.length, 0);
+  still.animator.setMood("surprised");
+  assert.equal(still.refs.body.animations.length, 0);
+});

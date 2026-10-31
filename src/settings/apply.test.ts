@@ -231,6 +231,7 @@ test("startMateSettings loads once via invoke('load_settings') and listens for s
           startWithWindows: false,
           showHomeAtStart: true,
           spotlight: true,
+          theme: "light",
         } satisfies Settings;
       },
       subscribe: async (onChanged) => {

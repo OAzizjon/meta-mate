@@ -56,7 +56,7 @@
         --step-num-bg: #ffd23f;
         --step-num-text: #131722;
         --btn-secondary-bg: #22293a;
-        --btn-secondary-border: #3b4760;
+        --btn-secondary-border: #8790a6;
         --btn-secondary-text: #f1f5f9;
         --btn-secondary-hover: #2d374d;
         --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
@@ -350,7 +350,8 @@
          and the credit line, no buttons. Backgrounds are not printed by default, so the
          step numbers are rings, not discs, and the dark theme never reaches the paper. */
       @media print {
-        :root {
+        :root,
+        :root[data-theme="dark"] {
           color-scheme: light;
           --bg: #ffffff;
           --panel-bg: #ffffff;

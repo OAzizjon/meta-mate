@@ -9,6 +9,7 @@ import { bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
 import { getLocale, setLocale, t } from "./i18n";
 import { hideReturnTime, mountMateMenu } from "./mate-menu";
 import { pttKeyLabel } from "./settings/ptt-key";
+import { applyTheme } from "./settings/theme.ts";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
@@ -308,6 +309,7 @@ if (container) {
       invoke: inTauri ? tauriInvoke : null,
       subscribe: inTauri ? tauriSubscribe : null,
       onChange: (updated) => {
+        applyTheme(updated, document.documentElement);
         // Reapplying on every resize, the menu's own included, must not close the menu it
         // just opened (it opened and closed at once); only a new language rebuilds its labels.
         const languageChanged = updated.language !== shownLanguage;

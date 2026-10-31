@@ -17,6 +17,7 @@ import {
   SHADOW,
   SHOULDER,
   SLEEP_Z,
+  SPARKS,
   STATUS_LIGHT,
   STRAIGHT_AIM,
   VIEW_H,
@@ -42,6 +43,7 @@ export const LAYERS = [
   "glass",
   "face",
   "cheeks",
+  "sparks",
   "z",
 ] as const;
 export type LayerName = (typeof LAYERS)[number];
@@ -131,6 +133,7 @@ export function buildMateSvg(idPrefix: string = uniqueId("mate")): MateSvgRefs {
     glass: layer("glass", glassNodes(`url(#${ids.glass})`)),
     face: layer("face"),
     cheeks: layer("cheeks", CHEEKS),
+    sparks: layer("sparks", SPARKS),
     z: layer("z", SLEEP_Z),
   };
   // The brows stay put when the eyes look around; states.ts poses them through data-brows.
@@ -146,7 +149,17 @@ export function buildMateSvg(idPrefix: string = uniqueId("mate")): MateSvgRefs {
 
   // The art's paint order: shadow, aura, arms, base, glass, face, cheeks.
   const body = svgEl("g", { class: "mate-body" });
-  body.append(layers.aura, arms, layers.base, layers["status-light"], layers.glass, layers.face, layers.cheeks, layers.z);
+  body.append(
+    layers.aura,
+    arms,
+    layers.base,
+    layers["status-light"],
+    layers.glass,
+    layers.face,
+    layers.cheeks,
+    layers.sparks,
+    layers.z,
+  );
   svg.append(defs, layers.shadow, body);
 
   const refs: MateSvgRefs = { svg, body, layers, arms, aim, eyes, mouth };
@@ -154,6 +167,15 @@ export function buildMateSvg(idPrefix: string = uniqueId("mate")): MateSvgRefs {
   setMouth(refs, "smile");
   setArmPose(refs, "rest");
   return refs;
+}
+
+/** A greeting: the left hand raised like the art's "stop" hand, or back to the current pose. */
+export function setLeftHandRaised(refs: MateSvgRefs, raised: boolean): void {
+  const armL = refs.layers["arm-l"];
+  if ((armL.getAttribute("data-raised") === "true") === raised) return;
+  const pose = (refs.layers["arm-r"].getAttribute("data-pose") ?? "rest") as ArmPose;
+  armL.replaceChildren(...(raised ? ARM_L.shrug : (ARM_L[pose] ?? ARM_L.rest)).map(build));
+  setAttr(armL, "data-raised", raised ? "true" : null);
 }
 
 function swap(group: SVGGElement, key: string, nodes: readonly SvgNode[]): void {
@@ -188,6 +210,7 @@ export function setArmPose(refs: MateSvgRefs, pose: ArmPose, aim: ArmAim = STRAI
   const armR = refs.layers["arm-r"];
   if (armR.getAttribute("data-pose") !== pose) {
     refs.layers["arm-l"].replaceChildren(...ARM_L[pose].map(build));
+    setAttr(refs.layers["arm-l"], "data-raised", null);
     armR.replaceChildren(...ARM_R[pose].map(build));
     armR.setAttribute("data-pose", pose);
     setAttr(refs.layers.flashlight, "display", pose === "point" ? null : "none");

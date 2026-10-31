@@ -145,6 +145,38 @@ export const SLEEP_Z: readonly SvgNode[] = [
   },
 ];
 
+/** Where the sparks circle and burst from: the middle of the glass. */
+export const SPARK_CENTER: ViewPoint = { x: 110, y: 96 };
+const SPARK_RADIUS = 84;
+/** Six little four-point stars around the glass: thinking orbits three of them, success
+ *  bursts all six outward (robot.css, states.ts). Hidden at rest. */
+export const SPARK_ANGLES: readonly number[] = [-90, -30, 30, 90, 150, 210];
+
+function star(cx: number, cy: number, s: number): string {
+  const k = Math.round(s * 0.32 * 10) / 10;
+  return (
+    `M${cx} ${cy - s} L${cx + k} ${cy - k} L${cx + s} ${cy} L${cx + k} ${cy + k} ` +
+    `L${cx} ${cy + s} L${cx - k} ${cy + k} L${cx - s} ${cy} L${cx - k} ${cy - k} Z`
+  );
+}
+
+export const SPARKS: readonly SvgNode[] = SPARK_ANGLES.map((deg, i) => {
+  const angle = (deg * Math.PI) / 180;
+  const cx = Math.round(SPARK_CENTER.x + SPARK_RADIUS * Math.cos(angle));
+  const cy = Math.round(SPARK_CENTER.y + SPARK_RADIUS * Math.sin(angle));
+  return {
+    tag: "path",
+    attrs: {
+      class: "mate-spark",
+      d: star(cx, cy, i % 2 === 0 ? 8 : 6),
+      fill: i % 2 === 0 ? "#FFC94A" : "#FFE58A",
+      stroke: INK,
+      "stroke-width": 1.5,
+      "stroke-linejoin": "round",
+    },
+  };
+});
+
 // --- face ---------------------------------------------------------------------------
 
 const EX1 = 89;

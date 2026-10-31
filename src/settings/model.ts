@@ -28,8 +28,16 @@ export const SETTINGS_CHANGED_EVENT = "settings-changed" as const;
 
 export type Language = "auto" | "en" | "ru";
 
+export const THEMES = ["light", "dark"] as const;
+export type Theme = (typeof THEMES)[number];
+
+export function isTheme(value: unknown): value is Theme {
+  return typeof value === "string" && (THEMES as readonly string[]).includes(value);
+}
+
 export interface Settings {
   language: Language;
+  theme: Theme;
   model: "quick" | "thorough";
   ptt: "hold" | "toggle";
   pttKey: PttKey;
@@ -44,6 +52,7 @@ export interface Settings {
 
 export const SETTINGS_KEYS = [
   "language",
+  "theme",
   "model",
   "ptt",
   "pttKey",
@@ -58,6 +67,7 @@ export const SETTINGS_KEYS = [
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   language: "auto",
+  theme: "light",
   model: "quick",
   ptt: "hold",
   pttKey: "rightCtrl",
@@ -139,6 +149,7 @@ export function parseSettings(raw: unknown): Settings {
     }
 
     const language = readOwnField(raw, "language");
+    const theme = readOwnField(raw, "theme");
     const model = readOwnField(raw, "model");
     const ptt = readOwnField(raw, "ptt");
     const pttKey = readOwnField(raw, "pttKey");
@@ -152,6 +163,7 @@ export function parseSettings(raw: unknown): Settings {
 
     return {
       language: language === "en" || language === "ru" ? language : "auto",
+      theme: isTheme(theme) ? theme : DEFAULT_SETTINGS.theme,
       model: isModelChoice(model) ? model : DEFAULT_SETTINGS.model,
       ptt: isPttMode(ptt) ? ptt : DEFAULT_SETTINGS.ptt,
       pttKey: isPttKey(pttKey) ? pttKey : DEFAULT_SETTINGS.pttKey,

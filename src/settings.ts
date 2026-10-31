@@ -8,10 +8,12 @@
 import { getLocale, setLocale, t } from "./i18n/index.ts";
 import type { LocaleCode } from "./i18n/index.ts";
 import { bulbBadge } from "./bulb-badge.ts";
+import { applyTheme } from "./settings/theme.ts";
 import { buildAccountSection } from "./settings/account-view.ts";
 import { createSettingsActions, settingsReduceMotion } from "./settings/actions.ts";
 import {
   buildLanguageGroup,
+  buildThemeGroup,
   buildModelGroup,
   buildPttGroup,
   buildPttKeyGroup,
@@ -241,6 +243,10 @@ export function mountSettings(
     void applyPatch({ language });
   });
 
+  const themeGroup = buildThemeGroup((theme) => {
+    void applyPatch({ theme });
+  });
+
   const modelGroup = buildModelGroup((model) => {
     void applyPatch({ model });
   });
@@ -292,6 +298,7 @@ export function mountSettings(
   // The everyday choices first; the account, set once, comes last (WP85).
   form.append(
     languageGroup.fieldset,
+    themeGroup.fieldset,
     modelGroup.fieldset,
     pttKeyGroup.fieldset,
     pttGroup.fieldset,
@@ -333,6 +340,7 @@ export function mountSettings(
 
     const radioGroups: readonly RadioGroupRefs<string>[] = [
       languageGroup,
+      themeGroup,
       modelGroup,
       pttGroup,
       pttKeyGroup,
@@ -364,9 +372,11 @@ export function mountSettings(
   };
 
   const syncControls = (settings: Settings): void => {
+    applyTheme(settings, document.documentElement);
     setLocale(settings.language);
     syncText();
     syncRadioSelection(languageGroup, settings.language);
+    syncRadioSelection(themeGroup, settings.theme);
     syncRadioSelection(modelGroup, settings.model);
     syncRadioSelection(pttGroup, settings.ptt);
     syncRadioSelection(pttKeyGroup, settings.pttKey);

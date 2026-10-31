@@ -35,18 +35,20 @@ Two independent channels: the **state** (what Mate is doing: listening, flying, 
 
 | State | Animation | Sound |
 |---|---|---|
-| idle | slow hover bob, blink every 3–6 s, eyes follow the mouse a little; status light steady | — |
-| listening | leans toward the user, the bulb glows brighter, eyes wide | listen |
-| thinking | eyes look up/sideways, the glow pulses slowly | think (loop, soft) |
-| speaking | mouth follows the voice level, glow breathes with it, small gestures | — |
+| idle | floats in a slow figure of eight (three bobs to one sideways swing, 8.4 s) with a gentle ±1.5° sway, the glow breathes (4.2 s), the mint status light beats softly, blink every 3–6 s, eyes follow the mouse a little; waves hello with the left hand on his first idle, after waking and when he comes back from hiding | — |
+| listening | leans toward the user, the bulb glows brighter, eyes wide, the status light beats fast | listen |
+| thinking | eyes look up/sideways, the glow pulses slowly, he ponders side to side and three sparks circle the glass | think (loop, soft) |
+| speaking | mouth follows the voice level, glow breathes with it, arms gesture, a small nod in the rhythm of speech | — |
 | flying | tilts toward the direction, motion trail, arrives with a small bounce | whoosh |
 | pointing | flashlight up, beam lands on the target, target gets a soft glow + contour | ping (panned ≤ ±30%) |
 | waiting for click | the beam pulses gently on the target every 2 s | — |
-| success | quick spin or jump, happy eyes, bright flash | success |
+| success | a jump, happy eyes, a bright flash and six sparks bursting outward | success |
 | oops | head tilt, "hmm" eyes, re-aims the beam | oops |
 | can't find | shrug, palms up, beam off | — |
 | sleeping | eyes closed, "z", glow dims to off, sinks into the tray icon | sleep |
 | fun mode | warmer, brighter glow, bigger moves | — |
+
+Moods react once when they arrive (skipped with reduced motion): surprised ("be careful") jumps, sad (a scam verdict) flinches and the glow dims a little, happy wiggles, proud swells; joy and pride brighten the glow. Rules for new motion: `.claude/skills/metamate-mate-motion/SKILL.md`.
 
 ## Interactions
 
