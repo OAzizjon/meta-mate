@@ -1,9 +1,11 @@
 import { defineConfig } from "vite";
+import { sounds } from "./tools/vite-sounds.mjs";
 
 // One page per window: Mate and the click-through highlight (src-tauri/src/overlay.rs).
 export default defineConfig({
   // Keep Rust errors visible in the terminal.
   clearScreen: false,
+  plugins: [sounds()],
   server: {
     // Tauri's devUrl expects exactly this port.
     port: 1420,

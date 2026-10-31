@@ -10,6 +10,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- Mate plays his sounds again: the cue, effect and ambience OGG files are served by the dev server and copied into the build (`tools/vite-sounds.mjs`); before, `/sounds/...` was never bundled and the installed app was silent (owner, 2026-11-01).
 - Guest trial: up to 12 messages an hour per device without signing in; Mate and the sign-in window show what is left (`/auth/guest`).
 - Click Mate to talk: one click starts listening, another click asks.
 - Language choice in Settings: Automatic (as in Windows), English or Русский.
