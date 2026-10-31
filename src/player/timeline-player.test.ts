@@ -135,8 +135,32 @@ test("silent sentences replace the bubble after each sentence's reading time", a
     assert.deepEqual(h.take(), [`bubble ${texts[index]}`, `sleep ${bubbleReadMs(texts[index])}`]);
     h.endSleep();
     await settle();
-    assert.deepEqual(h.take(), index === 0 ? ["state speaking", "sentence 1:2"] : ["done 1"]);
+    assert.deepEqual(h.take(), index === 0 ? ["bubble null", "state speaking", "sentence 1:2"] : ["done 1"]);
   }
+});
+
+test("a silent fallback hides before the next spoken sentence's bound actions", async () => {
+  const h = setup();
+  pushAll(h.player, 1, [
+    '{"kind":"say","value":{"id":1,"text":"Silent.","bound":[]}}',
+    '{"kind":"say","value":{"id":2,"text":"Spoken.","bound":[{"kind":"show","value":"125%"}]}}',
+    '{"kind":"say","value":{"id":3,"text":"Still spoken.","bound":[]}}',
+    '{"kind":"end"}',
+  ]);
+  await settle();
+  h.take();
+  h.endSentence(1, 1, false);
+  await settle();
+  assert.deepEqual(h.take(), ["bubble Silent.", `sleep ${bubbleReadMs("Silent.")}`]);
+  h.endSleep();
+  await settle();
+  assert.deepEqual(h.take(), ["bubble null", "bubble 125%", "state speaking", "sentence 1:2"]);
+  h.endSentence(1, 2);
+  await settle();
+  assert.deepEqual(h.take(), ["state speaking", "sentence 1:3"]);
+  h.endSentence(1, 3);
+  await settle();
+  assert.deepEqual(h.take(), ["done 1"]);
 });
 
 test("a sentence with audio adds no bubble or reading delay", async () => {

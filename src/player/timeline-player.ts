@@ -55,6 +55,7 @@ interface Run {
   /** What a cancel has to take down. */
   aimed: boolean;
   shown: boolean;
+  fallbackShown: boolean;
   releaseWait: (() => void) | null;
 }
 
@@ -87,6 +88,7 @@ export class TimelinePlayer {
         pumping: false,
         aimed: false,
         shown: false,
+        fallbackShown: false,
         releaseWait: null,
       };
       this.run = run;
@@ -189,6 +191,11 @@ export class TimelinePlayer {
   }
 
   private async say(run: Run, say: Say): Promise<void> {
+    if (run.fallbackShown) {
+      this.options.showBubble(null);
+      run.shown = false;
+      run.fallbackShown = false;
+    }
     let pointing = false;
     for (const bound of say.bound) {
       // A failed action must not cost the sentence its speech wait.
@@ -206,6 +213,7 @@ export class TimelinePlayer {
     if (run.abort.signal.aborted || hadSamples || say.id === 0) return;
     this.options.showBubble(say.text);
     run.shown = true;
+    run.fallbackShown = true;
     await untilAborted(run.abort.signal, this.sleep(bubbleReadMs(say.text), run.abort.signal));
   }
 
@@ -228,6 +236,7 @@ export class TimelinePlayer {
       case "show":
         this.options.showBubble(bound.value);
         run.shown = true;
+        run.fallbackShown = false;
         return false;
     }
   }

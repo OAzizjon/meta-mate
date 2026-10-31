@@ -334,3 +334,22 @@ test("the look-consent question stays up for the whole consent window", () => {
     assert.ok(LOOK_CONSENT_MS > bubbleReadMs(text));
   }
 });
+
+test("look consent hides once its generation starts thinking or returns idle", () => {
+  for (const state of ["thinking", "idle"] as const) {
+    const h = harness();
+    h.send({ type: "state", generation: 1, state: "looking" });
+    h.send({ type: "line", generation: 1, key: "robot.look_consent" });
+    h.calls.length = 0;
+    h.send({ type: "state", generation: 2, state });
+    h.send({ type: "state", generation: 1, state: "looking" });
+    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), []);
+    h.calls.length = 0;
+    h.send({ type: "state", generation: 1, state });
+    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", null]]);
+    h.calls.length = 0;
+    h.router.showBubble("Answer text.");
+    h.send({ type: "state", generation: 1, state });
+    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", "Answer text."]]);
+  }
+});

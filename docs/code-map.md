@@ -342,6 +342,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   MAGIC_FADE_START_SECONDS:77^ MAX_CUE_PAN:77^ panFromViewportX:77^ resolveEffectiveLevel:77^ RING_BUFFER_CAPACITY:77^ RING_BUFFER_SECONDS:77^ SFX_BANDPASS_HIGH_HZ:77^ SFX_BANDPASS_LOW_HZ:77^
   SOUND_CATALOG:77^ SoundBank:77^ SoundBankOptions:77^ SoundCatalogEntry:77^ SOUNDS_BASE_PATH:77^ toResumeState:77^ TTS_WORKLET_NAME:77^ TtsRingProcessor:77^
   *:128^ AudioEngineOptions:130 AudioEngine:135 createAudioEngine:173
+  tests: src/audio/index.test.ts (1)
 - src/audio/mixer.ts — Master Web Audio graph: speech, sfx (300 Hz-3.2 kHz bandpass), cues, and ambience buses with ducking and brickwall limiter.
   SFX_BANDPASS_LOW_HZ:5 SFX_BANDPASS_HIGH_HZ:6 BUTTERWORTH_Q:7 DUCK_AMB_DB:9 DUCK_SFX_DB:10 DUCK_AMB_GAIN:11 DUCK_SFX_GAIN:12 DUCK_ATTACK_SECONDS:15
   DUCK_RELEASE_SECONDS:16 DUCK_ATTACK_TIME_CONSTANT:17 DUCK_RELEASE_TIME_CONSTANT:18 MAX_CUE_PAN:20 LIMITER_THRESHOLD_DB:22 LIMITER_KNEE_DB:23 LIMITER_RATIO:24 LIMITER_ATTACK_SECONDS:25
@@ -426,9 +427,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/ipc/timeline.ts — The MateScript timeline as it arrives from Rust: one `{"kind", "value"}` object per item (`crates/mm-core/src/matescript/timeline.rs`, serde adjacent tagging).
   Level:6 Sound:9 Point:16 Step:21 Bound:28 Say:36 TimelineItem:43 parseTimelineItem:65
 - src/mate-logic.ts — Mate's answer presentation policy, independent of the DOM, Tauri and the audio engine.
-  CANT_FIND_HOLD_MS:11 LOOK_CONSENT_MS:13 Bubble:15 createMateAnswerRouter:35 interruptLesson:163 awakeBubble:170 createMateWindowEvents:189 guestTrialView:217
-  signedIn:226
-  tests: src/mate-logic.test.ts (16)
+  CANT_FIND_HOLD_MS:11 LOOK_CONSENT_MS:13 Bubble:15 createMateAnswerRouter:35 interruptLesson:169 awakeBubble:176 createMateWindowEvents:195 guestTrialView:223
+  signedIn:232
+  tests: src/mate-logic.test.ts (17)
 - src/mate-menu.ts — Page controls in Mate's unfocusable WebView; never use a native popup or focus().
   MATE_MENU_ITEMS:4 guestUsageOf:15 hideReturnTime:22 mountMateMenu:29
   tests: src/mate-menu.test.ts (3)
@@ -442,8 +443,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/player/index.ts — The timeline player's public face: `createTimelinePlayer` wires `<lang>` to the app's locale (src/i18n).
   TimelinePlayer:8^ CreateTimelinePlayerOptions:11 createTimelinePlayer:14
 - src/player/timeline-player.ts — Plays an answer's MateScript timeline (docs/matescript.md, "Timeline") on Mate and the audio engine.
-  PlayerRobot:18 PlayerAudio:19 TimelinePlayerOptions:21 TimelinePlayer:61
-  tests: src/player/timeline-player.test.ts (12)
+  PlayerRobot:18 PlayerAudio:19 TimelinePlayerOptions:21 TimelinePlayer:62
+  tests: src/player/timeline-player.test.ts (13)
 - src/robot/beam.ts — The flashlight beam in CSS pixels: a light cone from the lens to the target, plus a soft glow and a contour on the target (docs/robot.md "pointing").
   BeamController:9 createBeamController:21
 - src/robot/flight.ts — Moves Mate's box across the page with Web Animations: he tilts toward where he is going and arrives with a small bounce (docs/robot.md "flying").
@@ -713,15 +714,15 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.unavailable`: rs src-tauri/src/auth.rs:144,147,213,335; ts src/settings/account.ts:75
 - `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:170
 - `mate.explain_question`: rs src-tauri/src/explain.rs:304
-- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:146
+- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:152
 - `robot.cant_look`: rs src-tauri/src/screen.rs:377, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:29
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
 - `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:486,612,613; ts src/ipc/answer-stream.ts:40
-- `robot.click_stop`: rs src-tauri/src/voice.rs:585; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:96,117
+- `robot.click_stop`: rs src-tauri/src/voice.rs:585; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:101,122
 - `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:369,377,585,591, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:51
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:77; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:46
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:66; ts src/ipc/answer-stream.ts:38
-- `robot.look_consent`: rs src-tauri/src/screen.rs:545; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:129
+- `robot.look_consent`: rs src-tauri/src/screen.rs:545; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:134,135
 - `robot.looking`: rs src-tauri/src/voice.rs:64
 - `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1237; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
 - `robot.no_microphone`: rs src-tauri/src/voice.rs:622,638,758,1271; ts src/ipc/answer-stream.ts:24
@@ -801,7 +802,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 174 | 20 |
-| src | 235 | 26 |
+| src | 238 | 27 |
 | tools | 265 | 17 |
 | server | 86 | 4 |
 | tts | 27 | 2 |

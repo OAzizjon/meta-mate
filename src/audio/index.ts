@@ -309,6 +309,9 @@ export async function createAudioEngine(
         if (speech.get(key) === pending) speech.delete(key);
         pending.lease.release();
         updateResumeState("fallback");
+        if (chunk.eos) {
+          sentenceCompletions.complete(chunk.generationId, chunk.sentenceId, pending.hadSamples);
+        }
       });
     },
     interrupt(generationId: number): void {

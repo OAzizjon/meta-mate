@@ -38,6 +38,7 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
   let listeningGeneration: number | null = null;
   let clickListening = false;
   let showingHeard = false;
+  let lookConsentGeneration: number | null = null;
   const generations = new AnswerGenerations();
   const presentation = new HeldPresentation();
   const present = (key: string, update: () => void): void => {
@@ -78,6 +79,10 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
         });
         return;
       case "state":
+        if (msg.generation === lookConsentGeneration && (msg.state === "thinking" || msg.state === "idle")) {
+          lookConsentGeneration = null;
+          bubble.show(null);
+        }
         if (msg.generation !== generations.listening && generations.holdPresentation) {
           present("state", () => setState(msg.state));
           return;
@@ -126,6 +131,7 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
           showingHeard = false;
           const text = t(msg.key);
           // The consent question must stay up until its answer window closes.
+          lookConsentGeneration = msg.key === "robot.look_consent" ? msg.generation : null;
           bubble.show(text, msg.key === "robot.look_consent" ? LOOK_CONSENT_MS : bubbleReadMs(text));
         });
         return;
