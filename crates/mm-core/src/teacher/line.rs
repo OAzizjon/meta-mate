@@ -1,6 +1,9 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LineKey {
     WrongPlace,
+    WrongKeys,
+    DoubleClick,
+    ScreenChanged,
     RightClick,
     CantFind,
     StepN,

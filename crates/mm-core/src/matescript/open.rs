@@ -69,11 +69,51 @@ fn registrable_label<'a>(labels: &[&'a str]) -> Option<&'a str> {
         return None;
     }
     let second = labels[n - 2];
-    if n >= 3 && matches!(second, "co" | "com" | "org" | "net" | "gov" | "edu" | "ac") {
+    // A short second level counts only under a two-letter country ending (co.uk, com.au):
+    // youtube.com.xyz is a "com" site, not YouTube (Command Code #1478).
+    if n >= 3
+        && labels[n - 1].len() == 2
+        && matches!(second, "co" | "com" | "org" | "net" | "gov" | "edu" | "ac")
+    {
         Some(labels[n - 3])
     } else {
         Some(second)
     }
+}
+
+/// The real domains of sites people name often: when the name is one of these, the host
+/// must be that domain or under it, so an imitation such as youtube.com.co is refused.
+const KNOWN_SITES: &[(&str, &[&str])] = &[
+    ("youtube", &["youtube.com", "youtu.be"]),
+    ("google", &["google.com", "google.ru"]),
+    ("yandex", &["yandex.ru", "yandex.com", "ya.ru"]),
+    ("wikipedia", &["wikipedia.org"]),
+    ("gosuslugi", &["gosuslugi.ru"]),
+    ("vk", &["vk.com", "vk.ru"]),
+    ("ok", &["ok.ru"]),
+    ("facebook", &["facebook.com"]),
+    ("instagram", &["instagram.com"]),
+    ("netflix", &["netflix.com"]),
+    ("avito", &["avito.ru"]),
+    ("ozon", &["ozon.ru"]),
+    ("wildberries", &["wildberries.ru"]),
+    ("telegram", &["telegram.org"]),
+    ("whatsapp", &["whatsapp.com"]),
+    ("bing", &["bing.com"]),
+    ("bbc", &["bbc.co.uk", "bbc.com"]),
+];
+
+/// Whether `host` may carry the site name `name`: any host for an unknown name, only the
+/// real domains for a known one.
+fn real_site(name: &str, host: &str) -> bool {
+    KNOWN_SITES
+        .iter()
+        .find(|(known, _)| *known == name)
+        .is_none_or(|(_, domains)| {
+            domains
+                .iter()
+                .any(|domain| host == *domain || host.ends_with(&format!(".{domain}")))
+        })
 }
 
 impl AppId {
@@ -181,6 +221,9 @@ impl OpenTarget {
                 let Some(name) = registrable_label(&labels) else {
                     return false;
                 };
+                if !real_site(name, &host) {
+                    return false;
+                }
                 words.iter().any(|word| {
                     *word == host
                         || word.strip_prefix("www.") == Some(host.as_str())

@@ -39,6 +39,9 @@ export const ANSWER_LINE_KEYS = [
   // The teacher (src-tauri/src/teacher.rs line_key) and its idle limit.
   "robot.click_app_first",
   "robot.wrong_place",
+  "robot.wrong_keys",
+  "robot.double_click",
+  "robot.screen_changed",
   "robot.right_click",
   "robot.right_click_2",
   "robot.right_click_3",

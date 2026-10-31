@@ -26,22 +26,42 @@ pub(super) fn supported(action: &Action, keyboard_steps: bool) -> bool {
     }
 }
 
+fn normalize_chord(keys: &[String]) -> Vec<String> {
+    let mut keys: Vec<_> = keys
+        .iter()
+        .map(|key| canonical_key_name(&key.to_ascii_lowercase()).to_owned())
+        .collect();
+    keys.sort();
+    keys.dedup();
+    keys
+}
+
+fn is_modifier_name(key: &str) -> bool {
+    matches!(key, "ctrl" | "shift" | "alt" | "win")
+}
+
 pub(super) fn same_chord(expected: &[String], actual: &[String]) -> bool {
-    let normalize = |keys: &[String]| {
-        let mut keys: Vec<_> = keys
-            .iter()
-            .map(|key| canonical_key_name(&key.to_ascii_lowercase()).to_owned())
-            .collect();
-        keys.sort();
-        keys.dedup();
-        keys
-    };
-    !expected.is_empty() && normalize(expected) == normalize(actual)
+    !expected.is_empty() && normalize_chord(expected) == normalize_chord(actual)
+}
+
+pub(super) fn wrong_chord(expected: &[String], actual: &[String]) -> bool {
+    if expected.is_empty() {
+        return false;
+    }
+    let expected = normalize_chord(expected);
+    let actual = normalize_chord(actual);
+    if expected == actual {
+        return false;
+    }
+    actual
+        .iter()
+        .any(|key| is_modifier_name(key) && expected.contains(key))
+        || (actual.len() == 1 && !actual[0].is_empty() && !is_modifier_name(&actual[0]))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::same_chord;
+    use super::{same_chord, wrong_chord};
 
     #[test]
     fn aliases_are_folded_before_sorting_and_deduplication() {
@@ -50,5 +70,17 @@ mod tests {
         assert!(same_chord(&expected, &actual));
         assert!(!same_chord(&expected, &["enter".into()]));
         assert!(!same_chord(&[], &[]));
+    }
+
+    #[test]
+    fn wrong_chord_matches_shared_modifiers_and_single_non_modifier_keys() {
+        let ctrl_s = ["CTRL", "S"].map(String::from);
+        assert!(!wrong_chord(&ctrl_s, &["s".into(), "rctrl".into()]));
+        assert!(wrong_chord(&ctrl_s, &["lctrl".into(), "a".into()]));
+        assert!(wrong_chord(&ctrl_s, &["rctrl".into()]));
+        assert!(wrong_chord(&ctrl_s, &["s".into()]));
+        assert!(!wrong_chord(&ctrl_s, &["alt".into()]));
+        assert!(!wrong_chord(&ctrl_s, &["shift".into(), "s".into()]));
+        assert!(!wrong_chord(&[], &["s".into()]));
     }
 }

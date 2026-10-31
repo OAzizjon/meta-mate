@@ -291,3 +291,150 @@ fn drag_release_near_mapped_endpoint_completes() {
         );
     }
 }
+
+#[test]
+fn single_click_inside_double_click_rect_guides_and_keeps_waiting() {
+    let mut teacher = Teacher::new(TeacherConfig {
+        auto_escalate: true,
+        do_it_for_me: true,
+        ..Default::default()
+    });
+    teacher.input(turn(vec![Action::DoubleClick { x: 150, y: 100 }]));
+    for (now_ms, at) in [
+        (1, PhysPoint { x: 100, y: 100 }),
+        (2, PhysPoint { x: 110, y: 110 }),
+        (3, PhysPoint { x: 119, y: 119 }),
+    ] {
+        assert_eq!(
+            teacher.input(Input::Click {
+                at,
+                left: true,
+                injected: false,
+                now_ms,
+            }),
+            vec![Command::Say(LineKey::DoubleClick)]
+        );
+    }
+    for at in [
+        PhysPoint { x: 99, y: 110 },
+        PhysPoint { x: 120, y: 110 },
+        PhysPoint { x: 110, y: 99 },
+        PhysPoint { x: 110, y: 120 },
+        PhysPoint { x: 200, y: 110 },
+    ] {
+        assert!(
+            teacher
+                .input(Input::Click {
+                    at,
+                    left: true,
+                    injected: false,
+                    now_ms: 4,
+                })
+                .is_empty()
+        );
+    }
+    for (left, injected) in [(false, false), (true, true)] {
+        assert!(
+            teacher
+                .input(Input::Click {
+                    at: rect().center(),
+                    left,
+                    injected,
+                    now_ms: 5,
+                })
+                .is_empty()
+        );
+    }
+    assert_eq!(
+        teacher.input(Input::DoubleClick {
+            at: rect().center(),
+            left: true,
+            injected: false,
+            now_ms: 6,
+        }),
+        vec![
+            Command::AcknowledgeSafetyChecks(vec!["confirm".into()]),
+            Command::Say(LineKey::RightClick),
+        ]
+    );
+}
+
+#[test]
+fn wrong_key_chords_guide_shared_modifiers_and_single_keys_without_escalating() {
+    let mut teacher = Teacher::new(TeacherConfig {
+        keyboard_steps: true,
+        auto_escalate: true,
+        ..Default::default()
+    });
+    teacher.input(turn(vec![
+        Action::Keypress {
+            keys: vec!["CTRL".into(), "plus".into()],
+        },
+        click_action(),
+    ]));
+    for (now_ms, keys) in [
+        (1, vec!["control".into(), "minus".into()]),
+        (2, vec!["ctrl".into(), "shift".into(), "plus".into()]),
+        (3, vec!["rctrl".into()]),
+        (4, vec!["plus".into()]),
+        (5, vec!["a".into()]),
+        (6, vec!["Enter".into()]),
+    ] {
+        assert_eq!(
+            teacher.input(Input::KeyChord {
+                foreground: None,
+                keys,
+                injected: false,
+                now_ms,
+            }),
+            vec![Command::Say(LineKey::WrongKeys)]
+        );
+    }
+    for keys in [
+        vec!["alt".into()],
+        vec!["alt".into(), "tab".into()],
+        vec!["shift".into(), "a".into()],
+    ] {
+        assert!(
+            teacher
+                .input(Input::KeyChord {
+                    foreground: None,
+                    keys,
+                    injected: false,
+                    now_ms: 7,
+                })
+                .is_empty()
+        );
+    }
+    assert!(
+        teacher
+            .input(Input::KeyChord {
+                foreground: None,
+                keys: vec!["a".into()],
+                injected: true,
+                now_ms: 8,
+            })
+            .is_empty()
+    );
+    assert_eq!(
+        teacher.input(Input::KeyChord {
+            foreground: None,
+            keys: vec!["ctrl".into(), "+".into()],
+            injected: false,
+            now_ms: 9,
+        }),
+        vec![
+            Command::Say(LineKey::StepN),
+            Command::PointAt {
+                rect: rect(),
+                step: 2,
+                total: 2,
+            },
+        ]
+    );
+    assert!(
+        !teacher
+            .input(click(200, 10))
+            .contains(&Command::UseModel(ModelChoice::Thorough))
+    );
+}

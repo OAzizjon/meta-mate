@@ -16,7 +16,16 @@ pub fn wants_open(question: &str) -> bool {
         words[at.saturating_sub(5)..at].iter().any(|word| {
             matches!(
                 *word,
-                "not" | "never" | "don" | "dont" | "t" | "no" | "не" | "нельзя" | "никогда"
+                "not"
+                    | "never"
+                    | "cannot"
+                    | "don"
+                    | "dont"
+                    | "t"
+                    | "no"
+                    | "не"
+                    | "нельзя"
+                    | "никогда"
             )
         })
     };

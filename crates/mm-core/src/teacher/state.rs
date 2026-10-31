@@ -2,7 +2,7 @@ use crate::api::response::{Action, ParsedResponse};
 use crate::geom::{FrameTransform, PhysRect, ShotPoint};
 
 use super::confirmation::Confirmation;
-use super::step::{Step, immediate, same_chord, supported};
+use super::step::{Step, immediate, same_chord, supported, wrong_chord};
 use super::{LineKey, ModelChoice, RefusalReason, TeacherCommand, TeacherConfig, TeacherInput};
 
 #[derive(Default, PartialEq, Eq)]
@@ -150,6 +150,7 @@ impl Teacher {
                 self.failures = 0;
                 self.do_it = DoItState::Pointing;
                 self.offered = false;
+                out.push(TeacherCommand::Say(LineKey::ScreenChanged));
                 out.push(TeacherCommand::RequestScreenshot);
             }
             event => self.human_event(event, &mut out),
@@ -337,15 +338,17 @@ impl Teacher {
                 let distance = step.rect.distance_to(*at);
                 if distance > f64::from(self.config.hit_tolerance_px) {
                     out.push(TeacherCommand::Say(LineKey::WrongPlace));
-                    if distance > f64::from(self.config.near_px) {
-                        self.failed_attempt(out);
-                    } else {
-                        self.failures = 0;
-                    }
+                    self.failed_attempt(out);
                     self.point(out);
                     return;
                 }
                 (true, true)
+            }
+            (Action::DoubleClick { .. }, TeacherInput::Click { at, .. }) => {
+                if step.rect.contains(*at) {
+                    out.push(TeacherCommand::Say(LineKey::DoubleClick));
+                }
+                return;
             }
             (Action::Drag { .. }, TeacherInput::Click { at, .. }) => {
                 // Button-up near the mapped endpoint completes a drag. Also allow
@@ -373,7 +376,14 @@ impl Teacher {
             (Action::Keypress { keys }, TeacherInput::KeyChord { keys: actual, .. }) => {
                 // Other keys are ordinary typing, not a failed attempt: they must not
                 // push the task toward Wonder.
-                (same_chord(keys, actual), true)
+                if same_chord(keys, actual) {
+                    (true, true)
+                } else {
+                    if wrong_chord(keys, actual) {
+                        out.push(TeacherCommand::Say(LineKey::WrongKeys));
+                    }
+                    return;
+                }
             }
             (Action::Type { text }, TeacherInput::ValueChanged { text: actual, .. }) => {
                 (actual.contains(text), false)

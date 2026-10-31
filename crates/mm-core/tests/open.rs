@@ -204,6 +204,7 @@ fn open_tags_are_dropped_unless_the_person_asked_to_open() {
         "please do not launch anything",
         "Не открывай ютуб",
         "I don't really want to open the calculator",
+        "I cannot open youtube",
         "я не хочу, чтобы ты открыл ютуб",
     ] {
         assert!(!wants_open(not_asked), "{not_asked}");
@@ -244,4 +245,12 @@ fn an_open_tag_must_name_what_the_person_asked_for() {
     ));
     assert!(opened("open the bbc", "https://www.bbc.co.uk"));
     assert!(opened("open youtube.com", "https://www.youtube.com/"));
+    // Imitations under another ending (Command Code #1478).
+    assert!(!opened("open youtube", "https://youtube.com.xyz"));
+    assert!(!opened("open youtube", "https://youtube.com.co"));
+    assert!(!opened("open google", "https://google.com.io"));
+    assert!(opened("open google", "https://www.google.ru"));
+    assert!(opened("открой яндекс", "https://yandex.ru"));
+    // An unknown site keeps the plain rule.
+    assert!(opened("open example news", "https://www.example.com"));
 }

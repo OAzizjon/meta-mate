@@ -64,27 +64,79 @@ fn recorded_happy_path_settles_then_finishes() {
 }
 
 #[test]
-fn near_and_far_clicks_repoint_and_only_far_counts_as_failure() {
+fn near_and_far_clicks_repoint_and_count_as_failures_until_hit() {
     let mut teacher = Teacher::new(TeacherConfig {
+        auto_escalate: true,
+        do_it_for_me: true,
+        ..Default::default()
+    });
+    let mut unchecked = response(vec![click_action(), click_action()]);
+    unchecked.computer_calls[0].safety_checks.clear();
+    teacher.input(Input::ModelTurn {
+        targets: vec![Some(rect()), Some(rect())],
+        response: unchecked,
+        frame: frame(),
+    });
+    let repoint = |step| {
+        vec![
+            Command::Say(LineKey::WrongPlace),
+            Command::PointAt {
+                rect: rect(),
+                step,
+                total: 2,
+            },
+        ]
+    };
+    assert_eq!(teacher.input(click(150, 1)), repoint(1));
+    assert_eq!(
+        teacher.input(click(150, 2)),
+        vec![
+            Command::Say(LineKey::WrongPlace),
+            Command::OfferDoIt { rect: rect() },
+            Command::UseModel(ModelChoice::Thorough),
+            Command::PointAt {
+                rect: rect(),
+                step: 1,
+                total: 2,
+            },
+        ]
+    );
+    assert_eq!(
+        teacher.input(click(128, 3)),
+        vec![
+            Command::Say(LineKey::RightClick),
+            Command::Say(LineKey::StepN),
+            Command::PointAt {
+                rect: rect(),
+                step: 2,
+                total: 2,
+            },
+        ]
+    );
+    assert_eq!(teacher.input(click(200, 4)), repoint(2));
+    assert_eq!(
+        teacher.input(click(150, 5)),
+        vec![
+            Command::Say(LineKey::WrongPlace),
+            Command::OfferDoIt { rect: rect() },
+            Command::PointAt {
+                rect: rect(),
+                step: 2,
+                total: 2,
+            },
+        ]
+    );
+
+    let mut checked = Teacher::new(TeacherConfig {
         auto_escalate: true,
         ..Default::default()
     });
-    teacher.input(turn(vec![click_action()]));
-    let repoint = vec![
-        Command::Say(LineKey::WrongPlace),
-        Command::PointAt {
-            rect: rect(),
-            step: 1,
-            total: 1,
-        },
-    ];
-    assert_eq!(teacher.input(click(150, 1)), repoint);
-    assert_eq!(teacher.input(click(150, 2)), repoint);
-    assert_eq!(teacher.input(click(200, 3)), repoint);
-    let out = teacher.input(click(200, 4));
+    checked.input(turn(vec![click_action()]));
+    let _ = checked.input(click(150, 1));
+    let out = checked.input(click(150, 2));
     assert!(out.contains(&Command::UseModel(ModelChoice::Thorough)));
     assert!(!ack(&out));
-    let out = teacher.input(click(128, 5));
+    let out = checked.input(click(128, 3));
     assert!(ack(&out));
     assert!(!out.contains(&Command::UseModel(ModelChoice::Quick)));
 }
@@ -196,22 +248,24 @@ fn double_click_and_key_chord_complete_in_order() {
             keys: vec!["CTRL".into(), "S".into()],
         },
     ]));
-    assert!(teacher.input(click(110, 1)).is_empty());
+    assert_eq!(
+        teacher.input(click(110, 1)),
+        vec![Command::Say(LineKey::DoubleClick)]
+    );
     assert!(!ack(&teacher.input(Input::DoubleClick {
         at: rect().center(),
         left: true,
         injected: false,
         now_ms: 2
     })));
-    assert!(
-        teacher
-            .input(Input::KeyChord {
-                foreground: None,
-                keys: vec!["S".into()],
-                injected: false,
-                now_ms: 3
-            })
-            .is_empty()
+    assert_eq!(
+        teacher.input(Input::KeyChord {
+            foreground: None,
+            keys: vec!["S".into()],
+            injected: false,
+            now_ms: 3
+        }),
+        vec![Command::Say(LineKey::WrongKeys)]
     );
     assert_eq!(
         teacher.input(Input::KeyChord {
@@ -409,7 +463,10 @@ fn unexpected_change_discards_batch_and_requests_immediate_capture() {
     teacher.input(turn(vec![click_action(), click_action()]));
     assert_eq!(
         teacher.input(Input::ScreenChangedUnexpectedly { now_ms: 5 }),
-        vec![Command::RequestScreenshot]
+        vec![
+            Command::Say(LineKey::ScreenChanged),
+            Command::RequestScreenshot,
+        ]
     );
     assert!(teacher.input(click(110, 6)).is_empty());
     assert!(teacher.input(Input::Tick { now_ms: 1000 }).is_empty());

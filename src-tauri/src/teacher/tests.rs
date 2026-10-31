@@ -293,6 +293,9 @@ fn incomplete_and_cyclic_ancestry_fail_closed() {
 fn every_line_the_teacher_says_has_a_locale_key_or_its_commentary() {
     for line in [
         LineKey::WrongPlace,
+        LineKey::WrongKeys,
+        LineKey::DoubleClick,
+        LineKey::ScreenChanged,
         LineKey::RightClick,
         LineKey::CantFind,
         LineKey::Done,

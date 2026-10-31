@@ -67,6 +67,9 @@ pub(super) const PRAISE: [&str; 4] = [
 pub(super) fn line_key(line: LineKey, steps_done: &mut usize) -> Option<&'static str> {
     match line {
         LineKey::WrongPlace => Some("robot.wrong_place"),
+        LineKey::WrongKeys => Some("robot.wrong_keys"),
+        LineKey::DoubleClick => Some("robot.double_click"),
+        LineKey::ScreenChanged => Some("robot.screen_changed"),
         LineKey::RightClick => {
             let key = PRAISE[*steps_done % PRAISE.len()];
             *steps_done += 1;
