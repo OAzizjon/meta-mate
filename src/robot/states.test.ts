@@ -546,6 +546,34 @@ function createSpringHarness() {
   return { ...h, frames, motion: () => motion, springStyles, drag };
 }
 
+test("one-shots in beam states never rotate, and oops keeps its vertical dip", (t) => {
+  const h = createHarness();
+  t.after(() => h.cleanup());
+  h.animator.aimAt({ left: 400, top: 100, right: 500, bottom: 150 });
+
+  function elements(root: FakeSvgElement): FakeSvgElement[] {
+    return [root, ...root.children.flatMap(elements)];
+  }
+  for (const state of ["pointing", "waiting_for_click", "oops"] as const) {
+    h.animator.setState(state);
+    for (const mood of ROBOT_MOODS) h.animator.setMood(mood);
+    for (const el of elements(h.refs.svg)) {
+      for (const animation of el.animations.filter((a) => !a.cancelled)) {
+        for (const frame of animation.keyframes) {
+          assert.equal(frame.rotate, undefined, state);
+          assert.doesNotMatch(String(frame.transform ?? ""), /rotate/i, state);
+        }
+      }
+    }
+  }
+  const dip = h.refs.body.animations.find((a) => !a.cancelled);
+  assert.ok(dip, "oops still reacts");
+  assert.equal(dip.options.duration, 600);
+  assert.deepEqual(dip.keyframes.map((frame) => frame.transform), [
+    "translateY(0)", "translateY(3px)", "translateY(3px)", "translateY(0)",
+  ]);
+});
+
 test("the springs never move or tilt the flashlight while the beam is on, and come back after", (t) => {
   const h = createSpringHarness();
   t.after(() => h.cleanup());

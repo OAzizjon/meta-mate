@@ -26,6 +26,22 @@ import {
 } from "./model.ts";
 import type { Settings } from "./model.ts";
 
+test("the Rust settings JSON preserves the profile and profileAsked", () => {
+  // Keep this JSON literal in sync with profile_serialization_matches_the_window_contract.
+  const raw = JSON.parse(`{
+            "profile": {"name": "Demo", "about": "Learning the app"}, "profileAsked": true,
+            "language": "auto", "theme": "light", "model": "quick",
+            "ptt": "hold", "pttKey": "rightCtrl", "sound": "calm",
+            "voiceSpeed": 1.0, "robotSize": "M", "reduceMotion": false,
+            "spotlight": true, "startWithWindows": false,
+            "showHomeAtStart": true
+        }`);
+  const settings = parseSettings(raw);
+  assert.deepEqual(settings.profile, { name: "Demo", about: "Learning the app" });
+  assert.equal(settings.profileAsked, true);
+  assert.deepEqual(settings, raw);
+});
+
 test("profiles default, sanitize Unicode data and survive unrelated saves", async () => {
   assert.deepEqual(parseSettings({ sound: "fun" }).profile, { name: "", about: "" });
   assert.equal(parseSettings({}).profileAsked, false);

@@ -44,6 +44,30 @@ class ContractTests(unittest.TestCase):
         with patch.object(mm_contracts, 'SHAPE_PAIRS', pairs):
             return self.findings()
 
+    def test_settings_profile_field_names_use_the_registered_mapping(self):
+        rust = '''#[derive(Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct Settings {
+    profile: Profile,
+    profile_asked: bool,
+}'''
+        ts = '''interface Settings {
+  profile: Profile;
+  profileAsked: boolean;
+}'''
+        self.write('src-tauri/src/settings.rs', rust)
+        self.write('src/settings/model.ts', ts)
+        self.assertEqual(self.findings(), [])
+        self.write('src/settings/model.ts', ts.replace('profileAsked', 'profile_asked'))
+        result = self.findings()
+        self.assertEqual(len(result), 2)
+        self.assertTrue(any("Rust-only field 'profileAsked'" in item for item in result))
+        self.assertTrue(any("required TS field never sent 'profile_asked'" in item for item in result))
+        self.write('src/settings/model.ts', ts.replace('  profile: Profile;\n', ''))
+        result = self.findings()
+        self.assertEqual(len(result), 1)
+        self.assertIn("Rust-only field 'profile'", result[0])
+
     def test_serde_rename_all_and_explicit_rename_report_both_locations(self):
         result = self.shape('''#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

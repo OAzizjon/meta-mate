@@ -503,6 +503,28 @@ mod tests {
     }
 
     #[test]
+    fn profile_serialization_matches_the_window_contract() {
+        let mut settings = Settings::default();
+        settings.profile.name = "Demo".into();
+        settings.profile.about = "Learning the app".into();
+        settings.profile_asked = true;
+        // Keep this JSON literal in sync with src/settings/model.test.ts.
+        let expected = r#"{
+            "profile": {"name": "Demo", "about": "Learning the app"}, "profileAsked": true,
+            "language": "auto", "theme": "light", "model": "quick",
+            "ptt": "hold", "pttKey": "rightCtrl", "sound": "calm",
+            "voiceSpeed": 1.0, "robotSize": "M", "reduceMotion": false,
+            "spotlight": true, "startWithWindows": false,
+            "showHomeAtStart": true
+        }"#;
+        assert_eq!(
+            serde_json::to_value(&settings).unwrap(),
+            serde_json::from_str::<serde_json::Value>(expected).unwrap()
+        );
+        assert_eq!(parse(expected), settings);
+    }
+
+    #[test]
     fn profiles_load_from_old_settings_sanitize_and_round_trip() {
         let old = parse(r#"{"sound":"fun"}"#);
         assert_eq!(old.profile, Profile::default());

@@ -88,10 +88,10 @@ const BODY_MOVES: Partial<Record<RobotState, OneShot>> = {
   },
   oops: {
     keyframes: [
-      { transform: "rotate(0deg)" },
-      { transform: "rotate(8deg)", offset: 0.25 },
-      { transform: "rotate(8deg)", offset: 0.7 },
-      { transform: "rotate(0deg)" },
+      { transform: "translateY(0)" },
+      { transform: "translateY(3px)", offset: 0.25 },
+      { transform: "translateY(3px)", offset: 0.7 },
+      { transform: "translateY(0)" },
     ],
     options: { duration: 600, easing: "ease-in-out" },
   },
@@ -426,7 +426,7 @@ export function createStateAnimator(
 
   return {
     setState(next) {
-      // A repeated state replays its one-shot (a second oops tilts again).
+      // A repeated state replays its one-shot (a second oops dips again).
       const woke = state === "sleeping" && next !== "sleeping";
       if (next !== "idle") stopWave();
       // A mood move already running would pull the flashlight off the target.

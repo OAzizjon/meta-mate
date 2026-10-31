@@ -328,7 +328,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   language:79 Model:89 Ptt:106 PttKey:113 PttKey::virtual_key:124 PttKey::locale_key:135 Sound:156 RobotSize:163
   MateHome:173 Settings:182 Settings::sanitized:235 SettingsStore:252 SettingsStore::new:255 SettingsStore::get:267 load_settings:279 save_settings:286
   model:318 profile:323 save_mate_home:330 voice_speed:347 load:352
-  inline tests (20)
+  inline tests (21)
 - src-tauri/src/signin.rs — Signing in is required (owner, 2026-10-29): until the person signs in with Google or GitHub, Mate answers nothing and the sign-in window (signin.html, src/signin.ts) is open.
   required:56 invite_for_proxy:63 guest_used_up:73 missing:81 refusal_line:92 start_guest:102 guest_usage:203 try_as_guest:214
   open:227 open_later:258 close:272
@@ -520,7 +520,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: src/robot/spring.test.ts (10)
 - src/robot/states.ts — Mate's two channels (docs/robot.md "States"): the state (what he is doing, set by the app) and the mood (his face, set by MateScript <mood>).
   LOOKING_SWEEP_MS:31 StateAnimator:33 createStateAnimator:193
-  tests: src/robot/states.test.ts (18)
+  tests: src/robot/states.test.ts (19)
 - src/robot/svg.ts — Builds Mate's layered SVG from geometry.ts with createElementNS only (no innerHTML), and swaps the face and arm layers in place.
   LAYERS:35 LayerName:49 MateSvgRefs:51 uniqueId:73 svgEl:78 setAttr:85 num:92 buildMateSvg:115
   setLeftHandRaised:187 setEyes:201 setMouth:205 setMouthOpen:210 setGaze:217 setArmPose:223
@@ -564,7 +564,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   SETTINGS_KEYS:64 DEFAULT_SETTINGS:81 defaultSettings:99 isModelChoice:103 isPttMode:107 isSoundMode:111 isRobotSize:115 isValidVoiceSpeed:119
   snapVoiceSpeed:133 parseSettings:166 updateSettings:219 formatVoiceSpeed:226 VoiceSpeedPace:232 voiceSpeedPace:235 SettingsInvoke:243 SettingsSubscribe:249
   SettingsStore:253 createSettingsStore:270 subscribeSettingsChanged:317
-  tests: src/settings/model.test.ts (16)
+  tests: src/settings/model.test.ts (17)
 - src/settings/ptt-key.ts — Pure localized key rendering shared by Home and onboarding.
   pttKeyLabel:5 pttKeycapLabel:9 withPttKey:13
   tests: src/settings/ptt-key.test.ts (1)
@@ -595,7 +595,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   is_secret:42 references:48 project_files:80 resolve:93 show:120 read_source:163 main:175
 - tools/mm_contracts.py — mm contracts [--verbose]
   findings:434 main:531
-  tests: tools/tests/test_mm_contracts.py (25)
+  tests: tools/tests/test_mm_contracts.py (26)
 - tools/mm_difflint.py — mm difflint [PATCH|-]
   AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284
   tests: tools/tests/test_mm_difflint.py (18)
@@ -912,8 +912,8 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-core | 279 | 36 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
-| src-tauri | 197 | 20 |
-| src | 325 | 32 |
-| tools | 374 | 23 |
+| src-tauri | 198 | 20 |
+| src | 327 | 32 |
+| tools | 375 | 23 |
 | server | 94 | 4 |
 | tts | 27 | 2 |
