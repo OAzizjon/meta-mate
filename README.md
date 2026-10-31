@@ -69,6 +69,18 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 - 20 harder pages (`en-hard2`, `ru-hard2`: fake tax, bailiff, toll, pension and cloud-share notices next to real-looking legitimate ones; 400 answers): both models again called every scam a scam. Legitimate pages were called scams 0-2 % of the time in English but 34-38 % in Russian, almost all on fictional government pages: a tax or bailiff page outside the one real government portal does not match who it claims to be, which the models treat as a red flag.
 - Before this prompt (D68), an unfamiliar address alone was enough for a scam verdict: Muse Wonder called 28 % of the Russian and 9 % of the English legitimate pages scams. These are fictional pages, not a real-world rate.
 
+### Measured: "Where is it?"
+
+`mm probe point` sends the app's real "Where is it?" request, with the element list UI Automation gives the app or with none (as for canvas and Qt apps), for 71 spoken questions on 20 fictional windows in English and Russian (mail, messenger, browser zoom, photos, display settings, video call, word processor, save and print dialogs, a clinic booking). Each question went 5 times to each model in each mode on 2026-10-31 (1,420 answers):
+
+| Model | With the element list (en / ru) | Without it, on the control (en / ru) | Without it, within 24 px (en / ru) | Median time to the point (en, with list) |
+|---|---:|---:|---:|---:|
+| Muse Spark 1.3 | 100 % / 100 % | 46 % / 41 % | 68 % / 67 % | 2.0 s |
+| Muse Wonder 1.0 | 100 % / 100 % | 35 % / 33 % | 58 % / 49 % | 1.6 s |
+
+- With the element list, all 610 answers to a question whose button is on the window named the right control. Without it, a point lands on the control well under half of the time, so the app uses the UI Automation list whenever the window has one and SAM 3.1 only to outline what lies under a point.
+- For the 10 questions whose button is not on the window, the answers say so ("I cannot see a home visit choice on this page") and then show where to look next (a menu, Search, Home) instead of pointing at a guess.
+
 ## Privacy and safety
 
 - **Never steals focus:** Overlay windows use `WS_EX_NOACTIVATE` and `SWP_NOACTIVATE`, never taking focus away from the user's active application.

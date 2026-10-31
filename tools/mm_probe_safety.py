@@ -183,7 +183,7 @@ def request_body(png: Path, lang: str, model: str, args) -> dict:
     return json.loads(result.stdout)
 
 
-def exchange(body: dict, key: str, base: str, timeout: float) -> tuple[dict, str]:
+def exchange(body: dict, key: str, base: str, timeout: float, observe=None) -> tuple[dict, str]:
     final, chunks = None, []
     with probe._request(base + '/responses', key, body, timeout, stream=True, retry_5xx=True) as response:
         for event, data in probe.iter_sse(response):
@@ -193,6 +193,8 @@ def exchange(body: dict, key: str, base: str, timeout: float) -> tuple[dict, str
             kind = message.get('type') or event
             if kind == 'response.output_text.delta':
                 chunks.append(message['delta'])
+                if observe is not None:
+                    observe(message['delta'])
             elif kind in ('response.completed', 'response.incomplete', 'response.failed'):
                 final = message.get('response') or message
                 break
@@ -204,6 +206,22 @@ def exchange(body: dict, key: str, base: str, timeout: float) -> tuple[dict, str
 
 
 def cmd_safety(args) -> int:
+    rendered = {}
+
+    def prepare(page, model, args):
+        if page['page'] not in rendered:
+            rendered[page['page']] = render_page(page, Path(args.out).resolve() / 'png')
+        png = rendered[page['page']]
+        return [(page, request_body(png, page['lang'], model, args))]
+
+    def evaluate(row, answer, final):
+        return dict(verdict=classify(answer), violations=rule_violations(answer))
+
+    return run_batch(args, load_pages, prepare, evaluate, exchange, write_report, 'safety')
+
+
+def run_batch(args, load, prepare, evaluate, exchange, report, kind) -> int:
+    """Shared synthetic benchmark workers, reservations, dry run and accounting."""
     out = Path(args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)
     rows, errors = [], []
@@ -215,13 +233,11 @@ def cmd_safety(args) -> int:
         models = list(dict.fromkeys(args.models.split(',')))
         if not models or any(model not in MODELS for model in models):
             raise probe.ProbeError('models must be muse-spark-1.3 and/or muse-wonder-1.0')
-        pages = load_pages(Path(args.directory), args.only)
+        pages = load(Path(args.directory), args.only)
         bodies = []
         for page in pages:
-            png = render_page(page, out / 'png')
             for model in models:
-                body = request_body(png, page['lang'], model, args)
-                bodies.append((page, model, body))
+                bodies.extend((p, model, body) for p, body in prepare(page, model, args))
         if args.dry_run:
             body = json.loads(json.dumps(bodies[0][2]))
             for message in body['input']:
@@ -249,23 +265,28 @@ def cmd_safety(args) -> int:
                     reserved = True
                 started = time.perf_counter()
                 final, answer = exchange(body, key, base, 120)
+                row['latency_ms'] = final.get('_latency_ms', round((time.perf_counter() - started) * 1000, 3))
                 tokens = probe.usage_tokens(final)
                 row.update(input_tokens=tokens[0], output_tokens=tokens[1])
-                if final.get('error') or final.get('status') != 'completed' or not answer.strip():
-                    raise probe.ProbeError('safety response did not complete with text')
                 answer = probe.scrub(answer, key)
-                row.update(answer=answer, verdict=classify(answer), violations=rule_violations(answer))
-            except (probe.ProbeError, OSError, ValueError, KeyError, http.client.HTTPException) as error:
+                row.update(answer=answer)
+                if final.get('error') or final.get('status') != 'completed' or not answer.strip():
+                    raise probe.ProbeError(f'{kind} response did not complete with text')
+                row.update(evaluate(row, answer, final))
+                row['first_point_ms'] = final.get('_first_point_ms')
+            except (probe.ProbeError, OSError, ValueError, KeyError, http.client.HTTPException,
+                    subprocess.SubprocessError) as error:
                 row['error'] = probe.scrub(str(error), key)
             finally:
-                row['latency_ms'] = round((time.perf_counter() - started) * 1000, 3) if started is not None else 0
+                row.setdefault('latency_ms', round((time.perf_counter() - started) * 1000, 3) if started is not None else 0)
                 if reserved:
                     tokens = probe.usage_tokens(final or {})
                     usd = (probe.cost_usd(model, *tokens, None, (final.get('usage') or {}).get('cost'))
                            if final is not None else None)
                     with lock:
-                        probe.ledger_add({'ts': time.time(), 'provider': 'meta', 'kind': 'safety',
+                        probe.ledger_add({'ts': time.time(), 'provider': 'meta', 'kind': kind,
                                           'model': model, 'in': tokens[0], 'out': tokens[1], 'usd': usd})
+                        row['usd'] = usd
                         pending -= 1
             return row
 
@@ -278,12 +299,12 @@ def cmd_safety(args) -> int:
     except (probe.ProbeError, OSError, ValueError, subprocess.SubprocessError) as error:
         errors.append(probe.scrub(str(error), key))
     finally:
-        write_report(out, rows, errors, args.dry_run)
+        report(out, rows, errors, args.dry_run)
     return int(bool(errors))
 
 
-def add_parser(sub) -> None:
-    parser = sub.add_parser('safety', help='benchmark synthetic HTML pages with the app safety request')
+def add_parser(sub, name='safety', func=cmd_safety) -> None:
+    parser = sub.add_parser(name, help=f'benchmark synthetic HTML pages with the app {name} request')
     parser.add_argument('directory')
     parser.add_argument('--models', default=','.join(MODELS))
     parser.add_argument('--repeat', type=int, default=1)
@@ -292,7 +313,9 @@ def add_parser(sub) -> None:
     parser.add_argument('--reasoning', choices=('minimal', 'low', 'medium', 'high'))
     parser.add_argument('--budget', type=float, default=probe.DEFAULT_BUDGET_USD)
     parser.add_argument('--max-unpriced', type=int, default=30)
-    parser.add_argument('--out', default='safety-report')
+    parser.add_argument('--out', default=f'{name}-report')
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--only', default='*', help='glob against subfolder/file.html')
-    parser.set_defaults(func=cmd_safety)
+    if name == 'point':
+        parser.add_argument('--elements', default='on,off')
+    parser.set_defaults(func=func)

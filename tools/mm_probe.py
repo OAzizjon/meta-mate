@@ -1,4 +1,4 @@
-"""mm probe models|stream|click|sam|asr|safety|ledger
+"""mm probe models|stream|click|sam|asr|safety|point|ledger
     mm probe models [--provider P] [--model M] [--timeout S] [--budget USD]
                     [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT]
     mm probe stream QUESTION [--provider P] [--model M] [--timeout S] [--budget USD]
@@ -14,6 +14,9 @@
     mm probe safety DIR [--models muse-spark-1.3,muse-wonder-1.0] [--repeat N] [--jobs K]
                     [--max-edge 1280] [--reasoning EFFORT] [--budget USD] [--max-unpriced N]
                     [--out REPORT_DIR] [--dry-run] [--only GLOB]
+    mm probe point DIR [--models muse-spark-1.3,muse-wonder-1.0] [--elements on,off]
+                   [--repeat N] [--jobs K] [--max-edge 1280] [--reasoning EFFORT]
+                   [--budget USD] [--max-unpriced N] [--out DIR] [--dry-run] [--only GLOB]
     mm probe ledger
 
 The Meta Model API from the lead's machine (never from the agents' copies).
@@ -819,6 +822,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_ledger)
     from mm_probe_safety import add_parser
     add_parser(sub)
+    from mm_probe_point import add_parser as add_point_parser
+    add_point_parser(sub)
     return parser
 
 

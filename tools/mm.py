@@ -22,7 +22,7 @@
     mm agents [status|stats]       the drafting team's queue (team.py)
     mm keys SOURCE_DIR [--apply]   copy the keys named in env_keys_names.txt from another project's
                                    secrets file into this one; prints names only, never values
-    mm probe models|stream|click|sam|asr|safety|ledger
+    mm probe models|stream|click|sam|asr|safety|point|ledger
                                    the Meta Model API from this machine: stream an answer with timings and
                                    cost, or one computer-use turn on a fixture with the element it hit
                                    (tools/mm_probe.py; reads the keys, never prints them)
@@ -857,7 +857,7 @@ def build_parser():
                        ('contracts', 'Rust <-> TypeScript contracts: commands, arguments, events, keys')):
         sp = sub.add_parser(name, help=text, add_help=False)
         sp.add_argument('rest', nargs=argparse.REMAINDER)
-    sp = sub.add_parser('probe', help='Meta API probe: models | stream | click | sam | asr | safety DIR | ledger (uses keys)',
+    sp = sub.add_parser('probe', help='Meta API probe: models | stream | click | sam | asr | safety DIR | point DIR | ledger (uses keys)',
                         add_help=False)
     sp.add_argument('rest', nargs=argparse.REMAINDER)
     return p

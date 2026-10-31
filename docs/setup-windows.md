@@ -38,6 +38,12 @@ To exercise the full voice path from a WAV file, run `cargo run -p metamate --fe
 
 To inspect push-to-talk without opening a window, run `cargo run -p metamate --features custom-protocol -- --ptt-probe`. It prints a prompt and each event with elapsed time, then exits after 60 seconds.
 
+## Pointing benchmark
+
+| Benchmark command (lead only; requires Edge and Cargo) | Output |
+|---|---|
+| `mm probe point fixtures/eval/point [--models muse-spark-1.3,muse-wonder-1.0] [--elements on,off] [--repeat N] [--jobs K] [--max-edge 1280] [--reasoning EFFORT] [--budget USD] [--max-unpriced N] [--out DIR] [--dry-run] [--only GLOB]` | Validates each manifest element's inline absolute rectangle and target ids, renders cached 1280x800 PNG files, asks every question for each model/mode/repeat using the app request, and writes report.json/report.md (default point-report/). Defaults: both models/modes, 1 repeat, 4 workers, minimal reasoning, $10 ledger cap and 30 unpriced calls, sharing safety's reservations. First point only: HIT inside target, NEAR within 24 CSS px, otherwise WRONG or NO-POINT; absent targets score CORRECT/FALSE-POINT. Unknown ids and off-image coordinates count as wrong points. Rates exclude errors; tag/end median and p90, tokens and priced/unpriced ledger totals are grouped by model/mode/language. Dry run renders and prints one image-elided request without loading keys or calling HTTP. Agents use offline tests only. |
+
 ## Build the installer
 
 On the Windows build machine, install the locked npm dependencies and build from the repository root:
