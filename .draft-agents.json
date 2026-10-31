@@ -5,5 +5,6 @@
     "command": "tools/mm.py agent test",
     "env": {},
     "hint": "Agents run only the restricted command set, from the project root: `tools/mm.py agent test` (tools, server and tts unit tests, and the pure Rust crates mm-core and mm-platform with a short CARGO_TARGET_DIR in TEMP), `tools/mm.py agent check` (offline checks), and the code tools: `tools/mm.py agent where NAME` (definition and uses across Rust/TS/Python/locales/docs, Tauri commands with callers, events through constants; also words from a window), `tools/mm.py agent cite FILE` (the code behind path:line references, to check your own claims before you answer), `tools/mm.py agent map` (regenerate docs/code-map.md). Read docs/code-map.md first to find files. The final OK / FAILED line is what counts."
-  }
+  },
+  "brief": "docs/agent-brief.md"
 }
