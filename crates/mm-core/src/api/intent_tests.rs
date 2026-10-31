@@ -341,3 +341,22 @@ fn meta_routing_v5_review_sentences() {
         )
     );
 }
+
+#[test]
+fn more_ways_to_ask_about_mate_take_no_screenshot() {
+    for question in [
+        "Mate, what else can you do?",
+        "How can you help me?",
+        "Can you tell me what you can do?",
+        "Help",
+        "Привет, что ещё ты умеешь?",
+        "Чем ты можешь мне помочь?",
+        "Расскажи о себе",
+    ] {
+        assert_eq!(
+            super::guess_intent(question),
+            super::Intent::Chat,
+            "{question}"
+        );
+    }
+}
