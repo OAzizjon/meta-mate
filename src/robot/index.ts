@@ -1,11 +1,12 @@
 // The robot's public face: mounts Mate (svg.ts), his beam (beam.ts), the state and mood
-// machine (states.ts) and flight (flight.ts) into one container. Reduce motion is on when the
-// setting or the OS (prefers-reduced-motion) asks for it.
+// machine (states.ts), his springs (motion.ts) and flight (flight.ts) into one container.
+// Reduce motion is on when the setting or the OS (prefers-reduced-motion) asks for it.
 
 import "./robot.css";
 import { fitRobotSize, robotSizeDimensions } from "../settings/apply.ts";
 import { createBeamController } from "./beam.ts";
 import { createFlightController } from "./flight.ts";
+import { createMotionController } from "./motion.ts";
 import { createStateAnimator } from "./states.ts";
 import { buildMateSvg, svgEl } from "./svg.ts";
 import { DEFAULT_ROBOT_SIZE } from "./types.ts";
@@ -26,6 +27,13 @@ export interface RobotController {
   aimAt(target: CssRect | null): void;
   /** Flies so that the centre of Mate's box lands on `center` (client CSS pixels). */
   flyTo(center: CssPoint): Promise<void>;
+  /**
+   * The window's position on screen in CSS pixels, at each native move (a drag or a flight):
+   * he leans into the motion and wobbles to rest when it stops.
+   */
+  moved(x: number, y: number): void;
+  /** A drag ended: he lands with a squash if he was moving. */
+  release(): void;
   setSize(size: RobotSizePreset): void;
   /** The "reduce motion" setting; the OS preference counts too. */
   setReduceMotion(reduce: boolean): void;
@@ -48,7 +56,8 @@ export function mountRobot(container: HTMLElement): RobotController {
   container.replaceChildren(root);
 
   const beam = createBeamController(beamLayer);
-  const animator = createStateAnimator(refs, beam);
+  const motion = createMotionController(refs);
+  const animator = createStateAnimator(refs, beam, motion);
   const flight = createFlightController(box);
   const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
   let reduceSetting = false;
@@ -108,6 +117,8 @@ export function mountRobot(container: HTMLElement): RobotController {
       await flight.moveTo(from, to, { reduceMotion: reduceMotion() });
       relayout();
     },
+    moved: (x, y) => motion.moved(x, y),
+    release: () => motion.release(),
     setSize,
     setReduceMotion(reduce) {
       reduceSetting = reduce;
@@ -119,6 +130,7 @@ export function mountRobot(container: HTMLElement): RobotController {
       motionQuery.removeEventListener("change", applyMotion);
       window.removeEventListener("resize", applySize);
       flight.cancel();
+      motion.destroy();
       animator.destroy();
       root.remove();
     },

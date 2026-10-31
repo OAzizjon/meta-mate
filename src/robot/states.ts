@@ -2,10 +2,13 @@
 // and the mood (his face, set by MateScript <mood>). A state may override the face, some only
 // briefly (oops, success), then the mood returns. Loops live in robot.css, keyed on the
 // data-state / data-mood / data-cheeks / data-brows attributes set here; one-shot moves use
-// Web Animations.
+// Web Animations; squash, stretch and lean are springs (motion.ts), held still here.
 
 import type { BeamController } from "./beam.ts";
 import { createFrameUpdate } from "./frame-update.ts";
+import { NO_MOTION } from "./motion.ts";
+import type { MotionController } from "./motion.ts";
+import type { SquashKind } from "./spring.ts";
 import {
   BEAM_HALF_WIDTH,
   MOOD_FACES,
@@ -67,13 +70,21 @@ const STATE_FACES: Partial<Record<RobotState, FaceOverride>> = {
 interface OneShot {
   readonly keyframes: Keyframe[];
   readonly options: KeyframeAnimationOptions;
+  /** The body's squash and stretch that goes with the move. */
+  readonly squash?: SquashKind;
 }
 
-// Moves of the whole body, skipped when motion is reduced.
+// Moves of the whole body, skipped when motion is reduced. Jumps crouch first (anticipation).
 const BODY_MOVES: Partial<Record<RobotState, OneShot>> = {
   success: {
-    keyframes: [{ transform: "translateY(0)" }, { transform: "translateY(-14px)", offset: 0.4 }, { transform: "translateY(0)" }],
-    options: { duration: 400, easing: "ease-out" },
+    keyframes: [
+      { transform: "translateY(0)", easing: "ease-in-out" },
+      { transform: "translateY(3px)", offset: 0.2, easing: "ease-out" },
+      { transform: "translateY(-14px)", offset: 0.5, easing: "ease-in" },
+      { transform: "translateY(0)" },
+    ],
+    options: { duration: 480 },
+    squash: "jump",
   },
   oops: {
     keyframes: [
@@ -104,8 +115,14 @@ const EYE_MOVES: Partial<Record<RobotState, OneShot>> = {
 // is reduced.
 const MOOD_MOVES: Partial<Record<RobotMood, OneShot>> = {
   surprised: {
-    keyframes: [{ translate: "0 0" }, { translate: "0 -10px", offset: 0.35 }, { translate: "0 0" }],
-    options: { duration: 380, easing: "ease-out" },
+    keyframes: [
+      { translate: "0 0", easing: "ease-in-out" },
+      { translate: "0 2px", offset: 0.2, easing: "ease-out" },
+      { translate: "0 -10px", offset: 0.5, easing: "ease-in" },
+      { translate: "0 0" },
+    ],
+    options: { duration: 440 },
+    squash: "jump",
   },
   sad: {
     keyframes: [
@@ -117,27 +134,32 @@ const MOOD_MOVES: Partial<Record<RobotMood, OneShot>> = {
       { translate: "0 0" },
     ],
     options: { duration: 520, easing: "ease-in-out" },
+    squash: "flinch",
   },
   happy: {
     keyframes: [{ rotate: "0deg" }, { rotate: "-6deg", offset: 0.25 }, { rotate: "6deg", offset: 0.6 }, { rotate: "0deg" }],
     options: { duration: 560, easing: "ease-in-out" },
+    squash: "wiggle",
   },
   proud: {
     keyframes: [{ scale: "1" }, { scale: "1.06", offset: 0.4 }, { scale: "1" }],
     options: { duration: 500, easing: "ease-out" },
+    squash: "swell",
   },
 };
 
-// Hello: the raised left hand rocks twice (on start, on waking, on coming back from hiding).
+// Hello: the raised left hand winds up the other way, then rocks twice (on start, on waking,
+// on coming back from hiding).
 const WAVE: OneShot = {
   keyframes: [
     { transform: "rotate(0deg)" },
-    { transform: "rotate(-14deg)", offset: 0.2 },
-    { transform: "rotate(10deg)", offset: 0.45 },
-    { transform: "rotate(-14deg)", offset: 0.7 },
+    { transform: "rotate(6deg)", offset: 0.1 },
+    { transform: "rotate(-14deg)", offset: 0.28 },
+    { transform: "rotate(10deg)", offset: 0.5 },
+    { transform: "rotate(-14deg)", offset: 0.73 },
     { transform: "rotate(0deg)" },
   ],
-  options: { duration: 1100, easing: "ease-in-out" },
+  options: { duration: 1200, easing: "ease-in-out" },
 };
 
 /** How far the success sparks fly out from their places (viewBox units). */
@@ -168,7 +190,11 @@ function isFiniteRect(rect: CssRect): boolean {
   return [rect.left, rect.top, rect.right, rect.bottom].every(Number.isFinite);
 }
 
-export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): StateAnimator {
+export function createStateAnimator(
+  refs: MateSvgRefs,
+  beam: BeamController,
+  motion: MotionController = NO_MOTION,
+): StateAnimator {
   let state: RobotState = "idle";
   let mood: RobotMood = "calm";
   let voice = 0;
@@ -279,6 +305,12 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     beam.setPulse(state === "waiting_for_click" && !onTarget && !isMotionReduced());
   }
 
+  // The springs never pose him while the beam is on: it starts where the flashlight is drawn
+  // at rest. Asleep, hidden and with reduced motion he holds still too.
+  function syncMotion(): void {
+    motion.setStill(hidden || state === "sleeping" || BEAM_STATES.has(state) || isMotionReduced());
+  }
+
   function render(): void {
     setAttr(refs.svg, "data-state", state);
     setAttr(refs.svg, "data-mood", mood);
@@ -328,6 +360,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   function wave(): void {
     if (hidden || state !== "idle" || isMotionReduced()) return;
     stopWave();
+    motion.squash("hello");
     setLeftHandRaised(refs, true);
     const animation = refs.layers["arm-l"].animate(WAVE.keyframes, WAVE.options);
     waving = animation;
@@ -362,7 +395,10 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
     if (hidden || state === "sleeping") return;
     const reduced = isMotionReduced();
     const move = BODY_MOVES[state];
-    if (move && !reduced) oneShots.push(refs.body.animate(move.keyframes, move.options));
+    if (move && !reduced) {
+      oneShots.push(refs.body.animate(move.keyframes, move.options));
+      if (move.squash) motion.squash(move.squash);
+    }
     const eyeMove = EYE_MOVES[state];
     if (eyeMove && !reduced) oneShots.push(refs.eyes.animate(eyeMove.keyframes, eyeMove.options));
     if (state === "success") oneShots.push(refs.layers.aura.animate(FLASH.keyframes, FLASH.options));
@@ -385,6 +421,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
   }
 
   render();
+  syncMotion();
   scheduleBlink();
 
   return {
@@ -395,6 +432,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       // A mood move already running would pull the flashlight off the target.
       if (BEAM_STATES.has(next)) stopGestures();
       state = next;
+      syncMotion();
       voiceFrame.cancel();
       clearTimeout(blinkTimer);
       blinking = false;
@@ -417,6 +455,7 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
       if (changed && move && !hidden && state !== "sleeping" && !BEAM_STATES.has(state) && !isMotionReduced()) {
         // Never while the beam is on a target: the body would pull the flashlight off it.
         gesture(refs.body.animate(move.keyframes, move.options));
+        if (move.squash) motion.squash(move.squash);
       }
     },
     setWarmth(level, steady) {
@@ -453,11 +492,13 @@ export function createStateAnimator(refs: MateSvgRefs, beam: BeamController): St
         stopOneShots();
         stopGestures();
       }
+      syncMotion();
       renderPose();
     },
     setHidden(next) {
       if (hidden === next) return;
       hidden = next;
+      syncMotion();
       clearTimeout(blinkTimer);
       blinking = false;
       voiceFrame.cancel();

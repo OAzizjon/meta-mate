@@ -10,6 +10,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- Mate floats and bends like a living bulb: a layered idle drift (three periods that never line up), springs that squash and stretch him while keeping his size, his cap, arms and filament trailing the body by a beat, a crouch before a jump and a wind-up before a wave, a lean into the direction he is dragged or flown and a small wobble when he lands. None of it runs while his beam is on a target or under reduced motion, and no frames are drawn once he is at rest (claude@alpha).
 - Mate knows who you are: on the first Home visit he asks "What should I call you?" with an optional line about yourself (40 and 300 characters, Save or Skip, Edit later from the greeting "Hi, Anna!"). Both go into Mate's answers as data, never as instructions (angle brackets and control characters removed): he uses the name at most once per answer and never repeats the about line; the intent classifier, the card wording and SAM never receive it (D72).
 - "What can you do?" / "Что ты умеешь?" gets a real answer: up to six short sentences on the beam, lessons, "Is this safe?", picture cards, opening apps and sites and typing in Chat, three example questions shown on screen, and a pointer to the guide; no screenshot is taken for it.
 - A guide on the Home screen, one click away (Guide button or "?"): eight comic-strip cards with what to say, the talk key shown as the person's own key.

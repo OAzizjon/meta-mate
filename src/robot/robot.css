@@ -8,6 +8,7 @@
 }
 
 .mate-svg {
+  --mate-bob: -4px;
   display: block;
   cursor: grab;
   touch-action: none;
@@ -25,7 +26,10 @@
 
 /* SVG groups turn around viewBox points (1px = 1 viewBox unit). Never put transform-origin on
    the groups that use transform attributes (.mate-arms, .mate-aim, .mate-eyes). */
+.mate-motion,
 .mate-body,
+.mate-cap,
+.mate-filament,
 .mate-layer-shadow,
 .mate-layer-aura,
 .mate-layer-arm-l,
@@ -33,8 +37,22 @@
   transform-box: view-box;
 }
 
+/* The springs (motion.ts) write these inline, one frame at a time, never with a transition:
+   the drawing leans and stretches around the bulb's middle, the cap swings from the neck,
+   the filament from its supports, the arms from the shoulders. */
+.mate-motion {
+  transform-origin: 110px 120px;
+}
+
+.mate-cap {
+  transform-origin: 110px 166px;
+}
+
+.mate-filament {
+  transform-origin: 110px 161px;
+}
+
 .mate-body {
-  --mate-bob: -4px;
   transform-origin: 110px 200px;
   transition: transform 0.25s ease-out;
 }
@@ -106,7 +124,7 @@
 }
 
 /* Fun mode: a brighter glow and a bigger hover. */
-.mate-svg.is-fun .mate-body {
+.mate-svg.is-fun {
   --mate-bob: -7px;
 }
 
@@ -149,17 +167,23 @@
   transform: translateY(-1px) rotate(12deg);
 }
 
-/* States (docs/robot.md). Idle floats: a slow figure of eight (three bobs to one sideways
-   swing) and a gentle sway, on the individual transform properties so the states' transforms
-   and the one-shot moves still compose with them. The shadow breathes with the bobs. */
+/* States (docs/robot.md). Idle floats like a balloon: the whole drawing drifts up and down
+   (7.3 s), the body traces a small figure of eight (11.9 s) and tilts into its sideways swing
+   0.8 s late (the -11.1s delay). The two periods never line up, so it does not read as a loop.
+   Individual transform properties, so the states' transforms, the one-shot moves and the
+   springs still compose with them. The shadow breathes with the drift. */
+.mate-svg[data-state="idle"] .mate-motion {
+  animation: mate-drift 7.3s ease-in-out infinite;
+}
+
 .mate-svg[data-state="idle"] .mate-body {
   animation:
-    mate-float 8.4s ease-in-out infinite,
-    mate-sway 5.6s ease-in-out infinite;
+    mate-float 11.9s linear infinite,
+    mate-sway 11.9s ease-in-out -11.1s infinite;
 }
 
 .mate-svg[data-state="idle"] .mate-layer-shadow {
-  animation: mate-float-shadow 8.4s ease-in-out infinite;
+  animation: mate-float-shadow 7.3s ease-in-out infinite;
 }
 
 .mate-svg[data-state="idle"] .mate-layer-aura {
@@ -300,6 +324,18 @@
   transform: none;
 }
 
+/* The springs' inline poses (motion.ts takes them off too). */
+.mate-root.reduce-motion .mate-motion,
+.mate-svg.reduce-motion .mate-motion {
+  transform: none !important;
+}
+
+.mate-root.reduce-motion :is(.mate-cap, .mate-filament, .mate-layer-arm-l, .mate-layer-arm-r),
+.mate-svg.reduce-motion :is(.mate-cap, .mate-filament, .mate-layer-arm-l, .mate-layer-arm-r) {
+  rotate: none !important;
+  translate: none !important;
+}
+
 @keyframes mate-look {
   0%,
   100% {
@@ -323,49 +359,85 @@
   }
 }
 
-@keyframes mate-float {
+@keyframes mate-drift {
   0%,
   100% {
     translate: 0 0;
   }
-  16.67% {
-    translate: 2.5px var(--mate-bob);
-  }
-  33.33% {
-    translate: 2.5px 0;
-  }
   50% {
     translate: 0 var(--mate-bob);
   }
-  66.67% {
-    translate: -2.5px 0;
+}
+
+/* x = 3 sin θ, y = -1.2 sin 2θ in 16 even steps (linear): a smooth figure of eight. */
+@keyframes mate-float {
+  0%,
+  50%,
+  100% {
+    translate: 0 0;
   }
-  83.33% {
-    translate: -2.5px var(--mate-bob);
+  6.25% {
+    translate: 1.15px -0.85px;
+  }
+  12.5% {
+    translate: 2.12px -1.2px;
+  }
+  18.75% {
+    translate: 2.77px -0.85px;
+  }
+  25% {
+    translate: 3px 0;
+  }
+  31.25% {
+    translate: 2.77px 0.85px;
+  }
+  37.5% {
+    translate: 2.12px 1.2px;
+  }
+  43.75% {
+    translate: 1.15px 0.85px;
+  }
+  56.25% {
+    translate: -1.15px -0.85px;
+  }
+  62.5% {
+    translate: -2.12px -1.2px;
+  }
+  68.75% {
+    translate: -2.77px -0.85px;
+  }
+  75% {
+    translate: -3px 0;
+  }
+  81.25% {
+    translate: -2.77px 0.85px;
+  }
+  87.5% {
+    translate: -2.12px 1.2px;
+  }
+  93.75% {
+    translate: -1.15px 0.85px;
   }
 }
 
 @keyframes mate-float-shadow {
   0%,
-  33.33%,
-  66.67%,
   100% {
     scale: 1;
   }
-  16.67%,
-  50%,
-  83.33% {
+  50% {
     scale: 0.92;
   }
 }
 
+/* Peaks where mate-float moves right fastest (0 %); the rule's delay makes it lag. */
 @keyframes mate-sway {
   0%,
   100% {
-    rotate: -1.5deg;
+    rotate: 1.5deg;
   }
   50% {
-    rotate: 1.5deg;
+    rotate: -1.5deg;
   }
 }
 

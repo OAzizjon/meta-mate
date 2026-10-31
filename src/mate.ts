@@ -293,11 +293,27 @@ if (container) {
   container.querySelector(".mate-svg")?.addEventListener("pointerdown", (event) => {
     if (!(event instanceof PointerEvent) || event.button !== 0 || !inTauri) return;
     event.preventDefault();
-    // Native polling distinguishes a click from a drag and never activates the window.
-    void tauriInvoke("mate_drag_start", { x: event.clientX, y: event.clientY }).catch((error: unknown) => {
-      console.error("mate: drag:", error);
-    });
+    // Native polling distinguishes a click from a drag and never activates the window. The
+    // command returns when the drag (or click) is over: he lands if the drag moved him.
+    void tauriInvoke("mate_drag_start", { x: event.clientX, y: event.clientY })
+      .then(() => robot.release())
+      .catch((error: unknown) => {
+        console.error("mate: drag:", error);
+      });
   });
+  if (inTauri) {
+    // Rust moves the window (a drag or a flight); he leans into it (src/robot/motion.ts).
+    void import("@tauri-apps/api/webviewWindow")
+      .then(({ getCurrentWebviewWindow }) =>
+        getCurrentWebviewWindow().onMoved(({ payload }) => {
+          const ratio = window.devicePixelRatio || 1;
+          robot.moved(payload.x / ratio, payload.y / ratio);
+        }),
+      )
+      .catch((error: unknown) => {
+        console.error("mate: moves:", error);
+      });
+  }
   const motionQuery =
     typeof window.matchMedia === "function" ? window.matchMedia(REDUCED_MOTION_QUERY) : null;
   let refreshTrial = (): void => {};

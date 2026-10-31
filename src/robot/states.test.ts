@@ -1,6 +1,6 @@
 // Run with `npm test` (Node's own test runner; Node 24 strips the types).
-// Unit tests for Mate's state vocabulary and state animator (`looking` sweep, reduce-motion and
-// the v1.1 brows and filament).
+// Unit tests for Mate's state vocabulary and state animator (`looking` sweep, reduce-motion,
+// the v1.1 brows and filament, and the springs held still while the beam is on).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -8,6 +8,8 @@ import { test } from "node:test";
 import type { BeamController } from "./beam.ts";
 import { MOOD_FACES, THINKING_GAZE } from "./geometry.ts";
 import type { BrowStyle } from "./geometry.ts";
+import { NO_MOTION, createMotionController } from "./motion.ts";
+import type { FrameClock, MotionController } from "./motion.ts";
 import { LOOKING_SWEEP_MS, createStateAnimator } from "./states.ts";
 import { buildMateSvg } from "./svg.ts";
 import type { MateSvgRefs } from "./svg.ts";
@@ -68,6 +70,7 @@ class FakeSvgElement {
       opacity: "",
       setProperty(name: string, value: string): void { properties.set(name, value); },
       removeProperty(name: string): void {
+        properties.delete(name);
         if (name === "opacity") styleObj.opacity = "";
       },
     };
@@ -145,7 +148,7 @@ class FakeSvgElement {
   }
 }
 
-function createHarness() {
+function createHarness(motionFor?: (refs: MateSvgRefs) => MotionController) {
   const prevDocument = (globalThis as { document?: unknown }).document;
   (globalThis as { document?: unknown }).document = {
     createElementNS(_ns: string, tag: string) {
@@ -165,11 +168,14 @@ function createHarness() {
       beamCalls.push("hide");
     },
   };
-  const animator = createStateAnimator(refs, beam);
+  const animator = createStateAnimator(refs, beam, motionFor?.(refs));
   return {
     refs: refs as unknown as {
       readonly svg: FakeSvgElement;
+      readonly motion: FakeSvgElement;
       readonly body: FakeSvgElement;
+      readonly cap: FakeSvgElement;
+      readonly filament: FakeSvgElement;
       readonly eyes: FakeSvgElement;
       readonly mouth: FakeSvgElement;
       readonly layers: Record<string, FakeSvgElement>;
@@ -488,4 +494,137 @@ test("Mate waves hello on his first idle and after waking, never with reduced mo
   assert.equal(still.refs.layers["arm-l"].animations.length, 0);
   still.animator.setMood("surprised");
   assert.equal(still.refs.body.animations.length, 0);
+});
+
+/** Animation frames by hand: `frame()` moves the clock one frame on and runs what was due. */
+function fakeFrames() {
+  let now = 0;
+  let id = 0;
+  const pending = new Map<number, FrameRequestCallback>();
+  const clock: FrameClock = {
+    now: () => now,
+    request(callback) {
+      pending.set(++id, callback);
+      return id;
+    },
+    cancel(frame) {
+      pending.delete(frame);
+    },
+  };
+  return {
+    clock,
+    pending,
+    frame(ms = 16) {
+      now += ms;
+      const due = [...pending.values()];
+      pending.clear();
+      for (const callback of due) callback(now);
+    },
+  };
+}
+
+function createSpringHarness() {
+  const frames = fakeFrames();
+  let motion: MotionController = NO_MOTION;
+  const h = createHarness((refs) => (motion = createMotionController(refs, frames.clock)));
+  const springStyles = (): string[] =>
+    [
+      h.refs.motion.cssProperties.get("transform"),
+      h.refs.cap.cssProperties.get("rotate"),
+      h.refs.cap.cssProperties.get("translate"),
+      h.refs.filament.cssProperties.get("rotate"),
+      h.refs.layers["arm-l"].cssProperties.get("rotate"),
+      h.refs.layers["arm-r"].cssProperties.get("rotate"),
+    ].filter((value): value is string => value !== undefined);
+  /** The window dragged right, one move per frame. */
+  const drag = (from: number): void => {
+    for (let i = 0; i < 6; i++) {
+      motion.moved(from + i * 12, 40);
+      frames.frame();
+    }
+  };
+  return { ...h, frames, motion: () => motion, springStyles, drag };
+}
+
+test("the springs never move or tilt the flashlight while the beam is on, and come back after", (t) => {
+  const h = createSpringHarness();
+  t.after(() => h.cleanup());
+  h.animator.setState("idle");
+  h.drag(0);
+  assert.match(String(h.refs.motion.cssProperties.get("transform")), /^matrix\(/, "a drag leans him in idle");
+  assert.equal(h.refs.filament.getAttribute("class"), "mate-filament");
+
+  h.animator.aimAt({ left: 300, top: 40, right: 360, bottom: 80 });
+  for (const state of ["pointing", "waiting_for_click", "oops"] as const) {
+    h.animator.setState(state);
+    assert.deepEqual(h.springStyles(), [], `${state}: the rest pose at once`);
+    assert.equal(h.frames.pending.size, 0, `${state}: no frame left`);
+    h.drag(100);
+    h.motion().squash("jump");
+    h.motion().release();
+    h.animator.setMood("surprised");
+    h.animator.setMood("calm");
+    h.frames.frame();
+    assert.deepEqual(h.springStyles(), [], `${state}: moves, kicks and moods are ignored`);
+    assert.equal(h.frames.pending.size, 0, state);
+  }
+  assert.ok(h.beamCalls.includes("aimAt"));
+
+  h.animator.setState("idle");
+  h.drag(200);
+  assert.match(String(h.refs.motion.cssProperties.get("transform")), /^matrix\(/, "back in idle he leans again");
+});
+
+test("with reduced motion the springs hold the rest pose, and the state still shows", (t) => {
+  const h = createSpringHarness();
+  t.after(() => h.cleanup());
+  h.animator.setReduceMotion(true);
+  h.animator.setState("idle");
+  h.animator.setMood("surprised");
+  h.drag(0);
+  h.motion().release();
+  assert.equal(h.frames.pending.size, 0);
+  assert.deepEqual(h.springStyles(), []);
+  assert.equal(h.refs.svg.getAttribute("data-state"), "idle");
+  assert.equal(h.refs.svg.getAttribute("data-brows"), "high");
+
+  // Reducing motion mid-drag puts him back at rest at once.
+  h.animator.setReduceMotion(false);
+  h.drag(100);
+  assert.notDeepEqual(h.springStyles(), []);
+  h.animator.setReduceMotion(true);
+  assert.deepEqual(h.springStyles(), []);
+  assert.equal(h.frames.pending.size, 0);
+});
+
+test("after a drag he wobbles to rest, then takes the spring styles off and asks for no frames", (t) => {
+  const h = createSpringHarness();
+  t.after(() => h.cleanup());
+  h.animator.setState("idle");
+  h.drag(0);
+  h.motion().release();
+  for (let i = 0; i < 400 && h.frames.pending.size > 0; i++) h.frames.frame();
+  assert.equal(h.frames.pending.size, 0);
+  assert.deepEqual(h.springStyles(), []);
+});
+
+test("robot.css floats idle Mate in layers whose periods never line up, and reduced motion drops the springs' poses", () => {
+  const drift = ROBOT_CSS.match(/\.mate-svg\[data-state="idle"\]\s+\.mate-motion\s*\{[^}]*animation:\s*mate-drift\s+([\d.]+)s/);
+  const body = ROBOT_CSS.match(
+    /\.mate-svg\[data-state="idle"\]\s+\.mate-body\s*\{[^}]*mate-float\s+([\d.]+)s\s+linear[^}]*mate-sway\s+([\d.]+)s\s+ease-in-out\s+(-[\d.]+)s/,
+  );
+  assert.ok(drift && body);
+  const ratio = Number(body[1]) / Number(drift[1]);
+  for (let q = 1; q <= 5; q++) {
+    assert.ok(Math.abs(ratio * q - Math.round(ratio * q)) > 0.05, `the float repeats after ${q} drifts`);
+  }
+  // The tilt follows the sideways swing: the same period, a little late.
+  assert.equal(body[2], body[1]);
+  const lateS = Number(body[1]) + Number(body[3]);
+  assert.ok(lateS > 0.3 && lateS < 1.5, `late by ${lateS} s`);
+  assert.match(ROBOT_CSS, new RegExp(`\\.mate-layer-shadow\\s*\\{[^}]*mate-float-shadow\\s+${drift[1]}s`));
+  // Breath stays.
+  assert.match(ROBOT_CSS, /\.mate-svg\[data-state="idle"\]\s+\.mate-layer-aura\s*\{[^}]*mate-breathe\s+4\.2s/);
+  assert.match(ROBOT_CSS, /\.mate-svg\.reduce-motion\s+\.mate-motion\s*\{[^}]*transform:\s*none\s*!important/);
+  assert.match(ROBOT_CSS, /\.mate-svg\.reduce-motion\s+:is\([^)]*\.mate-cap[^)]*\)\s*\{[^}]*rotate:\s*none\s*!important/);
 });

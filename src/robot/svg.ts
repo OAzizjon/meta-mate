@@ -50,8 +50,14 @@ export type LayerName = (typeof LAYERS)[number];
 
 export interface MateSvgRefs {
   readonly svg: SVGSVGElement;
+  /** Wraps the body: the idle drift and the springs' lean, stretch and squash (motion.ts). */
+  readonly motion: SVGGElement;
   /** Everything but the shadow: hover, lean, jump and tilt move this group. */
   readonly body: SVGGElement;
+  /** The base and its status light: they swing a little behind the glass. */
+  readonly cap: SVGGElement;
+  /** The filament in the glass: it trails the body the longest. */
+  readonly filament: SVGElement;
   readonly layers: Readonly<Record<LayerName, SVGGElement>>;
   /** Mirrors both arms when the target is on the left. */
   readonly arms: SVGGElement;
@@ -147,22 +153,30 @@ export function buildMateSvg(idPrefix: string = uniqueId("mate")): MateSvgRefs {
   const arms = svgEl("g", { class: "mate-arms" });
   arms.append(layers["arm-l"], aim);
 
+  const cap = svgEl("g", { class: "mate-cap" });
+  cap.append(layers.base, layers["status-light"]);
+  // glassNodes always draws it; a detached group only keeps the springs' writes harmless.
+  const filament =
+    (Array.from(layers.glass.children).find((child) => child.classList.contains("mate-filament")) as SVGElement | undefined) ??
+    svgEl("g");
+
   // The art's paint order: shadow, aura, arms, base, glass, face, cheeks.
   const body = svgEl("g", { class: "mate-body" });
   body.append(
     layers.aura,
     arms,
-    layers.base,
-    layers["status-light"],
+    cap,
     layers.glass,
     layers.face,
     layers.cheeks,
     layers.sparks,
     layers.z,
   );
-  svg.append(defs, layers.shadow, body);
+  const motion = svgEl("g", { class: "mate-motion" });
+  motion.append(body);
+  svg.append(defs, layers.shadow, motion);
 
-  const refs: MateSvgRefs = { svg, body, layers, arms, aim, eyes, mouth };
+  const refs: MateSvgRefs = { svg, motion, body, cap, filament, layers, arms, aim, eyes, mouth };
   setEyes(refs, "open");
   setMouth(refs, "smile");
   setArmPose(refs, "rest");

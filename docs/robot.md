@@ -35,24 +35,26 @@ Two independent channels: the **state** (what Mate is doing: listening, flying, 
 
 | State | Animation | Sound |
 |---|---|---|
-| idle | floats in a slow figure of eight (three bobs to one sideways swing, 8.4 s) with a gentle ±1.5° sway, the glow breathes (4.2 s), the mint status light beats softly, blink every 3–6 s, eyes follow the mouse a little; waves hello with the left hand on his first idle, after waking and when he comes back from hiding | — |
+| idle | floats like a balloon: a slow drift up and down (7.3 s), a small sideways figure of eight (11.9 s) and a ±1.5° tilt that follows the sideways swing 0.8 s late, so the float never visibly repeats; the glow breathes (4.2 s), the mint status light beats softly, blink every 3–6 s, eyes follow the mouse a little; waves hello with the left hand (a small wind-up first) on his first idle, after waking and when he comes back from hiding | — |
 | listening | leans toward the user, the bulb glows brighter, eyes wide, the status light beats fast | listen |
 | thinking | eyes look up/sideways, the glow pulses slowly, he ponders side to side and three sparks circle the glass | think (loop, soft) |
 | speaking | mouth follows the voice level, glow breathes with it, arms gesture, a small nod in the rhythm of speech | — |
-| flying | tilts toward the direction, motion trail, arrives with a small bounce | whoosh |
+| flying | tilts toward the direction, motion trail, arrives with a small bounce; while his window flies or is dragged he leans into the motion and wobbles to rest when it stops (see Flexibility) | whoosh |
 | pointing | flashlight up, beam lands on the target, target gets a soft glow + contour | ping (panned ≤ ±30%) |
 | waiting for click | the beam pulses gently on the target every 2 s | — |
-| success | a jump, happy eyes, a bright flash and six sparks bursting outward | success |
+| success | a crouch and a jump, happy eyes, a bright flash and six sparks bursting outward | success |
 | oops | head tilt, "hmm" eyes, re-aims the beam | oops |
 | can't find | shrug, palms up, beam off | — |
 | sleeping | eyes closed, "z", glow dims to off, sinks into the tray icon | sleep |
 | fun mode | warmer, brighter glow, bigger moves | — |
 
-Moods react once when they arrive (skipped with reduced motion): surprised ("be careful") jumps, sad (a scam verdict) flinches and the glow dims a little, happy wiggles, proud swells; joy and pride brighten the glow. Rules for new motion: `.claude/skills/metamate-mate-motion/SKILL.md`.
+Moods react once when they arrive (skipped with reduced motion): surprised ("be careful") crouches and jumps, sad (a scam verdict) flinches and the glow dims a little, happy wiggles, proud swells; joy and pride brighten the glow. Rules for new motion: `.claude/skills/metamate-mate-motion/SKILL.md`.
+
+**Flexibility** (`src/robot/spring.ts`, applied by `motion.ts`). Springs on animation frames, running only while something moves. The bulb squashes and stretches without changing its area (scaleX × scaleY = 1): a crouch before a jump or a wave, a stretch for pride and joy, a squash on landing. While his window moves (a drag or a flight, reported by Tauri's window-moved event) he leans into it, at most 12°, and stretches a little along it. When it stops he wobbles to rest in about two swings. The arms, the cap (base and status light) and the filament trail the body by about 65, 90 and 115 ms, with a small overshoot. Never in pointing, waiting for click or oops (the beam starts where the flashlight is drawn at rest), asleep, hidden or with reduced motion.
 
 ## Interactions
 
-- **Drag** anywhere on the body to move; he remembers his place per monitor.
+- **Drag** anywhere on the body to move; he leans into the drag, lands with a little squash and remembers his place per monitor.
 - **Press and hold** = talk (same as holding Right Ctrl).
 - **Mouse wheel over Mate** or the corner handle = resize: S 64 px, M 96 px (default), L 160 px, XL 220 px (for low vision).
 - **Right-click** = menu: Hide, Size, Calm/Fun sounds, Settings, Quit.

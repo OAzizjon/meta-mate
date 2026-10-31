@@ -505,14 +505,22 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   MOUTHS:251 CHEEKS:262 MOOD_FACES:267 ArmPose:279 MIRROR_TRANSFORM:283 ARM_L:302 ARM_R:309 FLASHLIGHT:316
   SHOULDER:327 NOZZLE:328 BEAM_HALF_WIDTH:330 THINKING_GAZE:334 ArmAim:336 STRAIGHT_AIM:340 clamp:343 rectCenter:347
   viewScale:352 viewToCss:360 cssToView:367 armAim:374 nozzleInView:382 gazeToward:392 openMouthRy:402 computeBeamPolygon:411
-- src/robot/index.ts — The robot's public face: mounts Mate (svg.ts), his beam (beam.ts), the state and mood machine (states.ts) and flight (flight.ts) into one container.
-  ROBOT_MOODS:15^ ROBOT_STATES:15^ isRobotMood:15^ isRobotState:15^ RobotController:17 mountRobot:38
+- src/robot/index.ts — The robot's public face: mounts Mate (svg.ts), his beam (beam.ts), the state and mood machine (states.ts), his springs (motion.ts) and flight (flight.ts) into one container.
+  ROBOT_MOODS:16^ ROBOT_STATES:16^ isRobotMood:16^ isRobotState:16^ RobotController:18 mountRobot:46
+- src/robot/motion.ts — Puts the springs' pose (spring.ts) on Mate's drawing: one style write per animation frame and only while something moves, so there are no frames at rest and no layout reads.
+  MotionController:12 NO_MOTION:24 FrameClock:32 MotionParts:44 createMotionController:67
+- src/robot/spring.ts — Mate's springs (docs/robot.md "Flexibility"): the body leans into the window's motion, stretches along it and squashes on hello, mood jumps and landings, always keeping its area; the arms, the cap …
+  SpringParams:9 Spring:14 AT_REST:19 WOBBLE:22 followSpring:28 FOLLOW_LAG_MS:34 stepSpring:42 MoveSample:54
+  Velocity:60 VELOCITY_WINDOW_MS:67 STALE_MS:71 JUMP_PX_PER_S:73 addSample:76 velocityOf:88 LEAN_DEG_PER_PX_S:98 MAX_LEAN_DEG:99
+  MAX_STRETCH:102 MAX_SQUASH:104 leanFor:108 stretchFor:112 scalePair:117 MotionPose:122 REST_POSE:138 bodyMatrix:154
+  SquashKind:175 SQUASH_KICKS:178 MotionModel:203 createMotionModel:226
+  tests: src/robot/spring.test.ts (10)
 - src/robot/states.ts — Mate's two channels (docs/robot.md "States"): the state (what he is doing, set by the app) and the mood (his face, set by MateScript <mood>).
-  LOOKING_SWEEP_MS:28 StateAnimator:30 createStateAnimator:171
-  tests: src/robot/states.test.ts (14)
+  LOOKING_SWEEP_MS:31 StateAnimator:33 createStateAnimator:193
+  tests: src/robot/states.test.ts (18)
 - src/robot/svg.ts — Builds Mate's layered SVG from geometry.ts with createElementNS only (no innerHTML), and swaps the face and arm layers in place.
-  LAYERS:35 LayerName:49 MateSvgRefs:51 uniqueId:67 svgEl:72 setAttr:79 num:86 buildMateSvg:109
-  setLeftHandRaised:173 setEyes:187 setMouth:191 setMouthOpen:196 setGaze:203 setArmPose:209
+  LAYERS:35 LayerName:49 MateSvgRefs:51 uniqueId:73 svgEl:78 setAttr:85 num:92 buildMateSvg:115
+  setLeftHandRaised:187 setEyes:201 setMouth:205 setMouthOpen:210 setGaze:217 setArmPose:223
 - src/robot/types.ts — The robot's vocabulary, shared with Rust: states (mm-platform overlay.rs `RobotState`), moods (mm-core matescript/vocabulary.rs `MOODS`), sizes (docs/robot.md) and CSS-pixel geometry (mm-core geom.rs …
   ROBOT_STATES:5 RobotState:19 ROBOT_MOODS:21 RobotMood:22 RobotSizePreset:24 ROBOT_SIZE_PX:27 DEFAULT_ROBOT_SIZE:28 CssPoint:34
   CssRect:40 isRobotState:47 isRobotMood:51
@@ -687,11 +695,11 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_clear` src-tauri/src/chat.rs:338 <- src/chat.ts:201
 - `chat_send` src-tauri/src/chat.rs:308 <- src/chat.ts:186
 - `chat_subscribe` src-tauri/src/chat.rs:289 <- src/chat.ts:225
-- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:384, src/signin.ts:104
+- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:400, src/signin.ts:104
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:30
 - `load_settings` src-tauri/src/settings.rs:279 <- src/highlight.ts:514, src/home.ts:168, src/settings/model.ts:283, src/settings/theme.ts:31
-- `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:297
+- `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:298
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_answer_target` src-tauri/src/opening.rs:16 <- src/mate.ts:254
 - `open_chat` src-tauri/src/chat.rs:275 <- src/home.ts:450, src/mate-menu.ts:5
@@ -728,18 +736,18 @@ File names declared as Rust string constants (read or written by the app).
 
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
-- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:380, src/settings.ts:156, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
+- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:396, src/settings.ts:156, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:30; rs listen src-tauri/src/card.rs:69; const src-tauri/src/card.rs:38, src/card.ts:39
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
-- `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:400; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:379, src/signin.ts:106; const src-tauri/src/signin.rs:18
-- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:357; const src-tauri/src/highlight.rs:15
-- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:389
+- `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:416; const src-tauri/src/explain.rs:39
+- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:395, src/signin.ts:106; const src-tauri/src/signin.rs:18
+- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:373; const src-tauri/src/highlight.rs:15
+- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:405
 - `lesson-card`: rs emit src-tauri/src/card.rs:470; ts listen src/card-page.ts:26; const src-tauri/src/card.rs:37, src/card.ts:37
 - `lesson-interrupt`: rs emit src-tauri/src/voice.rs:524; ts listen src/mate.ts:215; const src/mate.ts:35
-- `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:363
-- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:362
-- `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:364
+- `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:379
+- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:378
+- `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:380
 - `settings-changed`: rs emit src-tauri/src/settings.rs:307,343; ts listen src/highlight.ts:519, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:53, src/settings.ts:144; const src-tauri/src/settings.rs:25, src/settings/model.ts:27
 
 ### Proxy routes
@@ -882,7 +890,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
 | src-tauri | 193 | 20 |
-| src | 296 | 30 |
+| src | 310 | 31 |
 | tools | 304 | 20 |
 | server | 94 | 4 |
 | tts | 27 | 2 |
