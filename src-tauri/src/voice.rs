@@ -744,7 +744,7 @@ async fn answer(
         Ok(Err(error)) => {
             eprintln!("voice: speech recognition: {error}");
             let generation = live_lesson(&lessons).map_or(generation, |lesson| lesson.generation);
-            return failed(&stream, generation, &error);
+            return failed(&stream, &phrases, generation, &error);
         }
         Err(_) => return, // cancelled
     };
@@ -1215,12 +1215,14 @@ pub(crate) fn say_line(
     }
 }
 
-fn failed(stream: &AnswerStream, generation: u64, error: &ProxyError) {
-    // The phrases are not at hand here: the line shows in the bubble only.
-    stream.send(AnswerMsg::Line {
+fn failed(stream: &AnswerStream, phrases: &Phrases, generation: u64, error: &ProxyError) {
+    say_line(
+        stream,
+        phrases,
+        &stream.locale(),
         generation,
-        key: error_line(error),
-    });
+        error_line(error),
+    );
     stream.send(AnswerMsg::State {
         generation,
         state: "idle",
@@ -1327,6 +1329,43 @@ fn load_built_phrases(phrases: &Phrases, base: &std::path::Path) {
 #[cfg(test)]
 mod tests {
     use super::is_overlay;
+
+    #[test]
+    fn failure_phrases_use_the_error_key_and_locale() {
+        use super::*;
+
+        let phrases: Phrases = Arc::default();
+        for (voice, wav) in [("en", vec![1]), ("ru", vec![2])] {
+            phrases
+                .lock()
+                .unwrap()
+                .insert((voice, "robot.network_error".to_owned()), wav);
+        }
+        for error in [
+            ProxyError::Network(String::new()),
+            ProxyError::Refused {
+                status: 429,
+                message: String::new(),
+            },
+            ProxyError::Refused {
+                status: 503,
+                message: String::new(),
+            },
+        ] {
+            let key = error_line(&error);
+            assert_eq!(key, "robot.network_error");
+            assert_eq!(phrase(&phrases, "en", key), Some(vec![1]));
+            assert_eq!(phrase(&phrases, "ru", key), Some(vec![2]));
+        }
+        let key = error_line(&ProxyError::SessionRefused);
+        assert_eq!(key, "robot.sign_in_again");
+        assert_eq!(phrase(&phrases, "en", key), None);
+        phrases
+            .lock()
+            .unwrap()
+            .insert(("en", key.to_owned()), vec![3]);
+        assert_eq!(phrase(&phrases, "en", key), Some(vec![3]));
+    }
 
     #[tokio::test]
     async fn refusal_cancels_answer_and_detached_lesson() {

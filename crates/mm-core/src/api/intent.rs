@@ -612,7 +612,7 @@ pub fn guess_intent(question: &str) -> Intent {
     }
     let lower = spoken_words(question);
     let words: Vec<&str> = words(&lower).collect();
-    // "Don't click", "не нажимай": a negated action is neither guidance nor delegation.
+    // "Don't click", "не нажимай": a negated action alone is not a request for guidance.
     // Only a negation right before an action word counts: "I can't find the font, it's not
     // there" still finds it.
     // "Don't double-click it" too: "double", "right" and "left" may sit in between.
@@ -626,15 +626,12 @@ pub fn guess_intent(question: &str) -> Intent {
                 None => false,
             }
     });
-    if negated_action {
-        return Intent::Chat;
-    }
     let imperative = words
         .iter()
         .find(|word| !matches!(**word, "please" | "mate" | "пожалуйста"))
         .is_some_and(|word| command_word(word));
     // "Не знаю, нажми за меня": a command to Mate anywhere with "за меня", "сам" or
-    // "yourself" hands it over (a negated action already went to Chat above); "как мне
+    // "yourself" hands it over (unless an action is negated); "как мне
     // открыть настройки? Я сам хочу разобраться" has no command, so it stays How.
     let handed_over = words.iter().any(|word| command_word(word))
         && (has_phrase(&words, &["за", "меня"])
@@ -655,17 +652,10 @@ pub fn guess_intent(question: &str) -> Intent {
                 matches!(*next, "это" | "сам" | "сами" | "за" | "пожалуйста" | "уже")
             })
     });
-    if asks_do_it(question) || do_this || handed_over || has_phrase(&words, &["do", "it"]) || for_me
-    {
-        return Intent::Do;
-    }
-    if words
+    let where_cue = words
         .iter()
         .any(|word| matches!(*word, "where" | "find" | "где" | "найди" | "покажи"))
-        || has_phrase(&words, &["show", "me"])
-    {
-        return Intent::Where;
-    }
+        || has_phrase(&words, &["show", "me"]);
     // "Помоги мне отправить письмо", "help me send this email": a computer task to walk
     // through. "Помоги придумать тост", "help me write a card" stay conversation.
     let help = words.iter().enumerate().any(|(index, word)| {
@@ -679,8 +669,7 @@ pub fn guess_intent(question: &str) -> Intent {
             .take(3)
             .any(|word| computer_task(word))
     });
-    if imperative
-        || help
+    let how_cue = help
         || has_phrase(&words, &["how", "do", "i"])
         || has_phrase(&words, &["how", "to"])
         || has_phrase(&words, &["what", "can", "i", "do", "here"])
@@ -714,8 +703,23 @@ pub fn guess_intent(question: &str) -> Intent {
                     let verb = verb.unwrap_or(word);
                     verb.ends_with("ть") || verb.ends_with("ти") || verb.ends_with("чь")
                 })
-        })
+        });
+    if negated_action && !where_cue && !how_cue {
+        return Intent::Chat;
+    }
+    if !negated_action
+        && (asks_do_it(question)
+            || do_this
+            || handed_over
+            || has_phrase(&words, &["do", "it"])
+            || for_me)
     {
+        return Intent::Do;
+    }
+    if where_cue {
+        return Intent::Where;
+    }
+    if imperative || how_cue {
         return Intent::How;
     }
     // A question about what is in front of the person needs the screen even without

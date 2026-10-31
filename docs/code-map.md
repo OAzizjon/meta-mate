@@ -11,7 +11,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 
 - crates/mm-core/src/api/intent.rs — Intent routing as pure data, with an offline fallback.
   Intent:6 intent_request:22 parse_intent:37 parse_yes_no:101 parse_yes_no_for_locale:106 asks_do_it:242 guess_intent:609
-  tests: crates/mm-core/tests/intent.rs (14)
+  tests: crates/mm-core/tests/intent.rs (15)
 - crates/mm-core/src/api/mod.rs — The Meta Model API (Responses API) as pure data: building requests and reading responses, no networking here (the proxy client lives elsewhere).
   intent:4 request:6 response:7 sam:8 sse:9
 - crates/mm-core/src/api/prompts.rs — The prompt texts (docs/prompts.md, D41) that the builders in api/request.rs send as `instructions`: model input, not UI text, so invariant 7 does not apply.
@@ -322,8 +322,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src-tauri/src/teacher/tests.rs
 - src-tauri/src/voice.rs — The live voice loop (docs/plan.md Day 2): push-to-talk → microphone → speech recognition (the socket opens at key-down, D44) → Muse Spark → MateScript timeline → MMS-TTS sentence by sentence, all …
   Phrases:74 VoiceLoop:115 ask_text:134 ask_chat:145 ask_explain:156 remembered_target:161 show_line:171 start:179
-  ask:213 proxy_config:295 invalidate_overlays:1139 overlays_changed:1143 phrase:1199 say_line:1205 error_line:1231 voice_of:1239
-  inline tests (2)
+  ask:213 proxy_config:295 invalidate_overlays:1139 overlays_changed:1143 phrase:1199 say_line:1205 error_line:1233 voice_of:1241
+  inline tests (3)
 - src-tauri/src/voice_selftest.rs — `--voice-selftest FILE.wav [--proxy URL]`: the whole voice path against the dev proxy, unattended, with every latency measured.
   run_if_requested:26
 
@@ -723,9 +723,9 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:66; ts src/ipc/answer-stream.ts:38
 - `robot.look_consent`: rs src-tauri/src/screen.rs:545; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:129
 - `robot.looking`: rs src-tauri/src/voice.rs:64
-- `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1235; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
-- `robot.no_microphone`: rs src-tauri/src/voice.rs:622,638,758,1269; ts src/ipc/answer-stream.ts:24
-- `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1270; ts src/ipc/answer-stream.ts:25
+- `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1237; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
+- `robot.no_microphone`: rs src-tauri/src/voice.rs:622,638,758,1271; ts src/ipc/answer-stream.ts:24
+- `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1272; ts src/ipc/answer-stream.ts:25
 - `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:83; ts src/ipc/answer-stream.ts:53
 - `robot.press_failed`: rs src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:54
 - `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:82; ts src/ipc/answer-stream.ts:52
@@ -735,7 +735,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/ipc/answer-stream.ts:43
 - `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/ipc/answer-stream.ts:44
 - `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/ipc/answer-stream.ts:45
-- `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:185, src-tauri/src/voice.rs:1233; ts src/ipc/answer-stream.ts:36
+- `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:185, src-tauri/src/voice.rs:1235; ts src/ipc/answer-stream.ts:36
 - `robot.sign_in_first`: rs src-tauri/src/signin.rs:68; ts src/ipc/answer-stream.ts:37
 - `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:466,547; ts src/ipc/answer-stream.ts:55
 - `robot.thinking`: rs src-tauri/src/voice.rs:63
@@ -797,10 +797,10 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 247 | 31 |
+| crates/mm-core | 248 | 31 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
-| src-tauri | 173 | 20 |
+| src-tauri | 174 | 20 |
 | src | 235 | 26 |
 | tools | 265 | 17 |
 | server | 86 | 4 |

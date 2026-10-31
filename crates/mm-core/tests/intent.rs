@@ -81,6 +81,50 @@ fn imperatives_guide_unless_the_user_explicitly_delegates() {
 }
 
 #[test]
+fn negated_actions_allow_guidance_but_never_delegation() {
+    for text in [
+        "Don't press it for me, just show me where Save is",
+        "Don't click it, where is Save?",
+        "Don't click it, find Save",
+        "Don't press it for me, show me Save",
+        "Не нажимай сам, покажи, где сохранить",
+        "Не нажимай, где сохранить?",
+        "Не нажимай, найди Сохранить",
+        "Не нажимай сам, покажи Сохранить",
+        "Don't click it, do it for me, where is Save?",
+        "Не нажимай, сделай это, где сохранить?",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Where, "{text}");
+    }
+    for text in [
+        "Don't press it for me, how do I save?",
+        "Don't double-click it yourself, how to save?",
+        "Не нажимай сам, как мне сохранить файл?",
+        "Не нажимай, научи сохранять файл",
+        "Don't click it, help me save this file",
+        "Не нажимай, помоги сохранить файл",
+        "Don't click it, do it for me, how do I save?",
+        "Не нажимай, сделай это, как сохранить файл?",
+    ] {
+        assert_eq!(guess_intent(text), Intent::How, "{text}");
+    }
+    for text in [
+        "Don't press it for me",
+        "Не нажимай сам",
+        "Click Save, don't press Cancel",
+        "Нажми Сохранить, не нажимай Отмена",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Chat, "{text}");
+    }
+    for text in [
+        "Don't click it, show me where Save is, is this safe?",
+        "Не нажимай сам, покажи где сохранить, это безопасно?",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Safety, "{text}");
+    }
+}
+
+#[test]
 fn labels_tolerate_case_punctuation_and_markdown() {
     for (text, expected) in [
         ("WHERE", Intent::Where),
