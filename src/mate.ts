@@ -14,8 +14,8 @@ import { applyTheme } from "./settings/theme.ts";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
-import { awakeBubble, createMateAnswerRouter, createMateWindowEvents, guestTrialView, interruptLesson, signedIn } from "./mate-logic.ts";
-import type { Bubble, Stamp } from "./mate-logic.ts";
+import { awakeBubble, bubbleShape, createMateAnswerRouter, createMateWindowEvents, guestTrialView, interruptLesson, signedIn } from "./mate-logic.ts";
+import type { Bubble, BubbleShape, Stamp } from "./mate-logic.ts";
 import { SAFETY_CHECK_EVENT, STAMP_KEYS, stampClearOf } from "./safety-stamp.ts";
 import type { SafetyVerdict } from "./safety-stamp.ts";
 import type { LocaleKey } from "./i18n";
@@ -23,7 +23,7 @@ import { mountOnboarding, setOnboardingTranslator, setOnboardingPttKey, stopOnbo
 import { createTimelinePlayer } from "./player";
 import type { TimelinePlayer } from "./player";
 import { isRobotMood, isRobotState, mountRobot } from "./robot";
-import type { CssRect, RobotController } from "./robot";
+import type { CssRect, RobotController, RobotMood, RobotState } from "./robot";
 import {
   SETTINGS_CHANGED_EVENT,
   startMateSettings,
@@ -103,46 +103,91 @@ function devHook(
   };
 }
 
-function mountBubble(element: HTMLElement): Bubble {
+function mountBubble(element: HTMLElement, isSleeping: () => boolean): Bubble {
+  const content = document.createElement("div");
+  content.className = "mate-bubble-content";
   const textElement = document.createElement("div");
+  textElement.className = "mate-bubble-text";
   const chip = document.createElement("span");
   chip.className = "mate-model-chip";
   chip.hidden = true;
+  content.append(textElement, chip);
+  let shape: BubbleShape = "speech";
+  let currentText: string | null = null;
+  let showingDots = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let shownAt = 0;
+  element.dataset.shape = shape;
+  const ensureContent = (): void => {
+    // Onboarding shares this element and may have replaced its children. Otherwise the
+    // nodes stay put: re-inserting the chip would restart its fade on every sentence.
+    if (content.parentNode !== element) {
+      element.replaceChildren(content);
+    }
+  };
+  const syncDots = (): void => {
+    const wantDots = currentText === null && shape === "thought" && !isSleeping();
+    if (wantDots) {
+      ensureContent();
+      showingDots = true;
+      element.classList.add("mate-bubble-dots");
+      element.hidden = false;
+    } else if (showingDots) {
+      showingDots = false;
+      element.classList.remove("mate-bubble-dots");
+      if (currentText === null) element.hidden = true;
+    } else {
+      element.classList.remove("mate-bubble-dots");
+    }
+  };
   const setModel = (model: AnswerModel | null): void => {
     chip.textContent = model === null ? "" : t(MODEL_KEYS[model]);
     chip.hidden = model === null;
   };
+  const setShape = (next: BubbleShape): void => {
+    shape = next;
+    if (element.dataset.shape !== next) element.dataset.shape = next;
+    syncDots();
+  };
   const show = (text: string | null, ms?: number): void => {
     clearTimeout(timer);
     timer = undefined;
+    currentText = text;
     if (text !== null) shownAt = performance.now();
     // textContent only: answer text is never parsed as markup.
     textElement.textContent = text ?? "";
-    // Onboarding shares this element and may have replaced its children. Otherwise the
-    // nodes stay put: re-inserting the chip would restart its fade on every sentence.
-    if (textElement.parentNode !== element || chip.parentNode !== element) {
-      element.replaceChildren(textElement, chip);
-    }
-    element.hidden = text === null;
+    ensureContent();
     // The chip goes with the bubble: a later line in the same answer shows none.
     if (text === null) setModel(null);
-    if (text !== null && ms !== undefined) timer = setTimeout(() => show(null), ms);
+    if (text !== null) {
+      showingDots = false;
+      element.classList.remove("mate-bubble-dots");
+      element.hidden = false;
+      if (ms !== undefined) timer = setTimeout(() => show(null), ms);
+    } else if (shape === "thought" && !isSleeping()) {
+      syncDots();
+    } else {
+      showingDots = false;
+      element.classList.remove("mate-bubble-dots");
+      element.hidden = true;
+    }
   };
   return {
     setModel,
+    setShape,
     show,
     hideAfter(ms) {
       clearTimeout(timer);
       timer = undefined;
-      // Nothing lingers when the bubble is already hidden: the chip goes now.
-      if (element.hidden) {
+      // Nothing lingers when the bubble has no text: the chip goes now.
+      if (currentText === null || element.hidden) {
         setModel(null);
         return;
       }
-      const text = textElement.textContent ?? "";
-      timer = setTimeout(() => show(null), bubbleLingerMs(text, performance.now() - shownAt, ms));
+      timer = setTimeout(
+        () => show(null),
+        bubbleLingerMs(currentText, performance.now() - shownAt, ms),
+      );
     },
   };
 }
@@ -152,7 +197,11 @@ interface LiveStamp extends Stamp {
   avoid(target: CssRect | null): void;
 }
 
-function mountStamp(element: HTMLElement, isSleeping: () => boolean): LiveStamp {
+function mountStamp(
+  element: HTMLElement,
+  isSleeping: () => boolean,
+  onVerdict?: (verdict: SafetyVerdict | null) => void,
+): LiveStamp {
   let verdict: SafetyVerdict | null = null;
   let target: CssRect | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -165,17 +214,18 @@ function mountStamp(element: HTMLElement, isSleeping: () => boolean): LiveStamp 
     element.classList.toggle("is-covering", !stampClearOf(target, window.innerWidth, window.innerHeight));
     element.hidden = verdict === null;
   };
-  const show = (next: SafetyVerdict | null): void => {
+  const setVerdict = (next: SafetyVerdict | null, syncBubble: boolean): void => {
     clearTimeout(timer);
     timer = undefined;
     verdict = isSleeping() ? null : next;
     render();
+    if (syncBubble) onVerdict?.(verdict);
   };
   return {
-    show,
+    show: (next) => setVerdict(next, true),
     hideAfter(ms) {
       clearTimeout(timer);
-      timer = verdict === null ? undefined : setTimeout(() => show(null), ms);
+      timer = verdict === null ? undefined : setTimeout(() => setVerdict(null, false), ms);
     },
     avoid(next) {
       target = next;
@@ -303,7 +353,7 @@ async function createRouter(
     setLocale: () => setLocale(settings.get().language),
     robot: {
       setState: (state) => router.present("state", () => router.setState(state)),
-      setMood: (mood) => router.present("mood", () => robot.setMood(mood)),
+      setMood: (mood) => router.present("mood", () => router.setMood(mood)),
       aimAt: (target) => router.present("aim", () => {
         robot.aimAt(target);
         stamp.avoid(target);
@@ -329,13 +379,28 @@ const container = document.getElementById("mate");
 if (container) {
   const mountedRobot = mountRobot(container);
   let sleeping = false;
+  let currentState: RobotState = "idle";
+  let currentMood: RobotMood = "calm";
+  let currentVerdict: SafetyVerdict | null = null;
+  const bubble = document.getElementById("mate-bubble");
+  const mountedBubble = bubble ? mountBubble(bubble, () => sleeping) : null;
+  const syncBubbleShape = (): void => {
+    mountedBubble?.setShape?.(bubbleShape(currentState, currentMood, currentVerdict));
+  };
   const robot: RobotController = {
     ...mountedRobot,
     setState: (state) => {
       const shown = sleeping ? "sleeping" : state;
+      currentState = shown;
       mountedRobot.setState(shown);
       document.documentElement.dataset.mateState = shown;
+      syncBubbleShape();
       document.dispatchEvent(new Event(MATE_STATE_EVENT));
+    },
+    setMood: (mood) => {
+      currentMood = mood;
+      mountedRobot.setMood(mood);
+      syncBubbleShape();
     },
   };
   const updateVisibility = (): void => {
@@ -345,7 +410,6 @@ if (container) {
   updateVisibility();
   robot.setMood("calm");
   robot.setState("idle");
-  const bubble = document.getElementById("mate-bubble");
   setOnboardingTranslator((key) => t(key));
   const inTauri = "__TAURI_INTERNALS__" in window;
   const menu = inTauri ? mountMateMenu(tauriInvoke, t) : null;
@@ -414,12 +478,14 @@ if (container) {
   };
   motionQuery?.addEventListener("change", onEnvironmentChange);
   window.addEventListener("resize", onEnvironmentChange);
-  const mountedBubble = bubble ? mountBubble(bubble) : null;
   // An answer already playing must not replace the hide explanation or sleeping state.
   const liveBubble = mountedBubble ? awakeBubble(mountedBubble, () => sleeping) : null;
   const stampElement = document.getElementById("mate-stamp");
   const stamp: LiveStamp = stampElement
-    ? mountStamp(stampElement, () => sleeping)
+    ? mountStamp(stampElement, () => sleeping, (verdict) => {
+        currentVerdict = verdict;
+        syncBubbleShape();
+      })
     : { show() {}, hideAfter() {}, avoid() {} };
   const live =
     liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, stamp, settings) : null;
@@ -475,6 +541,7 @@ if (container) {
       listen("home-closed-hint", () => {
         if (sleeping) return;
         const text = t("home.closed_hint");
+        robot.setMood("calm");
         mountedBubble.setModel(null);
         mountedBubble.show(text, bubbleReadMs(text));
       }),

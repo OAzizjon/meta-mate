@@ -7,7 +7,7 @@ import { nextStamp } from "./safety-stamp.ts";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream.ts";
 import type { TimelineItem } from "./ipc/timeline.ts";
 import type { LocaleKey } from "./i18n/index.ts";
-import type { RobotController, RobotState } from "./robot/index.ts";
+import type { RobotController, RobotMood, RobotState } from "./robot/index.ts";
 import type { TimelinePlayer, TimelinePlayerOptions } from "./player/timeline-player.ts";
 import type { SafetyVerdict, StampState } from "./safety-stamp.ts";
 
@@ -15,9 +15,30 @@ export const CANT_FIND_HOLD_MS = 3000;
 /** As long as Rust waits for a click on Mate (or F8) before an unclear window is looked at (screen.rs confirm_look). */
 export const LOOK_CONSENT_MS = 30_000;
 
+export type BubbleShape = "thought" | "speech" | "shout";
+
+/** Comic balloon shape from Mate's state, the answer's mood and any safety stamp. */
+export function bubbleShape(
+  state: RobotState,
+  mood: RobotMood,
+  stamp: SafetyVerdict | null = null,
+): BubbleShape {
+  if (state === "thinking" || state === "looking") return "thought";
+  if (
+    state !== "listening" &&
+    state !== "sleeping" &&
+    (mood === "surprised" || mood === "sad" || stamp === "careful" || stamp === "scam")
+  ) {
+    return "shout";
+  }
+  return "speech";
+}
+
 export interface Bubble {
   /** The chip goes when the bubble hides; showing text leaves it as it is. */
   setModel(model: AnswerModel | null): void;
+  /** Comic balloon shape; optional so text-only test doubles stay small. */
+  setShape?(shape: BubbleShape): void;
   /** Null hides the bubble; a duration schedules its removal. */
   show(text: string | null, ms?: number): void;
   /** Keep the remaining reading time, and at least this many ms from now. */
@@ -33,7 +54,8 @@ export interface Stamp {
 }
 
 interface AnswerEffects {
-  robot: Pick<RobotController, "setState" | "setVoiceLevel">;
+  robot: Pick<RobotController, "setState" | "setVoiceLevel"> &
+    Partial<Pick<RobotController, "setMood">>;
   bubble: Bubble;
   stamp: Stamp;
   player: Pick<TimelinePlayer, "push" | "cancel">;
@@ -51,6 +73,12 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
   let clickListening = false;
   let showingHeard = false;
   let lookConsentGeneration: number | null = null;
+  let currentState: RobotState = "idle";
+  let currentMood: RobotMood = "calm";
+  let currentStamp: SafetyVerdict | null = null;
+  const syncShape = (): void => {
+    bubble.setShape?.(bubbleShape(currentState, currentMood, currentStamp));
+  };
   const generations = new AnswerGenerations();
   const presentation = new HeldPresentation();
   const present = (key: string, update: () => void): void => {
@@ -61,7 +89,11 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
   let stamped = false;
   const unstamp = (): void => {
     safety = null;
-    if (stamped) stamp.show(null);
+    currentStamp = null;
+    if (stamped) {
+      stamp.show(null);
+      syncShape();
+    }
     stamped = false;
   };
   const stampItem = (generation: number, item: TimelineItem): void => {
@@ -71,11 +103,21 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
     const verdict = safety.state ?? null;
     if (verdict === before) return;
     stamped = verdict !== null;
-    present("stamp", () => stamp.show(verdict));
+    present("stamp", () => {
+      currentStamp = verdict;
+      stamp.show(verdict);
+      syncShape();
+    });
   };
   let idle = false;
+  const setMood = (mood: RobotMood): void => {
+    currentMood = mood;
+    robot.setMood?.(mood);
+    syncShape();
+  };
   const setState = (state: RobotState): void => {
     idle = state === "idle";
+    currentState = state;
     // The chip stays while the bubble lingers after the answer; the bubble clears it.
     if (listening && state !== "listening") {
       listening = false;
@@ -88,12 +130,16 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
       listening = state === "listening";
     }
     robot.setState(state);
+    syncShape();
   };
   const route = (msg: AnswerMsg): void => {
     const newest = generations.newest;
     const answer = generations.answer;
     if (!generations.accept(msg)) return;
     if (msg.type === "cancel" || generations.answer > answer) presentation.clear();
+    if (generations.answer > answer && currentMood !== "calm") {
+      present("mood", () => setMood("calm"));
+    }
     if (!generations.holdPresentation) presentation.release();
     if (generations.newest > newest) {
       idle = false;
@@ -148,6 +194,7 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
         return;
       case "cancel":
         if (safety && safety.generation <= msg.generation) unstamp();
+        if (msg.generation >= generations.answer && currentMood !== "calm") setMood("calm");
         // Cancels the audio engine too.
         player.cancel(msg.generation);
         if (generations.canIdle(msg.generation)) setState("idle");
@@ -208,7 +255,7 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
     unstamp();
     safety = { generation: payload, state: undefined };
   };
-  return { route, present, setState, markSafety, ...timeline };
+  return { route, present, setState, setMood, markSafety, ...timeline };
 }
 
 /** Lesson audio is interrupted independently of the answer's presentation generation. */
@@ -222,6 +269,7 @@ export function interruptLesson(payload: unknown, interrupt: (generation: number
 export function awakeBubble(bubble: Bubble, isSleeping: () => boolean): Bubble {
   return {
     setModel: (model) => { if (!isSleeping()) bubble.setModel(model); },
+    setShape: (shape) => { if (!isSleeping()) bubble.setShape?.(shape); },
     show: (text, ms) => { if (!isSleeping()) bubble.show(text, ms); },
     hideAfter: (ms) => { if (!isSleeping()) bubble.hideAfter(ms); },
   };
@@ -229,7 +277,7 @@ export function awakeBubble(bubble: Bubble, isSleeping: () => boolean): Bubble {
 
 interface WindowEffects {
   bubble: Bubble;
-  robot: Pick<RobotController, "setState">;
+  robot: Pick<RobotController, "setState"> & Partial<Pick<RobotController, "setMood">>;
   isSleeping: () => boolean;
   setSleeping: (sleeping: boolean) => void;
   closeMenu: () => void;
@@ -245,7 +293,9 @@ export function createMateWindowEvents(effects: WindowEffects) {
       effects.closeMenu();
       effects.stopOnboarding();
       effects.setSleeping(true);
+      robot.setMood?.("calm");
       robot.setState("sleeping");
+      bubble.setShape?.("speech");
       bubble.setModel(null);
       bubble.show(effects.hidingText(minutes), 3000);
     },
@@ -259,6 +309,8 @@ export function createMateWindowEvents(effects: WindowEffects) {
       const ms = payload?.ms;
       if (effects.isSleeping() || typeof control !== "string" || typeof ms !== "number" || !(ms > 0)) return;
       effects.stopOnboarding();
+      robot.setMood?.("calm");
+      bubble.setShape?.("speech");
       bubble.setModel(null);
       bubble.show(effects.explainText(control), ms);
     },

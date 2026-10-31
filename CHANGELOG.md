@@ -10,6 +10,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- Mate talks in comic balloons: a cloud-shaped thought bubble with trailing circles while he thinks or looks, a speech balloon with an ink outline and a tail when he answers, and a jagged shout balloon when he warns (a surprised or sad answer, or a safety stamp); text always on a solid fill (Gemini).
 - "Is this safe?" answers come with a comic rubber stamp beside Mate when he warns: SCAM ALERT! (red) or BE CAREFUL (amber), in English or Russian, stamped down while he speaks and gone three seconds after; it shows only for a safety check whose first sentence carries a warning mood, never a green "looks OK" (that would read as a certainty the model must not give), and it hides when the beam target is under Mate (claude@alpha).
 - A lesson step done right gets a comic burst on the button you clicked: "CLICK!", "NICE!" or "DONE!" ("КЛИК!", "ЕСТЬ!", "ГОТОВО!") with an ink outline, popping in and fading within a second, never blocking a click or taking focus, still under reduced motion (Gemini).
 - Lessons never go quiet on a near miss: clicks just beside the button now count toward the extra help (Muse Wonder, then "shall I press it?"), a wrong key combination gets "Not those keys", a single click on a double-click step gets "Click it twice, quickly", and a window that suddenly opens gets "Something new opened. Let me look." before Mate looks again (Gemini, from a Meta Muse Wonder review of the lesson flow).

@@ -64,43 +64,232 @@ body {
   border-top: 1px solid #ddd3bc;
 }
 
-/* Mate's speech bubble (src/mate.ts) in large type for older eyes (WP85); the `hidden`
-   attribute removes it. It hangs from the top of his 220px window and grows down over him, so
-   a long line is never cut off above the window; if it is taller than the window, its start
-   goes, so the newest words heard stay in view. Insets with auto margins center it across the
-   whole window (`left: 50%` would wrap the text at half its width). The solid rim, in Mate's
-   navy like his outline, keeps it apart from a white page, and Windows contrast themes keep the
-   rim when they drop the shadow. */
+/* Mate's comic balloon (src/mate.ts, src/mate-logic.ts `bubbleShape`) in large type for older
+   eyes (WP85); `hidden` removes it. It hangs from the top of his 220px window and grows down
+   toward him, with `.mate-bubble-content` clipping overflow at the top so the newest words heard
+   stay in view while `#mate-bubble` stays `overflow: visible` for its tail, thought circles or
+   jagged shout spikes. Every shape keeps text on a solid fill at >= 4.5:1 in light and dark. */
 #mate-bubble {
+  --bubble-bg: #fffcf3;
+  --bubble-ink: #1f2a44;
+  --bubble-shadow: #1f2a44;
   position: fixed;
   top: 6px;
-  left: 6px;
-  right: 6px;
+  left: 8px;
+  right: 8px;
+  isolation: isolate;
   box-sizing: border-box;
   width: fit-content;
   max-width: 320px;
-  max-height: calc(100% - 12px);
+  max-height: calc(100% - 28px);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  overflow: hidden;
-  padding: 8px 12px;
-  border: 2px solid #1f2a44;
-  border-radius: 16px;
-  background: #fffcf3;
+  overflow: visible;
+  padding: 8px 13px;
+  border: 2.5px solid var(--bubble-ink);
+  border-radius: 18px;
+  background: var(--bubble-bg);
   color: #1f2a44;
   font: 18px/1.35 "Segoe UI", system-ui, sans-serif;
   text-align: center;
   overflow-wrap: anywhere;
-  box-shadow:
-    0 1px 3px rgba(31, 42, 68, 0.16),
-    0 6px 16px rgba(31, 42, 68, 0.16);
+  box-shadow: 3px 3px 0 var(--bubble-shadow);
   pointer-events: none;
 }
 
 #mate-bubble[hidden] {
   display: none;
+}
+
+.mate-bubble-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mate-bubble-text {
+  flex: none;
+}
+
+/* Default ("speech"): pointed comic tail down toward Mate, matching the 2.5px ink outline. */
+#mate-bubble::before,
+#mate-bubble::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+#mate-bubble::before {
+  left: calc(50% - 9px);
+  bottom: -14px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 14px 9px 0 7px;
+  border-color: var(--bubble-ink) transparent transparent transparent;
+}
+
+#mate-bubble::after {
+  left: calc(50% - 7px);
+  bottom: -9px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 11px 7px 0 5px;
+  border-color: var(--bubble-bg) transparent transparent transparent;
+}
+
+/* "thought" (thinking / looking): scalloped cloud silhouette + three trailing circles toward Mate. */
+#mate-bubble[data-shape="thought"] {
+  top: 12px;
+  left: 14px;
+  right: 14px;
+  max-height: calc(100% - 40px);
+  padding: 9px 15px;
+  border: 0;
+  border-radius: 24px;
+  background: var(--bubble-bg);
+  box-shadow: none;
+  filter:
+    drop-shadow(1.5px 0 0 var(--bubble-ink))
+    drop-shadow(-1.5px 0 0 var(--bubble-ink))
+    drop-shadow(0 1.5px 0 var(--bubble-ink))
+    drop-shadow(0 -1.5px 0 var(--bubble-ink))
+    drop-shadow(2px 2px 0 var(--bubble-shadow));
+}
+
+#mate-bubble[data-shape="thought"]::before {
+  inset: -8px;
+  z-index: -1;
+  width: auto;
+  height: auto;
+  border: 0;
+  background:
+    radial-gradient(18% 13px at 22% 14px, var(--bubble-bg) 97%, transparent 100%),
+    radial-gradient(20% 15px at 50% 16px, var(--bubble-bg) 97%, transparent 100%),
+    radial-gradient(18% 13px at 78% 14px, var(--bubble-bg) 97%, transparent 100%),
+    radial-gradient(18% 12px at 23% calc(100% - 13px), var(--bubble-bg) 97%, transparent 100%),
+    radial-gradient(20% 13px at 50% calc(100% - 14px), var(--bubble-bg) 97%, transparent 100%),
+    radial-gradient(18% 12px at 77% calc(100% - 13px), var(--bubble-bg) 97%, transparent 100%),
+    radial-gradient(13px 18px at 14px 50%, var(--bubble-bg) 97%, transparent 100%),
+    radial-gradient(13px 18px at calc(100% - 14px) 50%, var(--bubble-bg) 97%, transparent 100%);
+}
+
+#mate-bubble[data-shape="thought"]::after {
+  left: calc(50% - 14px);
+  bottom: -24px;
+  z-index: -1;
+  width: 28px;
+  height: 24px;
+  border: 0;
+  background:
+    radial-gradient(circle at 18px 5px, var(--bubble-bg) 0 4.2px, transparent 4.8px),
+    radial-gradient(circle at 11px 13px, var(--bubble-bg) 0 3px, transparent 3.6px),
+    radial-gradient(circle at 5px 20px, var(--bubble-bg) 0 2px, transparent 2.6px);
+}
+
+#mate-bubble.mate-bubble-dots .mate-model-chip {
+  display: none;
+}
+
+#mate-bubble.mate-bubble-dots .mate-bubble-content::before {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 12px;
+  margin: 2px auto;
+  background:
+    radial-gradient(circle at 8px 6px, currentColor 0 3.5px, transparent 4px),
+    radial-gradient(circle at 22px 6px, currentColor 0 3.5px, transparent 4px),
+    radial-gradient(circle at 36px 6px, currentColor 0 3.5px, transparent 4px);
+  animation: mate-thought-dots 1.4s ease-in-out infinite;
+}
+
+@keyframes mate-thought-dots {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* "shout" (warning mood or careful/scam stamp): jagged comic burst around a solid fill. */
+#mate-bubble[data-shape="shout"] {
+  --bubble-bg: #fff4cf;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  max-height: calc(100% - 36px);
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-weight: 600;
+  box-shadow: none;
+  filter:
+    drop-shadow(1.5px 0 0 var(--bubble-ink))
+    drop-shadow(-1.5px 0 0 var(--bubble-ink))
+    drop-shadow(0 1.5px 0 var(--bubble-ink))
+    drop-shadow(0 -1.5px 0 var(--bubble-ink))
+    drop-shadow(2.5px 2.5px 0 var(--bubble-shadow));
+}
+
+#mate-bubble[data-shape="shout"]::before {
+  inset: -8px -10px;
+  z-index: -1;
+  width: auto;
+  height: auto;
+  border: 0;
+  background: var(--bubble-bg);
+  clip-path: polygon(
+    2px 2px,
+    12% 8px,
+    20% 0px,
+    30% 8px,
+    40% 1px,
+    50% 8px,
+    60% 0px,
+    70% 8px,
+    80% 1px,
+    88% 8px,
+    calc(100% - 2px) 2px,
+    calc(100% - 10px) 22%,
+    100% 36%,
+    calc(100% - 10px) 52%,
+    100% 68%,
+    calc(100% - 10px) 82%,
+    calc(100% - 2px) calc(100% - 2px),
+    86% calc(100% - 8px),
+    76% 100%,
+    64% calc(100% - 8px),
+    50% calc(100% - 8px),
+    36% calc(100% - 8px),
+    24% 100%,
+    14% calc(100% - 8px),
+    2px calc(100% - 2px),
+    10px 82%,
+    0px 66%,
+    10px 50%,
+    0px 34%,
+    10px 20%
+  );
+}
+
+#mate-bubble[data-shape="shout"]::after {
+  left: calc(50% - 9px);
+  bottom: -16px;
+  z-index: -1;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: var(--bubble-bg);
+  clip-path: polygon(0 0, 100% 0, 35% 100%);
 }
 
 /* The model that answered (src/mate.ts): a quiet pill on its own line, centered under the text,
@@ -279,14 +468,20 @@ html[data-mate-state="sleeping"] *::after {
 }
 
 html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after,
 .reduce-motion,
-.reduce-motion * {
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
   animation: none !important;
   transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation: none !important;
     transition: none !important;
   }
@@ -318,13 +513,30 @@ html.reduce-motion *,
 
 /* Light and warm whatever the Windows theme (owner, 2026-10-31). */
 :root[data-theme="dark"] #mate-menu,
-:root[data-theme="dark"] #mate-bubble,
 :root[data-theme="dark"] #mate-onboarding,
 :root[data-theme="dark"] #mate-keycap,
 :root[data-theme="dark"] #mate-trial {
   background: #1d212c;
   color: #f4f1e8;
   border-color: #8790a6;
+}
+
+:root[data-theme="dark"] #mate-bubble {
+  --bubble-bg: #1d212c;
+  --bubble-ink: #aab2c5;
+  --bubble-shadow: rgba(0, 0, 0, 0.6);
+  color: #f4f1e8;
+}
+
+:root[data-theme="dark"] #mate-bubble[data-shape="shout"] {
+  --bubble-bg: #2e2514;
+  --bubble-ink: #fcd34d;
+  background: transparent;
+}
+
+:root[data-theme="dark"] #mate-bubble[data-shape="shout"] .mate-model-chip {
+  background: #3d3320;
+  color: #e2e6f0;
 }
 
 :root[data-theme="dark"] #mate-menu button:hover,
@@ -358,6 +570,22 @@ html.reduce-motion *,
 
 
 @media (forced-colors: active) {
+  #mate-bubble,
+  #mate-bubble[data-shape="thought"],
+  #mate-bubble[data-shape="shout"] {
+    border: 2px solid CanvasText;
+    border-radius: 14px;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+    filter: none;
+  }
+
+  #mate-bubble::before,
+  #mate-bubble::after {
+    display: none;
+  }
+
   #mate-trial,
   #mate-stamp {
     border-color: CanvasText;

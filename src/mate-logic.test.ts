@@ -3,14 +3,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  awakeBubble, CANT_FIND_HOLD_MS, createMateAnswerRouter, createMateWindowEvents, LOOK_CONSENT_MS,
-  guestTrialView, interruptLesson, signedIn,
+  awakeBubble, bubbleShape, CANT_FIND_HOLD_MS, createMateAnswerRouter, createMateWindowEvents,
+  LOOK_CONSENT_MS, guestTrialView, interruptLesson, signedIn,
 } from "./mate-logic.ts";
+import type { BubbleShape } from "./mate-logic.ts";
 import { BUBBLE_LINGER_MS, bubbleReadMs } from "./bubble-timing.ts";
 import type { AnswerMsg } from "./ipc/answer-stream.ts";
 import {
   ONBOARDING_STEP_MS, resetOnboardingSession, startOnboarding, stopOnboarding,
 } from "./onboarding.ts";
+import { ROBOT_MOODS, ROBOT_STATES } from "./robot/types.ts";
 
 const locales = Object.fromEntries(["en", "ru"].map((code) => [
   code, JSON.parse(readFileSync(new URL(`../locales/${code}.json`, import.meta.url), "utf8")) as Record<string, string>,
@@ -429,4 +431,78 @@ test("a lesson's look consent that closes during a recording is not shown afterw
   h.calls.length = 0;
   h.send({ type: "state", generation: 2, state: "thinking" });
   assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", null]]);
+});
+
+test("bubbleShape chooses thought for thinking/looking, shout for warnings, and speech otherwise", () => {
+  for (const mood of ROBOT_MOODS) {
+    for (const verdict of [null, "ok", "careful", "scam"] as const) {
+      assert.equal(bubbleShape("thinking", mood, verdict), "thought");
+      assert.equal(bubbleShape("looking", mood, verdict), "thought");
+      assert.equal(bubbleShape("listening", mood, verdict), "speech");
+      assert.equal(bubbleShape("sleeping", mood, verdict), "speech");
+    }
+  }
+  const answerStates = ROBOT_STATES.filter(
+    (s) => s !== "thinking" && s !== "looking" && s !== "listening" && s !== "sleeping",
+  );
+  for (const state of answerStates) {
+    for (const mood of ["calm", "happy", "thinking", "proud", "sleepy"] as const) {
+      assert.equal(bubbleShape(state, mood), "speech");
+      assert.equal(bubbleShape(state, mood, "ok"), "speech");
+      assert.equal(bubbleShape(state, mood, "careful"), "shout");
+      assert.equal(bubbleShape(state, mood, "scam"), "shout");
+    }
+    for (const mood of ["surprised", "sad"] as const) {
+      assert.equal(bubbleShape(state, mood), "shout");
+      assert.equal(bubbleShape(state, mood, "ok"), "shout");
+    }
+  }
+});
+
+test("router updates comic bubble shape across thinking, warnings, safety stamps and replacement answers", () => {
+  const shapes: BubbleShape[] = [];
+  const moods: string[] = [];
+  const router = createMateAnswerRouter({
+    robot: {
+      setState: () => {},
+      setVoiceLevel: () => {},
+      setMood: (mood) => { moods.push(mood); },
+    },
+    bubble: {
+      setModel: () => {},
+      setShape: (shape) => { shapes.push(shape); },
+      show: () => {},
+      hideAfter: () => {},
+    },
+    stamp: { show: () => {}, hideAfter: () => {} },
+    player: { push: () => {}, cancel: () => {} },
+    t: (key) => locales.en[key],
+    stopOnboarding: () => {},
+    onPcm: () => {},
+    reportPlayback: () => {},
+    sleep: () => Promise.resolve(),
+  });
+  router.route({ type: "state", generation: 1, state: "looking" });
+  assert.equal(shapes.at(-1), "thought");
+  router.route({ type: "state", generation: 1, state: "thinking" });
+  assert.equal(shapes.at(-1), "thought");
+  // A warning answer line switches to shout.
+  router.setMood("surprised");
+  router.setState("speaking");
+  assert.equal(shapes.at(-1), "shout");
+  // A replacement answer resets the warning mood so normal lines use speech.
+  router.route({ type: "line", generation: 2, key: "robot.network_error" });
+  assert.equal(moods.at(-1), "calm");
+  assert.equal(shapes.at(-1), "speech");
+  // A safety check stamp keeps shout even when a later sentence's mood is calm.
+  router.markSafety(3);
+  router.route({
+    type: "item", generation: 3,
+    item: { kind: "say", value: { id: 1, text: "Scam.", bound: [{ kind: "mood", value: "sad" }] } },
+  });
+  router.setMood("calm");
+  router.setState("speaking");
+  assert.equal(shapes.at(-1), "shout");
+  router.route({ type: "state", generation: 4, state: "listening" });
+  assert.equal(shapes.at(-1), "speech");
 });
