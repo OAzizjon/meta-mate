@@ -187,8 +187,8 @@ This produces a clean, web-ready 90-second video file with synchronized audio an
 #### Task 5: The Keepsake Lesson Card & Print (2 min)
 *Goal: Complete lesson flow, show gouache keepsake card popup, and print prompt.*
 * **Setup**: Teacher lesson finishes; `card.html` opens automatically.
-* **What to say (EN)**: *"Look, Mate prepared a printed keepsake card of the steps you just mastered so you never forget them! Click the blue 'Print' button on the card."*  
-  **Exact words (RU)**: *«Посмотрите, Мейт подготовил карточку с шагами, которые вы только что выполнили, чтобы они всегда были под рукой! Нажмите синюю кнопку „Печать“ на карточке».*
+* **What to say (EN)**: *"Look, Mate prepared a printed keepsake card of the steps you just mastered so you never forget them! Click the yellow 'Print' button on the card."*  
+  **Exact words (RU)**: *«Посмотрите, Мейт подготовил карточку с шагами, которые вы только что выполнили, чтобы они всегда были под рукой! Нажмите жёлтую кнопку „Печать“ на карточке».*
 * **What to film**: Tester's smile seeing the card illustration and simple numbered steps; mouse click on *Print* opening Windows print preview; camera pans to physical printer or the saved file notification in `Pictures\MetaMate`.
 
 ---
