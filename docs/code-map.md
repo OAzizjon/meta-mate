@@ -10,8 +10,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### crates/mm-core
 
 - crates/mm-core/src/api/intent.rs — Intent routing as pure data, with an offline fallback.
-  Intent:6 intent_request:22 parse_intent:37 parse_yes_no:101 parse_yes_no_for_locale:106 asks_do_it:242 guess_intent:626
+  Intent:10 intent_request:26 parse_intent:41 parse_yes_no:105 parse_yes_no_for_locale:110 asks_do_it:246 guess_intent:550
   tests: crates/mm-core/tests/intent.rs (15)
+- crates/mm-core/src/api/intent_safety.rs — "Is this email real?", "Это мошенники?": a verdict on trust with the thing on the screen (or the person it is aimed at) at most a few words either side of it.
+  asks_safety:11
 - crates/mm-core/src/api/intent_tests.rs
 - crates/mm-core/src/api/mod.rs — The Meta Model API (Responses API) as pure data: building requests and reading responses, no networking here (the proxy client lives elsewhere).
   intent:4 request:6 response:7 sam:8 sse:9
@@ -188,11 +190,15 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Win32Injector:37 confirmation_element:157 normalize:295 HumanConfirmation:495 HumanConfirmation::target:503 HumanConfirmation::action:507 ConfirmedElement:522 ConfirmedElement::control_type:534
   ConfirmedElement::matches_target:539 PendingConfirmation:552 PendingConfirmation::element:555 PendingConfirmation::answer:560 recheck_element:591 check_confirmation:626
   inline tests (16)
+- crates/mm-win32/src/instance.rs — One MetaMate per Windows session.
+  Instance:14 Start:19 start:27 Instance::on_start_again:55
+  inline tests (1)
 - crates/mm-win32/src/keyboard.rs — The push-to-talk key from a low-level keyboard hook (spike S2).
   RIGHT_CTRL:29 set_ptt_key:32 KeyEvent:38 HookError:49 KeyboardHook:72 start:98 start_mapped:104 key_down:138
 - crates/mm-win32/src/lib.rs — MetaMate's Windows layer: the only crate that calls Win32 (docs/project-structure.md).
-  capture:9 dpapi:10 dpi:11 focus:12 input:13 keyboard:14 locale:15 monitors:16
-  mouse:17 overlay:18 shell:19 time:20 uia:21 window:22 winevent:23 HWND:25^
+  capture:9 dpapi:10 dpi:11 focus:12 input:13 instance:14 keyboard:15 locale:16
+  monitors:17 mouse:18 overlay:19 shell:20 time:21 uia:22 window:23 winevent:24
+  HWND:26^
 - crates/mm-win32/src/locale.rs — Windows display language before any WebView subscribes.
   system_locale:4
   inline tests (1)
@@ -259,7 +265,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   TRY_QUESTIONS:6 open:10 open_home:49 home_try:87
   inline tests (2)
 - src-tauri/src/lib.rs — MetaMate's Tauri shell: wiring only, no business logic (docs/project-structure.md).
-  run:58 show_tray_wake:266 refresh_tray_labels:385 refresh_tray_tooltip:411 locale_text:494
+  run:58 show_tray_wake:290 refresh_tray_labels:409 refresh_tray_tooltip:435 locale_text:518
   inline tests (1)
 - src-tauri/src/main.rs
 - src-tauri/src/mic.rs — Microphone capture while push-to-talk is held (docs/architecture.md section 2).
@@ -542,15 +548,19 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_map.py — Write docs/code-map.md: where things live, for agents that read files but have no shell.
   is_secret:25 mask:176 Source:267 Project:285 summary:346 outline:471 render:910 main:954
   tests: tools/tests/test_mm_map.py (21)
-- tools/mm_probe.py — mm probe models|stream|click|sam|asr|safety|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe stream …
-  ProbeError:110 is_plain_file:127 read_secret:138 scrub:154 provider_config:167 iter_sse:241 output_text:260 computer_actions:270
-  point_actions:295 action_points:318 usage_tokens:330 cost_usd:335 ledger_total:364 ledger_unpriced:368 ledger_add:372 guard_budget:378
-  record:390 report:400 multipart:410 wav_info:422 cmd_asr:434 cmd_models:470 add_reasoning:478 cmd_stream:485
-  verdict:560 computer_tool:571 png_size:577 cmd_click:588 cmd_sam:685 cmd_ledger:761 build_parser:783 main:825
+- tools/mm_probe.py — mm probe models|stream|click|sam|asr|safety|point|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe …
+  ProbeError:113 is_plain_file:130 read_secret:141 scrub:157 provider_config:170 iter_sse:244 output_text:263 computer_actions:273
+  point_actions:298 action_points:321 usage_tokens:333 cost_usd:338 ledger_total:367 ledger_unpriced:371 ledger_add:375 guard_budget:381
+  record:393 report:403 multipart:413 wav_info:425 cmd_asr:437 cmd_models:473 add_reasoning:481 cmd_stream:488
+  verdict:563 computer_tool:574 png_size:580 cmd_click:591 cmd_sam:688 cmd_ledger:764 build_parser:786 main:830
   tests: tools/tests/test_mm_probe.py (25)
+- tools/mm_probe_point.py — Pointing benchmark: synthetic fixtures, real app requests and MateScript parsing.
+  PageParser:21 validate:38 load_pages:75 rust:107 prepare:116 score:138 evaluate:158 exchange:166
+  aggregate:183 write_report:209 cmd_point:236 add_parser:244
+  tests: tools/tests/test_mm_probe_point.py (12)
 - tools/mm_probe_safety.py — Synthetic-page safety benchmark; HTTP, secrets and ledger belong to mm_probe.
   load_pages:21 classify:59 rule_violations:80 aggregate:106 write_report:128 render_page:154 request_body:174 exchange:186
-  cmd_safety:206 add_parser:285
+  cmd_safety:208 run_batch:223 add_parser:306
   tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_stats.py — mm stats [--save] [--json] [--since DAYS]
   area:34 crate:39 source_files:46 read:61 run:68 code_summary:78 parse_scc:90 collect_code:104
@@ -601,7 +611,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   reserve_asr:711 settle_asr:723 tts_allowance:735 charge_tts:741 glimmer_allowance:749 charge_glimmer:755
   tests: server/tests/test_policy.py (41)
 - server/metamate_proxy/responses_route.py — `/v1/responses`: the pure policy (policy.py) before the call, Meta's answer passed through (a stream as whole events, each scrubbed) and the reservation settled however the call ends.
-  scrub_event:31 Relay:41 guest_headers:56 register:61 responses:63 final_response:283
+  scrub_event:31 Relay:41 guest_headers:56 register:61 responses:63 final_response:280
 - server/metamate_proxy/site.py — The static landing page (PROXY_SITE_DIR, from site/), with its own headers.
   SiteFiles:10 mount:23
 
@@ -638,7 +648,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:397, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
-- `open_settings_window` src-tauri/src/lib.rs:457 <- src/home.ts:27, src/mate-menu.ts:7
+- `open_settings_window` src-tauri/src/lib.rs:481 <- src/home.ts:27, src/mate-menu.ts:7
 - `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:262
 - `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:415, src/mate-menu.ts:11
 - `report_playback` src-tauri/src/answer_stream.rs:299 <- src/ipc/answer-stream.ts:281
@@ -762,17 +772,17 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:124; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
 - `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:123; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
 - `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:96
-- `tray.chat`: rs src-tauri/src/lib.rs:249; ts src/mate-menu.ts:5
-- `tray.hide_hour`: rs src-tauri/src/lib.rs:315,368; ts src/mate-menu.ts:9
-- `tray.open_home`: rs src-tauri/src/lib.rs:248
-- `tray.quit`: rs src-tauri/src/lib.rs:308,370
-- `tray.settings`: rs src-tauri/src/lib.rs:301,367,477; ts src/home.ts:399, src/mate-menu.ts:7, src/settings.ts:328,330
-- `tray.tooltip`: rs src-tauri/src/lib.rs:406
+- `tray.chat`: rs src-tauri/src/lib.rs:273; ts src/mate-menu.ts:5
+- `tray.hide_hour`: rs src-tauri/src/lib.rs:339,392; ts src/mate-menu.ts:9
+- `tray.open_home`: rs src-tauri/src/lib.rs:272
+- `tray.quit`: rs src-tauri/src/lib.rs:332,394
+- `tray.settings`: rs src-tauri/src/lib.rs:325,391,501; ts src/home.ts:399, src/mate-menu.ts:7, src/settings.ts:328,330
+- `tray.tooltip`: rs src-tauri/src/lib.rs:430
 - `tray.try_bigger`: rs src-tauri/src/home.rs:6,74; ts src/home.ts:33,41
 - `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:32,40
 - `tray.try_search`: rs src-tauri/src/home.rs:6; ts src/home.ts:31,39
-- `tray.try_title`: rs src-tauri/src/lib.rs:332,394
-- `tray.wake`: rs src-tauri/src/lib.rs:322,369
+- `tray.try_title`: rs src-tauri/src/lib.rs:356,418
+- `tray.wake`: rs src-tauri/src/lib.rs:346,393
 - `auth.*` (10 keys): src/settings/account-view.ts, src/settings/account.ts, src/signin.ts
 - `card.*` (10 keys): src/card.ts
 - `chat.*` (12 keys): src/chat.ts
@@ -806,11 +816,11 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 254 | 33 |
+| crates/mm-core | 260 | 34 |
 | crates/mm-platform | 43 | 6 |
-| crates/mm-win32 | 60 | 10 |
+| crates/mm-win32 | 61 | 11 |
 | src-tauri | 179 | 20 |
 | src | 249 | 28 |
-| tools | 279 | 18 |
+| tools | 291 | 19 |
 | server | 94 | 4 |
 | tts | 27 | 2 |

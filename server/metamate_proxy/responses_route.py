@@ -248,10 +248,7 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
                     if not seen['final']:
                         yield scrub_event(STREAM_ERROR, settings.meta_key)
                     return
-                if asyncio.get_running_loop().time() >= deadline:
-                    if not seen['final']:
-                        yield scrub_event(STREAM_ERROR, settings.meta_key)
-                    return
+                # A chunk that arrived within the wait is kept even if the loop resumes late.
                 buffer = (buffer + chunk).replace(b'\r\n', b'\n')
                 while b'\n\n' in buffer:
                     event, buffer = buffer.split(b'\n\n', 1)
