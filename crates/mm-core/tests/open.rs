@@ -203,6 +203,8 @@ fn open_tags_are_dropped_unless_the_person_asked_to_open() {
         "Don't open YouTube",
         "please do not launch anything",
         "Не открывай ютуб",
+        "I don't really want to open the calculator",
+        "я не хочу, чтобы ты открыл ютуб",
     ] {
         assert!(!wants_open(not_asked), "{not_asked}");
     }

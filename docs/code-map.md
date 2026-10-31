@@ -13,7 +13,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   wants_open:8^ Intent:15 intent_request:31 parse_intent:46 parse_yes_no:110 parse_yes_no_for_locale:115 asks_do_it:251 guess_intent:555
   tests: crates/mm-core/tests/intent.rs (15)
 - crates/mm-core/src/api/intent_open.rs — Whole-app/site requests bypass screen capture; Settings subpages remain guidance.
-  wants_open:7 asks_open:39
+  wants_open:7 asks_open:40
 - crates/mm-core/src/api/intent_safety.rs — "Is this email real?", "Это мошенники?": a verdict on trust with the thing on the screen (or the person it is aimed at) at most a few words either side of it.
   asks_safety:11
 - crates/mm-core/src/api/intent_tests.rs
@@ -247,9 +247,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   MAX_STEPS:37 PendingCard:61 init:64 make:108 without_tags:319 selftest:508
 - src-tauri/src/card_tests.rs
 - src-tauri/src/chat.rs — Session chat mirrored from the answer stream; history stays in the app data folder.
-  Message:22 Chat:49 start_request:176 init:184 record:200 open:209 open_chat:236 chat_subscribe:250
-  chat_send:269 chat_clear:299
-  inline tests (6)
+  Message:26 Chat:55 start_request:215 init:223 record:239 open:248 open_chat:275 chat_subscribe:289
+  chat_send:308 chat_clear:338
+  inline tests (7)
 - src-tauri/src/debug_view.rs — Development debug mirror (WP20): in `cfg(debug_assertions)` builds, opens the `debug` window (`debug.html`) when started with `--debug-window` and emits `DebugMsg` events (`answer`, `timing`, `look`) …
   DebugAnswerMsg:27 DebugMsg:68 open:89 answer:110 timing:119 look:131
   inline tests (3)
@@ -387,13 +387,14 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   resolveCardImageUrl:104 printCard:134 closeCard:141 escapeHtml:161 PLACEHOLDER_MATE_SVG:171 CardController:207 MountCardOptions:214 mountLessonCard:222
   tests: src/card.test.ts (16)
 - src/chat.ts — Chat is a normal, deliberately opened window.
-  startThinking:75· stopThinking:84· render:91· localize:168· start:180·
+  startThinking:75· stopThinking:84· render:91· localize:209· start:221·
 - src/chat/history.ts — Chat history rendering policy, independent of the DOM and Tauri.
-  AwaitingReply:4 canReuseMessages:7 nextAwaitingReply:15
-  tests: src/chat/history.test.ts (7)
+  InlineNode:4 MessageBlock:5 parseMateInline:10 parseMateBlocks:33 AwaitingReply:51 canReuseMessages:54 nextAwaitingReply:62
+  tests: src/chat/history.test.ts (11)
 - src/chat/model.ts — Pure chat validation and keyboard behavior; no DOM or Tauri dependencies.
-  MAX_TEXT:2 HISTORY_LIMIT:3 Message:5 canSend:11 sendsOnKey:15 parseHistory:20
-  tests: src/chat/model.test.ts (3)
+  MAX_TEXT:2 HISTORY_LIMIT:3 CHAT_MOODS:5 ChatMood:6 isChatMood:8 Message:12 canSend:19 sendsOnKey:23
+  parseHistory:28
+  tests: src/chat/model.test.ts (4)
 - src/debug.ts — Debug overlay / window controller (WP14): development builds only.
   DebugController:11 mountDebug:25
 - src/debug/view.ts — Pure formatting and wire validation for the development debug window (WP14).
@@ -648,9 +649,9 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 
 - `auth_providers` src-tauri/src/auth.rs:137 <- src/settings/account.ts:213
 - `auth_status` src-tauri/src/auth.rs:172 <- src/settings/account.ts:239
-- `chat_clear` src-tauri/src/chat.rs:299 <- src/chat.ts:160
-- `chat_send` src-tauri/src/chat.rs:269 <- src/chat.ts:145
-- `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:184
+- `chat_clear` src-tauri/src/chat.rs:338 <- src/chat.ts:201
+- `chat_send` src-tauri/src/chat.rs:308 <- src/chat.ts:186
+- `chat_subscribe` src-tauri/src/chat.rs:289 <- src/chat.ts:225
 - `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:384, src/signin.ts:104
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:25
@@ -658,7 +659,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:297
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_answer_target` src-tauri/src/opening.rs:16 <- src/mate.ts:254
-- `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:397, src/mate-menu.ts:5
+- `open_chat` src-tauri/src/chat.rs:275 <- src/home.ts:397, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
 - `open_settings_window` src-tauri/src/lib.rs:486 <- src/home.ts:27, src/mate-menu.ts:7
 - `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:262
@@ -674,7 +675,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 
 Commands accepting `Channel<...>` <- TypeScript `new Channel` bindings passed to them.
 
-- `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:181
+- `chat_subscribe` src-tauri/src/chat.rs:289 <- src/chat.ts:222
 - `subscribe_answer_stream` src-tauri/src/answer_stream.rs:366 <- src/ipc/answer-stream.ts:289
 
 ### Files on disk
@@ -742,7 +743,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.cancelled`: rs src-tauri/src/auth.rs:216,259,330,429; ts src/settings/account.ts:75
 - `auth.failed`: rs src-tauri/src/auth.rs:215,225,256,360,361,363,364,387,391,404,425; ts src/settings/account.ts:75,263,266
 - `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:146, src/settings/account.ts:75, src/signin.ts:136
-- `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:170
+- `chat.title`: rs src-tauri/src/chat.rs:255; ts src/chat.ts:211
 - `mate.explain_question`: rs src-tauri/src/explain.rs:315
 - `open.app_calculator`: rs crates/mm-core/src/matescript/open.rs:29
 - `open.app_calendar`: rs crates/mm-core/src/matescript/open.rs:38
@@ -756,7 +757,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `open.app_settings`: rs crates/mm-core/src/matescript/open.rs:32
 - `open.app_store`: rs crates/mm-core/src/matescript/open.rs:39
 - `open.failed`: rs src-tauri/src/opening.rs:43; ts src/mate.ts:256
-- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:372, src-tauri/src/teacher/lesson.rs:327, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:154
+- `robot.cant_find`: rs src-tauri/src/chat.rs:128, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:372, src-tauri/src/teacher/lesson.rs:327, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:154
 - `robot.cant_look`: rs src-tauri/src/screen.rs:379, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:29
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
 - `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:493,619,620; ts src/ipc/answer-stream.ts:40
@@ -766,7 +767,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/ipc/answer-stream.ts:38
 - `robot.look_consent`: rs src-tauri/src/screen.rs:602; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:133,137
 - `robot.looking`: rs src-tauri/src/voice.rs:64
-- `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1231; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
+- `robot.network_error`: rs src-tauri/src/chat.rs:329, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1231; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
 - `robot.no_microphone`: rs src-tauri/src/voice.rs:615,631,751,1265; ts src/ipc/answer-stream.ts:24
 - `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1266; ts src/ipc/answer-stream.ts:25
 - `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:83; ts src/ipc/answer-stream.ts:53
@@ -809,7 +810,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `tray.wake`: rs src-tauri/src/lib.rs:351,398
 - `auth.*` (10 keys): src/settings/account-view.ts, src/settings/account.ts, src/signin.ts
 - `card.*` (10 keys): src/card.ts
-- `chat.*` (12 keys): src/chat.ts
+- `chat.*` (16 keys): src/chat.ts
 - `home.*` (31 keys): src/home.ts, src/mate-menu.ts, src/mate.ts
 - `mate.*` (4 keys): src/mate-menu.ts, src/mate.ts
 - `model.*` (4 keys): src/mate.ts
@@ -844,8 +845,8 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-core | 271 | 35 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
-| src-tauri | 188 | 20 |
-| src | 261 | 29 |
-| tools | 303 | 20 |
+| src-tauri | 189 | 20 |
+| src | 266 | 29 |
+| tools | 304 | 20 |
 | server | 94 | 4 |
 | tts | 27 | 2 |

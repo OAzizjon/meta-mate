@@ -10,9 +10,10 @@ pub fn wants_open(question: &str) -> bool {
         .split(|ch: char| !ch.is_alphanumeric())
         .filter(|word| !word.is_empty())
         .collect();
-    // "Don't open it", "не открывай": a negated verb asks for nothing (Meta #1463).
+    // "Don't open it", "I don't really want to open": a verb with a negation up to five
+    // words before it asks for nothing (Meta #1463, oss #1469).
     let negated = |at: usize| {
-        words[at.saturating_sub(2)..at].iter().any(|word| {
+        words[at.saturating_sub(5)..at].iter().any(|word| {
             matches!(
                 *word,
                 "not" | "never" | "don" | "dont" | "t" | "no" | "не" | "нельзя" | "никогда"

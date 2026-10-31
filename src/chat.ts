@@ -5,7 +5,7 @@ import { getLocale, t } from "./i18n/index.ts";
 import { canSend, parseHistory, sendsOnKey } from "./chat/model.ts";
 import { followSettingsLocale } from "./i18n/settings.ts";
 import type { Message } from "./chat/model.ts";
-import { canReuseMessages, nextAwaitingReply } from "./chat/history.ts";
+import { canReuseMessages, nextAwaitingReply, parseMateBlocks } from "./chat/history.ts";
 import type { AwaitingReply } from "./chat/history.ts";
 
 // A cancelled answer never arrives: the thinking bubble gives up after this long.
@@ -96,6 +96,7 @@ function render(raw: unknown): void {
   if (!prefix) log.replaceChildren(emptyState);
   emptyState.hidden = next.length > 0 || awaiting !== null;
   next.forEach((message, index) => {
+    const previous = prefix ? messages[index] : undefined;
     let item = log.children[index + 1] as HTMLLIElement | undefined;
     if (!item || item === thinking) {
       item = document.createElement("li");
@@ -105,18 +106,58 @@ function render(raw: unknown): void {
       from.textContent = t(message.role === "person" ? "chat.from_you" : "chat.from_mate");
       const bubble = document.createElement("div");
       bubble.className = "bubble";
-      const text = document.createElement("p");
+      const text = document.createElement("div");
+      text.className = "message-body";
+      const moodLabel = document.createElement("span");
+      moodLabel.className = "mood-label";
+      moodLabel.hidden = true;
       const time = document.createElement("time");
       const date = new Date(message.timestamp);
       time.dateTime = date.toISOString();
       time.textContent = date.toLocaleTimeString(getLocale(), { hour: "2-digit", minute: "2-digit" });
-      bubble.append(text, time);
+      bubble.append(moodLabel, text, time);
       item.append(from, bubble);
       // Insert above the thinking bubble without moving it, so the log does not announce it again.
       log.insertBefore(item, thinking.parentNode === log ? thinking : null);
     }
-    const text = item.querySelector("p")!;
-    if (text.textContent !== message.text) text.textContent = message.text;
+    const body = item.querySelector<HTMLDivElement>(".message-body")!;
+    if (!previous || previous.text !== message.text) {
+      if (message.role === "person") body.textContent = message.text;
+      else {
+        const blocks = parseMateBlocks(message.text).map((block) => {
+          const element = document.createElement(block.kind === "list" ? "ol" : "p");
+          const rows = block.kind === "list" ? block.items : [{ children: block.children }];
+          for (const row of rows) {
+            const parent = block.kind === "list" ? document.createElement("li") : element;
+            if ("number" in row && typeof row.number === "number") (parent as HTMLLIElement).value = row.number;
+            for (const node of row.children) {
+              if (node.kind === "text") parent.append(document.createTextNode(node.text));
+              else {
+                const chip = document.createElement(node.kind === "key" ? "kbd" : "code");
+                chip.className = `chat-${node.kind}`;
+                chip.textContent = node.text;
+                parent.append(chip);
+              }
+            }
+            if (parent !== element) element.append(parent);
+          }
+          return element;
+        });
+        body.replaceChildren(...blocks);
+      }
+    }
+    if (!previous || previous.mood !== message.mood) {
+      const bubble = item.querySelector<HTMLDivElement>(".bubble")!;
+      const moodLabel = item.querySelector<HTMLSpanElement>(".mood-label")!;
+      const mood = message.role === "mate" ? message.mood : undefined;
+      bubble.className = mood ? `bubble mood-${mood}` : "bubble";
+      const labels = {
+        calm: "chat.mood_calm", happy: "chat.mood_happy",
+        surprised: "chat.mood_surprised", sad: "chat.mood_sad",
+      } as const;
+      moodLabel.hidden = !mood;
+      moodLabel.textContent = mood ? t(labels[mood]) : "";
+    }
   });
   messages = next;
   const nextAwaiting = nextAwaitingReply(awaiting, next);

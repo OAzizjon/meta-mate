@@ -137,30 +137,116 @@
         background: var(--bulb-icon) center / 15px no-repeat, var(--accent);
       }
 
-      /* Speech bubbles: the corner nearest the speaker's name is the tail. */
+      /* Inked speech balloons for Mate; square caption boxes for the person. */
       .bubble {
+        position: relative;
+        --balloon-bg: var(--surface);
+        --balloon-stripe: transparent;
         max-width: min(85%, 600px);
-        padding: 10px 14px 8px;
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        background: var(--surface);
-        box-shadow: var(--shadow-sm);
+        padding: 12px 16px 10px;
+        border: 3px solid var(--text);
+        border-radius: 22px;
+        background: var(--balloon-bg);
+        box-shadow: inset 6px 0 var(--balloon-stripe), 3px 3px 0 var(--text);
         overflow-wrap: anywhere;
       }
 
-      .mate .bubble {
-        border-top-left-radius: 6px;
+      .mate .bubble::before {
+        content: "";
+        position: absolute;
+        top: -10px;
+        left: 20px;
+        width: 16px;
+        height: 16px;
+        border-top: 3px solid var(--text);
+        border-left: 3px solid var(--text);
+        background: var(--balloon-bg);
+        transform: rotate(45deg);
+      }
+
+      .mate .bubble.mood-happy {
+        --balloon-bg: var(--chat-happy-bg);
+        --balloon-stripe: var(--success-text);
+      }
+
+      .mate .bubble.mood-surprised {
+        --balloon-bg: var(--chat-surprised-bg);
+        --balloon-stripe: var(--accent-line);
+      }
+
+      .mate .bubble.mood-sad {
+        --balloon-bg: var(--chat-sad-bg);
+        --balloon-stripe: var(--error);
       }
 
       .person .bubble {
-        background: var(--accent-soft);
-        border-color: var(--accent-soft-border);
-        border-top-right-radius: 6px;
+        --balloon-bg: var(--accent-soft);
+        border-radius: 4px;
       }
 
-      .bubble p {
-        margin: 0;
+      #messages {
+        background-image: radial-gradient(circle, var(--chat-dot) 1px, transparent 1px);
+        background-size: 8px 8px;
+      }
+
+      .from {
+        margin-bottom: 14px;
+      }
+
+      .message-body {
         white-space: pre-wrap;
+      }
+
+      .message-body p {
+        margin: 0;
+        min-height: 1.5em;
+      }
+
+      .message-body ol {
+        margin: 8px 0;
+        padding-left: 1.8em;
+        white-space: normal;
+      }
+
+      .message-body li {
+        white-space: pre-wrap;
+      }
+
+      .message-body li + li {
+        margin-top: 6px;
+      }
+
+      .message-body li::marker {
+        font-weight: 700;
+      }
+
+      .mood-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: var(--text-sm);
+        font-weight: 700;
+      }
+
+      .mood-label[hidden] {
+        display: none;
+      }
+
+      .chat-key,
+      .chat-url {
+        padding: 1px 4px;
+        border: 1px solid var(--text);
+        border-radius: 4px;
+        background: var(--surface-soft);
+        color: var(--text);
+        font: inherit;
+        box-decoration-break: clone;
+        -webkit-box-decoration-break: clone;
+      }
+
+      .chat-key {
+        background: var(--accent-soft);
+        border-bottom-width: 3px;
+        font-weight: 700;
       }
 
       .bubble time {
@@ -296,6 +382,19 @@
       /* Windows contrast themes drop the fills: the bubbles and the box keep a rim, Mate's a
          wider one on his side; the decorative icons go. */
       @media (forced-colors: active) {
+        #messages {
+          background-image: none;
+        }
+
+        .mate .bubble::before {
+          display: none;
+        }
+
+        .chat-key,
+        .chat-url {
+          border-color: CanvasText;
+        }
+
         .bubble,
         textarea {
           border: 2px solid CanvasText;

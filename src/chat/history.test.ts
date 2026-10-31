@@ -1,13 +1,51 @@
 // Run with npm test (Node's test runner strips the TypeScript types).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canReuseMessages, nextAwaitingReply } from "./history.ts";
+import { canReuseMessages, nextAwaitingReply, parseMateBlocks, parseMateInline } from "./history.ts";
 import type { AwaitingReply } from "./history.ts";
 import { HISTORY_LIMIT, parseHistory } from "./model.ts";
 import type { Message } from "./model.ts";
 
 const question: Message = { role: "person", text: "question", timestamp: 1 };
 const answer: Message = { role: "mate", text: "answer", timestamp: 2 };
+
+test("quoted chips preserve English and Russian text, apostrophes and unfinished quotes", () => {
+  const text = 'Click "Save", «Печать» or “Close”. Don\'t click "unfinished';
+  const nodes = parseMateInline(text);
+  assert.deepEqual(nodes.filter((node) => node.kind === "key").map((node) => node.text), [
+    '"Save"', '«Печать»', '“Close”',
+  ]);
+  assert.equal(nodes.map((node) => node.text).join(""), text);
+});
+
+test("URLs remain passive tokens and keep balanced parentheses and literal markup", () => {
+  const text = '<img src=x> (https://example.org/a(b)), www.example.org. javascript:alert(1)';
+  const nodes = parseMateInline(text);
+  assert.deepEqual(nodes.filter((node) => node.kind === "url").map((node) => node.text), [
+    'https://example.org/a(b)', 'www.example.org',
+  ]);
+  assert.equal(nodes.map((node) => node.text).join(""), text);
+  assert.deepEqual(parseMateInline("Do not click if you want to keep this window open."), [
+    { kind: "text", text: "Do not click if you want to keep this window open." },
+  ]);
+});
+
+test("step lists preserve gaps, restarts, blank lines and following prose", () => {
+  assert.deepEqual(parseMateBlocks('Steps:\n3. Open "Settings"\n5) Choose display\n1. Restart\n\nDone.'), [
+    { kind: "paragraph", children: [{ kind: "text", text: "Steps:" }] },
+    { kind: "list", items: [
+      { number: 3, children: [{ kind: "text", text: "Open " }, { kind: "key", text: '"Settings"' }] },
+      { number: 5, children: [{ kind: "text", text: "Choose display" }] },
+      { number: 1, children: [{ kind: "text", text: "Restart" }] },
+    ] },
+    { kind: "paragraph", children: [] },
+    { kind: "paragraph", children: [{ kind: "text", text: "Done." }] },
+  ]);
+});
+
+test("mood-only streaming updates keep bubble identity", () => {
+  assert.equal(canReuseMessages([answer], [{ ...answer, mood: "sad" }]), true);
+});
 
 test("empty, unchanged and appended histories keep existing bubbles", () => {
   assert.equal(canReuseMessages([], []), true);

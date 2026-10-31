@@ -36,6 +36,10 @@
   --success-text: #17603a;
   --error: #b42318;
   --error-soft: #fef1ef;
+  --chat-happy-bg: #edf9f0;
+  --chat-surprised-bg: #fff6e0;
+  --chat-sad-bg: #fef1ef;
+  --chat-dot: rgb(31 42 68 / 0.07);
   --scrollbar: #cfc5ad;
   --selection: #ffe58a;
   --shadow-sm: 0 1px 2px rgb(31 42 68 / 0.06);
@@ -81,6 +85,10 @@
   --success-text: #b7f0c8;
   --error: #ffa59a;
   --error-soft: #3b2023;
+  --chat-happy-bg: #182c22;
+  --chat-surprised-bg: #2e2514;
+  --chat-sad-bg: #311c20;
+  --chat-dot: rgb(244 241 232 / 0.07);
   --scrollbar: #4a5168;
   --selection: #4a4020;
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);

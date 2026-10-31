@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// The longest one Mate message may grow in the history.
 const MATE_TEXT_MAX_BYTES: usize = 8 * 1024;
 
-use mm_core::matescript::Item;
+use mm_core::matescript::{Bound, Item};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, ipc::Channel};
 
@@ -17,12 +17,18 @@ const LIMIT: usize = 200;
 // JSON can escape each text byte as six ASCII bytes; include metadata overhead.
 const HISTORY_MAX_BYTES: usize = LIMIT * (MATE_TEXT_MAX_BYTES * 6 + 256);
 
+fn chat_mood(raw: &str) -> Option<&str> {
+    matches!(raw, "calm" | "happy" | "surprised" | "sad").then_some(raw)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
     role: Role,
     text: String,
     timestamp: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mood: Option<String>,
     // Generations restart with the process; never merge a new answer into loaded history.
     #[serde(skip)]
     generation: Option<u64>,
@@ -76,6 +82,7 @@ impl History {
                 .as_millis()
                 .try_into()
                 .unwrap_or(u64::MAX),
+            mood: None,
             generation,
         });
         let excess = self.messages.len().saturating_sub(LIMIT);
@@ -101,16 +108,29 @@ impl History {
             );
             return false;
         }
-        let (generation, text) = match message {
+        let (generation, text, mood) = match message {
             AnswerMsg::Item {
                 generation,
                 item: Item::Say(say),
-            } => (*generation, say.text.clone()),
+            } => (
+                *generation,
+                say.text.clone(),
+                say.bound.iter().rev().find_map(|bound| match bound {
+                    Bound::Mood(name) => chat_mood(name),
+                    _ => None,
+                }),
+            ),
             AnswerMsg::Item {
                 generation,
                 item: Item::PointRejected,
-            } => (*generation, crate::locale_text(locale, "robot.cant_find")),
-            AnswerMsg::Line { generation, key } => (*generation, crate::locale_text(locale, key)),
+            } => (
+                *generation,
+                crate::locale_text(locale, "robot.cant_find"),
+                None,
+            ),
+            AnswerMsg::Line { generation, key } => {
+                (*generation, crate::locale_text(locale, key), None)
+            }
             _ => return false,
         };
         if text.trim().is_empty() || self.cancelled.is_some_and(|through| generation <= through) {
@@ -124,9 +144,17 @@ impl History {
             if last.text.len() + text.len() < MATE_TEXT_MAX_BYTES {
                 last.text.push('\n');
                 last.text.push_str(&text);
+                if let Some(mood) = mood {
+                    last.mood = Some(mood.to_owned());
+                }
             }
         } else {
             self.push(Role::Mate, text, Some(generation));
+            if let Some(last) = self.messages.last_mut()
+                && last.generation == Some(generation)
+            {
+                last.mood = mood.map(str::to_owned);
+            }
         }
         true
     }
@@ -167,6 +195,17 @@ fn load_history(reader: impl Read) -> Vec<Message> {
     }
     let mut messages = serde_json::from_slice::<Vec<Message>>(&raw).unwrap_or_default();
     messages.retain(|message| valid_text(message.role, &message.text));
+    for message in &mut messages {
+        message.mood = if message.role == Role::Mate {
+            message
+                .mood
+                .as_deref()
+                .and_then(chat_mood)
+                .map(str::to_owned)
+        } else {
+            None
+        };
+    }
     let excess = messages.len().saturating_sub(LIMIT);
     messages.drain(..excess);
     messages
@@ -308,6 +347,41 @@ mod tests {
     use super::*;
 
     #[test]
+    fn moods_stream_with_speech_and_legacy_history_loads() {
+        let mut history = History::default();
+        let say = |mood: &str| AnswerMsg::Item {
+            generation: 1,
+            item: Item::Say(mm_core::matescript::Say {
+                id: 1,
+                text: "Hello.".into(),
+                bound: vec![Bound::Mood(mood.into())],
+            }),
+        };
+        assert!(history.answer(&say("thinking"), "en"));
+        assert_eq!(history.messages[0].mood, None);
+        assert!(history.answer(&say("sad"), "en"));
+        assert_eq!(history.messages[0].mood.as_deref(), Some("sad"));
+        assert!(history.answer(&say("calm"), "en"));
+        assert_eq!(history.messages[0].mood.as_deref(), Some("calm"));
+        history.answer(&AnswerMsg::Cancel { generation: 1 }, "en");
+        assert!(!history.answer(&say("happy"), "en"));
+        assert_eq!(history.messages[0].mood.as_deref(), Some("calm"));
+        let saved = serde_json::to_vec(&history.messages).unwrap();
+        assert_eq!(
+            load_history(saved.as_slice())[0].mood.as_deref(),
+            Some("calm")
+        );
+
+        let raw = br#"[{"role":"mate","text":"old","timestamp":1},{"role":"mate","text":"new","timestamp":2,"mood":"surprised"},{"role":"person","text":"hi","timestamp":3,"mood":"sad"},{"role":"mate","text":"unknown","timestamp":4,"mood":"unknown"}]"#;
+        let loaded = load_history(&raw[..]);
+        assert_eq!(loaded.len(), 4);
+        assert_eq!(loaded[0].mood, None);
+        assert_eq!(loaded[1].mood.as_deref(), Some("surprised"));
+        assert_eq!(loaded[2].mood, None);
+        assert_eq!(loaded[3].mood, None);
+    }
+
+    #[test]
     fn clear_invalidates_queued_and_started_requests() {
         let mut history = History::default();
         let queued_epoch = history.epoch;
@@ -345,18 +419,21 @@ mod tests {
                 role: Role::Mate,
                 text: "x".repeat(MATE_TEXT_MAX_BYTES + 1),
                 timestamp: 0,
+                mood: None,
                 generation: None,
             },
             Message {
                 role: Role::Person,
                 text: "x".repeat(1001),
                 timestamp: 0,
+                mood: None,
                 generation: None,
             },
             Message {
                 role: Role::Mate,
                 text: "kept".into(),
                 timestamp: 0,
+                mood: None,
                 generation: None,
             },
         ];

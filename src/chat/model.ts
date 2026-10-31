@@ -2,10 +2,18 @@
 export const MAX_TEXT = 1000;
 export const HISTORY_LIMIT = 200;
 
+export const CHAT_MOODS = ["calm", "happy", "surprised", "sad"] as const;
+export type ChatMood = (typeof CHAT_MOODS)[number];
+
+export function isChatMood(value: unknown): value is ChatMood {
+  return typeof value === "string" && (CHAT_MOODS as readonly string[]).includes(value);
+}
+
 export interface Message {
   readonly role: "person" | "mate";
   readonly text: string;
   readonly timestamp: number;
+  readonly mood?: ChatMood;
 }
 
 export function canSend(text: string): boolean {
@@ -25,5 +33,9 @@ export function parseHistory(raw: unknown): Message[] {
     return (role === "person" || role === "mate") && typeof text === "string"
       && text.trim().length > 0 && typeof timestamp === "number"
       && Number.isSafeInteger(timestamp) && timestamp >= 0 && timestamp <= 8_640_000_000_000_000;
-  }).slice(-HISTORY_LIMIT).map(({ role, text, timestamp }) => ({ role, text, timestamp }));
+  }).slice(-HISTORY_LIMIT).map(({ role, text, timestamp, mood }) => (
+    role === "mate" && isChatMood(mood)
+      ? { role, text, timestamp, mood }
+      : { role, text, timestamp }
+  ));
 }

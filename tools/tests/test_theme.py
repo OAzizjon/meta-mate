@@ -31,6 +31,15 @@ class ThemeTests(unittest.TestCase):
     def test_every_light_token_has_a_dark_value(self):
         self.assertEqual(self.light.keys(), self.dark.keys())
 
+    def test_chat_text_and_timestamps_have_normal_contrast_in_both_themes(self):
+        for palette in (self.light, self.dark):
+            for foreground in ("--text", "--text-muted"):
+                for background in ("--surface", "--accent-soft", "--surface-soft",
+                                   "--chat-happy-bg", "--chat-surprised-bg", "--chat-sad-bg"):
+                    with self.subTest(foreground=foreground, background=background,
+                                      surface=palette["--surface"]):
+                        self.assertGreaterEqual(contrast(palette[foreground], palette[background]), 4.5)
+
     def test_dark_text_and_muted_text_have_normal_text_contrast(self):
         surfaces = ["--bg", "--surface", "--surface-soft", "--surface-hover",
                     "--accent-soft", "--accent-soft-hover", "--success-bg", "--error-soft",

@@ -2,6 +2,20 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { canSend, parseHistory, sendsOnKey } from "./model.ts";
 
+test("legacy history loads and only supported Mate moods survive validation", () => {
+  assert.deepEqual(parseHistory([
+    { role: "mate", text: "old", timestamp: 1 },
+    { role: "mate", text: "hello", timestamp: 2, mood: "happy" },
+    { role: "mate", text: "unknown", timestamp: 3, mood: "<img>" },
+    { role: "person", text: "hello", timestamp: 4, mood: "sad" },
+  ]), [
+    { role: "mate", text: "old", timestamp: 1 },
+    { role: "mate", text: "hello", timestamp: 2, mood: "happy" },
+    { role: "mate", text: "unknown", timestamp: 3 },
+    { role: "person", text: "hello", timestamp: 4 },
+  ]);
+});
+
 test("only nonempty questions of at most 1000 Unicode characters send", () => {
   for (const text of ["", " \n\t", "a".repeat(1001)]) assert.equal(canSend(text), false);
   for (const text of [" hello ", "one\ntwo", "😀".repeat(1000)]) assert.equal(canSend(text), true);
