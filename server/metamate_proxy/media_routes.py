@@ -88,16 +88,18 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
         forward = {'model': policy.IMAGE, 'prompt': prompt, 'n': 1, 'size': '1024x1024',
                    'response_format': 'b64_json', 'output_format': 'png'}
         headers = {'Authorization': 'Bearer ' + settings.meta_key, 'Content-Type': 'application/json'}
+        refused = False
         try:
             upstream = await http.post(settings.meta_base + '/images/generations', json=forward,
                                        headers=headers, timeout=90)
+            refused = 400 <= upstream.status_code < 500
         except httpx.HTTPError:
-            policy.reconcile(state.ledger, reservation, None, settings.prices)
             return error(502, 'image generation failed')
-        policy.reconcile(state.ledger, reservation, None, settings.prices)
+        finally:
+            # Settled once, also on cancellation (a cut call keeps its reservation); only an
+            # image Meta refused with a 4xx is refunded.
+            policy.reconcile(state.ledger, reservation, None, settings.prices, refused=refused)
         if upstream.status_code != 200:
-            if upstream.status_code < 500:
-                policy.refund_image(state.ledger, reservation)
             return upstream_error(upstream.status_code, upstream.content, settings.meta_key)
         try:
             encoded = upstream.json()['data'][0]['b64_json']

@@ -67,8 +67,8 @@ class LedgerFileTests(unittest.TestCase):
                 self.assertEqual(loaded.days, {})
 
     def test_charges_settlements_refunds_and_pending_reservations(self):
-        from metamate_proxy.policy import (IMAGE, charge_glimmer, charge_tts, refund_image,
-                                           reserve_asr, settle_asr)
+        from metamate_proxy.policy import (IMAGE, charge_glimmer, charge_tts, reserve_asr,
+                                           settle_asr)
 
         today = date(2026, 10, 29)
         prices = Prices(1, 1, 1, 1)
@@ -84,25 +84,29 @@ class LedgerFileTests(unittest.TestCase):
 
             settled = reserve(ledger, 'inv', JUDGE, Budget(10), WONDER, 0.1, today)
             pending = reserve(ledger, 'inv', JUDGE, Budget(10), SPARK, 0.2, today)
-            self.assertEqual(reload().overall.calls, 0)
+            self.assertEqual(reload().overall.calls, 2)
+            self.assertAlmostEqual(reload().overall.usd, 0.3)
+            restarted = Ledger(path=path)
+            restarted.load(today)
+            self.assertEqual(decide(restarted, 'other', JUDGE, Budget(0.3), SPARK, 0.01, today),
+                             Decision(None, 'daily_budget'))
             reconcile(ledger, settled, {'input_tokens': 100, 'output_tokens': 50}, prices)
-            self.assertEqual(reload().overall.calls, 1)
-            self.assertAlmostEqual(reload().overall.usd, 0.00015)
+            self.assertEqual(reload().overall.calls, 2)
+            self.assertAlmostEqual(reload().overall.usd, 0.20015)
             reconcile(ledger, pending, None, prices)
             self.assertAlmostEqual(reload().overall.usd, 0.20015)
             image = reserve(ledger, 'inv', JUDGE, Budget(10), IMAGE, 0.01, today)
-            reconcile(ledger, image, None, prices)
-            refund_image(ledger, image)
+            reconcile(ledger, image, None, prices, refused=True)
             self.assertEqual(reload().images['inv'].usd, 0)
             charge_tts(ledger, 'inv', 25, today)
             self.assertEqual(reload().tts_chars['inv'], 25)
             charge_glimmer(ledger, 'inv', today)
             self.assertEqual(reload().glimmer['inv'], 1)
             seconds = reserve_asr(ledger, 'inv', JUDGE, 60, today)
-            self.assertEqual(reload().asr_seconds['inv'], 0)
+            self.assertEqual(reload().asr_seconds['inv'], 60)
             settle_asr(ledger, 'inv', seconds, 12, today)
             self.assertEqual(reload().asr_seconds['inv'], 12)
-            self.assertEqual(commit.call_count, 11)
+            self.assertEqual(commit.call_count, 10)
             self.assertEqual(list(Path(folder).iterdir()), [Path(path)])
 
     def test_failed_replace_preserves_previous_snapshot(self):
@@ -121,6 +125,10 @@ class LedgerFileTests(unittest.TestCase):
 
 
 class RequestTests(unittest.TestCase):
+    def test_largest_image_estimate_covers_pixel_scaled_observation(self):
+        # Assumption: tokens scale with pixels; 4000 rounded up the 1280x800 observation.
+        self.assertGreaterEqual(IMAGE_TOKENS, 4000 * 1280 / 800)
+
     def test_caps_and_model_forcing_for_every_kind(self):
         caps = (INTENT_CAP, SPEECH_CAP, ANSWER_CAP, COMPUTER_CAP)
         self.assertEqual(caps, (200, 300, 2400, 2400))
@@ -394,6 +402,15 @@ class SpendingTests(unittest.TestCase):
         for total in (day.overall, day.invites["tester"], day.wonder["tester"]):
             self.assertEqual((total.calls, total.usd), (1, 1))
 
+    def test_actual_over_estimate_is_logged_and_blocks_further_spending(self):
+        pending = self.reserve(SPARK, 0.01)
+        with self.assertLogs('metamate_proxy.policy', level='WARNING') as logged:
+            reconcile(self.ledger, pending, {'input_tokens': 3_000_000, 'output_tokens': 0},
+                      self.prices)
+        self.assertIn('actual_cost_above_estimate', logged.output[0])
+        self.assertEqual(self.ledger.days[self.today].overall.usd, 15)
+        self.assertEqual(self.decide(SPARK, 0.01), Decision(None, 'daily_budget'))
+
     def test_invalid_values_cannot_bypass_budget(self):
         for cost in (-1, float("nan"), float("inf")):
             with self.subTest(cost=cost), self.assertRaises(ValueError):
@@ -553,6 +570,25 @@ def sam_body(text="<0f>1<|point;x=0;y=0;w=1;h=1|>", **extra):
 
 
 class SamTests(unittest.TestCase):
+    def test_explicit_fixed_price_refusals_refund_dollars_but_keep_attempt_caps(self):
+        from metamate_proxy.policy import IMAGE, IMAGE_USD
+
+        today = date(2026, 10, 29)
+        for model, cost in ((SAM, SAM_CALL_USD), (IMAGE, IMAGE_USD)):
+            with self.subTest(model=model):
+                ledger = Ledger()
+                limits = InviteLimits(1, 0, 0, sam_calls=1, image_calls=1)
+                pending = reserve(ledger, 'inv', limits, Budget(1), model, cost, today)
+                reconcile(ledger, pending, {'input_tokens': 0, 'output_tokens': 0},
+                          Prices(1, 1, 1, 1), refused=True)
+                day = ledger.days[today]
+                extra = day.sam if model == SAM else day.images
+                for total in (day.overall, day.invites['inv'], extra['inv']):
+                    self.assertEqual((total.calls, total.usd), (1, 0))
+                self.assertIsNone(decide(ledger, 'inv', limits, Budget(1), model, cost, today).model)
+                with self.assertRaisesRegex(ValueError, 'already reconciled'):
+                    reconcile(ledger, pending, None, Prices(1, 1, 1, 1), refused=True)
+
     def test_only_a_point_prompt_on_one_png_passes(self):
         result = clamp_request(sam_body(), CallKind.SAM, SPARK)
         self.assertEqual(result, sam_body())

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 try:
     import httpx
@@ -345,13 +346,17 @@ class ProxyTests(unittest.TestCase):
         self.assertNotIn(TTS_SECRET, repr(settings))
         self.assertNotIn(JUDGE_CODE, repr(settings))
 
-    def test_meta_errors_keep_their_status_and_lose_the_key(self):
+    def test_meta_errors_distinguish_upstream_auth_and_busy_and_lose_the_key(self):
         for stream in (False, True):
-            for status in (400, 401, 503):
+            for status in (400, 401, 403, 413, 422, 429, 503):
                 with self.subTest(stream=stream, status=status):
                     client = client_for(FakeMeta(stream=stream, status=status))
                     answer = ask(client, {'model': 'muse-spark-1.3', 'input': 'Hi', 'stream': stream})
-                    self.assertEqual(answer.status_code, status)
+                    expected = {401: 502, 403: 502, 429: 503}.get(status, status)
+                    self.assertEqual(answer.status_code, expected)
+                    if status in (401, 403, 429):
+                        self.assertEqual(answer.json()['error']['message'],
+                                         'upstream_busy' if status == 429 else 'upstream_unavailable')
                     text = answer.text
                     for piece in (KEY, KEY[:8], KEY[-6:]):
                         self.assertNotIn(piece, text)
@@ -485,6 +490,67 @@ class ProxyTests(unittest.TestCase):
         for piece in (KEY, KEY[:8], KEY[-6:], KEY[4:]):
             self.assertNotIn(piece.encode(), answer.content)
         self.assertIn(b'Bearer [key]', answer.content)
+
+    def test_deadline_and_oversize_emit_one_app_error_and_keep_reservations(self):
+        from metamate_proxy.responses_route import SSE_EVENT_MAX_BYTES
+
+        class Stalled(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                await asyncio.sleep(1)
+                yield b'late'
+
+        delta = b'event: response.output_text.delta\ndata: {"delta":"Hi"}\n\n'
+        cases = (
+            (Chunks([delta]), {'STREAM_SECONDS': 0}),
+            (Stalled(), {'STREAM_SECONDS': 0.01}),
+            (Chunks([b'x' * (SSE_EVENT_MAX_BYTES + 1)]), {}),
+            (Chunks([b'x' * (SSE_EVENT_MAX_BYTES + 1) + b'\n\n']), {}),
+        )
+        for stream, overrides in cases:
+            with self.subTest(stream=type(stream).__name__, overrides=overrides):
+                def handler(_request):
+                    return httpx.Response(200, stream=stream, headers={'content-type': 'text/event-stream'})
+
+                env = {**ENV, 'PROXY_DAILY_BUDGET_USD': '0.1'}
+                client = TestClient(create_app(Settings.from_env(env), client=httpx.AsyncClient(
+                    transport=httpx.MockTransport(handler))))
+                with patch.multiple('metamate_proxy.responses_route', **{'STREAM_SECONDS': 180, **overrides}):
+                    for _ in range(2):
+                        answer = ask(client, {'input': 'Hi', 'stream': True})
+                        self.assertEqual(answer.content.count(b'event: error\n'), 1)
+                        payload = json.loads(answer.content.split(b'data: ', 1)[1])
+                        self.assertEqual(payload['type'], 'error')
+                        self.assertIsInstance(payload['error']['message'], str)
+                        self.assertNotIn(b'response.completed', answer.content)
+                    self.assertEqual(ask(client, {'input': 'Hi', 'stream': True}).status_code, 429)
+
+    def test_sam_4xx_refunds_dollars_but_successful_zero_usage_and_failures_do_not(self):
+        from tests.test_policy import sam_body
+
+        for status, expected in ((400, [400, 400, 400]), (503, [503, 503, 429]),
+                                 (200, [200, 200, 429])):
+            with self.subTest(status=status):
+                fake = FakeMeta(stream=True, status=status)
+                if status == 200:
+                    def handler(request):
+                        return httpx.Response(200, content=b'event: response.completed\ndata: '
+                            b'{"response":{"model":"sam-3.1","usage":{"input_tokens":0,"output_tokens":0}}}\n\n')
+                    fake.handler = handler
+                client = client_for(fake, {**ENV, 'PROXY_DAILY_BUDGET_USD': '0.04'})
+                self.assertEqual([ask(client, sam_body(), kind='sam').status_code for _ in range(3)], expected)
+
+    def test_settlement_anomalies_are_logged_without_upstream_model_text(self):
+        for payload, expected in (({'model': 'untrusted-upstream-name'}, 'model_mismatch'),
+                                  ({'model': 'muse-spark-1.3', 'usage': {'input_tokens': 'bad'}}, 'bad_usage')):
+            def handler(_request):
+                return httpx.Response(200, json=payload)
+
+            client = TestClient(create_app(Settings.from_env(ENV), client=httpx.AsyncClient(
+                transport=httpx.MockTransport(handler))))
+            with self.assertLogs('metamate_proxy.responses_route', level='WARNING') as logged:
+                self.assertEqual(ask(client, {'input': 'Hi'}).status_code, 200)
+            self.assertIn(expected, logged.output[0])
+            self.assertNotIn('untrusted-upstream-name', logged.output[0])
 
     def test_a_continuation_reserves_the_reported_history_or_the_bound(self):
         def handler(request: httpx.Request) -> httpx.Response:

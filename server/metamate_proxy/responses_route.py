@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -23,6 +24,7 @@ SSE_EVENT_MAX_BYTES = 1_000_000
 FINAL_EVENTS = {'response.completed', 'response.incomplete'}
 # The usage that settles a call Meta refused with a 4xx: nothing was inferred.
 NOTHING_BILLED = {'input_tokens': 0, 'output_tokens': 0}
+STREAM_ERROR = b'event: error\ndata: {"type":"error","error":{"message":"upstream stream interrupted"}}\n\n'
 CALL_KINDS = {kind.value: kind for kind in policy.CallKind}
 
 
@@ -166,12 +168,15 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
             answered['X-MetaMate-Fallback-Reason'] = reservation.reason
         settled = False
 
-        def settle_once(usage: dict | None, model: str | None) -> None:
+        def settle_once(usage: dict | None, model: str | None, *, refused: bool = False) -> None:
             """Synchronous: also runs in full under a cancellation."""
             nonlocal settled
             if not settled:
                 settled = True
-                policy.reconcile(state.ledger, reservation, usage, settings.prices, upstream_model=model)
+                anomaly = policy.reconcile(state.ledger, reservation, usage, settings.prices,
+                                           upstream_model=model, refused=refused)
+                if anomaly is not None:
+                    logging.getLogger(__name__).warning('settlement anomaly: %s', anomaly)
                 release()
 
         def finished(response: dict) -> None:
@@ -180,11 +185,12 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
                                     bound + output_cap)
 
         if not forward.get('stream'):
-            usage, model = None, None
+            usage, model, refused = None, None, False
             try:
                 upstream = await http.post(url, json=forward, headers=headers)
                 if upstream.status_code != 200:
-                    if upstream.status_code < 500:
+                    if 400 <= upstream.status_code < 500:
+                        refused = True
                         usage = NOTHING_BILLED  # refused before any inference
                     return upstream_error(upstream.status_code, upstream.content, settings.meta_key)
                 data = upstream.json()
@@ -197,7 +203,7 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
                 return error(502, 'upstream failed')
             finally:
                 # Also on cancellation: a cut request keeps its whole reservation.
-                settle_once(usage, model)
+                settle_once(usage, model, refused=refused)
 
         try:
             upstream = await http.send(http.build_request('POST', url, json=forward, headers=headers),
@@ -210,7 +216,8 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
             raise
         if upstream.status_code != 200:
             # Settled before any await, so a cancellation below cannot skip it.
-            settle_once(NOTHING_BILLED if upstream.status_code < 500 else None, None)
+            refused = 400 <= upstream.status_code < 500
+            settle_once(NOTHING_BILLED if refused else None, None, refused=refused)
             try:
                 raw = await upstream.aread()
             except httpx.HTTPError:
@@ -224,12 +231,34 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
             """Whole events only, each scrubbed: a key split across chunks never slips by."""
             deadline = asyncio.get_running_loop().time() + STREAM_SECONDS
             buffer = b''
-            async for chunk in upstream.aiter_bytes():
-                if asyncio.get_running_loop().time() > deadline:
+            chunks = upstream.aiter_bytes().__aiter__()
+            while True:
+                # Checked before the wait too: a chunk that is already there would pass a
+                # zero timeout, and Windows' coarse clock can read the same tick twice.
+                remaining = deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    if not seen['final']:
+                        yield scrub_event(STREAM_ERROR, settings.meta_key)
+                    return
+                try:
+                    chunk = await asyncio.wait_for(anext(chunks), remaining)
+                except StopAsyncIteration:
+                    break
+                except (asyncio.TimeoutError, httpx.HTTPError):
+                    if not seen['final']:
+                        yield scrub_event(STREAM_ERROR, settings.meta_key)
+                    return
+                if asyncio.get_running_loop().time() >= deadline:
+                    if not seen['final']:
+                        yield scrub_event(STREAM_ERROR, settings.meta_key)
                     return
                 buffer = (buffer + chunk).replace(b'\r\n', b'\n')
                 while b'\n\n' in buffer:
                     event, buffer = buffer.split(b'\n\n', 1)
+                    if len(event) > SSE_EVENT_MAX_BYTES:
+                        if not seen['final']:
+                            yield scrub_event(STREAM_ERROR, settings.meta_key)
+                        return
                     # Only the final event is parsed (usage and id); nothing is kept.
                     final = final_response(event)
                     if final is not None:
@@ -237,6 +266,8 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
                         finished(final)
                     yield scrub_event(event, settings.meta_key) + b'\n\n'
                 if len(buffer) > SSE_EVENT_MAX_BYTES:
+                    if not seen['final']:
+                        yield scrub_event(STREAM_ERROR, settings.meta_key)
                     return  # an event this large is not an answer: the stream ends here
             if buffer.strip():
                 yield scrub_event(buffer, settings.meta_key) + b'\n\n'

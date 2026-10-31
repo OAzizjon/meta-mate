@@ -4,8 +4,11 @@ import json
 import unittest
 from urllib.parse import parse_qs, urlsplit
 
-import httpx
-from fastapi.testclient import TestClient
+try:
+    import httpx
+    from fastapi.testclient import TestClient
+except ImportError:  # the standard-library run of `mm test`
+    raise unittest.SkipTest('FastAPI is not installed in this interpreter')
 
 from metamate_proxy import auth
 from metamate_proxy.app import Settings, create_app

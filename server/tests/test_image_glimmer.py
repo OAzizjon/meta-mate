@@ -4,8 +4,11 @@ import base64
 import json
 import unittest
 
-import httpx
-from fastapi.testclient import TestClient
+try:
+    import httpx
+    from fastapi.testclient import TestClient
+except ImportError:  # the standard-library run of `mm test`
+    raise unittest.SkipTest('FastAPI is not installed in this interpreter')
 
 from metamate_proxy.app import Settings, create_app
 from tests.test_app import ENV, JUDGE_CODE, KEY
@@ -66,6 +69,16 @@ class ImageTests(unittest.TestCase):
         blocked = refused.post('/v1/image', json={'prompt': 'x'}, headers=auth())
         self.assertEqual(blocked.status_code, 400)
         self.assertNotIn(KEY, blocked.text)
+
+    def test_refusals_refund_dollars_but_keep_the_hard_attempt_allowance(self):
+        fake = FakeUpstream(image_status=400)
+        client = client_for(fake, {**GLIMMER_ENV, 'PROXY_DAILY_BUDGET_USD': '0.01'})
+        for _ in range(5):
+            self.assertEqual(client.post('/v1/image', json={'prompt': 'x'},
+                                         headers=auth(TESTER)).status_code, 400)
+        self.assertEqual(client.post('/v1/image', json={'prompt': 'x'},
+                                     headers=auth(TESTER)).status_code, 429)
+        self.assertEqual(len(fake.requests), 5)
 
 
 class GlimmerTests(unittest.TestCase):

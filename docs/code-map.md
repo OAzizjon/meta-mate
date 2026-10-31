@@ -16,7 +16,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - crates/mm-core/src/api/mod.rs — The Meta Model API (Responses API) as pure data: building requests and reading responses, no networking here (the proxy client lives elsewhere).
   intent:4 request:6 response:7 sam:8 sse:9
 - crates/mm-core/src/api/prompts.rs — The prompt texts (docs/prompts.md, D41) that the builders in api/request.rs send as `instructions`: model input, not UI text, so invariant 7 does not apply.
-  PERSONA_PROMPT:8 SCREEN_PROMPT:39 NO_SCREEN_PROMPT:48 SAFETY_PROMPT:55 EXAMPLES_PROMPT:63 SCREEN_EXAMPLE_PROMPT:76 SAFETY_CHECK_PROMPT:84 TEACHER_PROMPT:102
+  PERSONA_PROMPT:8 SCREEN_PROMPT:39 NO_SCREEN_PROMPT:48 SAFETY_PROMPT:55 EXAMPLES_PROMPT:63 SCREEN_EXAMPLE_PROMPT:76 SAFETY_CHECK_PROMPT:84 TEACHER_PROMPT:103
   inline tests (1)
 - crates/mm-core/src/api/request.rs — Building a Responses API request body (docs/prompts.md, D41).
   RedactedImage:18^ ModelChoice:27 ReasoningEffort:41 SPOKEN_MAX_OUTPUT_TOKENS:63 SCREEN_MAX_OUTPUT_TOKENS:69 ComputerSession:76 must_hide:86 ElementList:93
@@ -428,9 +428,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/ipc/timeline.ts — The MateScript timeline as it arrives from Rust: one `{"kind", "value"}` object per item (`crates/mm-core/src/matescript/timeline.rs`, serde adjacent tagging).
   Level:6 Sound:9 Point:16 Step:21 Bound:28 Say:36 TimelineItem:43 parseTimelineItem:65
 - src/mate-logic.ts — Mate's answer presentation policy, independent of the DOM, Tauri and the audio engine.
-  CANT_FIND_HOLD_MS:11 LOOK_CONSENT_MS:13 Bubble:15 createMateAnswerRouter:35 interruptLesson:169 awakeBubble:176 createMateWindowEvents:195 guestTrialView:223
-  signedIn:232
-  tests: src/mate-logic.test.ts (17)
+  CANT_FIND_HOLD_MS:11 LOOK_CONSENT_MS:13 Bubble:15 createMateAnswerRouter:35 interruptLesson:171 awakeBubble:178 createMateWindowEvents:197 guestTrialView:225
+  signedIn:234
+  tests: src/mate-logic.test.ts (18)
 - src/mate-menu.ts — Page controls in Mate's unfocusable WebView; never use a native popup or focus().
   MATE_MENU_ITEMS:4 guestUsageOf:15 hideReturnTime:22 mountMateMenu:29
   tests: src/mate-menu.test.ts (3)
@@ -518,8 +518,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
   run:110 first_line:125 agent_mode_reason:129 say:141 cmd_doctor:178 plan_sections:244 cmd_plan:267 cmd_status:294
-  cmd_check:342 cmd_test:366 cmd_agent:406 cmd_tool:431 cmd_release:437 cmd_uia:518 cmd_art:552 cmd_sounds:600
-  cmd_phrases:642 cmd_agents:655 wanted_key_names:668 parse_env:676 cmd_keys:731 build_parser:810 cmd_probe:863 main:879
+  cmd_check:342 cmd_test:366 cmd_agent:409 cmd_tool:434 cmd_release:440 cmd_uia:521 cmd_art:555 cmd_sounds:603
+  cmd_phrases:645 cmd_agents:658 wanted_key_names:671 parse_env:679 cmd_keys:734 build_parser:813 cmd_probe:866 main:882
   tests: tools/tests/test_mm.py (50)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
@@ -579,7 +579,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - server/metamate_proxy/__init__.py
 - server/metamate_proxy/app.py — The MetaMate proxy: the Meta key stays on the server, the app sends an invite code.
   Settings:40 create_app:125 healthz:135 app_from_env:148
-  tests: server/tests/test_app.py (32)
+  tests: server/tests/test_app.py (35)
 - server/metamate_proxy/asr_route.py — `/v1/asr`: a relay of Muse Voice Transcribe's realtime WebSocket, behind the invite and a daily allowance of seconds reserved before connecting; only checked values reach Meta.
   register:31 asr:33
 - server/metamate_proxy/auth.py — Sign-in with Google or GitHub for the desktop app (D54).
@@ -590,18 +590,18 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - server/metamate_proxy/auth_routes.py — Sign-in (D54): `/auth/{provider}/start` and `/callback` run the provider's OAuth flow in the browser, then `/auth/token` trades the app's one-time login code for a session token.
   auth_page:23 register:29 auth_providers:37 auth_start:42 auth_callback:90 auth_guest:106 auth_token:134
 - server/metamate_proxy/common.py — What the proxy's routes share: the per-app state, the invite check, error answers that never carry the key, and a body reader that never buffers past its limit.
-  State:23 today:36 invite_of:40 error:55 scrub_key:59 scrub:71 upstream_error:77 read_body:89
-  json_body:108
+  State:23 today:36 invite_of:40 error:55 scrub_key:59 scrub:71 upstream_error:77 read_body:93
+  json_body:112
 - server/metamate_proxy/media_routes.py — One call each behind the invite and a daily allowance, taken before the call: `/v1/tts` (MMS-TTS, tts/), `/v1/image` (Muse Image) and `/v1/glimmer` (Muse Glimmer on Modal).
-  register:24 tts:26 image:70 glimmer:112
+  register:24 tts:26 image:70 glimmer:114
 - server/metamate_proxy/policy.py — Pure request and spending policy; callers must serialize ledger operations.
-  CallKind:69 Prices:106 check_input:204 check_images:228 input_token_bound:250 clamp_sam:277 clamp_request:311 estimate_cost:350
-  actual_cost:366 InviteLimits:375 Budget:410 Totals:421 DayTotals:427 Decision:439 Reservation:447 body_for:455
-  ResponseOwners:461 context_tokens:494 Ledger:505 decide:601 reserve:631 reconcile:658 asr_allowance:698 charge_asr:704
-  reserve_asr:712 settle_asr:724 tts_allowance:736 charge_tts:742 glimmer_allowance:750 charge_glimmer:756 refund_image:762
-  tests: server/tests/test_policy.py (38)
+  CallKind:71 Prices:108 check_input:206 check_images:230 input_token_bound:252 clamp_sam:279 clamp_request:313 estimate_cost:352
+  actual_cost:368 InviteLimits:377 Budget:412 Totals:423 DayTotals:429 Decision:441 Reservation:449 body_for:457
+  ResponseOwners:463 context_tokens:496 Ledger:507 decide:591 reserve:621 reconcile:648 asr_allowance:697 charge_asr:703
+  reserve_asr:711 settle_asr:723 tts_allowance:735 charge_tts:741 glimmer_allowance:749 charge_glimmer:755
+  tests: server/tests/test_policy.py (41)
 - server/metamate_proxy/responses_route.py — `/v1/responses`: the pure policy (policy.py) before the call, Meta's answer passed through (a stream as whole events, each scrubbed) and the reservation settled however the call ends.
-  scrub_event:29 Relay:39 guest_headers:54 register:59 responses:61 final_response:252
+  scrub_event:31 Relay:41 guest_headers:56 register:61 responses:63 final_response:283
 - server/metamate_proxy/site.py — The static landing page (PROXY_SITE_DIR, from site/), with its own headers.
   SiteFiles:10 mount:23
 
@@ -695,21 +695,21 @@ Server route decorators <- Rust string literals (URLs, `format!` templates) that
 - GET /auth/{provider}/start server/metamate_proxy/auth_routes.py:41 <- src-tauri/src/auth.rs:366
 - GET /healthz server/metamate_proxy/app.py:134 <- no Rust caller
 - WS /v1/asr server/metamate_proxy/asr_route.py:32 <- src-tauri/src/proxy.rs:559,560
-- POST /v1/glimmer server/metamate_proxy/media_routes.py:111 <- src-tauri/src/proxy.rs:533
+- POST /v1/glimmer server/metamate_proxy/media_routes.py:113 <- src-tauri/src/proxy.rs:533
 - POST /v1/image server/metamate_proxy/media_routes.py:69 <- src-tauri/src/proxy.rs:493
-- POST /v1/responses server/metamate_proxy/responses_route.py:60 <- src-tauri/src/proxy.rs:414
+- POST /v1/responses server/metamate_proxy/responses_route.py:62 <- src-tauri/src/proxy.rs:414
 - POST /v1/tts server/metamate_proxy/media_routes.py:25 <- src-tauri/src/proxy.rs:470
 
 ### X-MetaMate-Call
 
 The header names the kind of a proxy call: server `CallKind` value (py) and the Rust `CallKind` variant that sends it (rs), then the Rust calls that use it.
 
-- header: rs src-tauri/src/proxy.rs:416; py server/metamate_proxy/responses_route.py:66
-- `answer`: py server/metamate_proxy/policy.py:72; rs src-tauri/src/proxy.rs:70; used src-tauri/src/voice.rs:1048, src-tauri/src/voice_selftest.rs:179
-- `computer`: py server/metamate_proxy/policy.py:73; rs src-tauri/src/proxy.rs:71; used src-tauri/src/teacher/lesson.rs:130
-- `intent`: py server/metamate_proxy/policy.py:70; rs src-tauri/src/proxy.rs:68
-- `sam`: py server/metamate_proxy/policy.py:74; rs src-tauri/src/proxy.rs:72; used src-tauri/src/sam.rs:108
-- `speech`: py server/metamate_proxy/policy.py:71; rs src-tauri/src/proxy.rs:69
+- header: rs src-tauri/src/proxy.rs:416; py server/metamate_proxy/responses_route.py:68
+- `answer`: py server/metamate_proxy/policy.py:74; rs src-tauri/src/proxy.rs:70; used src-tauri/src/voice.rs:1048, src-tauri/src/voice_selftest.rs:179
+- `computer`: py server/metamate_proxy/policy.py:75; rs src-tauri/src/proxy.rs:71; used src-tauri/src/teacher/lesson.rs:130
+- `intent`: py server/metamate_proxy/policy.py:72; rs src-tauri/src/proxy.rs:68
+- `sam`: py server/metamate_proxy/policy.py:76; rs src-tauri/src/proxy.rs:72; used src-tauri/src/sam.rs:108
+- `speech`: py server/metamate_proxy/policy.py:73; rs src-tauri/src/proxy.rs:69
 
 ### Locale keys
 
@@ -722,15 +722,15 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:146, src/settings/account.ts:75, src/signin.ts:136
 - `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:170
 - `mate.explain_question`: rs src-tauri/src/explain.rs:304
-- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:327, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:152
+- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:327, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:154
 - `robot.cant_look`: rs src-tauri/src/screen.rs:377, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:29
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
 - `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:493,619,620; ts src/ipc/answer-stream.ts:40
-- `robot.click_stop`: rs src-tauri/src/voice.rs:578; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:101,122
+- `robot.click_stop`: rs src-tauri/src/voice.rs:578; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:102,123
 - `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:376,384,592,598, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:51
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:77; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:46
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/ipc/answer-stream.ts:38
-- `robot.look_consent`: rs src-tauri/src/screen.rs:545; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:134,135
+- `robot.look_consent`: rs src-tauri/src/screen.rs:545; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:133,137
 - `robot.looking`: rs src-tauri/src/voice.rs:64
 - `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1230; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
 - `robot.no_microphone`: rs src-tauri/src/voice.rs:615,631,751,1264; ts src/ipc/answer-stream.ts:24
@@ -810,7 +810,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 179 | 20 |
-| src | 248 | 28 |
+| src | 249 | 28 |
 | tools | 279 | 18 |
-| server | 87 | 4 |
+| server | 94 | 4 |
 | tts | 27 | 2 |

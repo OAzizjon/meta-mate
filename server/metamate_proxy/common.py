@@ -76,6 +76,10 @@ def scrub(text: str, key: str) -> str:
 
 def upstream_error(status: int, raw: bytes, key: str) -> JSONResponse:
     """Meta's refusal reduced to its scrubbed message: nothing else of the body is relayed."""
+    if status in (401, 403):
+        return error(502, 'upstream_unavailable')
+    if status == 429:
+        return error(503, 'upstream_busy')
     message = 'upstream error'
     try:
         found = json.loads(raw)['error']['message']

@@ -22,7 +22,7 @@ ALLOWED_MODELS = {SPARK, WONDER}
 # The outline of the thing under one pixel (apps without a UI Automation tree): only a
 # point prompt on one PNG passes. Its price is not published and its usage reports zero
 # tokens (mm probe sam, 2026-10-28), so every call reserves a fixed, generous cost that is
-# never refunded, under its own daily cap per invite.
+# refunded only for an explicit upstream 4xx refusal, under its own daily cap per invite.
 SAM = "sam-3.1"
 SAM_CALL_USD = 0.02
 # Muse Image is billed $0.01 per image (docs, image generation); a lesson card is one.
@@ -41,8 +41,10 @@ ANSWER_CAP = 2400
 COMPUTER_CAP = 2400
 MAX_BODY_BYTES = 2_500_000
 MAX_IMAGES = 2
-# S4 measured about 3.7k tokens for a 1280x800 screenshot with 15 elements.
-IMAGE_TOKENS = 4000
+# S4 measured about 3.7k tokens for 1280x800. Assume pixel scaling, round that
+# up to 4000 and reserve for the largest accepted square (1280x1280).
+# This is a conservative estimate, not a measured provider token bound.
+IMAGE_TOKENS = 6400
 # The floor for a continuation's billed history when the earlier turn reported no usage.
 PREVIOUS_TURN_TOKENS = 8000
 # Role markers and item framing around the text, per request (generous).
@@ -549,22 +551,10 @@ class Ledger:
             logging.getLogger(__name__).warning("Ignoring unreadable or malformed ledger file")
 
     def save(self) -> None:
-        """Atomically save settled totals; pending calls are lost on restart."""
+        """Atomically save all charges, including pending reservations (fail closed)."""
         if not self.path:
             return
         days = deepcopy(self.days)
-        for reservation in self._pending.values():
-            day = days[reservation.day]
-            counters = [day.overall, day.invites[reservation.invite]]
-            extra = {WONDER: day.wonder, SAM: day.sam, IMAGE: day.images}.get(reservation.model)
-            if extra is not None:
-                counters.append(extra[reservation.invite])
-            for total in counters:
-                total.calls -= 1
-                total.usd = max(0.0, total.usd - reservation.estimated_cost)
-        for (day, invite), seconds in self._asr_pending.items():
-            counts = days[day].asr_seconds
-            counts[invite] = max(0.0, counts[invite] - seconds)
         path = Path(self.path)
         temporary = None
         try:
@@ -657,12 +647,14 @@ def reserve(ledger: Ledger, invite: str, limits: InviteLimits, budget: Budget,
 
 def reconcile(ledger: Ledger, reservation: Reservation,
               usage: Mapping[str, int] | None, prices: Prices,
-              upstream_model: str | None = None) -> str | None:
+              upstream_model: str | None = None, *, refused: bool = False) -> str | None:
     """Settle once on the original day; absent usage keeps the full reservation.
 
     Pass None for failures or cut streams, even if partial usage is available.
     Callers must serialize reconciliation with decisions and reservations.
     A different upstream model keeps the full reservation and returns model_mismatch.
+    Only an explicit upstream 4xx sets refused; successful SAM usage can also be zero.
+    Attempts still count against call allowances, including refusals and failures.
     """
     if ledger._pending.get(id(reservation)) is not reservation:
         raise ValueError("unknown or already reconciled reservation")
@@ -671,8 +663,11 @@ def reconcile(ledger: Ledger, reservation: Reservation,
         ledger.save()
         return "model_mismatch"
     if reservation.model in (SAM, IMAGE):
-        # A fixed price per call, no token usage to settle against: the reservation is the
-        # cost (an image Meta refused costs nothing: refund it below the call site).
+        if refused:
+            day = ledger.days[reservation.day]
+            extra = day.sam if reservation.model == SAM else day.images
+            for total in (day.overall, day.invites[reservation.invite], extra[reservation.invite]):
+                total.usd = max(0.0, total.usd - reservation.estimated_cost)
         del ledger._pending[id(reservation)]
         ledger.save()
         return None
@@ -685,6 +680,10 @@ def reconcile(ledger: Ledger, reservation: Reservation,
             ledger.save()
             return "bad_usage"
         delta = cost - reservation.estimated_cost
+        if delta > 0:
+            logging.getLogger(__name__).warning(
+                "actual_cost_above_estimate model=%s estimated_usd=%s actual_usd=%s",
+                reservation.model, reservation.estimated_cost, cost)
         day = ledger.days[reservation.day]
         counters = [day.overall, day.invites[reservation.invite]]
         if reservation.model == WONDER:
@@ -758,10 +757,3 @@ def charge_glimmer(ledger: Ledger, invite: str, today: date) -> None:
     day.glimmer[invite] = day.glimmer.get(invite, 0) + 1
     ledger.save()
 
-
-def refund_image(ledger: Ledger, reservation: Reservation) -> None:
-    """An image Meta refused (4xx, a content-policy block) was not billed."""
-    day = ledger.days[reservation.day]
-    for total in (day.overall, day.invites[reservation.invite], day.images[reservation.invite]):
-        total.usd = max(0.0, total.usd - reservation.estimated_cost)
-    ledger.save()
