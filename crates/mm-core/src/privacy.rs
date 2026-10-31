@@ -10,7 +10,7 @@ static PRIVATE_EXPLAIN_NAME: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(concat!(
         r"(?i)@|\d{4}|[a-z][a-z0-9+.-]*://|www\.|",
         r"\b(?:https?|ftp|file|mailto|about|data):|\b(?:\d{1,3}\.){3}\d{1,3}\b|",
-        r"(?:[\p{L}\p{N}-]+\.)+[\p{L}]{2,}\b|\blocalhost(?::\d+|/)",
+        r"(?:[\p{L}\p{N}-]+\.)+[\p{L}]{2,}\b|\blocalhost\b",
     ))
     .expect("constant explain privacy regex must compile")
 });
@@ -395,6 +395,7 @@ mod tests {
             "ftp://host/file",
             "http://localhost",
             "localhost:8080/path",
+            "localhost",
             "127.0.0.1/private",
             "about:blank",
             "file:C:/private",

@@ -1,6 +1,6 @@
 # MetaMate
 
-**Ask out loud how to do something on your PC. Mate, a small light bulb on your desktop, answers aloud and shines his beam on the exact button so you can click it yourself. He presses a button only when you ask and say yes, and never Pay, Delete, money transfer or password buttons.** Made for older people and anyone lost in an unfamiliar app; built on seven Meta models (Muse Spark 1.3, Muse Wonder 1.0, Muse Voice Transcribe, SAM 3.1, MMS-TTS, Muse Image, Muse Glimmer 30B).
+**Ask out loud how to do something on your PC. Mate, a small light bulb on your desktop, answers aloud and shines his beam on the exact button. You click it yourself, step by step; he never presses Pay, Delete, money-transfer or password buttons.** Made for older people and anyone lost in an unfamiliar app. Meta's models do the work: Muse Voice Transcribe listens, Muse Spark 1.3 and Muse Wonder 1.0 find the button and teach, MMS-TTS speaks; Muse Glimmer 30B and Muse Image make a printable card of each lesson, and SAM 3.1 outlines controls in apps Windows cannot read.
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
@@ -11,7 +11,7 @@ Windows 10/11 x64.
 1. **Download** the release installer — no API keys or invite codes needed.
 2. **SmartScreen:** click **More info**, then **Run anyway** (not code-signed yet).
 3. **Start:** **Try without signing in** (12 messages/hour, count shown under Mate) or **Sign in with Google** for your own daily allowance.
-4. **Ask:** Press **Win+I**, hold **Right Ctrl**, ask *"How do I make the text bigger?"*, then let go. Or click Mate once to start speaking, again to stop (or just pause). Pressing any other key cancels. No Right Ctrl? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
+4. **Ask:** Press **Win+I**, click Mate once and ask *"How do I make the text bigger?"* (click him again, or just pause, when you are done). Or hold **Right Ctrl** while you speak; pressing any other key cancels. No Right Ctrl? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
 5. **Or type:** Right-click the tray icon (or Mate) → **Chat with Mate**. Mate still points on screen.
 
 ## Links
@@ -27,19 +27,22 @@ Windows 10/11 x64.
 
 ## What Mate does
 
-MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Hold **Right Ctrl** (or another talk key chosen in Settings) for push-to-talk voice in English or Russian, and Mate answers aloud with a live transcript in his bubble.
+MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Click Mate or hold **Right Ctrl** (or another talk key chosen in Settings) and ask in English or Russian; Mate answers aloud with a live transcript in his bubble. The core:
+
+- **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it. In apps Windows can read he names the right control every time we measured (below); where it cannot read the window, he says he can't find it rather than guess.
+- **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and if the person clicks away from the beam twice on Quick, Muse Wonder 1.0 automatically plans the next step.
+- **Scam check ("Is this safe?"):** Evaluates suspicious emails, pop-ups, and websites in the active window. Muse Spark 1.3 delivers an immediate verdict via Mate's expression (`<mood calm>`, `<mood surprised>`, or `<mood sad>`), explains the specific red flags detected (mismatched domains, artificial urgency, fake security warnings), and shines a beam on the worst one—without ever telling the user to click, call, or pay.
+- **Keepsake lesson cards:** After completing a lesson, Mate produces a printable recap card saved in `Pictures\MetaMate` with steps rewritten into plain language by Muse Glimmer 30B and illustrated in a soft gouache style by Muse Image.
+
+Also inside:
 
 - **Home window:** An accessible starting hub (`home.html`) featuring an animated Right Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
 - **Chat window:** Type a question instead of speaking (`chat.html`): the answer appears as text after a "Mate is thinking..." bubble, and Mate still points on screen.
-- **Scam check ("Is this safe?"):** Evaluates suspicious emails, pop-ups, and websites in the active window. Muse Spark 1.3 delivers an immediate verdict via Mate's expression (`<mood calm>`, `<mood surprised>`, or `<mood sad>`), explains the specific red flags detected (mismatched domains, artificial urgency, fake security warnings), and shines a beam on the worst one—without ever telling the user to click, call, or pay.
-- **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it.
 - **Spotlight:** While Mate points, the rest of the screen dims around a soft opening on the target, so the button stands out even in a small video call window (`src/highlight.ts`; Settings: "Dim the rest of the screen while I point").
-- **X-ray look:** While Mate thinks, faint outlines sweep top to bottom over the elements he is reading, and every field painted over for privacy shows as a dark tile with a lock, so you see what he looks at and what he never sees (`src-tauri/src/highlight.rs`, `src/highlight.ts`).
-- **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and if the person clicks away from the beam twice on Quick, Muse Wonder 1.0 automatically plans the next step.
 - **Warmer, warmer:** During a lesson step, the ring and Mate's glow brighten as the mouse nears the right button and hold steady once it is on it, guiding the hand before the click (`src-tauri/src/pointing.rs`).
 - **A trail, not a scolding:** After a click in the wrong place during a lesson, a dotted line of light runs from that spot to the ring while Mate says "Almost"; no red, no cross (`src-tauri/src/teacher/lesson.rs`).
+- **X-ray look:** While Mate thinks, faint outlines sweep top to bottom over the elements he is reading, and every field painted over for privacy shows as a dark tile with a lock, so you see what he looks at and what he never sees (`src-tauri/src/highlight.rs`, `src/highlight.ts`).
 - **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name; password fields, sign-in codes, tabs and window titles, and any name with an e-mail or web address or a run of four digits are skipped.
-- **Keepsake lesson cards:** After completing a lesson, Mate produces a printable recap card saved in `Pictures\MetaMate` with steps rewritten into plain language by Muse Glimmer 30B and illustrated in a soft gouache style by Muse Image.
 
 ## Built with Meta
 
@@ -51,7 +54,7 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 | **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal GPU) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
 | **Muse Glimmer 30B** | Keepsake lesson card text: rewrites lesson steps in simple words (Meta open weights on Modal GPU) | Q4_K_M ~15 tokens/s on a Modal L4 / A10G GPU (D53, D57) |
 | **Muse Image** | Keepsake lesson card illustration (soft gouache art with Mate, without text; printable) | Generates custom scene illustration for completed lessons (D55) |
-| **SAM 3.1** | Outlines UI targets where the accessibility tree has nothing (canvas, Qt apps, games) | Target segmentation masks and boundary guidance |
+| **SAM 3.1** | Experimental: outlines what lies under a point where the accessibility tree has nothing (canvas, Qt apps, games) | Target segmentation masks and boundary guidance |
 
 ### Measured: "Is this safe?"
 
