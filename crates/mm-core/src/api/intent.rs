@@ -2,6 +2,10 @@
 
 use serde_json::{Value, json};
 
+#[path = "intent_safety.rs"]
+mod safety;
+use safety::asks_safety;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
     Where,
@@ -270,86 +274,6 @@ pub fn asks_do_it(text: &str) -> bool {
 
 /// How far either side of a verdict its subject may be: "is this message from my bank real".
 const VERDICT_REACH: usize = 6;
-
-/// "Is this email real?", "Это мошенники?": a verdict on trust with the thing on the
-/// screen (or the person it is aimed at) at most a few words either side of it. A verdict word
-/// alone never counts ("Tell me about phone scams"), nor a setting named after one
-/// ("safe mode"); "safety" and "безопасности" are no verdicts ("Where is the safety
-/// settings?").
-fn asks_safety(text: &str) -> bool {
-    let lower = spoken_words(text);
-    let words: Vec<_> = words(&lower).collect();
-    let screen_subject =
-        words.iter().any(|word| {
-            computer_thing(word)
-                || screen_word(word)
-                || word.starts_with("нажим")
-                || matches!(
-                    *word,
-                    "message" | "window" | "page" | "link" | "card" | "карта"
-                )
-        }) || contains_spoken(&words, &["really from", "действительно от", "правда от"]);
-    // Bare safety checks keep their screen context; other "it/это" needs a subject.
-    let bare_safety = words.iter().enumerate().all(|(at, word)| {
-        is_subject(word)
-            || is_verdict(&words, at)
-            || matches!(
-                *word,
-                "is" | "are" | "a" | "ли" | "не" | "привет" | "hello" | "mate"
-            )
-    });
-    if (screen_subject
-        && (contains_spoken(&words, &["believe it", "это правда"])
-            || (words.contains(&"infected") && words.contains(&"computer"))
-            || (words.contains(&"карта") && words.iter().any(|w| w.starts_with("заблок")))))
-        || (contains_spoken(&words, &["from the bank", "от банка", "из банка"])
-            && words.iter().any(|w| matches!(*w, "code" | "код")))
-    {
-        return true;
-    }
-    if !bare_safety
-        && !screen_subject
-        && words.iter().any(|w| matches!(*w, "it" | "это"))
-        && !words
-            .iter()
-            .any(|w| is_subject(w) && !matches!(*w, "it" | "это"))
-    {
-        return false;
-    }
-    // Trust in the thing, never in Mate: "Can I trust you?" is a chat.
-    let trust = contains_spoken(
-        &words,
-        &[
-            "trust this",
-            "trust that",
-            "trust it",
-            "trust these",
-            "trust them",
-            "being scammed",
-            "getting scammed",
-            "really from",
-            "доверять этому",
-            "доверять этой",
-            "доверять этим",
-            "доверять им",
-            "верить этому",
-            "верить этой",
-            "действительно от",
-            "правда от",
-        ],
-    );
-    trust
-        || words.iter().enumerate().any(|(at, _)| {
-            is_verdict(&words, at)
-                && !words
-                    .get(at + 1)
-                    .is_some_and(|next| matches!(*next, "mode" | "quick" | "quickly" | "режим"))
-                && words
-                    [at.saturating_sub(VERDICT_REACH)..(at + VERDICT_REACH + 1).min(words.len())]
-                    .iter()
-                    .any(|word| is_subject(word))
-        })
-}
 
 /// The thing on the screen ("this", "это", "тут") or the person a scam is aimed at ("меня").
 fn is_subject(word: &str) -> bool {
@@ -629,14 +553,34 @@ pub fn guess_intent(question: &str) -> Intent {
     }
     let lower = spoken_words(question);
     let words: Vec<&str> = words(&lower).collect();
+    // "Press Cancel" names a button; it is not a refusal to act.
+    let refusal_words: Vec<_> = words
+        .iter()
+        .enumerate()
+        .filter(|&(at, word)| {
+            !(matches!(*word, "cancel" | "отмена") && at > 0 && command_word(words[at - 1]))
+        })
+        .map(|(_, word)| *word)
+        .collect();
+    // "Не надо объяснять, просто сделай это", "No, don't talk me through it, just close it
+    // for me": a refused explanation before "просто"/"just" and a command is no refusal.
+    let just_do = words
+        .iter()
+        .position(|word| matches!(*word, "просто" | "just"))
+        .is_some_and(|at| {
+            words[at + 1..].iter().any(|word| {
+                command_word(word) || matches!(*word, "сделай" | "сделайте" | "do" | "close")
+            })
+        });
+    let refusal = has_no(&refusal_words) && !just_do;
     // "Don't click", "не нажимай": a negated action alone is not a request for guidance.
-    // Only a negation right before an action word counts: "I can't find the font, it's not
+    // Only a negation before an action word counts: "I can't find the font, it's not
     // there" still finds it.
-    // "Don't double-click it" too: "double", "right" and "left" may sit in between.
+    // "Don't double-click it", "не надо нажимать": modifiers may sit in between.
     let negated_action = (0..words.len()).any(|index| {
         matches!(words[index], "dont" | "not" | "never" | "не" | "никогда")
             && match words.get(index + 1) {
-                Some(&("double" | "right" | "left")) => {
+                Some(&("double" | "right" | "left" | "надо")) => {
                     words.get(index + 2).is_some_and(|word| action_word(word))
                 }
                 Some(word) => action_word(word),
@@ -659,19 +603,23 @@ pub fn guess_intent(question: &str) -> Intent {
             || words
                 .iter()
                 .any(|word| matches!(*word, "сам" | "сами" | "yourself")));
-    // Asking about Mate's abilities is conversation, not delegation. Other task
-    // cues in the same request still win over this small-talk phrase.
-    let for_me = words.windows(2).enumerate().any(|(index, phrase)| {
-        phrase == ["for", "me"]
-            && !(index >= 4 && words[index - 4..index] == ["what", "can", "you", "do"])
-    });
+    // "For me" needs a command; asking about Mate's abilities stays conversation.
+    let for_me = (imperative
+        || words.iter().any(|word| {
+            command_word(word) || matches!(*word, "order" | "delete" | "pay" | "close")
+        }))
+        && words.windows(2).enumerate().any(|(index, phrase)| {
+            phrase == ["for", "me"]
+                && !(index >= 4 && words[index - 4..index] == ["what", "can", "you", "do"])
+        });
     // A bare "сделай" (or "сделай это", "сделай сам") hands the task over; "сделай шрифт
     // крупнее" is an imperative, so How.
     let do_this = words.iter().enumerate().any(|(index, word)| {
         matches!(*word, "сделай" | "сделайте")
-            && words.get(index + 1).is_none_or(|next| {
-                matches!(*next, "это" | "сам" | "сами" | "за" | "пожалуйста" | "уже")
-            })
+            && words[index + 1..]
+                .iter()
+                .find(|next| **next != "пожалуйста")
+                .is_none_or(|next| matches!(*next, "это" | "сам" | "сами" | "за" | "уже"))
     });
     let where_cue = words
         .iter()
@@ -687,6 +635,7 @@ pub fn guess_intent(question: &str) -> Intent {
         && words.iter().any(|word| computer_thing(word));
     let how_cue = help
         || has_phrase(&words, &["how", "do", "i"])
+        || has_phrase(&words, &["how", "can", "i"])
         || has_phrase(&words, &["how", "to"])
         || has_phrase(&words, &["what", "can", "i", "do", "here"])
         || words.contains(&"научи")
@@ -720,17 +669,34 @@ pub fn guess_intent(question: &str) -> Intent {
                     verb.ends_with("ть") || verb.ends_with("ти") || verb.ends_with("чь")
                 })
         });
-    let learning = contains_spoken(
-        &words,
-        &["do it myself", "i want to learn", "so i can learn"],
-    );
+    // "Я не хочу сам, сделай за меня" hands the task over: a negated wish is no lesson.
+    let unwilling = contains_spoken(&words, &["не хочу", "не хочется", "dont want"]);
+    let learning = (!unwilling
+        && contains_spoken(
+            &words,
+            &[
+                "do it myself",
+                "i want to learn",
+                "so i can learn",
+                "хочу научиться",
+                "хочу сам",
+                "чтобы я научился",
+                "хочу сделать сам",
+            ],
+        ))
+        || (words.contains(&"я")
+            && words.contains(&"хочу")
+            && words.contains(&"сам")
+            && !has_no(&words)
+            && !unwilling);
     if learning {
         return Intent::How;
     }
-    if negated_action && !where_cue && !how_cue {
+    if (negated_action || refusal) && !where_cue && !how_cue {
         return Intent::Chat;
     }
     if !negated_action
+        && !refusal
         && (asks_do_it(question)
             || do_this
             || handed_over
@@ -739,8 +705,17 @@ pub fn guess_intent(question: &str) -> Intent {
     {
         return Intent::Do;
     }
-    if (has_phrase(&words, &["how", "do", "i"]) && words.contains(&"find"))
-        || (has_phrase(&words, &["покажи", "как"]) && how_cue)
+    if ((has_phrase(&words, &["how", "do", "i"]) || has_phrase(&words, &["how", "can", "i"]))
+        && words.contains(&"find"))
+        || (contains_spoken(
+            &words,
+            &[
+                "покажи как",
+                "покажи мне как",
+                "покажите как",
+                "покажите мне как",
+            ],
+        ) && how_cue)
     {
         return Intent::How;
     }

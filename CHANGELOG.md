@@ -164,6 +164,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Scam reports, infection warnings and requests about bank codes are checked for safety before Mate points; longer safety questions need screen, message or computer context.
 - "How do I find..." and "Покажи, как..." start lessons, as do English text-size and sound commands; learning for oneself takes precedence over delegation.
 - Screen answers may begin by honestly saying Mate cannot find the target instead of guessing.
+- Mate understands more ways older people report a scam: "they blocked my card" in any Russian form, "a pop-up says my computer has a virus", a call from "Sberbank" asking for the SMS code, a "safe account", a message asking to open a link, "three numbers on the back of my card"; "How can I..." and "Покажи мне, как..." start a lesson, "Сделай, пожалуйста, шрифт крупнее" is guidance, and "for me" in small talk, real-world dangers (ice, eyesight) and a grandson's photo link no longer take a screenshot.
 - "Is this safe?" no longer calls a page a scam only because its address is unfamiliar; it names installs, investment promises, prices far too low, requests for personal details, unknown apps asking for account access and a relative writing from a new number as red flags, and says "be careful" rather than "looks fine" when a page asks to sign in, pay or install and its address cannot be confirmed.
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)

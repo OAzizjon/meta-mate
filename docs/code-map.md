@@ -816,7 +816,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 260 | 34 |
+| crates/mm-core | 261 | 34 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 61 | 11 |
 | src-tauri | 179 | 20 |

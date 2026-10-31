@@ -1,6 +1,149 @@
 use super::{Intent, guess_intent};
 
 #[test]
+fn gemini_routing_review_sentences() {
+    let mut failures = Vec::new();
+    for (text, expected) in [
+        ("Я хочу сделать это сам, просто подскажи.", Intent::How),
+        ("Не делай за меня, я хочу научиться сам", Intent::How),
+        ("Нажми? Нет — покажи, я сам хочу научиться", Intent::How),
+        ("Сделай за меня, чтобы я научился", Intent::How),
+        // Keep Where: this explicitly asks where the button is, not for a lesson.
+        ("Не делай это за меня, покажи где кнопка.", Intent::Where),
+        ("Не кликай за меня, я хочу сам научиться", Intent::How),
+        ("Не делай это за меня", Intent::Chat),
+        ("Не сделай это за меня", Intent::Chat),
+        ("Пожалуйста, не нажми за меня", Intent::Chat),
+        (
+            "Не открывай за меня, расскажи как открыть настройки",
+            Intent::How,
+        ),
+        ("Не надо нажимать за меня", Intent::Chat),
+        (
+            "Не надо нажимать, сделай за меня пошагово? Нет, я хочу сделать сам — скажи как нажать",
+            Intent::How,
+        ),
+        (
+            "Не надо, не трогай, я сам хочу нажать — или нажми?",
+            Intent::Chat,
+        ),
+        (
+            "Мне позвонили и сказали, что мою карту заблокировали.",
+            Intent::Safety,
+        ),
+        (
+            "Пишут, что моя карточка заблокирована. Это правда?",
+            Intent::Safety,
+        ),
+        (
+            "На экране вылезло окно, что у меня вирус на компьютере.",
+            Intent::Safety,
+        ),
+        ("This pop-up says my computer has a virus.", Intent::Safety),
+        (
+            "Звонят якобы из Сбербанка и просят назвать код из СМС.",
+            Intent::Safety,
+        ),
+        ("позвонили с банка и просят код", Intent::Safety),
+        ("просят пароль из смс", Intent::Safety),
+        (
+            "Тут в письме просят ввести данные карты и три цифры с оборота.",
+            Intent::Safety,
+        ),
+        (
+            "Мне пришло сообщение, что я выиграла миллион. Это правда?",
+            Intent::Safety,
+        ),
+        (
+            "My daughter bought me this new laptop — isn't that wonderful, or is it too dangerous for my eyes?",
+            Intent::Chat,
+        ),
+        (
+            "В интернете пишут, что на улице гололёд и это опасно. Это правда?",
+            Intent::Chat,
+        ),
+        ("интернет говорит, что гололёд — это опасно", Intent::Chat),
+        (
+            "Я прочитала на сайте, что это лекарство опасное",
+            Intent::Chat,
+        ),
+        (
+            "Говорят, что это лекарство опасное, мне страшно",
+            Intent::Chat,
+        ),
+        ("На улице гололёд, мне опасно идти?", Intent::Chat),
+        ("Эта погода опасная?", Intent::Chat),
+        ("Is that ice on the stairs safe to walk on?", Intent::Chat),
+        ("Is that ice on the stairs safe?", Intent::Chat),
+        ("This coffee is really good for me, isn't it?", Intent::Chat),
+        ("Is this medicine too strong for me?", Intent::Chat),
+        ("It is hard for me to see the small letters", Intent::Chat),
+        ("It is hard for me to read this", Intent::Chat),
+        ("Сделай буквы на экране побольше.", Intent::How),
+        ("Сделай, пожалуйста, шрифт крупнее", Intent::How),
+        ("Покажи мне, как увеличить шрифт.", Intent::How),
+        ("Покажите, как мне открыть почту", Intent::How),
+        ("Покажи мне, как открыть почту", Intent::How),
+        ("How can I find the Settings page?", Intent::How),
+        ("How can I open my email?", Intent::How),
+        ("How can I send an email to my grandson?", Intent::How),
+    ] {
+        let actual = guess_intent(text);
+        if actual != expected {
+            failures.push(format!("{text}: {actual:?} -> {expected:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn scam_inflections_and_context_guards() {
+    for card in ["карта", "карту", "карты", "карточка", "карточку"] {
+        assert_eq!(
+            guess_intent(&format!("Пишут, что {card} заблокирована")),
+            Intent::Safety,
+        );
+    }
+    for message in ["сообщение", "смс", "эсэмэска"] {
+        assert_eq!(
+            guess_intent(&format!(
+                "Пришло {message}, что я выиграла миллион. Это правда?"
+            )),
+            Intent::Safety,
+        );
+    }
+    for text in [
+        "Позвонили из моего банка и просят пароль из смс",
+        "В письме просят ввести три цифры с оборота карты",
+        "This email asks for my card details",
+        "This email asks for the three digits on my card",
+        "На экране пишут, что компьютер заражён",
+        "Сделай за меня, я хочу научиться сам",
+        "Сделай за меня, хочу сам",
+        "Покажите, как увеличить шрифт",
+    ] {
+        let expected = if text.starts_with("Сделай") || text.starts_with("Покажите") {
+            Intent::How
+        } else {
+            Intent::Safety
+        };
+        assert_eq!(guess_intent(text), expected, "{text}");
+    }
+    for text in [
+        "Моя карточка лежит в кошельке",
+        "Мне пришло сообщение от внука",
+        "Tell me about viruses",
+        "Врач говорит, что у меня вирус",
+        "На уроке просят назвать три цифры",
+        "Is this weather dangerous?",
+        "Эта прогулка безопасна?",
+        "Этот ноутбук опасен для глаз?",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Chat, "{text}");
+    }
+}
+
+#[test]
 fn wonder_review_sentences() {
     // All 30 were characterized before the fix; only groups A-E change routes.
     for (text, expected) in [
@@ -92,4 +235,90 @@ fn scam_reports_need_context_and_learning_never_delegates() {
     ] {
         assert_eq!(guess_intent(text), expected, "{text}");
     }
+}
+
+#[test]
+fn kimi_routing_v5_review_sentences() {
+    let mut failures = Vec::new();
+    for (text, expected) in [
+        (
+            "Мне написали, что надо перевести деньги на безопасный счёт",
+            Intent::Safety,
+        ),
+        (
+            "Звонят и говорят перевести всё на защищённый счет",
+            Intent::Safety,
+        ),
+        ("В смс просят перейти по ссылке", Intent::Safety),
+        (
+            "This text asks me to click a link to get my parcel",
+            Intent::Safety,
+        ),
+        ("Пришла смс о блокировке карты", Intent::Safety),
+        ("Я не хочу сам, сделай за меня", Intent::Do),
+        ("Is this laptop dangerous for my vision?", Intent::Chat),
+        ("Этот планшет опасен для зрения?", Intent::Chat),
+        // Unchanged neighbours: a plain transfer is a lesson, a learning wish stays How.
+        ("Как перевести деньги внуку?", Intent::How),
+        ("Не делай за меня, я хочу научиться сам", Intent::How),
+    ] {
+        let got = guess_intent(text);
+        if got != expected {
+            failures.push(format!("{text:?}: expected {expected:?}, got {got:?}"));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{}",
+        failures.join(
+            "
+"
+        )
+    );
+}
+
+#[test]
+fn meta_routing_v5_review_sentences() {
+    let mut failures = Vec::new();
+    for (text, expected) in [
+        (
+            "My grandson asked me to open a link to his holiday photos.",
+            Intent::Chat,
+        ),
+        ("Is it safe outside today, or is it icy?", Intent::Chat),
+        (
+            "A caller asked for the three numbers on the back of my card.",
+            Intent::Safety,
+        ),
+        (
+            "They say my card will be blocked tonight unless I ring this number.",
+            Intent::Safety,
+        ),
+        (
+            "A man phoned and says I must move my money to a protected account.",
+            Intent::Safety,
+        ),
+        ("Не надо объяснять, просто сделай это.", Intent::Do),
+        (
+            "No, don't talk me through it, just close it for me.",
+            Intent::Do,
+        ),
+        // Still refused or a lesson, as before.
+        ("Не надо нажимать за меня", Intent::Chat),
+        ("Не делай за меня, я хочу научиться сам", Intent::How),
+        ("В смс просят перейти по ссылке", Intent::Safety),
+    ] {
+        let got = guess_intent(text);
+        if got != expected {
+            failures.push(format!("{text:?}: expected {expected:?}, got {got:?}"));
+        }
+    }
+    assert!(
+        failures.is_empty(),
+        "{}",
+        failures.join(
+            "
+"
+        )
+    );
 }
