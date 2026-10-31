@@ -10,12 +10,13 @@ if (typeof document !== "undefined") {
   const root = document.getElementById("card-app");
   if (root) {
     const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+    const savedIds = new Set<string>();
     let receivedCard = false;
-    let controller: CardController = mountLessonCard(root, { isTauri });
+    let controller: CardController = mountLessonCard(root, { isTauri, savedIds });
     void followSettingsLocale(() => {
       const initialCard = receivedCard ? controller.getCard() : undefined;
       controller.destroy();
-      controller = mountLessonCard(root, { isTauri, initialCard });
+      controller = mountLessonCard(root, { isTauri, initialCard, savedIds });
     }).catch((error: unknown) => console.error("card: language:", error));
 
     if (isTauri) {

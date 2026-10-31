@@ -111,7 +111,7 @@ pub(super) fn asks_open(words: &[&str], raw: &str) -> bool {
                 | ["microsoft", "store"]
         )
         || ((matches!(target.first(), Some(&"website" | &"site" | &"сайт"))
-            || matches!(target.last(), Some(&"website" | &"site")))
+            || matches!(target.last(), Some(&"website" | &"site" | &"сайт")))
             && !target.iter().any(|word| {
                 matches!(
                     *word,

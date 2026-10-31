@@ -26,6 +26,20 @@ pub fn open_app(app: mm_core::matescript::AppId) -> bool {
     execute(app.spec().0)
 }
 
+/// Opens a known local directory without interpreting it as a command.
+pub fn open_folder(folder: &std::path::Path) -> bool {
+    if !folder.is_absolute() || !folder.is_dir() {
+        return false;
+    }
+    let Some(target) = folder.to_str() else {
+        return false;
+    };
+    if target.chars().any(|c| c.is_control() || c == '"') {
+        return false;
+    }
+    execute(target)
+}
+
 fn execute(target: &str) -> bool {
     let target = HSTRING::from(target);
     // SAFETY: the operation and the target are NUL-terminated wide strings that outlive the

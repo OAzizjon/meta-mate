@@ -11,6 +11,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
+pub use mm_core::api::profile::Profile;
 use mm_core::api::request::ModelChoice;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -179,6 +180,10 @@ pub struct MateHome {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
+    #[serde(default)]
+    pub profile: Profile,
+    #[serde(default)]
+    pub profile_asked: bool,
     #[serde(default, deserialize_with = "deserialize_language")]
     pub language: Language,
     #[serde(default, deserialize_with = "deserialize_theme")]
@@ -203,6 +208,8 @@ impl Default for Settings {
     /// `DEFAULT_SETTINGS` of src/settings/model.ts.
     fn default() -> Self {
         Self {
+            profile: Profile::default(),
+            profile_asked: false,
             language: Language::Auto,
             theme: Theme::Light,
             model: Model::Quick,
@@ -233,6 +240,7 @@ impl Settings {
             DEFAULT_VOICE_SPEED
         };
         Settings {
+            profile: self.profile.sanitized(),
             voice_speed,
             ..self
         }
@@ -310,6 +318,11 @@ pub fn save_settings(
 pub fn model(app: &AppHandle) -> Model {
     app.try_state::<SettingsStore>()
         .map_or(Model::Quick, |store| store.get().model)
+}
+
+pub fn profile(app: &AppHandle) -> Profile {
+    app.try_state::<SettingsStore>()
+        .map_or_else(Profile::default, |store| store.get().profile)
 }
 
 /// Persists a drag release under the same lock as preference saves.
@@ -393,6 +406,8 @@ mod tests {
 
     fn changed() -> Settings {
         Settings {
+            profile: Profile::default(),
+            profile_asked: false,
             language: Language::Auto,
             theme: Theme::Light,
             model: Model::Thorough,
@@ -469,6 +484,8 @@ mod tests {
         assert_eq!(
             defaults,
             json!({
+                "profile": {"name": "", "about": ""},
+                "profileAsked": false,
                 "language": "auto",
                 "theme": "light",
                 "model": "quick",
@@ -483,6 +500,24 @@ mod tests {
                 "showHomeAtStart": true
             })
         );
+    }
+
+    #[test]
+    fn profiles_load_from_old_settings_sanitize_and_round_trip() {
+        let old = parse(r#"{"sound":"fun"}"#);
+        assert_eq!(old.profile, Profile::default());
+        assert!(!old.profile_asked);
+        let settings = parse(
+            &json!({
+                "profile": {"name": "  <Анна>  ", "about": "я ".repeat(400)},
+                "profileAsked": true
+            })
+            .to_string(),
+        );
+        assert_eq!(settings.profile.name, "Анна");
+        assert!(settings.profile.about.chars().count() <= 300);
+        assert!(settings.profile_asked);
+        assert_eq!(parse(&serde_json::to_string(&settings).unwrap()), settings);
     }
 
     #[test]

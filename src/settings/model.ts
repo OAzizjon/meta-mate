@@ -35,7 +35,18 @@ export function isTheme(value: unknown): value is Theme {
   return typeof value === "string" && (THEMES as readonly string[]).includes(value);
 }
 
+export interface Profile {
+  name: string;
+  about: string;
+}
+
+/** Character limits of the profile, as in `src-tauri/src/settings.rs` and mm-core's profile. */
+export const PROFILE_NAME_MAX = 40;
+export const PROFILE_ABOUT_MAX = 300;
+
 export interface Settings {
+  profile: Profile;
+  profileAsked: boolean;
   language: Language;
   theme: Theme;
   model: "quick" | "thorough";
@@ -51,6 +62,8 @@ export interface Settings {
 }
 
 export const SETTINGS_KEYS = [
+  "profile",
+  "profileAsked",
   "language",
   "theme",
   "model",
@@ -66,6 +79,8 @@ export const SETTINGS_KEYS = [
 ] as const satisfies readonly (keyof Settings)[];
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
+  profile: Object.freeze({ name: "", about: "" }),
+  profileAsked: false,
   language: "auto",
   theme: "light",
   model: "quick",
@@ -82,7 +97,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
 
 /** Returns a fresh mutable copy of `DEFAULT_SETTINGS`. */
 export function defaultSettings(): Settings {
-  return { ...DEFAULT_SETTINGS };
+  return { ...DEFAULT_SETTINGS, profile: { ...DEFAULT_SETTINGS.profile } };
 }
 
 export function isModelChoice(value: unknown): value is ModelChoice {
@@ -135,6 +150,12 @@ function readOwnField(obj: Readonly<Record<string, unknown>>, key: string): unkn
   }
 }
 
+function profileText(value: unknown, limit: number): string {
+  if (typeof value !== "string") return "";
+  return Array.from(value.replace(/[\p{Cc}<>]/gu, "").replace(/\s+/gu, " ").trim())
+    .slice(0, limit).join("").trim();
+}
+
 /**
  * Strictly validates an untrusted settings payload:
  * - Drops unknown fields (returns only `Settings` keys).
@@ -149,6 +170,8 @@ export function parseSettings(raw: unknown): Settings {
     }
 
     const language = readOwnField(raw, "language");
+    const profile = readOwnField(raw, "profile");
+    const profileAsked = readOwnField(raw, "profileAsked");
     const theme = readOwnField(raw, "theme");
     const model = readOwnField(raw, "model");
     const ptt = readOwnField(raw, "ptt");
@@ -162,6 +185,11 @@ export function parseSettings(raw: unknown): Settings {
     const showHomeAtStart = readOwnField(raw, "showHomeAtStart");
 
     return {
+      profile: {
+        name: profileText(isPlainObject(profile) ? readOwnField(profile, "name") : undefined, PROFILE_NAME_MAX),
+        about: profileText(isPlainObject(profile) ? readOwnField(profile, "about") : undefined, PROFILE_ABOUT_MAX),
+      },
+      profileAsked: typeof profileAsked === "boolean" ? profileAsked : false,
       language: language === "en" || language === "ru" ? language : "auto",
       theme: isTheme(theme) ? theme : DEFAULT_SETTINGS.theme,
       model: isModelChoice(model) ? model : DEFAULT_SETTINGS.model,
@@ -245,11 +273,11 @@ export function createSettingsStore(invokeFn: SettingsInvoke | null = null): Set
 
   return {
     get(): Settings {
-      return { ...state };
+      return parseSettings(state);
     },
     async load(): Promise<Settings> {
       if (!invokeFn) {
-        return { ...state };
+        return parseSettings(state);
       }
       try {
         const raw = await invokeFn("load_settings");
@@ -259,16 +287,16 @@ export function createSettingsStore(invokeFn: SettingsInvoke | null = null): Set
       } catch {
         // Outside Tauri or before the command is registered: keep in-memory state.
       }
-      return { ...state };
+      return parseSettings(state);
     },
     async save(next: unknown): Promise<Settings> {
       modifiedBeforeLoad = true;
       state = parseSettings(next);
-      const snapshot: Settings = { ...state };
+      const snapshot: Settings = parseSettings(state);
       if (invokeFn) {
         await invokeFn("save_settings", { settings: snapshot });
       }
-      return { ...state };
+      return parseSettings(state);
     },
     async update(patch: Partial<Settings>): Promise<Settings> {
       return this.save({ ...state, ...patch });
@@ -276,7 +304,7 @@ export function createSettingsStore(invokeFn: SettingsInvoke | null = null): Set
     replace(next: unknown): Settings {
       modifiedBeforeLoad = true;
       state = parseSettings(next);
-      return { ...state };
+      return parseSettings(state);
     },
   };
 }

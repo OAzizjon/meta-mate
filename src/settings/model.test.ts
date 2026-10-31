@@ -26,6 +26,26 @@ import {
 } from "./model.ts";
 import type { Settings } from "./model.ts";
 
+test("profiles default, sanitize Unicode data and survive unrelated saves", async () => {
+  assert.deepEqual(parseSettings({ sound: "fun" }).profile, { name: "", about: "" });
+  assert.equal(parseSettings({}).profileAsked, false);
+  const settings = parseSettings({
+    profile: { name: "  <Анна>  Мария\u0000  ", about: "я ".repeat(400) },
+    profileAsked: true,
+  });
+  assert.equal(settings.profile.name, "Анна Мария");
+  assert.ok(Array.from(settings.profile.about).length <= 300);
+  assert.equal(Array.from(parseSettings({ profile: { name: "😀".repeat(50) } }).profile.name).length, 40);
+  assert.equal(settings.profileAsked, true);
+  assert.deepEqual(updateSettings(settings, { sound: "fun" }).profile, settings.profile);
+  const store = createSettingsStore();
+  await store.save(settings);
+  store.get().profile.name = "Changed";
+  const loaded = await store.load();
+  loaded.profile.name = "Changed";
+  assert.equal(store.get().profile.name, "Анна Мария");
+});
+
 test("talk keys parse independently and older settings retain their preferences", () => {
   for (const pttKey of PTT_KEYS) {
     assert.equal(parseSettings({ pttKey, sound: "fun" }).pttKey, pttKey);
@@ -41,6 +61,8 @@ test("talk keys parse independently and older settings retain their preferences"
 test("defaultSettings returns a fresh copy of the expected defaults", () => {
   const defaults = defaultSettings();
   assert.deepEqual(defaults, {
+    profile: { name: "", about: "" },
+    profileAsked: false,
     language: "auto",
     theme: "light",
     model: "quick",
@@ -77,6 +99,8 @@ test("parseSettings accepts every valid enum combination and boundary voiceSpeed
         for (const robotSize of ROBOT_SIZES) {
           for (const voiceSpeed of [MIN_VOICE_SPEED, 0.95, 1, 1.15, MAX_VOICE_SPEED]) {
             const raw: Settings = {
+              profile: { name: "", about: "" },
+              profileAsked: false,
               language: "auto",
               theme: "light",
               model,
@@ -117,6 +141,8 @@ test("parseSettings drops unknown fields and preserves valid ones", () => {
   const parsed = parseSettings(raw);
   assert.deepEqual(Object.keys(parsed), [...SETTINGS_KEYS]);
   assert.deepEqual(parsed, {
+    profile: { name: "", about: "" },
+    profileAsked: false,
     language: "auto",
     theme: "light",
     model: "thorough",
@@ -146,6 +172,8 @@ test("parseSettings replaces out-of-range and wrong-type fields with defaults pe
     }),
     {
       language: "auto",
+      profile: { name: "", about: "" },
+      profileAsked: false,
       theme: "light",
       model: "thorough",
       ptt: DEFAULT_SETTINGS.ptt,
@@ -311,6 +339,8 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
   assert.equal(calls.length, 1);
   assert.equal(calls[0].cmd, "load_settings");
   assert.deepEqual(loaded, {
+    profile: { name: "", about: "" },
+    profileAsked: false,
     language: "auto",
     theme: "light",
     model: "thorough",
@@ -378,6 +408,8 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
   assert.equal(calls.length, 0);
   assert.equal(refreshed.length, 1);
   assert.deepEqual(refreshed[0], {
+    profile: { name: "", about: "" },
+    profileAsked: false,
     language: "auto",
     theme: "light",
     model: "thorough",

@@ -1,0 +1,617 @@
+/* Home's comic look (owner request, 2026-11-01) and its new parts: the "What should I call
+   you?" panel, the greeting row (burst, Edit, Guide), the guide dialog and My lessons.
+   Loaded after home.html's own <style>, so it restyles the existing cards too. Bold ink
+   outlines, panels with a hard offset shadow, speech bubbles with a tail on Mate's lines and a
+   faint halftone behind; a local comic font for headings only (no network fonts), body text
+   in the theme's font. Every text colour keeps at least 4.5:1 in both themes; nothing here
+   animates, so reduced motion has nothing to stop. */
+
+:root {
+  --ink: #1f2a44;
+  --ink-shadow: #1f2a44;
+  --ink-width: 2.5px;
+  --dot: rgb(31 42 68 / 0.07);
+  --font-comic: "Segoe Print", "Comic Sans MS", "Segoe UI Variable Display", system-ui, sans-serif;
+  --halftone: radial-gradient(var(--dot) 1.1px, transparent 1.6px) 0 0 / 12px 12px;
+}
+
+:root[data-theme="dark"] {
+  --ink: #aab2c5;
+  --ink-shadow: rgb(0 0 0 / 0.6);
+  --dot: rgb(255 255 255 / 0.045);
+}
+
+/* `hidden` wins over the display the parts below set. */
+#home-app [hidden] {
+  display: none !important;
+}
+
+#home-app h1,
+#home-app h2,
+#home-app h3 {
+  font-family: var(--font-comic);
+  letter-spacing: 0.01em;
+}
+
+/* A faint halftone behind the page. */
+.home-content {
+  background: var(--halftone);
+}
+
+/* Panels: a bold ink rim and a hard shadow down and to the right. */
+.home-hero,
+.home-try-card,
+.home-never,
+.home-cards,
+.comic-panel {
+  border: var(--ink-width) solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink-shadow);
+}
+
+.home-hero {
+  background: var(--halftone), var(--hero-bg);
+}
+
+.home-talk {
+  border: 2px solid var(--ink);
+}
+
+/* Speech bubbles: Mate's lines, the tail pointing at him on the left. */
+.home-bubble {
+  position: relative;
+  margin: 0;
+  padding: 12px 16px;
+  border: var(--ink-width) solid var(--ink);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.home-bubble::before,
+.home-bubble::after {
+  content: "";
+  position: absolute;
+  border-style: solid;
+}
+
+.home-bubble::before {
+  top: 18px;
+  left: -14px;
+  border-width: 9px 14px 9px 0;
+  border-color: transparent var(--ink) transparent transparent;
+}
+
+.home-bubble::after {
+  top: 20px;
+  left: -9px;
+  border-width: 7px 11px 7px 0;
+  border-color: transparent var(--surface) transparent transparent;
+}
+
+.home-intro.home-bubble {
+  margin-top: 10px;
+  color: var(--text);
+}
+
+/* The greeting row: a POW burst (decoration only), the greeting, Edit, and Guide on the right. */
+.home-greeting {
+  grid-area: title;
+  align-self: end;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.home-greeting::before {
+  content: "";
+  flex: none;
+  width: 44px;
+  height: 44px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cpolygon points='24,2 27.6,10.5 35,4.9 33.9,14.1 43.1,13 37.5,20.4 46,24 37.5,27.6 43.1,35 33.9,33.9 35,43.1 27.6,37.5 24,46 20.4,37.5 13,43.1 14.1,33.9 4.9,35 10.5,27.6 2,24 10.5,20.4 4.9,13 14.1,14.1 13,4.9 20.4,10.5' fill='%23ffcd3c' stroke='%231f2a44' stroke-width='2.5' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.home-greeting .home-title {
+  min-width: 0;
+}
+
+.home-guide-btn {
+  margin-inline-start: auto;
+  border: 2px solid var(--ink);
+  box-shadow: 2px 2px 0 var(--ink-shadow);
+}
+
+/* A quiet underlined word that is still easy to hit (Edit, Show all). */
+.home-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: 600 var(--text-sm) / 1.25 var(--font);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.home-link:hover {
+  background: var(--surface-hover);
+}
+
+/* Mate's bulb and the other pictures: ink lines, bulb-yellow fills. */
+.home-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+
+.home-icon svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.home-icon .i-fill,
+.home-icon .i-paper,
+.home-icon .i-line,
+.home-icon .i-dot {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.home-icon .i-fill {
+  fill: var(--accent);
+}
+
+.home-icon .i-paper {
+  fill: var(--surface);
+}
+
+.home-icon .i-line {
+  fill: none;
+}
+
+.home-icon .i-dot {
+  fill: none;
+  stroke-width: 6;
+}
+
+.home-icon .i-glow {
+  fill: var(--accent);
+  opacity: 0.45;
+}
+
+/* "What should I call you?": Mate and his question, then the two fields. */
+.home-profile {
+  padding: 18px clamp(14px, 4vw, 24px) 20px;
+  border-radius: var(--radius-lg);
+  background: var(--halftone), var(--surface-soft);
+}
+
+.home-profile-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.home-profile-mate {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, var(--glow) 0%, transparent 70%);
+}
+
+.home-profile-ask {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-xl);
+  line-height: 1.35;
+}
+
+.home-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.home-field-label {
+  margin-top: 8px;
+  font-weight: 700;
+}
+
+.home-field {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: 400 var(--text-md) / 1.4 var(--font);
+}
+
+.home-field::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.home-field-about {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.home-profile-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.home-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.home-profile-actions .btn {
+  flex: 1 1 140px;
+}
+
+/* My lessons: picture cards in a grid, each with one big Open button. */
+.home-lessons-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+
+.home-lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.home-lesson-open {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: start;
+  cursor: pointer;
+}
+
+.home-lesson-open:hover {
+  background: var(--surface-hover);
+}
+
+.home-lesson-thumb {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.home-lesson-thumb.is-placeholder {
+  background: var(--halftone), var(--accent-soft);
+}
+
+.home-lesson-thumb .home-icon {
+  width: 52px;
+  height: 52px;
+}
+
+.home-lesson-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-lesson-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.home-lesson-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.home-lesson-date {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.home-lesson-cta {
+  margin-top: 4px;
+  padding: 2px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.home-lesson-steps {
+  margin: 0;
+  padding-left: 1.7em;
+}
+
+.home-lesson-step + .home-lesson-step {
+  margin-top: 2px;
+}
+
+.home-lesson-step::marker {
+  font-weight: 700;
+}
+
+.home-lesson-more {
+  align-self: flex-start;
+}
+
+.home-lessons-empty {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 14px;
+}
+
+.home-lessons-empty-mate {
+  width: 64px;
+  height: 64px;
+}
+
+.home-lessons-folder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 16px;
+}
+
+.home-lessons-folder .home-cards-folder {
+  margin: 0;
+}
+
+/* The guide: a modal strip of numbered comic cards over a dimmed page. */
+.home-guide {
+  width: min(880px, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100vh - 24px);
+  padding: 0;
+  overflow: auto;
+  border: 3px solid var(--ink);
+  border-radius: var(--radius-lg);
+  background: var(--halftone), var(--bg);
+  color: var(--text);
+  box-shadow: 6px 6px 0 var(--ink-shadow);
+}
+
+.home-guide::backdrop {
+  background: rgb(20 22 29 / 0.6);
+}
+
+/* The title and Close stay in view while the cards scroll. */
+.home-guide-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 16px 20px 14px;
+  border-bottom: var(--ink-width) solid var(--ink);
+  background: var(--surface);
+}
+
+.home-guide-heading {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.home-guide-title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  line-height: 1.25;
+}
+
+.home-guide-intro {
+  margin: 4px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.home-guide-list {
+  list-style: none;
+  margin: 0;
+  padding: 18px 20px 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+}
+
+.home-guide-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 0 14px 14px;
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* The picture: a halftone frame across the top of the card. */
+.home-guide-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 96px;
+  margin: 0 -14px;
+  padding: 12px;
+  border-bottom: 2px solid var(--ink);
+  background: var(--halftone), var(--accent-soft);
+}
+
+.home-guide-art .home-icon {
+  width: 68px;
+  height: 68px;
+}
+
+.home-guide-number {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 700 var(--text-sm) / 1 var(--font-comic);
+}
+
+/* The person's own talk key beside the picture; still, unlike the header's keycap. */
+.home-guide-key {
+  min-width: 0;
+  padding: 4px 12px;
+  border-bottom-width: 4px;
+  font-size: var(--text-sm);
+  box-shadow: none;
+  animation: none;
+}
+
+.home-guide-card-title {
+  margin: 4px 0 0;
+  font-size: var(--text-lg);
+  line-height: 1.3;
+}
+
+.home-guide-text {
+  margin: 0;
+}
+
+/* One example to say, in a small yellow bubble. */
+.home-guide-say {
+  margin: auto 0 0;
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+  background: var(--accent-soft);
+  font-size: var(--text-sm);
+}
+
+.home-guide-say-label {
+  font-weight: 700;
+}
+
+.home-guide-example {
+  font-weight: 600;
+}
+
+/* A narrow window: Mate above the greeting, so his bubble's tail points up. */
+@media (max-width: 600px) {
+  .home-greeting {
+    justify-content: center;
+  }
+
+  .home-guide-btn {
+    margin-inline-start: 0;
+  }
+
+  .home-intro.home-bubble {
+    margin-top: 16px;
+    text-align: left;
+  }
+
+  .home-intro.home-bubble::before {
+    top: -14px;
+    left: calc(50% - 9px);
+    border-width: 0 9px 14px;
+    border-color: transparent transparent var(--ink);
+  }
+
+  .home-intro.home-bubble::after {
+    top: -9px;
+    left: calc(50% - 7px);
+    border-width: 0 7px 11px;
+    border-color: transparent transparent var(--surface);
+  }
+}
+
+/* Windows contrast themes: rims in the text colour, pictures in system colours, no burst. */
+@media (forced-colors: active) {
+  .home-profile,
+  .home-lesson,
+  .home-lesson-thumb,
+  .home-guide,
+  .home-guide-card,
+  .home-guide-art,
+  .home-guide-say,
+  .home-bubble,
+  .home-lesson-cta,
+  .home-guide-number {
+    border-color: CanvasText;
+  }
+
+  .home-bubble::before,
+  .home-bubble::after,
+  .home-greeting::before {
+    display: none;
+  }
+
+  .home-icon svg {
+    forced-color-adjust: none;
+  }
+
+  .home-icon .i-fill,
+  .home-icon .i-paper {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  .home-icon .i-line,
+  .home-icon .i-dot {
+    stroke: CanvasText;
+  }
+
+  .home-icon .i-glow {
+    fill: Highlight;
+  }
+}

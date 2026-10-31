@@ -46,6 +46,7 @@ pub async fn open_answer_target(
             .map(|proxy| proxy.inner().clone());
         if let Some(proxy) = proxy
             && let Ok(speech) = proxy.speak(&locale, &line).await
+            && !stream.is_cancelled(generation)
         {
             stream.send_wav(generation, 0, &speech.wav);
         }

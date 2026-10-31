@@ -6,14 +6,28 @@ import { test } from "node:test";
 import { inspect } from "node:util";
 
 import {
+  KEEPSAKE_HEIGHT,
+  KEEPSAKE_WIDTH,
   LESSON_CARD_EVENT,
+  MAX_CAPTIONED_PNG_BYTES,
+  MAX_KEEPSAKE_STEPS,
   PLACEHOLDER_MATE_SVG,
+  computeKeepsakeLayout,
+  containImageRect,
   creditsKey,
+  decodedBase64ByteLength,
   escapeHtml,
+  fitTextBlock,
+  formatKeepsakeDate,
   getPlaceholderCard,
   mountLessonCard,
   parseLessonCard,
+  prepareCaptionedSavePayload,
   resolveCardImageUrl,
+  sendCaptionedCardOnce,
+  splitPngDataUrl,
+  stripLeadingStepNumber,
+  wrapTextLines,
 } from "./card.ts";
 import type { LessonCard } from "./card.ts";
 
@@ -349,4 +363,244 @@ test("text-only and failed images keep steps and Print usable", async () => {
     globals.document = oldDocument;
     globals.window = oldWindow;
   }
+});
+
+test("parseLessonCard treats id as optional, trims it, and rejects malformed id", () => {
+  const withId = parseLessonCard({ ...VALID_CARD, id: "  card-2026-11-01  " });
+  assert.equal(withId?.id, "card-2026-11-01");
+
+  for (const emptyId of [undefined, null, "", "   ", "\t\n"]) {
+    const parsed = parseLessonCard({ ...VALID_CARD, id: emptyId });
+    assert.ok(parsed !== null, inspect(emptyId));
+    assert.equal("id" in parsed, false, inspect(emptyId));
+  }
+
+  for (const badId of [42, false, {}, ["id"]]) {
+    assert.equal(parseLessonCard({ ...VALID_CARD, id: badId }), null, inspect(badId));
+  }
+
+  assert.equal(
+    parseLessonCard({
+      ...VALID_CARD,
+      get id(): string {
+        throw new Error("boom");
+      },
+    }),
+    null,
+  );
+});
+
+test("stripLeadingStepNumber removes matching step prefixes without touching content numbers", () => {
+  assert.equal(stripLeadingStepNumber("1. Open Settings", 1), "Open Settings");
+  assert.equal(stripLeadingStepNumber("  2) Выберите «Размер текста» ", 2), "Выберите «Размер текста»");
+  assert.equal(stripLeadingStepNumber("100% zoom is the default", 1), "100% zoom is the default");
+  assert.equal(stripLeadingStepNumber("3. Open Settings", 1), "3. Open Settings");
+  assert.equal(stripLeadingStepNumber("1.", 1), "1.");
+});
+
+test("wrapTextLines wraps Latin and Cyrillic text and splits overlong tokens", () => {
+  const monoMeasure = (sample: string): number => Array.from(sample).length * 10;
+
+  assert.deepEqual(wrapTextLines("   ", 100, monoMeasure), []);
+  assert.deepEqual(wrapTextLines("Hello", 0, monoMeasure), []);
+
+  assert.deepEqual(
+    wrapTextLines("Open   Windows   Settings now", 140, monoMeasure),
+    ["Open Windows", "Settings now"],
+  );
+
+  assert.deepEqual(
+    wrapTextLines("Откройте параметры экрана сегодня", 190, monoMeasure),
+    ["Откройте параметры", "экрана сегодня"],
+  );
+
+  const longPath = "C:\\Users\\Senior\\Pictures\\MetaMate\\keepsake.png";
+  const wrappedPath = wrapTextLines(longPath, 120, monoMeasure);
+  assert.ok(wrappedPath.length >= 4);
+  for (const line of wrappedPath) {
+    assert.ok(monoMeasure(line) <= 120, line);
+  }
+  assert.equal(wrappedPath.join(""), longPath);
+});
+
+test("fitTextBlock shrinks font down to minimum before truncating with an ellipsis", () => {
+  const scaledMeasure = (sample: string, fontSize: number): number =>
+    Array.from(sample).length * fontSize * 0.6;
+
+  // Short text stays at maxFontSize.
+  const comfortable = fitTextBlock(
+    "Open Settings",
+    { maxWidth: 400, maxHeight: 90, maxFontSize: 30, minFontSize: 20, fontStep: 2 },
+    scaledMeasure,
+  );
+  assert.equal(comfortable.fontSize, 30);
+  assert.equal(comfortable.truncated, false);
+  assert.deepEqual(comfortable.lines, ["Open Settings"]);
+
+  // Longer text shrinks font size rather than truncating early.
+  const shrunk = fitTextBlock(
+    "Выберите раздел «Специальные возможности» и передвиньте ползунок масштаба",
+    { maxWidth: 420, maxHeight: 95, maxFontSize: 30, minFontSize: 20, fontStep: 3 },
+    scaledMeasure,
+  );
+  assert.ok(shrunk.fontSize < 30 && shrunk.fontSize >= 20);
+  assert.equal(shrunk.truncated, false);
+  assert.ok(shrunk.lines.length * shrunk.lineHeight <= 95);
+
+  // Very long text hits minFontSize first, then truncates with an ellipsis inside maxWidth.
+  const overflowing = fitTextBlock(
+    "Open Windows Settings, choose Accessibility and Text size, drag the slider slowly to the right until every word is comfortable to read, and click Apply to keep the change",
+    { maxWidth: 300, maxHeight: 64, maxFontSize: 30, minFontSize: 20, fontStep: 3 },
+    scaledMeasure,
+  );
+  assert.equal(overflowing.fontSize, 20);
+  assert.equal(overflowing.truncated, true);
+  assert.equal(overflowing.lines.length, 2);
+  assert.ok(overflowing.lines[overflowing.lines.length - 1].endsWith("…"));
+  for (const line of overflowing.lines) {
+    assert.ok(scaledMeasure(line, overflowing.fontSize) <= 300, line);
+  }
+});
+
+test("computeKeepsakeLayout fits 1..6 steps inside 1200x1600 without overlap and clamps >6", () => {
+  for (const requested of [1, 2, 3, 4, 5, 6, 8]) {
+    const layout = computeKeepsakeLayout(requested);
+    assert.equal(layout.width, KEEPSAKE_WIDTH);
+    assert.equal(layout.height, KEEPSAKE_HEIGHT);
+    assert.equal(layout.steps.length, Math.min(requested, MAX_KEEPSAKE_STEPS));
+
+    assert.ok(layout.picturePanel.y >= layout.pageFrame.y);
+    assert.ok(
+      layout.picturePanel.y + layout.picturePanel.height < layout.titleBanner.y,
+      `panel overlaps title for ${requested}`,
+    );
+    assert.ok(
+      layout.titleBanner.y + layout.titleBanner.height < layout.steps[0].bubble.y,
+      `title overlaps first step for ${requested}`,
+    );
+
+    for (let i = 0; i < layout.steps.length; i += 1) {
+      const slot = layout.steps[i];
+      assert.ok(slot.textBox.width > 0 && slot.textBox.height > 0);
+      assert.ok(slot.badgeCenter.x - slot.badgeRadius >= layout.pageFrame.x);
+      assert.ok(slot.bubble.x + slot.bubble.width <= layout.pageFrame.x + layout.pageFrame.width);
+      if (i + 1 < layout.steps.length) {
+        assert.ok(slot.bubble.y + slot.bubble.height < layout.steps[i + 1].bubble.y);
+      }
+    }
+
+    const lastBubble = layout.steps[layout.steps.length - 1].bubble;
+    assert.ok(lastBubble.y + lastBubble.height < layout.footer.y);
+    assert.ok(
+      layout.footer.y + layout.footer.height <= layout.pageFrame.y + layout.pageFrame.height,
+    );
+  }
+
+  assert.equal(computeKeepsakeLayout(0).steps.length, 0);
+});
+
+test("containImageRect preserves aspect ratio inside the panel without cropping", () => {
+  const box = { x: 78, y: 78, width: 1044, height: 514 };
+  const square = containImageRect(1024, 1024, box);
+  assert.equal(square.width, 514);
+  assert.equal(square.height, 514);
+  assert.equal(square.x, 78 + Math.round((1044 - 514) / 2));
+  assert.equal(square.y, 78);
+
+  const wide = containImageRect(2088, 514, box);
+  assert.equal(wide.width, 1044);
+  assert.equal(wide.height, 257);
+
+  assert.deepEqual(containImageRect(0, 500, box), { x: 78, y: 78, width: 0, height: 0 });
+});
+
+test("splitPngDataUrl and prepareCaptionedSavePayload enforce base64 format and 8 MiB cap", () => {
+  const sampleBase64 = "iVBORw0KGgoAAAANSUhEUg==";
+  const sampleUrl = `data:image/png;base64,${sampleBase64}`;
+  assert.equal(splitPngDataUrl(sampleUrl), sampleBase64);
+  assert.equal(splitPngDataUrl(`DATA:image/png;charset=utf-8;base64, ${sampleBase64} `), sampleBase64);
+  assert.equal(splitPngDataUrl("data:image/jpeg;base64,/9j/4AAQ"), null);
+  assert.equal(splitPngDataUrl("data:image/png;base64,"), null);
+  assert.equal(splitPngDataUrl("data:image/png;base64,not-base64!"), null);
+  assert.equal(decodedBase64ByteLength("AQ=="), 1);
+  assert.equal(decodedBase64ByteLength("AQI="), 2);
+  assert.equal(decodedBase64ByteLength("AQID"), 3);
+
+  assert.deepEqual(prepareCaptionedSavePayload(undefined, sampleUrl), {
+    ok: false,
+    reason: "missing-id",
+  });
+  assert.deepEqual(prepareCaptionedSavePayload("   ", sampleUrl), {
+    ok: false,
+    reason: "missing-id",
+  });
+  assert.deepEqual(prepareCaptionedSavePayload("card-1", "not-a-data-url"), {
+    ok: false,
+    reason: "invalid-data-url",
+  });
+
+  // Exact 8 MiB (8,388,608 bytes = 2,796,202 * 3 + 2 bytes) passes; +1 byte skips.
+  const exact8MiBBase64 = `${"AAAA".repeat(2_796_202)}AAA=`;
+  assert.equal(decodedBase64ByteLength(exact8MiBBase64), MAX_CAPTIONED_PNG_BYTES);
+  const okAtLimit = prepareCaptionedSavePayload(
+    " card-limit ",
+    `data:image/png;base64,${exact8MiBBase64}`,
+  );
+  assert.equal(okAtLimit.ok, true);
+  if (okAtLimit.ok) {
+    assert.equal(okAtLimit.id, "card-limit");
+    assert.equal(okAtLimit.byteLength, MAX_CAPTIONED_PNG_BYTES);
+  }
+
+  const over8MiBBase64 = "AAAA".repeat(2_796_203);
+  assert.equal(decodedBase64ByteLength(over8MiBBase64), MAX_CAPTIONED_PNG_BYTES + 1);
+  assert.deepEqual(
+    prepareCaptionedSavePayload("card-over", `data:image/png;base64,${over8MiBBase64}`),
+    { ok: false, reason: "too-large" },
+  );
+});
+
+test("sendCaptionedCardOnce saves once per card id, strips prefix, and warns on failure", async () => {
+  const calls: Array<{ id: string; pngBase64: string }> = [];
+  const warnings: unknown[][] = [];
+  const origWarn = console.warn;
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+
+  try {
+    const savedIds = new Set<string>();
+    const url = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
+    const saver = async (args: { readonly id: string; readonly pngBase64: string }) => {
+      calls.push({ id: args.id, pngBase64: args.pngBase64 });
+    };
+
+    // Absent id is skipped silently.
+    assert.equal(await sendCaptionedCardOnce(undefined, url, savedIds, saver), false);
+    assert.equal(calls.length, 0);
+    assert.equal(warnings.length, 0);
+
+    // First send for "card-a" succeeds without data: prefix; duplicate is skipped.
+    assert.equal(await sendCaptionedCardOnce("card-a", url, savedIds, saver), true);
+    assert.equal(await sendCaptionedCardOnce("card-a", url, savedIds, saver), false);
+    assert.deepEqual(calls, [{ id: "card-a", pngBase64: "iVBORw0KGgoAAAANSUhEUg==" }]);
+
+    // Failures log console.warn only and do not throw or retry.
+    const failingSaver = async (): Promise<void> => {
+      throw new Error("disk full");
+    };
+    assert.equal(await sendCaptionedCardOnce("card-b", url, savedIds, failingSaver), false);
+    assert.equal(warnings.length, 1);
+    assert.equal(await sendCaptionedCardOnce("card-b", url, savedIds, saver), false);
+  } finally {
+    console.warn = origWarn;
+  }
+});
+
+test("formatKeepsakeDate formats dates in English and Russian", () => {
+  const sampleDate = new Date("2026-11-01T12:00:00Z");
+  const en = formatKeepsakeDate(sampleDate, "en");
+  const ru = formatKeepsakeDate(sampleDate, "ru");
+  assert.ok(en.includes("2026"), en);
+  assert.ok(ru.includes("2026"), ru);
 });

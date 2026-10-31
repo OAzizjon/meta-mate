@@ -1,6 +1,25 @@
 use super::{Intent, guess_intent};
 
 #[test]
+fn abilities_and_general_help_need_no_screenshot() {
+    for question in [
+        "what can you do",
+        "what are you able to do",
+        "how do I use you",
+        "who are you?",
+        "что ты умеешь",
+        "что ты можешь",
+        "как тобой пользоваться",
+        "помоги разобраться с тобой",
+        "help me",
+        "помоги",
+    ] {
+        assert_eq!(guess_intent(question), Intent::Chat, "{question}");
+    }
+    assert_eq!(guess_intent("How do I print this document?"), Intent::How);
+}
+
+#[test]
 fn gemini_routing_review_sentences() {
     let mut failures = Vec::new();
     for (text, expected) in [

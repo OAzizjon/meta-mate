@@ -2,6 +2,7 @@
 //! responses, no networking here (the proxy client lives elsewhere).
 
 pub mod intent;
+pub mod profile;
 mod prompts;
 pub mod request;
 pub mod response;

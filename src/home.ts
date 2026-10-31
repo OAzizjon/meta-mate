@@ -1,16 +1,21 @@
 // Home window controller (WP89a): the friendly start page for older users.
-// Greets them with Mate, shows how to talk to him (hold the configured talk key), offers three
-// "Try it" questions (`invoke("home_try", { key })`), says what Mate never does and where
-// the keepsake cards are saved, and opens Settings (`invoke("open_settings_window")`).
-// The "Show this window when MetaMate starts" checkbox saves `showHomeAtStart` through
+// Greets them with Mate (by name once they told him: src/home/profile.ts asks on the first
+// open), shows how to talk to him (hold the configured talk key), offers three "Try it"
+// questions (`invoke("home_try", { key })`), lists the lesson cards (src/home/lessons-view.ts),
+// says what Mate never does, opens the guide (the Guide button or "?", src/home/guide.ts) and
+// Settings (`invoke("open_settings_window")`).
+// The "Show this window when MetaMate starts" checkbox and the profile save through
 // `load_settings` / `save_settings` (src/settings/model.ts).
-// Outside Tauri the questions report a failure and the checkbox keeps changes in memory.
+// Outside Tauri the questions report a failure and the settings stay in memory.
 // All user-facing strings come from `src/i18n` (invariant 7).
 
 import type { LocaleKey } from "./i18n/index.ts";
 import { pttKeycapLabel, withPttKey } from "./settings/ptt-key.ts";
 import { createSettingsStore, subscribeSettingsChanged } from "./settings/model.ts";
-import type { Settings, SettingsInvoke, SettingsSubscribe } from "./settings/model.ts";
+import type { Profile, Settings, SettingsInvoke, SettingsSubscribe } from "./settings/model.ts";
+import { GUIDE_SHORTCUT, createGuide, isGuideShortcut } from "./home/guide.ts";
+import { createLessonsSection } from "./home/lessons-view.ts";
+import { createProfilePanel, greetingText, shouldAskProfile } from "./home/profile.ts";
 
 // The locale lookup comes from the page entry (src/home-page.ts): importing src/i18n here
 // would load the locale JSON, which Node's test runner cannot import.
@@ -134,6 +139,11 @@ export interface HomeSettings {
   canSave(): boolean;
   /** Saves `showHomeAtStart` over the current settings; does nothing until `canSave()`. */
   setShowAtStart(show: boolean): Promise<Settings>;
+  /**
+   * Saves `profile` (`null`: Skip, keeps the saved one) and marks it asked, over the current
+   * settings. Rejects until `canSave()`: the person would believe it saved.
+   */
+  saveProfile(profile: Profile | null): Promise<Settings>;
   /** Resolves once the first `load_settings` call has finished (or failed). */
   readonly ready: Promise<Settings>;
   /** Stops listening for `settings-changed`. */
@@ -185,6 +195,18 @@ export function startHomeSettings(
       }
       try {
         return await store.update({ showHomeAtStart: show });
+      } finally {
+        if (!destroyed) {
+          onChange(store.get(), known);
+        }
+      }
+    },
+    async saveProfile(profile: Profile | null): Promise<Settings> {
+      if (!known) {
+        throw new Error("home: the settings are not in yet");
+      }
+      try {
+        return await store.update(profile ? { profile, profileAsked: true } : { profileAsked: true });
       } finally {
         if (!destroyed) {
           onChange(store.get(), known);
@@ -266,14 +288,49 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
 
   const content = el("div", "home-content");
 
-  // Header: Mate beside the greeting and how to talk to him.
+  // First open: "What should I call you?" above everything (shown by the settings below).
+  const profilePanel = createProfilePanel(t, {
+    async submit(profile) {
+      try {
+        await settings.saveProfile(profile);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    done() {
+      if (!destroyed) {
+        editBtn.focus();
+      }
+    },
+  });
+
+  // Header: Mate beside the greeting (with Edit and Guide) and how to talk to him.
   const hero = el("header", "home-hero");
   const mateBox = el("div", "home-mate");
   mateBox.setAttribute("aria-hidden", "true");
 
   const heroText = el("div", "home-hero-text");
+  const greeting = el("div", "home-greeting");
   const title = el("h1", "home-title", t("home.greeting"));
-  const intro = el("p", "home-intro", t("home.intro"));
+  title.id = "home-title";
+  // Shown once the settings are in: the panel saves through them.
+  const editBtn = el("button", "home-link home-edit", t("home.profile_add"));
+  editBtn.type = "button";
+  editBtn.id = "home-profile-edit";
+  // "Edit" alone is unclear to a screen reader: it reads the greeting after it.
+  editBtn.setAttribute("aria-describedby", title.id);
+  editBtn.hidden = true;
+  editBtn.addEventListener("click", () => {
+    profilePanel.show(settings.get().profile, true);
+  });
+  const guideBtn = el("button", "btn btn-soft home-guide-btn", t("home.guide_button"));
+  guideBtn.type = "button";
+  guideBtn.id = "home-guide-btn";
+  guideBtn.setAttribute("aria-haspopup", "dialog");
+  guideBtn.setAttribute("aria-keyshortcuts", GUIDE_SHORTCUT);
+  greeting.append(title, editBtn, guideBtn);
+  const intro = el("p", "home-intro home-bubble", t("home.intro"));
 
   const talk = el("div", "home-talk");
   talk.setAttribute("role", "group");
@@ -296,7 +353,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   talkMore.append(talkWhere, " ", talkClick);
   talk.append(talkTitle, talkRow, talkMore);
 
-  heroText.append(title, intro, talk);
+  heroText.append(greeting, intro, talk);
   hero.append(mateBox, heroText);
 
   // Try it: three questions, each with what Mate will do and its own button.
@@ -362,14 +419,10 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   }
   neverSection.append(neverList);
 
-  // Keepsake cards: what they are and where they are saved.
-  const cardsSection = section("home-cards-title", "home-cards", t("home.cards_title"));
-  cardsSection.append(
-    el("p", "home-section-intro", t("home.cards_text")),
-    el("p", "home-cards-folder", t("home.cards_folder")),
-  );
+  // My lessons: the cards Mate made, right under the questions so they are easy to find.
+  const lessons = createLessonsSection({ invoke, t, locale: () => getLocale() });
 
-  content.append(hero, trySection, neverSection, cardsSection);
+  content.append(profilePanel.element, hero, trySection, lessons.element, neverSection);
 
   // Footer, kept in view: the checkbox as a small line, Write to Mate and Settings side by
   // side, Quit as a quiet text button under them.
@@ -418,7 +471,26 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   });
   footer.append(startOption, saveAlert, actions, quitBtn);
 
-  container.replaceChildren(content, footer);
+  // The guide, with the person's own talk key; "?" opens it too, unless they are typing.
+  const guide = createGuide(t, () => settings.get().pttKey);
+  guideBtn.addEventListener("click", () => guide.open(guideBtn));
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (!event.defaultPrevented && isGuideShortcut(event) && !guide.isOpen()) {
+      event.preventDefault();
+      // No opener: the browser gives the keyboard back to where it was.
+      guide.open(null);
+    }
+  };
+  document.addEventListener("keydown", onKeyDown);
+
+  container.replaceChildren(content, footer, guide.element);
+
+  // The lessons now, and again whenever the person comes back to this window.
+  const onWindowFocus = (): void => {
+    void lessons.refresh();
+  };
+  void lessons.refresh();
+  window.addEventListener("focus", onWindowFocus);
 
   // Mate, idle and calm (his eyes follow the mouse in idle), once his box is in the page.
   const mate = options.mountMate ? options.mountMate(mateBox) : null;
@@ -467,6 +539,12 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
     talkWhere.textContent = t(`home.where_${updated.pttKey}` as LocaleKey);
     startInput.checked = updated.showHomeAtStart;
     startInput.disabled = !canSave;
+    title.textContent = greetingText(updated.profile.name, t);
+    editBtn.textContent = t(updated.profile.name ? "home.profile_edit" : "home.profile_add");
+    editBtn.hidden = !canSave;
+    if (shouldAskProfile(updated, canSave) && !profilePanel.isShown()) {
+      profilePanel.show(updated.profile, false);
+    }
     reduceSetting = updated.reduceMotion;
     syncMotion();
   });
@@ -497,8 +575,11 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
         cancelAnimationFrame(eyeFrame);
       }
       window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("focus", onWindowFocus);
+      document.removeEventListener("keydown", onKeyDown);
       document.documentElement.removeEventListener("pointerleave", onPointerLeave);
       motionQuery?.removeEventListener("change", syncMotion);
+      lessons.destroy();
       settings.destroy();
       mate?.destroy();
       container.replaceChildren();

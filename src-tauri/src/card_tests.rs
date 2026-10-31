@@ -1,23 +1,30 @@
 use serde_json::json;
+use std::fs;
 
 use super::*;
 
 #[test]
-fn only_saved_images_within_the_byte_cap_are_encoded() {
-    assert_eq!(card_image(b"\x89PNG", true), data_url(b"\x89PNG"));
-    assert_eq!(card_image(b"\x89PNG", false), "");
-    let mut png = vec![0; PNG_MAX_BYTES];
-    assert!(!card_image(&png, true).is_empty());
+fn captioned_images_require_png_and_the_byte_cap() {
+    let encode = |bytes: &[u8]| base64::engine::general_purpose::STANDARD.encode(bytes);
+    assert!(notes::decode_png(&encode(b"not png")).is_err());
+    assert!(notes::decode_png("not base64!").is_err());
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    png.resize(PNG_MAX_BYTES, 0);
+    assert_eq!(
+        notes::decode_png(&encode(&png)).unwrap().len(),
+        PNG_MAX_BYTES
+    );
     png.push(0);
-    assert_eq!(card_image(&png, true), "");
+    assert!(notes::decode_png(&encode(&png)).is_err());
 }
 
 #[test]
 fn a_text_only_card_retains_the_steps_in_the_page_payload() {
     let card = LessonCard {
+        id: "text-card".into(),
         title: "Bigger text".into(),
         steps: vec!["Open Settings.".into()],
-        image: card_image(b"png", false),
+        image: String::new(),
         locale: "en".into(),
         words_by: WordsBy::Lesson,
     };
@@ -252,18 +259,19 @@ fn the_longest_prompt_fits_the_proxy_uncut() {
 #[test]
 fn a_second_card_of_the_same_minute_gets_its_own_file() {
     let dir = folder("save");
-    let first = save(&dir, "2026-10-28 18-57 Bigger text", b"one").unwrap();
-    let second = save(&dir, "2026-10-28 18-57 Bigger text", b"two").unwrap();
-    assert_eq!(first, dir.join("2026-10-28 18-57 Bigger text.png"));
-    assert_eq!(second, dir.join("2026-10-28 18-57 Bigger text (2).png"));
-    assert_eq!(fs::read(&first).unwrap(), b"one");
-    assert_eq!(fs::read(&second).unwrap(), b"two");
+    let first = notes::save(&dir, "Bigger text", saved_card(1), None).unwrap();
+    let second = notes::save(&dir, "Bigger text", saved_card(2), None).unwrap();
+    assert_eq!(first.id, "Bigger text");
+    assert_eq!(second.id, "Bigger text (2)");
+    assert_eq!(notes::load(&dir, &first.id).unwrap().created, 1);
+    assert_eq!(notes::load(&dir, &second.id).unwrap().created, 2);
     let _ = fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn the_card_has_the_shape_the_page_expects() {
     let card = LessonCard {
+        id: "Bigger text".into(),
         title: "Bigger text".into(),
         steps: vec!["Open Settings.".into()],
         image: data_url(b"\x89PNG"),
@@ -273,6 +281,7 @@ fn the_card_has_the_shape_the_page_expects() {
     assert_eq!(
         serde_json::to_value(&card).ok(),
         Some(json!({
+            "id": "Bigger text",
             "title": "Bigger text",
             "steps": ["Open Settings."],
             "imagePath": "data:image/png;base64,iVBORw==",
@@ -284,4 +293,85 @@ fn the_card_has_the_shape_the_page_expects() {
         serde_json::to_value(WordsBy::Lesson).ok(),
         Some(json!("lesson"))
     );
+}
+
+fn saved_card(created: u64) -> notes::SavedCard {
+    notes::SavedCard {
+        version: 1,
+        id: String::new(),
+        title: "Bigger text".into(),
+        question: "How do I make text bigger?".into(),
+        steps: vec!["Open Settings.".into()],
+        created,
+        image: None,
+    }
+}
+
+#[test]
+fn sidecars_round_trip_text_and_captioned_images() {
+    let dir = folder("sidecars");
+    let saved = notes::save(&dir, "text", saved_card(42), None).unwrap();
+    let loaded = notes::load(&dir, &saved.id).unwrap();
+    assert_eq!(loaded.version, 1);
+    assert_eq!(loaded.question, "How do I make text bigger?");
+    assert_eq!(loaded.steps, vec!["Open Settings."]);
+    assert!(loaded.image.is_none());
+    let png = b"\x89PNG\r\n\x1a\ncaptioned";
+    let encoded = base64::engine::general_purpose::STANDARD.encode(png);
+    notes::save_captioned(&dir, &saved.id, &encoded).unwrap();
+    notes::save_captioned(&dir, &saved.id, &encoded).unwrap();
+    let loaded = notes::load(&dir, &saved.id).unwrap();
+    assert_eq!(loaded.image.as_deref(), Some("text.png"));
+    assert_eq!(fs::read(dir.join("text.png")).unwrap(), png);
+    assert_eq!(
+        notes::list(&dir)[0].thumb.as_deref(),
+        Some(data_url(png).as_str())
+    );
+    assert!(notes::save_captioned(&dir, "missing", &encoded).is_err());
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn traversal_and_foreign_sidecars_are_rejected() {
+    let dir = folder("invalid");
+    fs::create_dir_all(&dir).unwrap();
+    for id in [
+        "", "..", "../card", "a/b", "a\\b", "C:card", "a..b", "card.",
+    ] {
+        assert!(!notes::valid_id(id), "{id}");
+        assert!(notes::load(&dir, id).is_err());
+    }
+    assert!(notes::valid_id("2026-11-01 Анна (2)"));
+    fs::write(dir.join("foreign.json"), b"{}").unwrap();
+    let mut foreign = saved_card(1);
+    foreign.id = "foreign".into();
+    foreign.image = Some("../elsewhere.png".into());
+    fs::write(
+        dir.join("foreign.json"),
+        serde_json::to_vec(&foreign).unwrap(),
+    )
+    .unwrap();
+    assert!(notes::list(&dir).is_empty());
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn cards_list_is_newest_first_capped_and_omits_large_thumbnails() {
+    let dir = folder("list");
+    for created in 0..65 {
+        notes::save(&dir, &format!("card-{created}"), saved_card(created), None).unwrap();
+    }
+    let mut card = notes::load(&dir, "card-64").unwrap();
+    card.image = Some("card-64.png".into());
+    let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
+    png.resize(2 * 1024 * 1024 + 1, 0);
+    fs::write(dir.join("card-64.png"), png).unwrap();
+    fs::write(dir.join("card-64.json"), serde_json::to_vec(&card).unwrap()).unwrap();
+    fs::write(dir.join("broken.json"), b"not json").unwrap();
+    let cards = notes::list(&dir);
+    assert_eq!(cards.len(), 60);
+    assert_eq!(cards.first().unwrap().created, 64);
+    assert_eq!(cards.last().unwrap().created, 5);
+    assert!(cards[0].thumb.is_none());
+    let _ = fs::remove_dir_all(dir);
 }

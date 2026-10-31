@@ -133,7 +133,7 @@ test("opening waits for its announcement and happens once per answer", async () 
   assert.ok(!run.take().some((line) => line.startsWith("open ")));
   run.endSentence(7, 1);
   await settle();
-  assert.deepEqual(run.take(), ["open 7", "bubble Opening Paint"]);
+  assert.deepEqual(run.take(), ["open 7", "bubble Opening Paint", "sleep 6000"]);
 });
 
 test("opening without speech or after cancellation does nothing", async () => {

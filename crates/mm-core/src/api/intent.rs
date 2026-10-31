@@ -11,6 +11,9 @@ pub use opening::wants_open;
 mod safety;
 use safety::asks_safety;
 
+#[path = "intent_about.rs"]
+mod about;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
     Where,
@@ -24,7 +27,7 @@ pub enum Intent {
 const CLASSIFIER: &str = "Classify the user's request. Reply with one word:\n\
 WHERE  - they want to find one thing on the screen\n\
 HOW    - they want guidance through a task, including imperatives like \"click X\", \"press OK\", or opening a Settings page inside an app\n\
-CHAT   - conversation, a story, a joke, a question not about the screen, or a request to open a website or whole app such as YouTube or Calculator (no screenshot needed)\n\
+CHAT   - conversation, a story, a joke, a question not about the screen, questions about your abilities, identity or how to use you (English or Russian), general help, or a request to open a website or whole app such as YouTube or Calculator (no screenshot needed)\n\
 DO     - they ask you to do it for them: \"do it\", \"click it for me\", \"сделай\", or an imperative with \"за меня\", \"сам\", or \"yourself\"\n";
 
 /// A non-streamed Responses API body; send it with proxy call kind `intent`.
@@ -558,6 +561,9 @@ pub fn guess_intent(question: &str) -> Intent {
     }
     let lower = spoken_words(question);
     let words: Vec<&str> = words(&lower).collect();
+    if about::asks_about_mate(&words) {
+        return Intent::Chat;
+    }
     if asks_open(&words, &lower) {
         return Intent::Chat;
     }

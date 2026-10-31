@@ -22,6 +22,8 @@ import {
   tryStatusKey,
 } from "./home.ts";
 import type { HomeInvoke } from "./home.ts";
+import { GUIDE_CARDS, isGuideShortcut } from "./home/guide.ts";
+import { greetingText, shouldAskProfile } from "./home/profile.ts";
 import { DEFAULT_SETTINGS, PTT_KEYS } from "./settings/model.ts";
 import type { Settings } from "./settings/model.ts";
 
@@ -33,6 +35,9 @@ const LOCALES: Record<string, Strings> = {
   ru: JSON.parse(readFileSync(new URL("../locales/ru.json", import.meta.url), "utf8")) as Strings,
 };
 const HOME_SOURCE = readFileSync(new URL("./home.ts", import.meta.url), "utf8");
+const HOME_PART_SOURCES = ["./home/profile.ts", "./home/guide.ts", "./home/lessons-view.ts"].map((path) =>
+  readFileSync(new URL(path, import.meta.url), "utf8"),
+);
 
 interface Call {
   readonly cmd: string;
@@ -329,18 +334,34 @@ class FakeClassList {
   }
 }
 
+type FakeListener = (event: FakeEvent) => void;
+
+interface FakeEvent {
+  readonly target: unknown;
+  readonly key?: string;
+  defaultPrevented: boolean;
+  preventDefault(): void;
+}
+
+/** The element `focus()` was last called on. */
+let focused: FakeElement | null = null;
+
 /** Just enough of an element for `mountHome`: text nodes are plain strings. */
 class FakeElement {
   readonly tagName: string;
   readonly classList = new FakeClassList();
   readonly attributes = new Map<string, string>();
-  readonly listeners = new Map<string, Array<() => void>>();
+  readonly listeners = new Map<string, FakeListener[]>();
   childNodes: Array<FakeElement | string> = [];
   id = "";
   type = "";
   htmlFor = "";
+  value = "";
   checked = false;
   disabled = false;
+  hidden = false;
+  /** A <dialog>'s state (no showModal here: the guide falls back to `open`). */
+  open = false;
 
   constructor(tagName: string) {
     this.tagName = tagName;
@@ -379,16 +400,30 @@ class FakeElement {
     this.attributes.set(name, value);
   }
 
-  addEventListener(type: string, listener: () => void): void {
+  addEventListener(type: string, listener: FakeListener): void {
     this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
   }
 
-  removeEventListener(type: string, listener: () => void): void {
+  removeEventListener(type: string, listener: FakeListener): void {
     this.listeners.set(type, (this.listeners.get(type) ?? []).filter((other) => other !== listener));
   }
 
-  dispatch(type: string): void {
-    for (const listener of this.listeners.get(type) ?? []) listener();
+  focus(): void {
+    focused = this;
+  }
+
+  /** Fires `type` at this element's listeners; returns the event they saw. */
+  dispatch(type: string, init: { key?: string; target?: unknown } = {}): FakeEvent {
+    const event: FakeEvent = {
+      target: init.target ?? this,
+      key: init.key,
+      defaultPrevented: false,
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+    };
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
+    return event;
   }
 }
 
@@ -402,33 +437,64 @@ function byClass(root: FakeElement, className: string): FakeElement {
   return found;
 }
 
-/** Mounts the Home page on a fake document with English text and the given saved settings. */
-async function mountFakeHome(saved: Settings): Promise<{
+function byId(root: FakeElement, id: string): FakeElement {
+  const found = descendants(root).find((node) => node.id === id);
+  assert.ok(found, id);
+  return found;
+}
+
+const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * Mounts the Home page on a fake document with English text and the given saved settings
+ * (`null`: `load_settings` never answers); `answer` replies to the other commands (it may
+ * throw).
+ */
+async function mountFakeHome(
+  saved: Settings | null,
+  answer: (cmd: string, args?: Readonly<Record<string, unknown>>) => unknown = () => null,
+): Promise<{
   readonly container: FakeElement;
   readonly calls: string[];
+  readonly sent: Call[];
+  readonly doc: FakeElement;
   readonly unmount: () => void;
 }> {
+  // The document's own listeners ("?" for the guide) live on `doc`.
+  const doc = new FakeElement("#document");
   const globals = globalThis as { document?: unknown; window?: unknown };
   globals.document = {
     documentElement: new FakeElement("html"),
     createElement: (tag: string) => new FakeElement(tag),
+    createElementNS: (_ns: string, tag: string) => new FakeElement(tag),
+    addEventListener: (type: string, listener: FakeListener) => doc.addEventListener(type, listener),
+    removeEventListener: (type: string, listener: FakeListener) => doc.removeEventListener(type, listener),
   };
   // No `matchMedia`: the OS motion setting is left out.
   globals.window = { addEventListener() {}, removeEventListener() {} };
   setHomeI18n((key) => LOCALES.en[key] ?? key, () => "en");
+  focused = null;
 
   const calls: string[] = [];
+  const sent: Call[] = [];
   const container = new FakeElement("main");
   const home = mountHome(container as unknown as HTMLElement, {
-    invoke: async (cmd) => {
+    invoke: async (cmd, args) => {
       calls.push(cmd);
-      return cmd === "load_settings" ? { ...saved } : null;
+      sent.push({ cmd, args });
+      if (cmd === "load_settings") {
+        // `null`: the settings never come in.
+        return saved ? { ...saved } : new Promise(() => {});
+      }
+      return answer(cmd, args);
     },
   });
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await tick();
   return {
     container,
     calls,
+    sent,
+    doc,
     unmount(): void {
       home.destroy();
       delete globals.document;
@@ -502,7 +568,7 @@ test("the footer: a start-up switch line, Write to Mate and Settings side by sid
       button.dispatch("click");
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.deepEqual(calls, ["load_settings", "open_chat", "open_settings_window", "quit_app"]);
+    assert.deepEqual(calls, ["cards_list", "load_settings", "open_chat", "open_settings_window", "quit_app"]);
   } finally {
     unmount();
   }
@@ -519,4 +585,299 @@ test("a failed startup save reports failure and keeps the active choice", async 
   assert.equal(home.get().showHomeAtStart, false);
   assert.equal(changes.at(-1)?.showHomeAtStart, false);
   home.destroy();
+});
+
+test("every string the profile panel, the guide and My lessons show is in both locales", () => {
+  const keys = new Set<string>(GUIDE_CARDS.flatMap((card) => [card.title, card.text, card.label, card.example]));
+  for (const source of [HOME_SOURCE, ...HOME_PART_SOURCES]) {
+    for (const match of source.matchAll(/"(home\.\w+)"/g)) {
+      keys.add(match[1]);
+    }
+  }
+  for (const key of ["home.greeting_named", "home.profile_add", "home.lessons_show_less", "home.lessons_folder_failed"]) {
+    assert.ok(keys.has(key), key);
+  }
+  for (const key of keys) {
+    for (const [code, strings] of Object.entries(LOCALES)) {
+      assert.ok(strings[key]?.trim(), `${code}: ${key}`);
+    }
+  }
+  for (const strings of Object.values(LOCALES)) {
+    assert.ok(strings["home.greeting_named"].includes("{person}"));
+  }
+});
+
+test("the guide has six to eight cards, each a picture, a title, a short line and one example", () => {
+  assert.ok(GUIDE_CARDS.length >= 6 && GUIDE_CARDS.length <= 8, `${GUIDE_CARDS.length} cards`);
+  assert.equal(new Set(GUIDE_CARDS.map((card) => card.icon)).size, GUIDE_CARDS.length);
+  for (const card of GUIDE_CARDS) {
+    assert.ok(["home.guide_say", "home.guide_type", "home.guide_try"].includes(card.label), card.title);
+    for (const [code, strings] of Object.entries(LOCALES)) {
+      assert.ok(strings[card.text].length <= 110, `${code}: ${card.text}`);
+    }
+  }
+  // The talk card names the person's own key.
+  assert.equal(GUIDE_CARDS[0].text, "home.guide_talk_text");
+  for (const strings of Object.values(LOCALES)) {
+    assert.ok(strings["home.guide_talk_text"].includes("{key}"));
+  }
+});
+
+test("? opens the guide, but not with Ctrl, Alt or Windows, nor while typing in a field", () => {
+  const press = (init: Record<string, unknown>) => ({ key: "?", ctrlKey: false, altKey: false, metaKey: false, target: null, ...init });
+  for (const target of [null, { tagName: "BUTTON" }, { tagName: "INPUT", type: "checkbox" }, { tagName: "DIALOG" }]) {
+    assert.equal(isGuideShortcut(press({ target })), true, inspect(target));
+  }
+  for (const target of [{ tagName: "INPUT", type: "text" }, { tagName: "INPUT", type: "search" }, { tagName: "TEXTAREA" }, { tagName: "DIV", isContentEditable: true }]) {
+    assert.equal(isGuideShortcut(press({ target })), false, inspect(target));
+  }
+  for (const init of [{ key: "/" }, { key: "F1" }, { ctrlKey: true }, { altKey: true }, { metaKey: true }]) {
+    assert.equal(isGuideShortcut(press(init)), false, inspect(init));
+  }
+});
+
+test("the greeting uses the saved name as typed, and the panel waits for the settings", () => {
+  const translate = (key: string): string => LOCALES.en[key] ?? key;
+  assert.equal(greetingText("Anna", translate), "Hi, Anna!");
+  assert.equal(greetingText("$& Bob", translate), "Hi, $& Bob!");
+  assert.equal(greetingText("  ", translate), LOCALES.en["home.greeting"]);
+  assert.equal(shouldAskProfile(DEFAULT_SETTINGS, true), true);
+  assert.equal(shouldAskProfile(DEFAULT_SETTINGS, false), false);
+  assert.equal(shouldAskProfile({ ...DEFAULT_SETTINGS, profileAsked: true }, true), false);
+});
+
+test("saveProfile marks the profile asked over the loaded settings; Skip keeps the saved profile", async () => {
+  const calls: Call[] = [];
+  const loaded: Settings = { ...SAVED, profile: { name: "Old", about: "Hi" } };
+  const home = startHomeSettings(async (cmd, args) => {
+    calls.push({ cmd, args });
+    return cmd === "load_settings" ? { ...loaded } : null;
+  }, null, () => {});
+  await home.ready;
+
+  const skipped = await home.saveProfile(null);
+  assert.deepEqual(skipped, { ...loaded, profileAsked: true });
+  assert.deepEqual(calls.at(-1), { cmd: "save_settings", args: { settings: skipped } });
+
+  const saved = await home.saveProfile({ name: " Anna ", about: "I'm 68." });
+  assert.deepEqual(saved, { ...loaded, profile: { name: "Anna", about: "I'm 68." }, profileAsked: true });
+  assert.deepEqual(calls.at(-1), { cmd: "save_settings", args: { settings: saved } });
+  home.destroy();
+});
+
+test("saveProfile never saves before the settings are in", async () => {
+  const load = deferred<unknown>();
+  const calls: string[] = [];
+  const home = startHomeSettings((cmd) => {
+    calls.push(cmd);
+    return cmd === "load_settings" ? load.promise : Promise.resolve(null);
+  }, null, () => {});
+  await assert.rejects(home.saveProfile({ name: "Anna", about: "" }));
+  assert.deepEqual(calls, ["load_settings"]);
+  load.resolve({ ...SAVED });
+  await home.ready;
+  home.destroy();
+});
+
+test("the first open asks what to call the person, at the top; Save greets them by name", async () => {
+  const { container, sent, unmount } = await mountFakeHome(SAVED);
+  try {
+    const panel = byClass(container, "home-profile");
+    assert.equal(container.children[0].children[0], panel);
+    assert.equal(panel.hidden, false);
+    // Home opens without the keyboard: the panel never takes it on its own.
+    assert.equal(focused, null);
+    assert.equal(byId(panel, "home-profile-ask").textContent, LOCALES.en["home.profile_ask"]);
+    const name = byId(panel, "home-profile-name");
+    const about = byId(panel, "home-profile-about");
+    assert.equal(name.maxLength, 40);
+    assert.equal(about.maxLength, 300);
+    assert.equal(about.placeholder, LOCALES.en["home.profile_about_placeholder"]);
+
+    name.value = "  Anna ";
+    about.value = "I'm 68.";
+    assert.equal(byClass(panel, "home-profile-form").dispatch("submit").defaultPrevented, true);
+    await tick();
+    assert.deepEqual(
+      sent.filter((call) => call.cmd === "save_settings").map((call) => call.args),
+      [{ settings: { ...SAVED, profile: { name: "Anna", about: "I'm 68." }, profileAsked: true } }],
+    );
+    assert.equal(panel.hidden, true);
+    assert.equal(byClass(container, "home-title").textContent, "Hi, Anna!");
+    const edit = byId(container, "home-profile-edit");
+    assert.equal(edit.hidden, false);
+    assert.equal(edit.textContent, LOCALES.en["home.profile_edit"]);
+    assert.equal(focused, edit);
+  } finally {
+    unmount();
+  }
+});
+
+test("Skip marks the profile asked; a saved name keeps the panel shut until Edit", async () => {
+  const first = await mountFakeHome(SAVED);
+  try {
+    byId(first.container, "home-profile-skip").dispatch("click");
+    await tick();
+    assert.deepEqual(
+      first.sent.filter((call) => call.cmd === "save_settings").map((call) => call.args),
+      [{ settings: { ...SAVED, profileAsked: true } }],
+    );
+    assert.equal(byClass(first.container, "home-profile").hidden, true);
+    assert.equal(byClass(first.container, "home-title").textContent, LOCALES.en["home.greeting"]);
+    assert.equal(byId(first.container, "home-profile-edit").textContent, LOCALES.en["home.profile_add"]);
+  } finally {
+    first.unmount();
+  }
+
+  const again = await mountFakeHome({ ...SAVED, profile: { name: "Anna", about: "Video calls." }, profileAsked: true });
+  try {
+    const panel = byClass(again.container, "home-profile");
+    assert.equal(panel.hidden, true);
+    assert.equal(byClass(again.container, "home-title").textContent, "Hi, Anna!");
+    byId(again.container, "home-profile-edit").dispatch("click");
+    assert.equal(panel.hidden, false);
+    const name = byId(panel, "home-profile-name");
+    assert.equal(name.value, "Anna");
+    assert.equal(byId(panel, "home-profile-about").value, "Video calls.");
+    assert.equal(focused, name);
+    assert.deepEqual(again.calls.filter((cmd) => cmd === "save_settings"), []);
+  } finally {
+    again.unmount();
+  }
+});
+
+test("a failed profile save keeps the panel open with a calm line", async () => {
+  const { container, unmount } = await mountFakeHome(SAVED, (cmd) => {
+    if (cmd === "save_settings") throw new Error("disk full");
+    return null;
+  });
+  try {
+    const panel = byClass(container, "home-profile");
+    byId(panel, "home-profile-name").value = "Anna";
+    byClass(panel, "home-profile-form").dispatch("submit");
+    await tick();
+    assert.equal(panel.hidden, false);
+    const alert = descendants(panel).find((node) => node.attributes.get("role") === "alert");
+    assert.ok(alert);
+    assert.equal(alert.hidden, false);
+    assert.equal(alert.textContent, LOCALES.en["home.profile_save_failed"]);
+  } finally {
+    unmount();
+  }
+});
+
+test("before the settings are in, neither the panel nor Edit shows", async () => {
+  const { container, calls, unmount } = await mountFakeHome(null);
+  try {
+    assert.equal(byClass(container, "home-profile").hidden, true);
+    assert.equal(byId(container, "home-profile-edit").hidden, true);
+    assert.equal(byClass(container, "home-title").textContent, LOCALES.en["home.greeting"]);
+    assert.deepEqual(calls.filter((cmd) => cmd === "save_settings"), []);
+  } finally {
+    unmount();
+  }
+});
+
+test("Guide and ? open the guide with the person's talk key; Close gives the keyboard back", async () => {
+  const { container, doc, unmount } = await mountFakeHome({ ...SAVED, pttKey: "f9", profileAsked: true });
+  try {
+    const guideBtn = byId(container, "home-guide-btn");
+    assert.equal(guideBtn.attributes.get("aria-keyshortcuts"), "?");
+    const dialog = container.children[2];
+    assert.equal(dialog.tagName, "dialog");
+    assert.equal(dialog.open, false);
+
+    guideBtn.dispatch("click");
+    assert.equal(dialog.open, true);
+    const cards = byClass(dialog, "home-guide-list").children;
+    assert.equal(cards.length, GUIDE_CARDS.length);
+    assert.equal(byClass(cards[0], "home-guide-key").textContent, LOCALES.en["settings.keycap_f9"]);
+    assert.equal(
+      byClass(cards[0], "home-guide-text").textContent,
+      LOCALES.en["home.guide_talk_text"].replace("{key}", LOCALES.en["settings.key_f9"]),
+    );
+    // Close is the dialog's first button, so the keyboard lands on it.
+    const close = byId(dialog, "home-guide-close");
+    assert.equal(descendants(dialog).find((node) => node.tagName === "button"), close);
+    close.dispatch("click");
+    assert.equal(dialog.open, false);
+    assert.equal(focused, guideBtn);
+
+    // "?" while typing about oneself is just a question mark.
+    const about = byId(container, "home-profile-about");
+    assert.equal(doc.dispatch("keydown", { key: "?", target: about }).defaultPrevented, false);
+    assert.equal(dialog.open, false);
+    assert.equal(doc.dispatch("keydown", { key: "?", target: guideBtn }).defaultPrevented, true);
+    assert.equal(dialog.open, true);
+  } finally {
+    unmount();
+  }
+});
+
+test("My lessons lists the cards newest first; a card opens with card_show and its steps fold", async () => {
+  const cards = [
+    { id: "old", title: "Print a page", steps: ["Open the menu", "Click Print"], created: 1_793_000_000, thumb: null },
+    {
+      id: "new",
+      title: "Attach a photo",
+      steps: ["Click the clip", "Choose the photo", "Click Open", "Click Send"],
+      created: 1_793_534_400,
+      thumb: "data:image/png;base64,iVBORw0KGgo=",
+    },
+  ];
+  const { container, sent, unmount } = await mountFakeHome({ ...SAVED, profileAsked: true }, (cmd) =>
+    cmd === "cards_list" ? cards : null,
+  );
+  try {
+    const section = byClass(container, "home-lessons");
+    assert.equal(byClass(section, "home-lessons-empty").hidden, true);
+    const items = byClass(section, "home-lessons-list").children;
+    assert.deepEqual(items.map((item) => byClass(item, "home-lesson-title").textContent), ["Attach a photo", "Print a page"]);
+    assert.equal(byClass(items[0], "home-lesson-img").src, cards[1].thumb);
+    assert.ok(byClass(items[1], "home-lesson-thumb").classList.contains("is-placeholder"));
+    assert.match(byClass(items[0], "home-lesson-date").textContent, /2026/);
+
+    // The first two steps, then Show all; a two-step card needs no button.
+    const steps = byClass(items[0], "home-lesson-steps").children;
+    assert.deepEqual(steps.map((step) => step.hidden), [false, false, true, true]);
+    const more = byClass(items[0], "home-lesson-more");
+    assert.equal(more.attributes.get("aria-expanded"), "false");
+    assert.equal(more.textContent, LOCALES.en["home.lessons_show_all"]);
+    more.dispatch("click");
+    assert.deepEqual(steps.map((step) => step.hidden), [false, false, false, false]);
+    assert.equal(more.attributes.get("aria-expanded"), "true");
+    assert.equal(more.textContent, LOCALES.en["home.lessons_show_less"]);
+    assert.equal(byClass(items[1], "home-lesson-more").hidden, true);
+
+    byClass(items[1], "home-lesson-open").dispatch("click");
+    byId(section, "home-lessons-folder-btn").dispatch("click");
+    await tick();
+    assert.deepEqual(
+      sent.filter((call) => call.cmd !== "load_settings"),
+      [
+        { cmd: "cards_list", args: undefined },
+        { cmd: "card_show", args: { id: "old" } },
+        { cmd: "cards_open_folder", args: undefined },
+      ],
+    );
+  } finally {
+    unmount();
+  }
+});
+
+test("My lessons shows the friendly empty line when cards_list is missing or fails", async () => {
+  const { container, unmount } = await mountFakeHome({ ...SAVED, profileAsked: true }, (cmd) => {
+    if (cmd === "cards_list") throw new Error("command cards_list not found");
+    return null;
+  });
+  try {
+    const section = byClass(container, "home-lessons");
+    const empty = byClass(section, "home-lessons-empty");
+    assert.equal(empty.hidden, false);
+    assert.equal(empty.textContent, LOCALES.en["home.lessons_empty"]);
+    assert.equal(byClass(section, "home-lessons-list").hidden, true);
+    assert.ok(!descendants(section).some((node) => node.classList.contains("is-error")));
+  } finally {
+    unmount();
+  }
 });

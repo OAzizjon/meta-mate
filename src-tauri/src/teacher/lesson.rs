@@ -122,6 +122,7 @@ pub(crate) async fn teach(
     let mut confirmed_click = None;
     let mut shown_model = None;
     'turns: loop {
+        body = mm_core::api::profile::with_profile(body, &crate::settings::profile(&app));
         let cancelled = || stream.is_cancelled(generation);
         // One model turn on the current look. A failed turn (an error, a cut or unfinished
         // answer, or more than one computer call: the prompt asks for one) is asked again;

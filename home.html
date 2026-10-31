@@ -1,12 +1,14 @@
 <!doctype html>
-<!-- Home window (WP89a): the start page for older users, src/home.ts. Mate greets them in a
-     warm header card; under the greeting, how to talk to him, with a big keycap for the talk
-     key; three "Try it" questions; what Mate never does; where the keepsake cards are saved.
+<!-- Home window (WP89a): the start page for older users, src/home.ts. On the first open Mate
+     asks what to call the person; then he greets them in a warm header card (with Edit and
+     the Guide button); under the greeting, how to talk to him, with a big keycap for the talk
+     key; three "Try it" questions; My lessons (the cards he made); what Mate never does.
      Sized for the 720x640 window: the greeting, the keycap and the questions show without
      scrolling, the rest scrolls above a short footer that keeps the start-up switch, Write to
      Mate, Settings and a quiet Quit in view (the window's own close button closes it). Works
      from 360px wide. The shared look (palette, type, buttons, focus rings, dark mode, contrast
-     themes, reduced motion) is src/theme.css. -->
+     themes, reduced motion) is src/theme.css; the comic look and the new parts are
+     src/home/comic.css, loaded after this page's own styles. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -543,6 +545,7 @@
         }
       }
     </style>
+    <link rel="stylesheet" href="/src/home/comic.css" />
   </head>
   <body>
     <main id="home-app"></main>

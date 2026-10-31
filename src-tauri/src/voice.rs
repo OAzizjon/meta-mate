@@ -943,6 +943,7 @@ async fn answer(
         let turn = usize::try_from(generation).unwrap_or(0) % THINKING.len();
         (body, settings, THINKING[turn])
     };
+    let body = mm_core::api::profile::with_profile(body, &crate::settings::profile(&app));
     #[cfg(debug_assertions)]
     let debug_app = &app;
     // Plain references, so the three futures below can share them.

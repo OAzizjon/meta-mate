@@ -7,15 +7,14 @@
 //! words and a generic scene. It all runs beside the lesson, never in its way: a failure is
 //! logged (never with the person's words); image failures leave a printable text card.
 //!
-//! The page gets `lesson-card` with `{ title, steps, imagePath, locale, wordsBy }`, where
+//! The page gets `lesson-card` with `{ id, title, steps, imagePath, locale, wordsBy }`, where
 //! `imagePath` is the picture as a `data:` URL (the WebView needs no asset protocol and no
 //! file scope) and `wordsBy` (`glimmer` or `lesson`) tells whose words the steps are, for
 //! the card's credit line. A new window's page does not listen yet, so the card is sent
 //! on `card-ready`, from managed state retained even when the page loads slowly.
 
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
+use std::io;
+use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -26,6 +25,10 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::proxy::Proxy;
+
+#[path = "card_notes.rs"]
+mod notes;
+pub use notes::CardNote;
 
 /// The card window's label and page, the event its page listens to and the one it sends
 /// once it listens.
@@ -77,6 +80,7 @@ pub(crate) fn init(app: &AppHandle) {
 /// in the app's language (`en` or `ru`).
 #[derive(Serialize)]
 struct LessonCard {
+    id: String,
     title: String,
     steps: Vec<String>,
     #[serde(rename = "imagePath")]
@@ -146,37 +150,42 @@ pub(crate) async fn make(app: AppHandle, question: String, steps: Vec<String>) {
             None
         }
     };
-    let image = if let Some(png) = png {
-        match app.path().picture_dir() {
-            Ok(pictures) => {
-                let stem = file_stem(local(ended), &title);
-                tokio::task::spawn_blocking(move || {
-                    let saved = save(&pictures.join(APP_NAME), &stem, &png);
-                    if let Err(error) = &saved {
-                        eprintln!("card: save: {error}");
-                    }
-                    card_image(&png, saved.is_ok())
-                })
-                .await
-                .unwrap_or_else(|_| {
-                    eprintln!("card: save: worker failed");
-                    String::new()
-                })
-            }
-            Err(error) => {
-                eprintln!("card: pictures folder: {error}");
-                String::new()
-            }
+    let mut id = String::new();
+    let mut image = String::new();
+    if let Ok(pictures) = app.path().picture_dir() {
+        let stem = file_stem(local(ended), &title);
+        let card = notes::SavedCard {
+            version: 1,
+            id: String::new(),
+            title: title.clone(),
+            question,
+            steps: steps.clone(),
+            created: ended
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |time| time.as_secs()),
+            image: None,
+        };
+        let saved = tokio::task::spawn_blocking(move || {
+            let folder = pictures.join(APP_NAME);
+            let card = notes::save(&folder, &stem, card, png.as_deref())?;
+            let image = notes::image(&folder, &card, PNG_MAX_BYTES).unwrap_or_default();
+            Ok::<_, io::Error>((card.id, image))
+        })
+        .await;
+        if let Ok(Ok((saved_id, saved_image))) = saved {
+            id = saved_id;
+            image = saved_image;
+        } else {
+            eprintln!("card: could not save keepsake");
         }
-    } else {
-        String::new()
-    };
+    }
     let locale = app
         .try_state::<crate::answer_stream::AnswerStream>()
         .map_or_else(|| "en".into(), |stream| stream.locale());
-    show(
+    let _ = show(
         &app,
         LessonCard {
+            id,
             title,
             steps,
             image,
@@ -192,14 +201,6 @@ fn data_url(png: &[u8]) -> String {
         "data:image/png;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(png)
     )
-}
-
-fn card_image(png: &[u8], saved: bool) -> String {
-    if saved && png.len() <= PNG_MAX_BYTES {
-        data_url(png)
-    } else {
-        String::new()
-    }
 }
 
 /// Glimmer's wording for the card, or None when it failed or wrote no usable card (logged,
@@ -379,6 +380,7 @@ fn file_stem(time: SystemTime, title: &str) -> String {
 /// spaces, at most `FILE_TITLE_CHARS`, no dot or space at the end.
 fn file_title(title: &str) -> String {
     let allowed: String = title
+        .replace("..", " ")
         .chars()
         .map(|c| if r#"<>:"/\|?*"#.contains(c) { ' ' } else { c })
         .collect();
@@ -421,49 +423,17 @@ fn civil(days: u64) -> (u64, u64, u64) {
     (year, month, day)
 }
 
-/// Writes `png` as `<stem>.png` in `folder` (created when missing), or as `<stem> (2).png`
-/// and so on when that name is taken: an older card is never overwritten.
-fn save(folder: &Path, stem: &str, png: &[u8]) -> io::Result<PathBuf> {
-    fs::create_dir_all(folder)?;
-    for copy in 1..=SAME_NAME_LIMIT {
-        let name = if copy == 1 {
-            format!("{stem}.png")
-        } else {
-            format!("{stem} ({copy}).png")
-        };
-        let path = folder.join(name);
-        let mut file = match OpenOptions::new().write(true).create_new(true).open(&path) {
-            Ok(file) => file,
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
-            Err(error) => return Err(error),
-        };
-        if let Err(error) = file.write_all(png) {
-            drop(file);
-            // Half a picture is no keepsake.
-            let _ = fs::remove_file(&path);
-            return Err(error);
-        }
-        return Ok(path);
-    }
-    Err(io::Error::new(
-        io::ErrorKind::AlreadyExists,
-        "every name for this card is taken",
-    ))
-}
-
 /// Opens the card window, or brings it back when it is open, and hands the card to its
 /// page.
-async fn show(app: &AppHandle, card: LessonCard) {
+async fn show(app: &AppHandle, card: LessonCard) -> Result<(), String> {
     let pending = app.state::<PendingCard>();
     *pending.0.lock().unwrap_or_else(PoisonError::into_inner) = Some(card);
-    if let Err(error) = open(app) {
-        eprintln!("card: window: {error}");
-        return;
-    }
+    open(app).map_err(|_| card_error(app))?;
     let card = pending.0.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(card) = card.as_ref() {
         send(app, card);
     }
+    Ok(())
 }
 
 /// The card window (640x720, centred): built when missing, else unminimized and shown;
@@ -500,6 +470,87 @@ fn send(app: &AppHandle, card: &LessonCard) {
     if let Err(error) = app.emit_to(WINDOW, EVENT, card) {
         eprintln!("card: event: {error}");
     }
+}
+
+fn card_locale(app: &AppHandle) -> String {
+    app.try_state::<crate::answer_stream::AnswerStream>()
+        .map_or_else(|| "en".into(), |stream| stream.locale())
+}
+
+fn card_error(app: &AppHandle) -> String {
+    crate::locale_text(&card_locale(app), "card.operation_failed")
+}
+
+fn card_folder(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .picture_dir()
+        .map(|path| path.join(APP_NAME))
+        .map_err(|_| card_error(app))
+}
+
+#[tauri::command]
+pub async fn cards_list(app: AppHandle) -> Vec<CardNote> {
+    let Ok(folder) = card_folder(&app) else {
+        return Vec::new();
+    };
+    tokio::task::spawn_blocking(move || notes::list(&folder))
+        .await
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+pub async fn card_show(app: AppHandle, id: String) -> Result<(), String> {
+    let folder = card_folder(&app)?;
+    let loaded = tokio::task::spawn_blocking(move || {
+        let card = notes::load(&folder, &id)?;
+        let image = notes::image(&folder, &card, PNG_MAX_BYTES).unwrap_or_default();
+        Ok::<_, io::Error>((card, image))
+    })
+    .await
+    .map_err(|_| card_error(&app))?
+    .map_err(|_| card_error(&app))?;
+    let (card, image) = loaded;
+    show(
+        &app,
+        LessonCard {
+            id: card.id,
+            title: card.title,
+            steps: card.steps,
+            image,
+            locale: card_locale(&app),
+            words_by: WordsBy::Lesson,
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn card_save_captioned(
+    app: AppHandle,
+    id: String,
+    png_base64: String,
+) -> Result<(), String> {
+    let folder = card_folder(&app)?;
+    tokio::task::spawn_blocking(move || notes::save_captioned(&folder, &id, &png_base64))
+        .await
+        .map_err(|_| card_error(&app))?
+        .map_err(|_| card_error(&app))
+}
+
+#[tauri::command]
+pub async fn cards_open_folder(app: AppHandle) -> Result<(), String> {
+    let folder = card_folder(&app)?;
+    let folder = tokio::task::spawn_blocking(move || notes::ensure_folder(&folder))
+        .await
+        .map_err(|_| card_error(&app))?
+        .map_err(|_| card_error(&app))?;
+    #[cfg(windows)]
+    if mm_win32::shell::open_folder(&folder) {
+        return Ok(());
+    }
+    #[cfg(not(windows))]
+    let _ = folder;
+    Err(card_error(&app))
 }
 
 /// `--card-selftest [ru]` (development builds): the card of a made-up lesson through the

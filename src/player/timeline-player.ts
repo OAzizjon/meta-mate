@@ -161,6 +161,8 @@ export class TimelinePlayer {
           this.options.showBubble(text);
           run.shown = true;
           run.fallbackShown = false;
+          // Leave the line up long enough to read before the answer ends (Gemini #1462).
+          await untilAborted(signal, this.sleep(bubbleReadMs(text), signal));
         }
         return;
       }

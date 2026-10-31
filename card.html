@@ -1,82 +1,57 @@
 <!doctype html>
-<!-- Lesson card window (WP62): Muse Image recap card for older users.
-     Shows an illustrated card with Mate, the lesson title, numbered steps and a
-     line crediting the models (WP71), with Print and Close buttons. Sized for the
-     640x720 window (WP78): the picture beside the title so the first steps show
-     without scrolling, large steps, the buttons kept in view. Prints on one A4 or
-     Letter page in black on white without the buttons. Supports dark mode, Windows
-     contrast themes and reduced motion. -->
+<!-- Lesson card window (WP62): comic-page keepsake recap for older users.
+     Composes a 1200x1600 captioned comic keepsake on canvas (saved once via
+     card_save_captioned) and displays it alongside accessible comic speech-bubble
+     steps, model credits (WP71), and Print / Close buttons. Uses src/theme.css
+     tokens for light/dark themes, Windows contrast themes, and reduced motion.
+     Prints the captioned keepsake page cleanly on one A4 or Letter sheet. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title></title>
+    <link rel="stylesheet" href="/src/theme.css" />
     <style>
       :root {
-        color-scheme: light;
-        --bg: #fffdf7;
-        --panel-bg: #ffffff;
-        --panel-border: #ebe3d1;
-        --text: #1f2a44;
-        --text-muted: #55607a;
-        /* Mate's bulb yellow with navy ink, like every other window (src/theme.css). */
-        --accent: #ffcd3c;
-        --accent-soft: #fff4cf;
-        --accent-hover: #ffc21a;
-        --accent-contrast: #1f2a44;
-        --badge-bg: #fef3c7;
-        --badge-text: #92400e;
-        --step-bg: #faf6ea;
-        --step-border: #ebe3d1;
-        --step-num-bg: #1f2a44;
-        --step-num-text: #ffffff;
-        --btn-secondary-bg: #ffffff;
-        --btn-secondary-border: #ddd3bc;
-        --btn-secondary-text: #1f2a44;
-        --btn-secondary-hover: #f4eedc;
-        --shadow: 0 4px 20px rgba(31, 42, 68, 0.09);
-        --radius: 16px;
+        --panel-bg: var(--surface);
+        --comic-ink: var(--text);
+        --comic-shadow: #1f2a44;
+        --halftone-dot: rgb(31 42 68 / 0.085);
+        --badge-bg: var(--accent);
+        --badge-text: var(--on-accent);
+        --step-bg: var(--surface-soft);
+        --step-border: var(--comic-ink);
+        --step-num-bg: var(--accent);
+        --step-num-text: var(--on-accent);
       }
 
       :root[data-theme="dark"] {
-        color-scheme: dark;
-        --bg: #131722;
-        --panel-bg: #1c2230;
-        --panel-border: #2e384d;
-        --text: #f1f5f9;
-        --text-muted: #cbd5e1;
-        --accent: #ffd23f;
-        --accent-soft: #252f42;
-        --accent-hover: #facc15;
-        --accent-contrast: #131722;
-        --badge-bg: #422006;
-        --badge-text: #fef08a;
-        --step-bg: #22293a;
-        --step-border: #3b4760;
-        --step-num-bg: #ffd23f;
-        --step-num-text: #131722;
-        --btn-secondary-bg: #22293a;
-        --btn-secondary-border: #8790a6;
-        --btn-secondary-text: #f1f5f9;
-        --btn-secondary-hover: #2d374d;
-        --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-      }
-
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
+        --panel-bg: var(--surface);
+        --comic-ink: var(--text);
+        --comic-shadow: #090b10;
+        --halftone-dot: rgb(255 210 63 / 0.085);
+        --badge-bg: var(--accent);
+        --badge-text: var(--on-accent);
+        --step-bg: var(--surface-soft);
+        --step-border: var(--comic-ink);
+        --step-num-bg: var(--accent);
+        --step-num-text: var(--on-accent);
       }
 
       html,
       body {
-        margin: 0;
-        padding: 0;
         min-height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font: 20px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
-        overflow-wrap: anywhere;
+        font-size: var(--text-lg);
+      }
+
+      body {
+        background-color: var(--bg);
+        background-image: radial-gradient(
+          circle,
+          var(--halftone-dot) 1.35px,
+          transparent 1.45px
+        );
+        background-size: 14px 14px;
       }
 
       /* A wider window than 640px keeps the lines short enough to follow. */
@@ -89,19 +64,19 @@
       .card-layout {
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 22px;
         background: var(--panel-bg);
-        border: 2px solid var(--panel-border);
-        border-radius: var(--radius);
+        border: 3px solid var(--comic-ink);
+        border-radius: var(--radius-lg);
         padding: clamp(16px, 3vw, 24px) clamp(12px, 3vw, 24px) 8px;
-        box-shadow: var(--shadow);
+        box-shadow: 6px 6px 0 var(--comic-shadow);
       }
 
-      /* The picture beside the badge and title, so the first steps show without scrolling. */
+      /* Keepsake preview beside the badge and title so the first steps show without scrolling. */
       .card-header {
         display: grid;
-        grid-template-columns: clamp(150px, 34vw, 240px) minmax(0, 1fr);
-        gap: 24px;
+        grid-template-columns: clamp(145px, 32vw, 220px) minmax(0, 1fr);
+        gap: 22px;
         align-items: center;
       }
 
@@ -113,15 +88,16 @@
         width: 100%;
       }
 
-      /* Muse Image draws squares; `contain` letterboxes any other shape, never crops it. */
+      /* Matches the 1200x1600 (3:4) captioned comic keepsake without cropping. */
       .card-image-wrapper {
         width: 100%;
-        max-width: 280px;
-        aspect-ratio: 1 / 1;
-        border-radius: 14px;
+        max-width: 240px;
+        aspect-ratio: 3 / 4;
+        border-radius: 12px;
         overflow: hidden;
         background: var(--accent-soft);
-        border: 2px solid var(--panel-border);
+        border: 3px solid var(--comic-ink);
+        box-shadow: 4px 4px 0 var(--comic-shadow);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -141,14 +117,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: radial-gradient(circle at center, var(--accent-soft) 0%, var(--panel-bg) 75%);
+        background: radial-gradient(circle at center, var(--accent-soft) 0%, var(--panel-bg) 78%);
       }
 
       .placeholder-bulb {
         width: 100%;
-        max-width: 220px;
-        max-height: 220px;
-        filter: drop-shadow(0 4px 12px rgba(255, 210, 63, 0.35));
+        max-width: 190px;
+        max-height: 190px;
+        filter: drop-shadow(0 4px 12px var(--glow));
       }
 
       .card-heading {
@@ -162,9 +138,12 @@
       .card-badge {
         max-width: 100%;
         display: inline-block;
-        padding: 6px 14px;
-        border-radius: 9999px;
-        font-size: 17px;
+        padding: 5px 14px;
+        border-radius: 8px;
+        border: 2.5px solid var(--comic-ink);
+        box-shadow: 3px 3px 0 var(--comic-shadow);
+        font-family: "Segoe Print", var(--font);
+        font-size: var(--text-sm);
         font-weight: 700;
         line-height: 1.3;
         background: var(--badge-bg);
@@ -173,9 +152,9 @@
 
       .card-title {
         margin: 0;
-        font-size: clamp(24px, 4vw, 30px);
-        font-weight: 700;
-        line-height: 1.25;
+        font-size: var(--text-2xl);
+        font-weight: 800;
+        line-height: 1.22;
         color: var(--text);
         overflow-wrap: break-word;
         text-wrap: balance;
@@ -187,7 +166,7 @@
         }
 
         .card-layout {
-          padding: 18px 18px 4px;
+          padding: 16px 16px 4px;
         }
 
         .card-header {
@@ -208,11 +187,7 @@
       .card-step {
         display: flex;
         align-items: flex-start;
-        gap: clamp(10px, 2vw, 16px);
-        background: var(--step-bg);
-        border: 2px solid var(--step-border);
-        border-radius: 12px;
-        padding: 14px clamp(10px, 2vw, 18px);
+        gap: clamp(12px, 2.5vw, 18px);
       }
 
       .card-step-num {
@@ -221,31 +196,65 @@
         justify-content: center;
         width: 44px;
         height: 44px;
+        margin-top: 4px;
         border-radius: 50%;
+        border: 2.5px solid var(--comic-ink);
+        box-shadow: 2px 2px 0 var(--comic-shadow);
         background: var(--step-num-bg);
         color: var(--step-num-text);
+        font-family: "Segoe Print", var(--font);
         font-size: clamp(20px, 3vw, 22px);
         font-weight: 800;
         line-height: 1;
         flex-shrink: 0;
       }
 
-      /* The top padding centres the first line (22px x 1.45) on the 44px number. */
+      /* Comic speech bubble with a left tail pointing at the step number badge. */
       .card-step-text {
+        flex: 1;
         min-width: 0;
-        padding-top: 6px;
+        position: relative;
+        background: var(--step-bg);
+        border: 2.5px solid var(--step-border);
+        border-radius: var(--radius);
+        box-shadow: 4px 4px 0 var(--comic-shadow);
+        padding: 12px clamp(12px, 2.5vw, 18px);
         font-size: clamp(20px, 3vw, 22px);
-        font-weight: 500;
-        line-height: 1.45;
+        font-weight: 600;
+        line-height: 1.42;
         color: var(--text);
         overflow-wrap: break-word;
         text-wrap: pretty;
       }
 
+      .card-step-text::before,
+      .card-step-text::after {
+        content: "";
+        position: absolute;
+        width: 0;
+        height: 0;
+        border-style: solid;
+        pointer-events: none;
+      }
+
+      .card-step-text::before {
+        top: 13px;
+        left: -13px;
+        border-width: 9px 13px 9px 0;
+        border-color: transparent var(--step-border) transparent transparent;
+      }
+
+      .card-step-text::after {
+        top: 15px;
+        left: -9px;
+        border-width: 7px 10px 7px 0;
+        border-color: transparent var(--step-bg) transparent transparent;
+      }
+
       /* No display here: the [hidden] attribute hides the line. */
       .card-credits {
         margin: 0;
-        font-size: 17px;
+        font-size: var(--text-sm);
         line-height: 1.4;
         color: var(--text-muted);
       }
@@ -259,96 +268,56 @@
         flex-wrap: wrap;
         gap: 16px;
         padding: 16px 0;
-        border-top: 2px solid var(--panel-border);
+        border-top: 2.5px solid var(--comic-ink);
         background: var(--panel-bg);
       }
 
-      .btn {
+      .card-actions .btn {
         flex: 1 1 180px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
         min-height: 56px;
-        min-width: 0;
-        max-width: 100%;
-        white-space: normal;
-        overflow-wrap: anywhere;
         padding: 12px clamp(12px, 3vw, 28px);
-        font-family: inherit;
         font-size: 21px;
         font-weight: 700;
-        line-height: 1.2;
-        border-radius: 12px;
-        cursor: pointer;
-        user-select: none;
-        transition:
-          background-color 140ms ease-out,
-          border-color 140ms ease-out;
+        border: 2.5px solid var(--comic-ink);
+        box-shadow: 3px 3px 0 var(--comic-shadow);
       }
 
-      /* A press darkens the button but never shrinks it: a shaking hand stays on target. */
-      .btn:active {
-        filter: brightness(0.9);
+      .card-actions .btn-primary:hover:not(:disabled) {
+        border-color: var(--comic-ink);
       }
 
-      .btn-primary {
-        background: var(--accent);
-        color: var(--accent-contrast);
-        border: 2px solid var(--accent);
+      .card-actions .btn-secondary:hover:not(:disabled) {
+        border-color: var(--comic-ink);
       }
 
-      .btn-primary:hover {
-        background: var(--accent-hover);
-        border-color: var(--accent-hover);
-      }
-
-      .btn-secondary {
-        background: var(--btn-secondary-bg);
-        color: var(--btn-secondary-text);
-        border: 2px solid var(--btn-secondary-border);
-      }
-
-      .btn-secondary:hover {
-        background: var(--btn-secondary-hover);
-      }
-
-      .btn:focus-visible {
-        outline: 4px solid #1f2a44;
-        outline-offset: 3px;
-      }
-
-      /* Windows contrast themes drop the backgrounds: the step numbers keep a ring. */
+      /* Windows contrast themes drop fills and decorative tails while keeping solid outlines. */
       @media (forced-colors: active) {
-        .card-step-num {
+        body {
+          background-image: none;
+        }
+
+        .card-layout,
+        .card-image-wrapper,
+        .card-badge,
+        .card-step-num,
+        .card-step-text,
+        .card-actions .btn {
+          box-shadow: none;
           border: 2px solid CanvasText;
         }
-      }
 
-      .reduce-motion *,
-      .reduce-motion *::before,
-      .reduce-motion *::after {
-        animation: none !important;
-        transition: none !important;
-        scroll-behavior: auto !important;
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          animation: none !important;
-          transition: none !important;
-          scroll-behavior: auto !important;
+        .card-step-text::before,
+        .card-step-text::after {
+          display: none;
         }
       }
 
       @page {
-        margin: 14mm;
+        margin: 12mm;
       }
 
-      /* One A4 or Letter page in black on white: the picture beside the title, the steps
-         and the credit line, no buttons. Backgrounds are not printed by default, so the
-         step numbers are rings, not discs, and the dark theme never reaches the paper. */
+      /* Prints the captioned keepsake page on one A4 or Letter sheet in black on white,
+         without buttons, and keeps a crisp black-on-white fallback when uncaptioned. */
       @media print {
         :root,
         :root[data-theme="dark"] {
@@ -361,9 +330,17 @@
           --badge-bg: #ffffff;
           --badge-text: #000000;
           --step-bg: #ffffff;
-          --step-border: #8a8a8a;
+          --step-border: #000000;
           --step-num-bg: #ffffff;
           --step-num-text: #000000;
+          --comic-ink: #000000;
+          --comic-shadow: transparent;
+        }
+
+        html,
+        body {
+          background: #ffffff;
+          background-image: none;
         }
 
         #card-app {
@@ -374,28 +351,57 @@
         }
 
         .card-layout {
-          gap: 6mm;
+          gap: 5mm;
           padding: 0;
           border: none;
           border-radius: 0;
           box-shadow: none;
         }
 
+        .card-layout.has-captioned .card-header {
+          display: block;
+        }
+
+        .card-layout.has-captioned .card-heading,
+        .card-layout.has-captioned .card-steps {
+          display: none;
+        }
+
+        .card-layout.has-captioned .card-image-wrapper {
+          width: auto;
+          max-width: none;
+          aspect-ratio: auto;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+          background: transparent;
+        }
+
+        .card-layout.has-captioned .card-image {
+          width: auto;
+          height: auto;
+          max-width: 100%;
+          max-height: 238mm;
+          margin: 0 auto;
+        }
+
         .card-header {
-          grid-template-columns: 60mm minmax(0, 1fr);
+          grid-template-columns: 56mm minmax(0, 1fr);
           gap: 8mm;
           break-inside: avoid;
         }
 
         .card-image-wrapper {
           max-width: none;
-          border: 1pt solid #8a8a8a;
+          border: 1.5pt solid #000000;
           border-radius: 3mm;
+          box-shadow: none;
         }
 
         .card-badge {
-          padding: 0;
-          font-size: 12pt;
+          padding: 1mm 3mm;
+          font-size: 11pt;
+          box-shadow: none;
         }
 
         .card-title {
@@ -408,9 +414,6 @@
 
         .card-step {
           gap: 4mm;
-          padding: 2.5mm 4mm 2.5mm 3mm;
-          border-width: 1pt;
-          border-radius: 3mm;
           break-inside: avoid;
         }
 
@@ -418,17 +421,27 @@
           width: 9mm;
           height: 9mm;
           border: 1.5pt solid #000000;
+          box-shadow: none;
           font-size: 14pt;
         }
 
         .card-step-text {
-          padding-top: 2pt;
-          font-size: 16pt;
+          padding: 2.5mm 4mm;
+          border-width: 1pt;
+          border-radius: 3mm;
+          box-shadow: none;
+          font-size: 15pt;
           line-height: 1.35;
         }
 
+        .card-step-text::before,
+        .card-step-text::after {
+          display: none;
+        }
+
         .card-credits {
-          font-size: 11pt;
+          font-size: 10pt;
+          text-align: center;
           break-inside: avoid;
         }
 
