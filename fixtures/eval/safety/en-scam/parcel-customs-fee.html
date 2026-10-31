@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>Shipment Hold #PG-749201 - ParcelGo Delivery Portal</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f8fafc;
+        color: #1e293b;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        background-color: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 8px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .url-pill {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: Consolas, "Courier New", monospace;
+        color: #64748b;
+      }
+      .url-pill strong {
+        color: #0f172a;
+      }
+      .courier-header {
+        background-color: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        height: 56px;
+        padding: 0 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .courier-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f766e;
+      }
+      .box-icon {
+        width: 26px;
+        height: 26px;
+        fill: #0f766e;
+      }
+      .header-meta {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .content-area {
+        flex: 1;
+        max-width: 1120px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 20px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .progress-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .step {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #0f766e;
+      }
+      .step-circle {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #0f766e;
+        color: #ffffff;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .step.held {
+        color: #b45309;
+      }
+      .step.held .step-circle {
+        background-color: #d97706;
+      }
+      .step-line {
+        flex: 1;
+        height: 2px;
+        background-color: #cbd5e1;
+        margin: 0 14px;
+      }
+      .grid-2col {
+        display: grid;
+        grid-template-columns: 1.05fr 1fr;
+        gap: 24px;
+        align-items: start;
+      }
+      .details-card,
+      .pay-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 22px 24px;
+      }
+      .hold-banner {
+        background-color: #fffbeb;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+      }
+      .hold-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #92400e;
+        margin-bottom: 4px;
+      }
+      .hold-desc {
+        font-size: 13px;
+        color: #78350f;
+        line-height: 1.45;
+      }
+      .section-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 12px;
+      }
+      .kv-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+      }
+      .kv-label {
+        color: #64748b;
+      }
+      .kv-val {
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .kv-val.fee {
+        color: #b45309;
+        font-weight: 800;
+      }
+      .return-warning {
+        margin-top: 14px;
+        font-size: 12px;
+        color: #b91c1c;
+        font-weight: 600;
+      }
+      .input-group {
+        margin-bottom: 11px;
+      }
+      .input-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 4px;
+      }
+      .input-group input {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+      }
+      .row-half {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .pay-btn {
+        width: 100%;
+        margin-top: 8px;
+        background-color: #0f766e;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 700;
+        padding: 11px 16px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      .footer-bar {
+        background-color: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        padding: 10px 40px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="browser-bar">
+      <div class="url-pill">
+        &#128274; https://<strong>parcelgo-customs-fee.example</strong>/track/PG-749201/settle
+      </div>
+    </header>
+
+    <div class="courier-header">
+      <div class="courier-brand">
+        <svg class="box-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 0 1 3 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L6.04 7.5 12 10.85l5.96-3.35L12 4.15z" />
+        </svg>
+        <span>ParcelGo Express</span>
+      </div>
+      <div class="header-meta">Tracking ID: PG-749201 &bull; Support: +1 555 0128</div>
+    </div>
+
+    <main class="content-area">
+      <section class="progress-card" aria-label="Delivery progress">
+        <div class="step"><span class="step-circle">&#10003;</span> Dispatched</div>
+        <div class="step-line"></div>
+        <div class="step"><span class="step-circle">&#10003;</span> Regional Hub</div>
+        <div class="step-line"></div>
+        <div class="step held"><span class="step-circle">!</span> Held for Customs Fee</div>
+        <div class="step-line"></div>
+        <div class="step" style="color: #94a3b8">
+          <span class="step-circle" style="background: #cbd5e1">4</span> Home Delivery
+        </div>
+      </section>
+
+      <div class="grid-2col">
+        <section class="details-card">
+          <div class="hold-banner">
+            <div class="hold-title">Delivery Paused: Unpaid Customs &amp; Handling Duty</div>
+            <p class="hold-desc">
+              Our courier could not complete residential delivery because a mandatory import handling balance of <strong>$2.85</strong> remains unpaid on this parcel.
+            </p>
+          </div>
+
+          <h2 class="section-title">Shipment Summary</h2>
+          <div class="kv-row">
+            <span class="kv-label">Waybill Number</span>
+            <span class="kv-val">PG-749201-INTL</span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-label">Sender Listed</span>
+            <span class="kv-val">Fulfillment Depot #14 (Merchandise)</span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-label">Package Weight</span>
+            <span class="kv-val">1.4 lbs (Requires Signature)</span>
+          </div>
+          <div class="kv-row">
+            <span class="kv-label">Customs &amp; Redelivery Fee Due</span>
+            <span class="kv-val fee">$2.85 USD</span>
+          </div>
+
+          <p class="return-warning">
+            Final notice: Parcels not cleared by 11:59 PM today are automatically returned to the sender warehouse.
+          </p>
+        </section>
+
+        <section class="pay-card">
+          <h2 class="section-title">Pay $2.85 to Schedule Redelivery</h2>
+          <form action="#">
+            <div class="input-group">
+              <label for="pg-name">Recipient Full Name</label>
+              <input id="pg-name" type="text" placeholder="Full name on card" />
+            </div>
+            <div class="input-group">
+              <label for="pg-phone">Mobile Phone for Courier SMS</label>
+              <input id="pg-phone" type="text" placeholder="+1 555 0100" />
+            </div>
+            <div class="input-group">
+              <label for="pg-card">Payment Card Number</label>
+              <input id="pg-card" type="text" placeholder="0000 0000 0000 0000" />
+            </div>
+            <div class="row-half">
+              <div class="input-group">
+                <label for="pg-exp">Expiry (MM/YY)</label>
+                <input id="pg-exp" type="text" placeholder="MM / YY" />
+              </div>
+              <div class="input-group">
+                <label for="pg-cvv">Security Code (CVV)</label>
+                <input id="pg-cvv" type="text" placeholder="3 digits" />
+              </div>
+            </div>
+            <button type="button" class="pay-btn">Pay $2.85 &amp; Release Parcel</button>
+          </form>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer-bar">
+      <span>ParcelGo Logistics Group &bull; Customer Care: +1 555 0128</span>
+      <span>Main corporate website: parcelgo.example</span>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Billing Summary - Crestview Energy Account Portal</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f8fafc;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        height: 40px;
+        background-color: #f1f5f9;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .dots {
+        display: flex;
+        gap: 6px;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .dot-1 { background-color: #f87171; }
+      .dot-2 { background-color: #fbbf24; }
+      .dot-3 { background-color: #34d399; }
+      .address-bar {
+        flex: 1;
+        max-width: 700px;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 4px 12px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ssl-badge {
+        color: #059669;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .site-nav {
+        height: 60px;
+        background-color: #0f4c81;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        flex-shrink: 0;
+      }
+      .brand-title {
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+      .nav-links {
+        display: flex;
+        gap: 24px;
+        font-size: 14px;
+      }
+      .nav-links a {
+        color: #e2e8f0;
+        text-decoration: none;
+      }
+      .nav-links a.active {
+        color: #ffffff;
+        font-weight: 600;
+        border-bottom: 2px solid #38bdf8;
+        padding-bottom: 4px;
+      }
+      .portal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 30px 48px;
+        max-width: 1120px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      .account-strip {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+      }
+      .account-name {
+        font-size: 22px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .account-num {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .bill-highlight-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 24px 28px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 28px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .due-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .due-label {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .due-amount {
+        font-size: 32px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .due-date {
+        font-size: 14px;
+        color: #0369a1;
+        font-weight: 600;
+      }
+      .autopay-status {
+        background-color: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 16px 20px;
+        text-align: right;
+      }
+      .autopay-status strong {
+        color: #166534;
+        font-size: 14px;
+        display: block;
+      }
+      .autopay-status p {
+        font-size: 12px;
+        color: #15803d;
+        margin-top: 4px;
+      }
+      .grid-sections {
+        display: grid;
+        grid-template-columns: 3fr 2fr;
+        gap: 24px;
+      }
+      .card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 20px 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      }
+      .card-h2 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 16px;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 10px;
+      }
+      .bill-line {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-size: 14px;
+        border-bottom: 1px dashed #f1f5f9;
+      }
+      .bill-line.total {
+        border-top: 2px solid #e2e8f0;
+        border-bottom: none;
+        font-weight: 700;
+        font-size: 15px;
+        margin-top: 8px;
+        padding-top: 12px;
+      }
+      .chart-container {
+        display: flex;
+        align-items: flex-end;
+        gap: 30px;
+        height: 140px;
+        padding-top: 20px;
+      }
+      .bar-group {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+      }
+      .bar {
+        width: 44px;
+        background-color: #38bdf8;
+        border-radius: 4px 4px 0 0;
+      }
+      .bar.current {
+        background-color: #0284c7;
+      }
+      .bar-label {
+        font-size: 12px;
+        color: #64748b;
+      }
+      .btn-download {
+        display: inline-block;
+        padding: 8px 16px;
+        background-color: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #334155;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 14px;
+        text-align: center;
+      }
+      .portal-footer {
+        margin-top: 24px;
+        padding-top: 16px;
+        border-top: 1px solid #e2e8f0;
+        text-align: center;
+        font-size: 12px;
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="dots">
+        <span class="dot dot-1"></span>
+        <span class="dot dot-2"></span>
+        <span class="dot dot-3"></span>
+      </div>
+      <div class="address-bar">
+        <span class="ssl-badge">&#128274; Secure</span>
+        <span>https://myaccount.crestviewenergy.example/portal/billing</span>
+      </div>
+    </div>
+
+    <header class="site-nav">
+      <div class="brand-title">Crestview Energy &amp; Power</div>
+      <nav class="nav-links">
+        <a href="#">Overview</a>
+        <a href="#" class="active">Billing &amp; Payments</a>
+        <a href="#">Usage History</a>
+        <a href="#">Service Requests</a>
+      </nav>
+    </header>
+
+    <main class="portal-body">
+      <div class="account-strip">
+        <div>
+          <h1 class="account-name">Residential Electric &amp; Gas</h1>
+          <div class="account-num">Service Address: 742 Elm Street &bull; Account #8820-4102-01</div>
+        </div>
+        <div style="font-size: 13px; color: #64748b;">Statement Date: Oct 25, 2026</div>
+      </div>
+
+      <section class="bill-highlight-card">
+        <div class="due-info">
+          <div class="due-label">Current Billing Amount</div>
+          <div class="due-amount">$84.50</div>
+          <div class="due-date">Due on November 18, 2026</div>
+        </div>
+
+        <div class="autopay-status">
+          <strong>AutoPay Scheduled</strong>
+          <p>$84.50 will be automatically paid from Checking (*5102) on Nov 18, 2026.</p>
+          <p style="margin-top: 6px; color: #475569; font-size: 11px;">No manual payment action required.</p>
+        </div>
+      </section>
+
+      <div class="grid-sections">
+        <div class="card">
+          <h2 class="card-h2">Statement Charges Breakdown</h2>
+          <div class="bill-line">
+            <span>Electric Service (512 kWh @ $0.112)</span>
+            <span>$57.34</span>
+          </div>
+          <div class="bill-line">
+            <span>Natural Gas Delivery (18 Therms)</span>
+            <span>$16.20</span>
+          </div>
+          <div class="bill-line">
+            <span>State Regulatory Clean Energy Surcharge</span>
+            <span>$3.45</span>
+          </div>
+          <div class="bill-line">
+            <span>Municipal Utility Tax</span>
+            <span>$7.51</span>
+          </div>
+          <div class="bill-line total">
+            <span>Total New Charges</span>
+            <span>$84.50</span>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <button type="button" class="btn-download">&#128196; Download Full PDF Statement (142 KB)</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2 class="card-h2">3-Month Electricity Comparison</h2>
+          <div class="chart-container">
+            <div class="bar-group">
+              <div class="bar" style="height: 110px;"></div>
+              <span class="bar-label">Aug (620 kWh)</span>
+            </div>
+            <div class="bar-group">
+              <div class="bar" style="height: 95px;"></div>
+              <span class="bar-label">Sep (540 kWh)</span>
+            </div>
+            <div class="bar-group">
+              <div class="bar current" style="height: 85px;"></div>
+              <span class="bar-label">Oct (512 kWh)</span>
+            </div>
+          </div>
+          <p style="font-size: 12px; color: #64748b; margin-top: 14px;">
+            Your electric consumption was 5% lower than the previous month.
+          </p>
+        </div>
+      </div>
+
+      <footer class="portal-footer">
+        Crestview Energy &amp; Power &bull; Regulated Public Utility &bull; Customer Care: +1 555 0123 (Mon–Fri 8am–6pm)
+      </footer>
+    </main>
+  </body>
+</html>

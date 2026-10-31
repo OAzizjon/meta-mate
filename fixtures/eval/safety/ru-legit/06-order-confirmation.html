@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Заказ № КУ-90318 оформлен — Книжный Уголок</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f8fafc;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        border-bottom: 1px solid #cbd5e1;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        padding: 5px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #cbd5e1;
+      }
+      .shop-header {
+        height: 64px;
+        background: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+      }
+      .shop-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 20px;
+        font-weight: 800;
+        color: #0d9488;
+      }
+      .shop-phone {
+        font-size: 14px;
+        color: #475569;
+      }
+      .shop-phone strong {
+        color: #0d9488;
+      }
+      .page-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 32px 40px;
+        display: flex;
+        justify-content: center;
+      }
+      .order-card {
+        width: 100%;
+        max-width: 820px;
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #cbd5e1;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .success-banner {
+        background: #f0fdf4;
+        border-bottom: 1px solid #bbf7d0;
+        padding: 24px 32px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .success-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #16a34a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .success-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: #166534;
+        margin-bottom: 4px;
+      }
+      .success-subtitle {
+        font-size: 14px;
+        color: #15803d;
+      }
+      .order-body {
+        padding: 28px 32px;
+      }
+      .info-sections {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .section-heading {
+        font-size: 13px;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .section-text {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #1e293b;
+      }
+      .items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+      }
+      .items-table th {
+        font-size: 12px;
+        text-transform: uppercase;
+        color: #64748b;
+        text-align: left;
+        padding: 8px 0;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .items-table td {
+        padding: 12px 0;
+        font-size: 14px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .items-total-row {
+        display: flex;
+        justify-content: flex-end;
+        align-items: baseline;
+        gap: 16px;
+        padding-top: 14px;
+        font-size: 16px;
+      }
+      .total-label {
+        color: #64748b;
+        font-weight: 600;
+      }
+      .total-amount {
+        font-size: 22px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .status-note {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 14px 18px;
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.5;
+        margin-top: 20px;
+      }
+      .order-footer {
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        padding: 16px 32px;
+        font-size: 12px;
+        color: #94a3b8;
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="browser-url">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#0d9488">
+          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+        </svg>
+        <span>https://shop.kniga-ugol.example/order/success?id=KU-90318</span>
+      </div>
+    </div>
+
+    <div class="shop-header">
+      <div class="shop-brand">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+        <span>Книжный Уголок</span>
+      </div>
+      <div class="shop-phone">
+        Служба заботы о клиентах: <strong>+7 800 000-06-34</strong>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <div class="order-card">
+        <div class="success-banner">
+          <div class="success-icon">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="success-title">Спасибо за заказ! Заказ № КУ-90318 оплачен</div>
+            <div class="success-subtitle">Электронный чек и подтверждение отправлены на ivanov@mail.example</div>
+          </div>
+        </div>
+
+        <div class="order-body">
+          <div class="info-sections">
+            <div>
+              <div class="section-heading">Доставка курьером</div>
+              <div class="section-text">
+                Адрес: <strong>г. Москва, ул. Новая, д. 15, кв. 3</strong><br />
+                Дата доставки: <strong>3 ноября 2026 г.</strong><br />
+                Интервал: <strong>с 14:00 до 18:00</strong>
+              </div>
+            </div>
+            <div>
+              <div class="section-heading">Получатель</div>
+              <div class="section-text">
+                Иванов Пётр Сергеевич<br />
+                Телефон: +7 900 000-11-22<br />
+                Оплата: Банковская карта онлайн (успешно)
+              </div>
+            </div>
+          </div>
+
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Наименование товара</th>
+                <th style="width: 80px; text-align: center;">Кол-во</th>
+                <th style="width: 120px; text-align: right;">Сумма</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Энциклопедия садовода и огородника (твёрдый переплёт)</td>
+                <td style="text-align: center;">1</td>
+                <td style="text-align: right;">850 ₽</td>
+              </tr>
+              <tr>
+                <td>Сборник классических детективов (в 2 томах)</td>
+                <td style="text-align: center;">1</td>
+                <td style="text-align: right;">1 200 ₽</td>
+              </tr>
+              <tr>
+                <td>Курьерская доставка до двери</td>
+                <td style="text-align: center;">1</td>
+                <td style="text-align: right; color: #16a34a;">Бесплатно</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="items-total-row">
+            <span class="total-label">Итого оплачено:</span>
+            <span class="total-amount">2 050 ₽</span>
+          </div>
+
+          <div class="status-note">
+            Заказ уже поступил на склад для бережной сборки и упаковки. Курьер свяжется с вами по указанному телефону примерно за один час до прибытия. Никаких доплат курьеру не требуется.
+          </div>
+        </div>
+
+        <div class="order-footer">
+          <span>ООО «Книжный Уголок», ОГРН 1197746098765</span>
+          <span>Кассовый чек № 8104 по 54-ФЗ доступен в ОФД</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

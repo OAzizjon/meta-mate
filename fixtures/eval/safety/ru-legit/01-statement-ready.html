@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Северный Банк — Выписка по счёту за октябрь 2026 готова</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f3f5f8;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .mail-client-header {
+        height: 56px;
+        background-color: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+      }
+      .mail-client-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #0284c7;
+      }
+      .mail-search-box {
+        width: 460px;
+        position: relative;
+      }
+      .mail-search-box input {
+        width: 100%;
+        padding: 8px 14px;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+        outline: none;
+      }
+      .mail-user {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .mail-layout {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+      }
+      .mail-sidebar {
+        width: 220px;
+        background: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .mail-nav-item {
+        padding: 9px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #475569;
+        display: flex;
+        justify-content: space-between;
+        cursor: pointer;
+      }
+      .mail-nav-item.active {
+        background-color: #e0f2fe;
+        color: #0284c7;
+        font-weight: 600;
+      }
+      .mail-content-pane {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px 32px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .email-container {
+        width: 100%;
+        max-width: 780px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      }
+      .email-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .email-subject {
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 12px;
+      }
+      .email-sender-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .sender-details {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .sender-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+      }
+      .sender-address {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .verified-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+        color: #15803d;
+        background: #dcfce7;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-weight: 600;
+      }
+      .email-body {
+        padding: 32px 28px;
+        color: #334155;
+        line-height: 1.6;
+        font-size: 15px;
+      }
+      .bank-logo-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #0284c7;
+      }
+      .bank-brand-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0284c7;
+        letter-spacing: 0.5px;
+      }
+      .greeting {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: #0f172a;
+      }
+      .info-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 18px;
+        margin: 20px 0;
+      }
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px dashed #e2e8f0;
+        font-size: 14px;
+      }
+      .info-row:last-child {
+        border-bottom: none;
+      }
+      .info-label {
+        color: #64748b;
+      }
+      .info-val {
+        font-weight: 600;
+        color: #1e293b;
+      }
+      .action-row {
+        margin: 28px 0 20px;
+        text-align: center;
+      }
+      .portal-btn {
+        display: inline-block;
+        background: #0284c7;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        padding: 12px 28px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+      }
+      .security-box {
+        background: #fefce8;
+        border: 1px solid #fef08a;
+        border-radius: 8px;
+        padding: 14px 18px;
+        font-size: 13px;
+        color: #854d0e;
+        margin-top: 24px;
+        line-height: 1.5;
+      }
+      .email-footer {
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        padding: 20px 24px;
+        font-size: 12px;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mail-client-header">
+      <div class="mail-client-brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="4" width="20" height="16" rx="2" stroke="#0284c7"/>
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" stroke="#0284c7"/>
+        </svg>
+        <span>ПочтаОнлайн</span>
+      </div>
+      <div class="mail-search-box">
+        <input type="text" value="Северный Банк выписка" readonly />
+      </div>
+      <div class="mail-user">user.ivanov@mail.example</div>
+    </div>
+
+    <div class="mail-layout">
+      <div class="mail-sidebar">
+        <div class="mail-nav-item active">Входящие (12)</div>
+        <div class="mail-nav-item">Отправленные</div>
+        <div class="mail-nav-item">Черновики</div>
+        <div class="mail-nav-item">Спам</div>
+        <div class="mail-nav-item">Корзина</div>
+      </div>
+
+      <div class="mail-content-pane">
+        <div class="email-container">
+          <div class="email-header">
+            <div class="email-subject">Ваша ежемесячная выписка по счёту сформирована за октябрь 2026</div>
+            <div class="email-sender-row">
+              <div class="sender-details">
+                <div class="sender-name">Северный Банк</div>
+                <div class="sender-address">&lt;no-reply@severbank.example&gt; &bull; Получателю: user.ivanov@mail.example</div>
+              </div>
+              <div class="verified-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
+                Подлинный адрес
+              </div>
+            </div>
+          </div>
+
+          <div class="email-body">
+            <div class="bank-logo-row">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="#0284c7">
+                <polygon points="12 2 2 7 22 7 12 2"/>
+                <rect x="4" y="9" width="3" height="10"/>
+                <rect x="10.5" y="9" width="3" height="10"/>
+                <rect x="17" y="9" width="3" height="10"/>
+                <rect x="2" y="20" width="20" height="2"/>
+              </svg>
+              <div class="bank-brand-title">СЕВЕРНЫЙ БАНК</div>
+            </div>
+
+            <div class="greeting">Здравствуйте, Пётр Сергеевич!</div>
+            <p>Уведомляем вас о том, что ежемесячная выписка по вашему карточному счёту за период с 1 по 31 октября 2026 года успешно подготовлена и выгружена в ваш защищённый личный кабинет.</p>
+
+            <div class="info-card">
+              <div class="info-row">
+                <span class="info-label">Продукт:</span>
+                <span class="info-val">Дебетовая карта МИР «Классическая»</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Номер карты:</span>
+                <span class="info-val">**** **** **** 4812</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Отчётный период:</span>
+                <span class="info-val">01.10.2026 — 31.10.2026</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Формат файла:</span>
+                <span class="info-val">PDF с электронной подписью банка</span>
+              </div>
+            </div>
+
+            <p>Вы можете просмотреть или сохранить документ в разделе «Выписки и справки» мобильного приложения или официального интернет-банка. Документ хранится в архиве бесплатно в течение 5 лет.</p>
+
+            <div class="action-row">
+              <button class="portal-btn" type="button">Перейти в интернет-банк</button>
+            </div>
+
+            <div class="security-box">
+              <strong>Правило безопасности:</strong> Банк никогда не прикрепляет исполняемые файлы и не просит вводить пароли или коды из СМС для загрузки выписки. Проверяйте адрес сайта в строке браузера: <code>online.severbank.example</code>.
+            </div>
+          </div>
+
+          <div class="email-footer">
+            АО «Северный Банк», лицензия Банка России № 0998. Бесплатная справочная служба: +7 800 000-01-23. Письмо сформировано автоматически информационной системой банка, отвечать на него не требуется.
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

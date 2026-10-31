@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>Northbank Online - Identity &amp; Session Verification</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f4f6f9;
+        color: #1e293b;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        background-color: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 8px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .nav-icons {
+        color: #64748b;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .url-pill {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 5px 14px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .lock-label {
+        color: #475569;
+        font-weight: 600;
+      }
+      .url-str {
+        font-family: Consolas, "Courier New", monospace;
+        color: #64748b;
+      }
+      .url-str strong {
+        color: #0f172a;
+      }
+      .bank-header {
+        background-color: #0f2942;
+        color: #ffffff;
+        height: 60px;
+        padding: 0 48px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .bank-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 21px;
+        font-weight: 700;
+        letter-spacing: -0.2px;
+      }
+      .bank-logo {
+        width: 28px;
+        height: 28px;
+        fill: #38bdf8;
+      }
+      .bank-nav {
+        display: flex;
+        gap: 24px;
+        font-size: 13px;
+        color: #cbd5e1;
+      }
+      .main-wrap {
+        flex: 1;
+        max-width: 1080px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 28px 32px;
+        display: grid;
+        grid-template-columns: 1fr 430px;
+        gap: 44px;
+        align-items: center;
+      }
+      .info-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .status-tag {
+        align-self: flex-start;
+        background-color: #fef3c7;
+        color: #92400e;
+        border: 1px solid #fde68a;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 4px;
+      }
+      .info-title {
+        font-size: 26px;
+        font-weight: 700;
+        color: #0f2942;
+        line-height: 1.25;
+      }
+      .info-text {
+        font-size: 15px;
+        line-height: 1.6;
+        color: #475569;
+      }
+      .notice-box {
+        background-color: #ffffff;
+        border-left: 4px solid #0284c7;
+        border-radius: 6px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        font-size: 13px;
+        line-height: 1.55;
+        color: #334155;
+      }
+      .login-card {
+        background-color: #ffffff;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        padding: 26px 28px;
+        box-shadow: 0 8px 24px rgba(15, 41, 66, 0.08);
+      }
+      .card-heading {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f2942;
+        margin-bottom: 4px;
+      }
+      .card-sub {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 18px;
+      }
+      .form-row {
+        margin-bottom: 13px;
+      }
+      .form-row label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #334155;
+        margin-bottom: 5px;
+      }
+      .form-row input {
+        width: 100%;
+        padding: 9px 12px;
+        font-size: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        color: #0f172a;
+      }
+      .split-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .btn-signin {
+        width: 100%;
+        margin-top: 8px;
+        background-color: #0f2942;
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        padding: 11px 18px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .card-links {
+        margin-top: 14px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+      }
+      .card-links a {
+        color: #0284c7;
+        text-decoration: none;
+      }
+      .bank-footer {
+        background-color: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        padding: 12px 48px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="browser-bar">
+      <div class="nav-icons">&larr; &nbsp; &rarr; &nbsp; &#8635;</div>
+      <div class="url-pill">
+        <span class="lock-label">&#128274; HTTPS</span>
+        <span class="url-str"
+          >https://northbank.<strong>session-reauth.example</strong>/online/verify-credentials</span
+        >
+      </div>
+    </header>
+
+    <div class="bank-header">
+      <div class="bank-brand">
+        <svg class="bank-logo" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2L2 7v2h20V7L12 2zm-7 9v7H3v2h18v-2h-2v-7h-2v7h-4v-7H9v7H7v-7H5z" />
+        </svg>
+        <span>Northbank Personal &amp; Retirement</span>
+      </div>
+      <nav class="bank-nav">
+        <span>Accounts</span>
+        <span>Bill Pay</span>
+        <span>Security Center</span>
+        <span>Help (+1 555 0110)</span>
+      </nav>
+    </div>
+
+    <main class="main-wrap">
+      <section class="info-panel">
+        <span class="status-tag">Action Needed Today &bull; Profile Sync</span>
+        <h1 class="info-title">Confirm your online banking credentials to prevent temporary hold</h1>
+        <p class="info-text">
+          As part of our scheduled security update, we could not automatically verify your recent sign-in profile. Please sign in and confirm your debit card PIN and SMS security code before 8:00 PM today so your bill payments and transfers continue without interruption.
+        </p>
+        <div class="notice-box">
+          <strong>Why am I seeing this screen?</strong><br />
+          Periodic profile confirmation protects checking and savings accounts against unauthorized device access. Have your mobile phone nearby to enter the 6-digit code we just sent.
+        </div>
+      </section>
+
+      <section class="login-card">
+        <h2 class="card-heading">Sign In &amp; Verify Identity</h2>
+        <p class="card-sub">Complete all fields below to keep your account active.</p>
+
+        <form action="#">
+          <div class="form-row">
+            <label for="nb-user">Online Banking Username</label>
+            <input id="nb-user" type="text" placeholder="Enter your username" />
+          </div>
+          <div class="form-row">
+            <label for="nb-pass">Online Banking Password</label>
+            <input id="nb-pass" type="password" placeholder="Enter your password" />
+          </div>
+          <div class="split-row">
+            <div class="form-row">
+              <label for="nb-pin">4-Digit Debit Card PIN</label>
+              <input id="nb-pin" type="text" placeholder="0000" />
+            </div>
+            <div class="form-row">
+              <label for="nb-otp">6-Digit SMS Code</label>
+              <input id="nb-otp" type="text" placeholder="000000" />
+            </div>
+          </div>
+          <button type="button" class="btn-signin">Verify &amp; Continue to Accounts</button>
+        </form>
+
+        <div class="card-links">
+          <a href="#">Forgot username?</a>
+          <a href="#">Resend 6-digit SMS code</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bank-footer">
+      <span>&copy; 2026 Northbank Financial Group. Member Deposit Protection.</span>
+      <span>Official domain: northbank.example &bull; Support: +1 555 0110</span>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Отслеживание почтового отправления PE-74920481-RU — Почтамт Экспресс</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        border-bottom: 1px solid #cbd5e1;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        padding: 5px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #cbd5e1;
+      }
+      .site-header {
+        height: 64px;
+        background: #1e3a8a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+      }
+      .site-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      }
+      .header-contacts {
+        font-size: 14px;
+        color: #bfdbfe;
+      }
+      .header-contacts strong {
+        color: #ffffff;
+        margin-left: 6px;
+      }
+      .main-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 32px 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .track-container {
+        width: 100%;
+        max-width: 900px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .status-card {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        padding: 24px 28px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .track-number-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+      }
+      .track-title {
+        font-size: 14px;
+        color: #64748b;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      .track-code {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #dcfce7;
+        color: #166534;
+        font-weight: 700;
+        font-size: 15px;
+        padding: 8px 16px;
+        border-radius: 8px;
+      }
+      .pickup-info-box {
+        margin-top: 18px;
+        background: #f8fafc;
+        border-left: 4px solid #16a34a;
+        padding: 16px 20px;
+        border-radius: 0 8px 8px 0;
+      }
+      .pickup-heading {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 6px;
+      }
+      .pickup-desc {
+        font-size: 14px;
+        color: #475569;
+        line-height: 1.5;
+      }
+      .history-card {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        padding: 24px 28px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .history-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 20px;
+      }
+      .timeline {
+        position: relative;
+        padding-left: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+      .timeline::before {
+        content: "";
+        position: absolute;
+        left: 11px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: #cbd5e1;
+      }
+      .timeline-step {
+        position: relative;
+      }
+      .timeline-dot {
+        position: absolute;
+        left: -32px;
+        top: 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .timeline-step.active .timeline-dot {
+        background: #16a34a;
+        color: #ffffff;
+      }
+      .step-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .step-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1e293b;
+      }
+      .timeline-step.active .step-title {
+        color: #166534;
+        font-weight: 700;
+      }
+      .step-date {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .step-location {
+        font-size: 13px;
+        color: #64748b;
+        margin-top: 3px;
+      }
+      .help-block {
+        font-size: 13px;
+        color: #64748b;
+        text-align: center;
+        padding: 12px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="browser-url">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#16a34a">
+          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+        </svg>
+        <span>https://track.pochta-express.example/item/PE-74920481-RU</span>
+      </div>
+    </div>
+
+    <div class="site-header">
+      <div class="site-logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+          <line x1="12" y1="22.08" x2="12" y2="12"/>
+        </svg>
+        <span>Почтамт Экспресс</span>
+      </div>
+      <div class="header-contacts">
+        Единая линия поддержки: <strong>+7 800 000-02-45</strong>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="track-container">
+        <div class="status-card">
+          <div class="track-number-row">
+            <div>
+              <div class="track-title">Номер почтового отправления</div>
+              <div class="track-code">PE-74920481-RU</div>
+            </div>
+            <div class="status-pill">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+              </svg>
+              Ожидает в пункте выдачи
+            </div>
+          </div>
+
+          <div class="pickup-info-box">
+            <div class="pickup-heading">Пункт выдачи заказов № 142</div>
+            <div class="pickup-desc">
+              Адрес: г. Москва, ул. Садовая, д. 12<br />
+              График работы: ежедневно с 09:00 до 21:00<br />
+              <strong>Срок бесплатного хранения:</strong> до 14 ноября 2026 г. включительно.<br />
+              Для получения назовите трек-номер и предъявите паспорт гражданина РФ или покажите штрих-код в приложении. Никаких оплат и комиссий за выдачу не требуется.
+            </div>
+          </div>
+        </div>
+
+        <div class="history-card">
+          <div class="history-title">История перемещений</div>
+          <div class="timeline">
+            <div class="timeline-step active">
+              <div class="timeline-dot">✓</div>
+              <div class="step-header">
+                <span class="step-title">Прибыло в пункт выдачи и ожидает адресата</span>
+                <span class="step-date">31 октября 2026, 09:14</span>
+              </div>
+              <div class="step-location">Отделение 101042, Москва, ул. Садовая, 12</div>
+            </div>
+
+            <div class="timeline-step">
+              <div class="timeline-dot"></div>
+              <div class="step-header">
+                <span class="step-title">Сортировка завершена, отправлено в пункт выдачи</span>
+                <span class="step-date">30 октября 2026, 18:40</span>
+              </div>
+              <div class="step-location">Магистральный сортировочный узел, Москва</div>
+            </div>
+
+            <div class="timeline-step">
+              <div class="timeline-dot"></div>
+              <div class="step-header">
+                <span class="step-title">Посылка в пути</span>
+                <span class="step-date">28 октября 2026, 11:20</span>
+              </div>
+              <div class="step-location">Транзитный пункт, г. Тверь</div>
+            </div>
+
+            <div class="timeline-step">
+              <div class="timeline-dot"></div>
+              <div class="step-header">
+                <span class="step-title">Принято в отделении связи</span>
+                <span class="step-date">27 октября 2026, 14:05</span>
+              </div>
+              <div class="step-location">Отделение 170001, г. Тверь, вес: 0.65 кг</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="help-block">
+          Служба доставки «Почтамт Экспресс». Все отправления отслеживаются на официальном портале pochta-express.example.<br />
+          При возникновении вопросов звоните на горячую линию +7 800 000-02-45 (звонок по России бесплатный).
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>ClearView Browser - Critical Runtime Patch Required</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #cbd5e1;
+        color: #1e293b;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        background-color: #e2e8f0;
+        border-bottom: 1px solid #94a3b8;
+        padding: 8px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .url-bar {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 5px 14px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .insecure-chip {
+        color: #dc2626;
+        font-weight: 700;
+        border-right: 1px solid #e2e8f0;
+        padding-right: 10px;
+      }
+      .url-text {
+        font-family: Consolas, "Courier New", monospace;
+        color: #475569;
+      }
+      .url-text strong {
+        color: #0f172a;
+      }
+      .viewport-bg {
+        flex: 1;
+        position: relative;
+        background-color: #f8fafc;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .dimmed-article {
+        position: absolute;
+        inset: 0;
+        padding: 36px 80px;
+        opacity: 0.22;
+        pointer-events: none;
+        background-color: #e2e8f0;
+      }
+      .dimmed-article h2 {
+        font-size: 30px;
+        margin-bottom: 14px;
+      }
+      .dimmed-article p {
+        font-size: 16px;
+        line-height: 1.7;
+        margin-bottom: 14px;
+      }
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        background-color: rgba(15, 23, 42, 0.55);
+      }
+      .update-dialog {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        max-width: 680px;
+        background-color: #ffffff;
+        border: 1px solid #94a3b8;
+        border-radius: 10px;
+        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.35);
+        overflow: hidden;
+      }
+      .dialog-titlebar {
+        background-color: #f1f5f9;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 12px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 700;
+        color: #334155;
+      }
+      .dialog-body {
+        padding: 24px 28px;
+      }
+      .top-row {
+        display: flex;
+        gap: 18px;
+        align-items: flex-start;
+        margin-bottom: 18px;
+      }
+      .shield-icon {
+        width: 48px;
+        height: 48px;
+        fill: #2563eb;
+        flex-shrink: 0;
+      }
+      .dialog-h1 {
+        font-size: 21px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 6px;
+      }
+      .dialog-lead {
+        font-size: 14px;
+        line-height: 1.5;
+        color: #475569;
+      }
+      .file-card {
+        background-color: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin-bottom: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .file-name {
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .file-meta {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 3px;
+      }
+      .version-tag {
+        background-color: #fee2e2;
+        color: #991b1b;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 4px;
+      }
+      .bypass-instructions {
+        background-color: #fffbeb;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #78350f;
+        margin-bottom: 20px;
+      }
+      .dialog-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 16px;
+      }
+      .timer-note {
+        font-size: 12.5px;
+        color: #b91c1c;
+        font-weight: 700;
+      }
+      .btn-download {
+        background-color: #2563eb;
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        padding: 11px 24px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="browser-bar">
+      <div class="url-bar">
+        <span class="insecure-chip">&#9888; Not Secure</span>
+        <span class="url-text"
+          >http://<strong>system-codec-patch.example</strong>/download/clearview-setup</span
+        >
+      </div>
+    </header>
+
+    <main class="viewport-bg">
+      <div class="dimmed-article" aria-hidden="true">
+        <h2>Morning Harbor Gazette &mdash; Local Weather &amp; Garden Guide</h2>
+        <p>
+          Cooler autumn breezes are expected across the county this weekend, bringing crisp mornings and clear skies for Saturday's farmers market.
+        </p>
+      </div>
+      <div class="backdrop" aria-hidden="true"></div>
+
+      <section class="update-dialog" role="dialog" aria-labelledby="upd-title">
+        <div class="dialog-titlebar">
+          <span>ClearView System Updater Utility</span>
+          <span>Build #129.0.4-patch</span>
+        </div>
+
+        <div class="dialog-body">
+          <div class="top-row">
+            <svg class="shield-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v6h-2V7zm0 8h2v2h-2v-2z" />
+            </svg>
+            <div>
+              <h1 class="dialog-h1" id="upd-title">Critical Browser &amp; Security Patch Required</h1>
+              <p class="dialog-lead">
+                Your ClearView Browser runtime (v114.2) is out of date and its security certificate expired today. Manual installation is required to prevent email and banking websites from being blocked.
+              </p>
+            </div>
+          </div>
+
+          <div class="file-card">
+            <div>
+              <div class="file-name">ClearView_Critical_Patch_Setup.exe</div>
+              <div class="file-meta">Size: 48.2 MB &bull; Source: system-codec-patch.example</div>
+            </div>
+            <span class="version-tag">Expired Certificate</span>
+          </div>
+
+          <div class="bypass-instructions">
+            <strong>Installation Steps:</strong><br />
+            1. Click <strong>Download &amp; Run Patch (.exe)</strong> below and open the file from your Downloads bar.<br />
+            2. If your computer displays an "Unverified Publisher" warning, click <strong>More Info &rarr; Run Anyway</strong> and enter your computer password to finish patching.
+          </div>
+
+          <div class="dialog-footer">
+            <span class="timer-note">Browser access locks in 04:32 if unpatched</span>
+            <button type="button" class="btn-download">Download &amp; Run Patch (.exe)</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

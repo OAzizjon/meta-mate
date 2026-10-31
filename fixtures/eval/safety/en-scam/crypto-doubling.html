@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>NovaCoin Foundation - Official 2X Community Treasury Event</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #0b1021;
+        color: #f1f5f9;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        background-color: #1e293b;
+        border-bottom: 1px solid #334155;
+        padding: 8px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .url-pill {
+        flex: 1;
+        background-color: #0f172a;
+        border: 1px solid #475569;
+        border-radius: 16px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: Consolas, "Courier New", monospace;
+        color: #94a3b8;
+      }
+      .url-pill strong {
+        color: #f8fafc;
+      }
+      .hero-strip {
+        background: linear-gradient(90deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+        border-bottom: 1px solid #4338ca;
+        padding: 16px 36px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 800;
+      }
+      .coin-svg {
+        width: 30px;
+        height: 30px;
+        fill: #38bdf8;
+      }
+      .pool-meter {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        background-color: #0f172a;
+        border: 1px solid #6366f1;
+        padding: 7px 16px;
+        border-radius: 20px;
+        font-size: 13px;
+      }
+      .pool-clock {
+        color: #fde047;
+        font-weight: 800;
+        font-family: Consolas, "Courier New", monospace;
+      }
+      .main-grid {
+        flex: 1;
+        max-width: 1180px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 22px 32px;
+        display: grid;
+        grid-template-columns: 1.05fr 1fr;
+        gap: 24px;
+        align-items: start;
+      }
+      .vault-card {
+        background-color: #151c33;
+        border: 1px solid #4f46e5;
+        border-radius: 12px;
+        padding: 22px 24px;
+      }
+      .badge-live {
+        display: inline-block;
+        background-color: #312e81;
+        color: #a5b4fc;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+      }
+      .vault-title {
+        font-size: 24px;
+        font-weight: 800;
+        line-height: 1.25;
+        margin-bottom: 10px;
+      }
+      .vault-desc {
+        font-size: 14px;
+        line-height: 1.55;
+        color: #cbd5e1;
+        margin-bottom: 16px;
+      }
+      .deposit-box {
+        background-color: #0b1021;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        padding: 16px;
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      .qr-frame {
+        width: 104px;
+        height: 104px;
+        background-color: #ffffff;
+        padding: 8px;
+        border-radius: 8px;
+        flex-shrink: 0;
+      }
+      .addr-details {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .addr-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #94a3b8;
+        font-weight: 700;
+      }
+      .addr-code {
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: #38bdf8;
+        background-color: #1e293b;
+        padding: 6px 10px;
+        border-radius: 6px;
+      }
+      .addr-note {
+        font-size: 12px;
+        color: #cbd5e1;
+      }
+      .copy-btn {
+        display: block;
+        width: 100%;
+        background-color: #4f46e5;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 11px 16px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        text-align: center;
+      }
+      .feed-card {
+        background-color: #151c33;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 22px 24px;
+      }
+      .feed-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .feed-sub {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 14px;
+      }
+      .progress-bar-bg {
+        height: 10px;
+        background-color: #0b1021;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 18px;
+      }
+      .progress-bar-fill {
+        width: 84%;
+        height: 100%;
+        background: linear-gradient(90deg, #38bdf8, #818cf8);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th {
+        text-align: left;
+        color: #94a3b8;
+        font-size: 11px;
+        text-transform: uppercase;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #334155;
+      }
+      td {
+        padding: 10px 0;
+        border-bottom: 1px solid #1e293b;
+        font-family: Consolas, "Courier New", monospace;
+      }
+      .out-amt {
+        color: #4ade80;
+        font-weight: 700;
+      }
+      .rules-note {
+        margin-top: 14px;
+        font-size: 12px;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="browser-bar">
+      <div class="url-pill">
+        &#128274; https://<strong>novacoin-2x-event.example</strong>/airdrop-pool
+      </div>
+    </header>
+
+    <div class="hero-strip">
+      <div class="brand">
+        <svg class="coin-svg" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" />
+          <path fill="#0b1021" d="M9 7h2.2l3.8 6V7H17v10h-2.2l-3.8-6v6H9V7z" />
+        </svg>
+        <span>NovaCoin Foundation &bull; 2X Anniversary Giveaway</span>
+      </div>
+      <div class="pool-meter">
+        <span>840,000 / 1,000,000 NVC Claimed</span>
+        <span class="pool-clock">Closes in 14:22</span>
+      </div>
+    </div>
+
+    <main class="main-grid">
+      <section class="vault-card">
+        <span class="badge-live">Instant Automated Doubling</span>
+        <h1 class="vault-title">Send 250 to 25,000 NVC &mdash; Receive 2X Back in 5 Minutes</h1>
+        <p class="vault-desc">
+          To celebrate our mainnet milestone, the NovaCoin Treasury smart vault automatically doubles any single transfer sent from your personal wallet. Every participant address can claim this guaranteed 200% return once before the pool runs out.
+        </p>
+
+        <div class="deposit-box">
+          <svg class="qr-frame" viewBox="0 0 21 21" aria-label="Deposit QR code">
+            <rect width="21" height="21" fill="#ffffff" />
+            <path
+              fill="#0f172a"
+              d="M2 2h6v6H2V2zm1 1v4h4V3H3zm1 1h2v2H4V4zm9-2h6v6h-6V2zm1 1v4h4V3h-4zm1 1h2v2h-2V4zM2 13h6v6H2v-6zm1 1v4h4v-4H3zm1 1h2v2H4v-2zm6-11h2v2h-2V4zm0 4h2v3h-2V8zm3 2h2v2h-2v-2zm-3 3h3v2h-3v-2zm4 2h4v2h-4v-2zm-4 3h2v2h-2v-2zm5 0h2v2h-2v-2z"
+            />
+          </svg>
+          <div class="addr-details">
+            <span class="addr-label">Official 2X Smart-Vault Deposit Address</span>
+            <span class="addr-code">nvc-vault-double-8841.example</span>
+            <span class="addr-note">Required Memo: <strong>BONUS-2X</strong> &bull; Min: 250 NVC</span>
+          </div>
+        </div>
+
+        <button type="button" class="copy-btn">Copy Deposit Vault Address</button>
+      </section>
+
+      <section class="feed-card">
+        <h2 class="feed-title">Live 2X Payout Ledger</h2>
+        <p class="feed-sub">84% of bonus treasury distributed &mdash; transfers are final and instant</p>
+        <div class="progress-bar-bg"><div class="progress-bar-fill"></div></div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Sender Wallet</th>
+              <th>Deposited</th>
+              <th>2X Sent Back</th>
+              <th>Age</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>nvc-user-419.example</td>
+              <td>1,500 NVC</td>
+              <td class="out-amt">3,000 NVC</td>
+              <td>18 sec ago</td>
+            </tr>
+            <tr>
+              <td>nvc-user-802.example</td>
+              <td>5,000 NVC</td>
+              <td class="out-amt">10,000 NVC</td>
+              <td>47 sec ago</td>
+            </tr>
+            <tr>
+              <td>nvc-user-115.example</td>
+              <td>400 NVC</td>
+              <td class="out-amt">800 NVC</td>
+              <td>2 min ago</td>
+            </tr>
+            <tr>
+              <td>nvc-user-674.example</td>
+              <td>12,000 NVC</td>
+              <td class="out-amt">24,000 NVC</td>
+              <td>3 min ago</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="rules-note">
+          Need help sending from an exchange? Contact Event Live Desk at <strong>support@novacoin-2x-event.example</strong> or call <strong>+1 555 0139</strong>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your October 2026 Statement is Ready - Northbank Trust Mail</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .app-header {
+        height: 52px;
+        background-color: #ffffff;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        flex-shrink: 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f766e;
+      }
+      .search-box {
+        width: 440px;
+      }
+      .search-box input {
+        width: 100%;
+        padding: 7px 14px;
+        font-size: 13px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background-color: #f8fafc;
+      }
+      .user-profile {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .layout {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .sidebar {
+        width: 200px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .folder-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #475569;
+        cursor: pointer;
+      }
+      .folder-item.active {
+        background-color: #f1f5f9;
+        color: #0f172a;
+        font-weight: 600;
+      }
+      .message-list {
+        width: 320px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+      .message-item {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+      }
+      .message-item.active {
+        background-color: #f0fdf4;
+        border-left: 3px solid #0f766e;
+      }
+      .msg-from {
+        font-size: 13px;
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .msg-sub {
+        font-size: 13px;
+        color: #334155;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 2px;
+      }
+      .msg-preview {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 4px;
+      }
+      .reading-pane {
+        flex: 1;
+        background-color: #f8fafc;
+        overflow-y: auto;
+        padding: 24px;
+      }
+      .email-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 28px;
+        max-width: 680px;
+        margin: 0 auto;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+      .email-meta {
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+      }
+      .meta-subject {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+      }
+      .meta-details {
+        font-size: 13px;
+        color: #64748b;
+        line-height: 1.6;
+      }
+      .bank-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background-color: #f0fdfa;
+        border: 1px solid #ccfbf1;
+        border-radius: 4px;
+        color: #0f766e;
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 18px;
+      }
+      .body-text {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #334155;
+        margin-bottom: 14px;
+      }
+      .account-summary {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 16px;
+        margin: 18px 0;
+      }
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 4px 0;
+      }
+      .summary-label {
+        color: #64748b;
+      }
+      .summary-val {
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .security-box {
+        background-color: #eff6ff;
+        border-left: 4px solid #3b82f6;
+        padding: 14px 16px;
+        margin: 22px 0;
+        font-size: 13px;
+        color: #1e40af;
+        line-height: 1.5;
+        border-radius: 0 4px 4px 0;
+      }
+      .security-box strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #1e3a8a;
+      }
+      .email-footer {
+        margin-top: 24px;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 14px;
+        font-size: 12px;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span>PostalMail</span>
+      </div>
+      <div class="search-box">
+        <input type="text" placeholder="Search email messages..." value="" readonly />
+      </div>
+      <div class="user-profile">e.miller@mailbox.example</div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="folder-item active">
+          <span>Inbox</span>
+          <span>1</span>
+        </div>
+        <div class="folder-item">
+          <span>Drafts</span>
+        </div>
+        <div class="folder-item">
+          <span>Sent</span>
+        </div>
+        <div class="folder-item">
+          <span>Archive</span>
+        </div>
+        <div class="folder-item">
+          <span>Trash</span>
+        </div>
+      </aside>
+
+      <section class="message-list">
+        <div class="message-item active">
+          <div class="msg-from">Northbank Trust</div>
+          <div class="msg-sub">Your October 2026 Statement is Ready</div>
+          <div class="msg-preview">Your monthly checking eStatement is ready to view...</div>
+        </div>
+      </section>
+
+      <main class="reading-pane">
+        <article class="email-card">
+          <div class="email-meta">
+            <h1 class="meta-subject">Your October 2026 Statement is Ready</h1>
+            <div class="meta-details">
+              <div><strong>From:</strong> Northbank Trust eStatements &lt;notifications@northbank.example&gt;</div>
+              <div><strong>To:</strong> Eleanor Miller &lt;e.miller@mailbox.example&gt;</div>
+              <div><strong>Date:</strong> October 31, 2026 at 9:15 AM</div>
+            </div>
+          </div>
+
+          <div class="bank-badge">
+            <span>Northbank Trust — Online Services</span>
+          </div>
+
+          <p class="body-text">Dear Eleanor Miller,</p>
+
+          <p class="body-text">
+            Your monthly account statement for the period ending October 30, 2026 is now available to download and review in Online Banking.
+          </p>
+
+          <div class="account-summary">
+            <div class="summary-row">
+              <span class="summary-label">Account Name:</span>
+              <span class="summary-val">Premier Checking</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Account Number:</span>
+              <span class="summary-val">•••• •••• 5102</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Statement Period:</span>
+              <span class="summary-val">Oct 1, 2026 – Oct 30, 2026</span>
+            </div>
+          </div>
+
+          <div class="security-box">
+            <strong>Security Reminder: Direct Links Are Not Included</strong>
+            To protect your confidential banking information, Northbank Trust does not include clickable login links in email notices. To view your eStatement:
+            <ol style="margin-left: 20px; margin-top: 6px;">
+              <li>Open your web browser.</li>
+              <li>Type <strong>northbank.example</strong> into the address bar.</li>
+              <li>Sign in using your usual username and password, then select "Statements".</li>
+            </ol>
+          </div>
+
+          <p class="body-text">
+            If you have questions about your statement or notice any unfamiliar transactions, please contact Northbank Customer Support at +1 555 0142 (Monday – Friday, 8:00 AM – 6:00 PM EST).
+          </p>
+
+          <p class="body-text">
+            Thank you for banking with Northbank Trust.
+          </p>
+
+          <footer class="email-footer">
+            Northbank Trust, Member FDIC. Equal Housing Lender.<br />
+            120 Central Avenue, Suite 400, Metro City.<br />
+            This automated service email was delivered to e.miller@mailbox.example.
+          </footer>
+        </article>
+      </main>
+    </div>
+  </body>
+</html>

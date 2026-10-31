@@ -1,0 +1,72 @@
+[
+  {
+    "file": "bank-statement-notice.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Email notification that monthly bank statement is ready, instructing user to log in directly via browser rather than providing direct email links."
+  },
+  {
+    "file": "delivery-tracking.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Legitimate package delivery tracking page on courier domain with progress stages and front porch delivery instructions, without fee requests."
+  },
+  {
+    "file": "pharmacy-refill-reminder.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Subtle case: Urgent-sounding prescription reminder (2 days left) with legitimate refill instructions via phone/counter and clear safety disclaimer."
+  },
+  {
+    "file": "newsletter.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Community gardening newsletter email with seasonal planting advice, physical publisher address, and legitimate unsubscribe link."
+  },
+  {
+    "file": "utility-bill.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Utility portal billing page on provider site showing monthly charges, 3-month electricity usage chart, and confirmed AutoPay schedule."
+  },
+  {
+    "file": "two-factor-prompt.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Authentic SMS two-factor authentication challenge on healthcare portal with explicit warning that staff will never ask for the code."
+  },
+  {
+    "file": "calendar-invite.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Senior community center book club meeting invitation with date, location, RSVP controls, and organizer contact details."
+  },
+  {
+    "file": "order-confirmation.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "E-commerce order receipt page with itemized breakdown, free standard shipping, masked payment details, and toll-free support line."
+  },
+  {
+    "file": "security-notice.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Credit union security advisory explaining that staff never asks for passwords, PINs, remote access, or SMS verification codes."
+  },
+  {
+    "file": "store-sale-banner.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Retail store autumn promotion page with seasonal banner, promo code, transparent catalog pricing, and standard return policies."
+  }
+]

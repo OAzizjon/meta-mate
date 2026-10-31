@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>Invoice #SD-90412 Auto-Renewal Paid - ClearMail</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .mail-top {
+        height: 50px;
+        background-color: #1e3a8a;
+        color: #ffffff;
+        padding: 0 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .app-name {
+        font-size: 18px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .mail-svg {
+        width: 22px;
+        height: 22px;
+        fill: #93c5fd;
+      }
+      .user-acct {
+        font-size: 13px;
+        color: #dbeafe;
+      }
+      .workspace {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .folders {
+        width: 175px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        padding: 14px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .compose {
+        background-color: #2563eb;
+        color: #ffffff;
+        border: none;
+        border-radius: 6px;
+        padding: 9px 12px;
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        cursor: pointer;
+      }
+      .nav-item {
+        padding: 8px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #475569;
+        display: flex;
+        justify-content: space-between;
+      }
+      .nav-item.active {
+        background-color: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 700;
+      }
+      .inbox-list {
+        width: 300px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        flex-shrink: 0;
+      }
+      .msg-item {
+        padding: 12px 14px;
+        border-bottom: 1px solid #f1f5f9;
+      }
+      .msg-item.open {
+        background-color: #f8fafc;
+        border-left: 3px solid #2563eb;
+      }
+      .msg-sender {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        justify-content: space-between;
+      }
+      .msg-time {
+        font-size: 11px;
+        font-weight: 400;
+        color: #64748b;
+      }
+      .msg-subj {
+        font-size: 12px;
+        font-weight: 600;
+        color: #334155;
+        margin-top: 3px;
+      }
+      .msg-snip {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .reader {
+        flex: 1;
+        background-color: #ffffff;
+        display: flex;
+        flex-direction: column;
+      }
+      .reader-bar {
+        height: 42px;
+        background-color: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0 24px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .tool-btn {
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 5px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #334155;
+      }
+      .reader-body {
+        padding: 20px 30px;
+      }
+      .subj-h1 {
+        font-size: 19px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 10px;
+      }
+      .sender-meta {
+        font-size: 13px;
+        color: #475569;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+      }
+      .sender-addr {
+        color: #b91c1c;
+        font-family: Consolas, "Courier New", monospace;
+      }
+      .invoice-sheet {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 18px 22px;
+        background-color: #fcfdff;
+      }
+      .inv-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .inv-brand {
+        font-size: 17px;
+        font-weight: 800;
+        color: #1e3a8a;
+      }
+      .paid-stamp {
+        background-color: #fee2e2;
+        color: #991b1b;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 4px 10px;
+        border-radius: 4px;
+      }
+      .inv-p {
+        font-size: 13.5px;
+        line-height: 1.5;
+        color: #334155;
+        margin-bottom: 12px;
+      }
+      .inv-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10px 0 14px;
+        font-size: 13px;
+      }
+      .inv-table th {
+        background-color: #f1f5f9;
+        text-align: left;
+        padding: 8px 10px;
+        border: 1px solid #e2e8f0;
+      }
+      .inv-table td {
+        padding: 9px 10px;
+        border: 1px solid #e2e8f0;
+      }
+      .refund-box {
+        background-color: #fff7ed;
+        border: 2px solid #ea580c;
+        border-radius: 8px;
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .refund-text {
+        font-size: 13px;
+        line-height: 1.45;
+        color: #7c2d12;
+      }
+      .refund-phone {
+        background-color: #ea580c;
+        color: #ffffff;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 18px;
+        font-weight: 800;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="mail-top">
+      <div class="app-name">
+        <svg class="mail-svg" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+        </svg>
+        <span>ClearMail</span>
+      </div>
+      <div class="user-acct">eleanor.vance@clearmail.example</div>
+    </header>
+
+    <div class="workspace">
+      <aside class="folders">
+        <button type="button" class="compose">+ New Message</button>
+        <div class="nav-item active"><span>Inbox</span><span>3</span></div>
+        <div class="nav-item"><span>Sent</span></div>
+        <div class="nav-item"><span>Drafts</span></div>
+        <div class="nav-item"><span>Trash</span></div>
+      </aside>
+
+      <section class="inbox-list">
+        <div class="msg-item open">
+          <div class="msg-sender">
+            <span>ShieldDesk PC Billing</span><span class="msg-time">9:18 AM</span>
+          </div>
+          <div class="msg-subj">Invoice #SD-90412: $389.99 Auto-Debit</div>
+          <div class="msg-snip">Thank you for renewing ShieldDesk Total Care...</div>
+        </div>
+        <div class="msg-item">
+          <div class="msg-sender">
+            <span>Maplewood Library</span><span class="msg-time">Yesterday</span>
+          </div>
+          <div class="msg-subj">Reserved book ready for pickup</div>
+          <div class="msg-snip">Your hold at Maplewood Branch is waiting on shelf B...</div>
+        </div>
+        <div class="msg-item">
+          <div class="msg-sender">
+            <span>Claire Vance</span><span class="msg-time">Oct 27</span>
+          </div>
+          <div class="msg-subj">Sunday roast photos</div>
+          <div class="msg-snip">Hi Mom, attached the pictures from dinner last week...</div>
+        </div>
+      </section>
+
+      <main class="reader">
+        <div class="reader-bar">
+          <button type="button" class="tool-btn">Reply</button>
+          <button type="button" class="tool-btn">Forward</button>
+          <button type="button" class="tool-btn">Delete</button>
+        </div>
+
+        <div class="reader-body">
+          <h1 class="subj-h1">Payment Receipt #SD-90412 &mdash; $389.99 Auto-Renewal Processed</h1>
+          <div class="sender-meta">
+            <div>
+              <strong>From:</strong> ShieldDesk PC Care Billing &lt;<span class="sender-addr"
+                >billing-alert@shielddesk-refund-help.example</span
+              >&gt;<br />
+              <strong>To:</strong> eleanor.vance@clearmail.example
+            </div>
+            <div>Oct 31, 2026, 9:18 AM</div>
+          </div>
+
+          <div class="invoice-sheet">
+            <div class="inv-top">
+              <div class="inv-brand">ShieldDesk Total PC Protection</div>
+              <div class="paid-stamp">AUTO-DEBIT SCHEDULED TODAY: $389.99</div>
+            </div>
+
+            <p class="inv-p">
+              Dear Customer, your annual trial has automatically converted into our 3-Year Platinum Firewall &amp; Identity Plan. A charge of <strong>$389.99 USD</strong> will post to your checking statement within 6 hours.
+            </p>
+
+            <table class="inv-table">
+              <thead>
+                <tr>
+                  <th>Invoice ID</th>
+                  <th>Plan Description</th>
+                  <th>Term</th>
+                  <th>Amount Charged</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>#SD-90412</td>
+                  <td>ShieldDesk Platinum Home Security (5 Devices)</td>
+                  <td>36 Months</td>
+                  <td><strong>$389.99 USD</strong></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <p class="inv-p">
+              <strong>Did not authorize this renewal?</strong> Do not contact your bank first, as bank chargebacks freeze refunds for 90 days. To stop this $389.99 debit immediately, call our Refund &amp; Cancellation Desk within <strong>12 hours</strong> so an agent can connect to your computer and process your instant reversal form:
+            </p>
+
+            <div class="refund-box">
+              <div class="refund-text">
+                <strong>24/7 Refund &amp; Cancellation Helpline</strong><br />
+                Have Invoice Code <strong>#SD-90412</strong> ready when speaking with our refund specialist.
+              </div>
+              <div class="refund-phone">Call +1 555 0184</div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

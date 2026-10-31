@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Памятка по безопасности: защита от мошенников — Северный Банк</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        border-bottom: 1px solid #cbd5e1;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        padding: 5px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #cbd5e1;
+      }
+      .bank-navbar {
+        height: 64px;
+        background: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+      }
+      .bank-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 800;
+        color: #0284c7;
+      }
+      .bank-hotline {
+        font-size: 14px;
+        color: #475569;
+      }
+      .bank-hotline strong {
+        color: #0284c7;
+      }
+      .main-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 32px 40px;
+        display: flex;
+        justify-content: center;
+      }
+      .safety-card {
+        width: 100%;
+        max-width: 880px;
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #cbd5e1;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        overflow: hidden;
+      }
+      .warning-banner {
+        background: #0284c7;
+        color: #ffffff;
+        padding: 24px 32px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .shield-icon {
+        width: 52px;
+        height: 52px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .banner-header h1 {
+        font-size: 22px;
+        font-weight: 800;
+        margin-bottom: 4px;
+      }
+      .banner-header p {
+        font-size: 14px;
+        color: #e0f2fe;
+      }
+      .card-content {
+        padding: 32px;
+      }
+      .rule-callout {
+        background: #eff6ff;
+        border-left: 6px solid #0284c7;
+        padding: 18px 24px;
+        border-radius: 0 8px 8px 0;
+        margin-bottom: 28px;
+      }
+      .rule-callout-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0369a1;
+        margin-bottom: 6px;
+      }
+      .rule-callout-desc {
+        font-size: 15px;
+        color: #1e293b;
+        line-height: 1.5;
+      }
+      .rules-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 28px;
+      }
+      .rule-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px 20px;
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+      }
+      .rule-num {
+        width: 28px;
+        height: 28px;
+        background: #ef4444;
+        color: #ffffff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .rule-text {
+        font-size: 14px;
+        color: #334155;
+        line-height: 1.5;
+      }
+      .rule-text strong {
+        color: #0f172a;
+      }
+      .action-advisory {
+        background: #fefce8;
+        border: 1px solid #fef08a;
+        border-radius: 8px;
+        padding: 18px 22px;
+        font-size: 14px;
+        color: #854d0e;
+        line-height: 1.6;
+        margin-bottom: 28px;
+      }
+      .action-advisory strong {
+        color: #713f12;
+      }
+      .btn-row {
+        display: flex;
+        justify-content: flex-start;
+      }
+      .confirm-btn {
+        background: #0284c7;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 600;
+        padding: 12px 28px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .card-footer {
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+        padding: 16px 32px;
+        font-size: 12px;
+        color: #94a3b8;
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="browser-url">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#16a34a">
+          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+        </svg>
+        <span>https://online.severbank.example/security/warning-code</span>
+      </div>
+    </div>
+
+    <div class="bank-navbar">
+      <div class="bank-logo">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="#0284c7">
+          <polygon points="12 2 2 7 22 7 12 2"/>
+          <rect x="4" y="9" width="3" height="10"/>
+          <rect x="10.5" y="9" width="3" height="10"/>
+          <rect x="17" y="9" width="3" height="10"/>
+          <rect x="2" y="20" width="20" height="2"/>
+        </svg>
+        <span>Северный Банк</span>
+      </div>
+      <div class="bank-hotline">
+        Круглосуточный контакт-центр: <strong>+7 800 000-01-23</strong>
+      </div>
+    </div>
+
+    <div class="main-scroll">
+      <div class="safety-card">
+        <div class="warning-banner">
+          <div class="shield-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="m9 12 2 2 4-4"/>
+            </svg>
+          </div>
+          <div class="banner-header">
+            <h1>Памятка службы безопасности Северного Банка</h1>
+            <p>Простые и надежные правила защиты ваших банковских карт и сбережений</p>
+          </div>
+        </div>
+
+        <div class="card-content">
+          <div class="rule-callout">
+            <div class="rule-callout-title">Сотрудники банка НИКОГДА не спрашивают коды из СМС!</div>
+            <div class="rule-callout-desc">
+              Если звонящий представляет себя сотрудником банка, службы безопасности или правоохранительных органов и просит назвать код подтверждения — это мошенник.
+            </div>
+          </div>
+
+          <div class="rules-grid">
+            <div class="rule-item">
+              <div class="rule-num">✕</div>
+              <div class="rule-text">
+                <strong>Коды из СМС и уведомлений:</strong> Никому не сообщайте одноразовые пароли. Они предназначены только для ввода лично вами на официальном сайте.
+              </div>
+            </div>
+
+            <div class="rule-item">
+              <div class="rule-num">✕</div>
+              <div class="rule-text">
+                <strong>Данные с карты:</strong> Сотрудники банка никогда не уточняют 3 цифры с оборота карты (CVC/CVV) и срок её действия.
+              </div>
+            </div>
+
+            <div class="rule-item">
+              <div class="rule-num">✕</div>
+              <div class="rule-text">
+                <strong>«Безопасные счета»:</strong> В банке не существует «безопасных», «резервных» или «страховых» счетов для перевода средств.
+              </div>
+            </div>
+
+            <div class="rule-item">
+              <div class="rule-num">✕</div>
+              <div class="rule-text">
+                <strong>Удалённый доступ:</strong> Мы никогда не просим устанавливать сторонние программы (AnyDesk, TeamViewer и др.) на телефон или компьютер.
+              </div>
+            </div>
+          </div>
+
+          <div class="action-advisory">
+            <strong>Что делать при подозрительном звонке?</strong><br />
+            Немедленно прервите разговор и положите трубку. Не нажимайте цифры в тональном режиме. Перезвоните нам по официальному номеру <strong>+7 800 000-01-23</strong> (или номеру, указанному на обратной стороне вашей банковской карты).
+          </div>
+
+          <div class="btn-row">
+            <button class="confirm-btn" type="button">Я прочитал памятку, перейти в личный кабинет</button>
+          </div>
+        </div>
+
+        <div class="card-footer">
+          <span>АО «Северный Банк». Генеральная лицензия ЦБ РФ № 0998.</span>
+          <span>Официальный сайт: severbank.example</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

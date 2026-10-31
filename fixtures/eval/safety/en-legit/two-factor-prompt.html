@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Two-Step Verification - Beacon Health Patient Portal</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-top {
+        height: 42px;
+        background-color: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .window-dots {
+        display: flex;
+        gap: 6px;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .dot.red { background-color: #f87171; }
+      .dot.yellow { background-color: #fbbf24; }
+      .dot.green { background-color: #34d399; }
+      .url-bar {
+        flex: 1;
+        max-width: 640px;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 4px 12px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .lock {
+        color: #059669;
+        font-size: 12px;
+      }
+      .portal-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: radial-gradient(circle at 50% 20%, #ffffff 0%, #f1f5f9 100%);
+      }
+      .mfa-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        width: 480px;
+        padding: 36px 32px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+        text-align: center;
+      }
+      .portal-logo {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0369a1;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .portal-logo span {
+        color: #0284c7;
+      }
+      .card-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 8px;
+      }
+      .card-subtitle {
+        font-size: 14px;
+        color: #64748b;
+        line-height: 1.5;
+        margin-bottom: 24px;
+      }
+      .phone-badge {
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .code-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .code-digit {
+        width: 44px;
+        height: 52px;
+        font-size: 24px;
+        font-weight: 700;
+        text-align: center;
+        border: 2px solid #cbd5e1;
+        border-radius: 8px;
+        color: #1e293b;
+        outline: none;
+      }
+      .code-digit:focus {
+        border-color: #0284c7;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+      }
+      .trust-option {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #475569;
+        margin-bottom: 24px;
+        cursor: pointer;
+      }
+      .btn-verify {
+        width: 100%;
+        padding: 12px;
+        background-color: #0284c7;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+      .btn-verify:hover {
+        background-color: #0369a1;
+      }
+      .resend-links {
+        margin-top: 20px;
+        font-size: 13px;
+        color: #64748b;
+      }
+      .resend-links a {
+        color: #0284c7;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      .security-warning {
+        margin-top: 24px;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 12px 14px;
+        font-size: 12px;
+        color: #475569;
+        line-height: 1.5;
+        text-align: left;
+      }
+      .security-warning strong {
+        color: #0f172a;
+        display: block;
+        margin-bottom: 2px;
+      }
+      .portal-footer {
+        margin-top: 18px;
+        font-size: 12px;
+        color: #94a3b8;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-top">
+      <div class="window-dots">
+        <span class="dot red"></span>
+        <span class="dot yellow"></span>
+        <span class="dot green"></span>
+      </div>
+      <div class="url-bar">
+        <span class="lock">&#128274;</span>
+        <span>https://auth.beaconhealth.example/login/mfa</span>
+      </div>
+    </div>
+
+    <main class="portal-container">
+      <div class="mfa-card">
+        <div class="portal-logo">
+          <span>&#10010;</span> Beacon Health System
+        </div>
+
+        <h1 class="card-title">Two-Step Verification</h1>
+        <p class="card-subtitle">
+          For your patient privacy and health records security, enter the 6-digit verification code sent to your mobile phone ending in <span class="phone-badge">&bull;&bull;&bull;&bull; 9204</span>.
+        </p>
+
+        <form action="#" method="post" onsubmit="return false;">
+          <div class="code-inputs">
+            <input type="text" maxlength="1" class="code-digit" value="" autofocus />
+            <input type="text" maxlength="1" class="code-digit" value="" />
+            <input type="text" maxlength="1" class="code-digit" value="" />
+            <input type="text" maxlength="1" class="code-digit" value="" />
+            <input type="text" maxlength="1" class="code-digit" value="" />
+            <input type="text" maxlength="1" class="code-digit" value="" />
+          </div>
+
+          <label class="trust-option">
+            <input type="checkbox" checked />
+            <span>Don't ask again on this computer for 30 days</span>
+          </label>
+
+          <button type="button" class="btn-verify">Verify and Sign In</button>
+        </form>
+
+        <div class="resend-links">
+          Didn't get a text message? <a href="#">Resend code</a> or <a href="#">Use backup phone call</a>
+        </div>
+
+        <div class="security-warning">
+          <strong>Security Note:</strong>
+          Beacon Health staff and nurses will never call, email, or message you asking for this code. Never disclose this code to anyone.
+        </div>
+      </div>
+
+      <footer class="portal-footer">
+        Beacon Health Patient Portal &bull; Technical Helpdesk: +1 555 0194 &bull; HIPAA Compliant
+      </footer>
+    </main>
+  </body>
+</html>

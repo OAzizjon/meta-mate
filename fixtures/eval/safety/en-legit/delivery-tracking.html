@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Track Your Package PG-84920184 - ParcelGo Express</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f3f4f6;
+        color: #1f2937;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        height: 42px;
+        background-color: #e5e7eb;
+        border-bottom: 1px solid #d1d5db;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        font-size: 13px;
+        flex-shrink: 0;
+      }
+      .browser-nav-btn {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .btn-red { background-color: #ef4444; }
+      .btn-yellow { background-color: #f59e0b; }
+      .btn-green { background-color: #10b981; }
+      .url-bar {
+        flex: 1;
+        max-width: 680px;
+        background-color: #ffffff;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 5px 14px;
+        font-size: 13px;
+        color: #374151;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .lock-icon {
+        color: #059669;
+        font-weight: 700;
+        font-size: 12px;
+      }
+      .site-header {
+        height: 60px;
+        background-color: #1e3a8a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        flex-shrink: 0;
+      }
+      .logo {
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .logo span {
+        color: #38bdf8;
+      }
+      .header-phone {
+        font-size: 13px;
+        color: #bfdbfe;
+      }
+      .main-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 30px 40px;
+        max-width: 1100px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      .status-card {
+        background-color: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 28px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        margin-bottom: 24px;
+      }
+      .status-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 1px solid #f3f4f6;
+        padding-bottom: 20px;
+        margin-bottom: 24px;
+      }
+      .tracking-number {
+        font-size: 14px;
+        color: #6b7280;
+        margin-bottom: 4px;
+      }
+      .status-title {
+        font-size: 26px;
+        font-weight: 700;
+        color: #111827;
+      }
+      .eta-badge {
+        background-color: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        color: #065f46;
+        padding: 10px 18px;
+        border-radius: 8px;
+        text-align: right;
+      }
+      .eta-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      .eta-time {
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .stepper {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 32px 10px 24px;
+        position: relative;
+      }
+      .stepper-line {
+        position: absolute;
+        top: 15px;
+        left: 30px;
+        right: 30px;
+        height: 4px;
+        background-color: #e5e7eb;
+        z-index: 1;
+      }
+      .stepper-progress {
+        position: absolute;
+        top: 15px;
+        left: 30px;
+        width: 75%;
+        height: 4px;
+        background-color: #10b981;
+        z-index: 2;
+      }
+      .step-node {
+        position: relative;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: 140px;
+      }
+      .node-circle {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background-color: #ffffff;
+        border: 4px solid #10b981;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+        color: #10b981;
+        margin-bottom: 8px;
+      }
+      .node-circle.current {
+        background-color: #10b981;
+        color: #ffffff;
+        box-shadow: 0 0 0 4px #d1fae5;
+      }
+      .node-circle.pending {
+        border-color: #d1d5db;
+        color: #9ca3af;
+      }
+      .step-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+      .step-time {
+        font-size: 11px;
+        color: #6b7280;
+        margin-top: 2px;
+      }
+      .details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .info-box {
+        background-color: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 18px;
+      }
+      .info-title {
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #4b5563;
+        margin-bottom: 12px;
+      }
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 5px 0;
+      }
+      .info-row .label {
+        color: #6b7280;
+      }
+      .info-row .val {
+        font-weight: 600;
+        color: #111827;
+      }
+      .instructions-box {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px dashed #d1d5db;
+        font-size: 13px;
+      }
+      .instructions-box label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #374151;
+        cursor: pointer;
+      }
+      .footer-note {
+        text-align: center;
+        font-size: 12px;
+        color: #9ca3af;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div style="display: flex; gap: 6px;">
+        <span class="browser-nav-btn btn-red"></span>
+        <span class="browser-nav-btn btn-yellow"></span>
+        <span class="browser-nav-btn btn-green"></span>
+      </div>
+      <div class="url-bar">
+        <span class="lock-icon">&#128274;</span>
+        <span>https://track.parcelgo.example/shipment/PG-84920184</span>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="logo">Parcel<span>Go</span> Express</div>
+      <div class="header-phone">Customer Service: +1 555 0188</div>
+    </header>
+
+    <main class="main-content">
+      <div class="status-card">
+        <div class="status-header">
+          <div>
+            <div class="tracking-number">Tracking Number: PG-84920184</div>
+            <div class="status-title">Out for Delivery</div>
+          </div>
+          <div class="eta-badge">
+            <div class="eta-label">Estimated Delivery</div>
+            <div class="eta-time">Today by 4:00 PM</div>
+          </div>
+        </div>
+
+        <div class="stepper">
+          <div class="stepper-line"></div>
+          <div class="stepper-progress"></div>
+
+          <div class="step-node">
+            <div class="node-circle">&#10003;</div>
+            <div class="step-title">Order Received</div>
+            <div class="step-time">Oct 29, 9:20 AM</div>
+          </div>
+
+          <div class="step-node">
+            <div class="node-circle">&#10003;</div>
+            <div class="step-title">In Transit</div>
+            <div class="step-time">Oct 30, 2:15 PM</div>
+          </div>
+
+          <div class="step-node">
+            <div class="node-circle current">&#9679;</div>
+            <div class="step-title">Out for Delivery</div>
+            <div class="step-time">Today, 8:45 AM</div>
+          </div>
+
+          <div class="step-node">
+            <div class="node-circle pending">4</div>
+            <div class="step-title">Delivered</div>
+            <div class="step-time">Pending</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="details-grid">
+        <div class="info-box">
+          <div class="info-title">Shipment Information</div>
+          <div class="info-row">
+            <span class="label">Sender:</span>
+            <span class="val">Riverdale Booksellers</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Service:</span>
+            <span class="val">ParcelGo Standard Ground</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Weight:</span>
+            <span class="val">2.1 lbs</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Signature:</span>
+            <span class="val">Not required</span>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-title">Delivery Details</div>
+          <div class="info-row">
+            <span class="label">Destination:</span>
+            <span class="val">Springfield, OR 97477</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Driver Assigned:</span>
+            <span class="val">Van 14 (Courier Dave)</span>
+          </div>
+          <div class="instructions-box">
+            <div style="font-weight: 600; margin-bottom: 6px; color: #374151;">Delivery Instructions</div>
+            <label>
+              <input type="checkbox" checked readonly />
+              <span>Leave safe on front porch if no answer</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-note">
+        ParcelGo Express Logistics Services &bull; Official Tracking Portal &bull; Questions? Dial +1 555 0188
+      </div>
+    </main>
+  </body>
+</html>

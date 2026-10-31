@@ -1,0 +1,112 @@
+[
+  {
+    "file": "virus-alert.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Web page in browser (http://alert-scan-guard77.example) pretending to be a critical system virus lock",
+      "Countdown timer (03:47) threatening permanent file loss if closed or restarted",
+      "Demands calling a fake support helpline (+1 555 0142) and allowing remote desktop access"
+    ],
+    "notes": "Obvious dark/red fake tech-support pop-up inside a browser window."
+  },
+  {
+    "file": "prize-lottery.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Unsolicited $25,000.00 cash prize claim with no ticket purchased",
+      "Urgency countdown (08:14) threatening prize forfeiture",
+      "Requires paying a $19.95 release fee upfront and entering full payment card and CVV details on an insecure http://goldenharvest-winner-claim.example page"
+    ],
+    "notes": "Obvious sweepstakes winner page demanding an advance fee and card details."
+  },
+  {
+    "file": "bank-login-phishing.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Lookalike URL (https://northbank.session-reauth.example) does not match official northbank.example domain shown in the footer",
+      "Threatens temporary account hold unless credentials are confirmed before 8:00 PM today",
+      "Requests 4-digit debit card PIN and 6-digit SMS security code alongside username and password"
+    ],
+    "notes": "Subtle, clean corporate bank sign-in page with calm typography and domain/PIN red flags."
+  },
+  {
+    "file": "parcel-customs-fee.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Mismatched hyphenated domain (https://parcelgo-customs-fee.example) versus official parcelgo.example in footer",
+      "Demands an unexpected $2.85 customs and redelivery fee with a same-day return-to-sender deadline",
+      "Collects full payment card number, expiry, and CVV directly on a tracking hold page"
+    ],
+    "notes": "Subtle, clean courier tracking portal asking for a small fee and card details."
+  },
+  {
+    "file": "crypto-doubling.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Promises a guaranteed 2X instant token return within 5 minutes",
+      "Scarcity meter (84% claimed) and 14:22 countdown pressuring immediate transfer",
+      "Lookalike event domain (novacoin-2x-event.example) prompting irreversible deposit to an external vault address"
+    ],
+    "notes": "Slick fintech giveaway page promising automated 2X crypto doubling."
+  },
+  {
+    "file": "fake-invoice-refund.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Suspicious sender domain (billing-alert@shielddesk-refund-help.example) for an unrequested $389.99 3-year auto-renewal",
+      "Explicitly tells recipient not to contact their bank and imposes a 12-hour deadline",
+      "Directs user to call +1 555 0184 so an agent can connect to their computer for a refund"
+    ],
+    "notes": "Medium-difficulty email client view with a fake $389.99 PC-care renewal invoice and refund phone trap."
+  },
+  {
+    "file": "grandchild-trouble.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Unknown unsaved number (+1 555 0163) claiming to be grandson Leo on a borrowed phone while Leo is already in saved contacts",
+      "Urgent impound bond story demanding $920 within 25 minutes",
+      "Pleads not to call Mom or Dad and asks to send money to a third-party account (dispatch.bond99@fastsend-pay.example)"
+    ],
+    "notes": "Medium-difficulty messaging web app showing a classic grandchild-in-trouble emergency plea."
+  },
+  {
+    "file": "fake-system-update.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Unrelated insecure HTTP domain (http://system-codec-patch.example) serving a standalone .exe browser patch",
+      "Countdown (04:32) claiming expired certificates will lock browser access",
+      "Instructs user to bypass 'Unverified Publisher' warnings with 'Run Anyway' and enter their computer password"
+    ],
+    "notes": "Medium-difficulty fake browser update modal prompting manual .exe execution and security-warning bypass."
+  },
+  {
+    "file": "gift-card-demand.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Free-webmail sender (pastor.thomas.task92@quickmail-free.example) impersonating a chapel pastor whose real office uses oakridgechapel.example",
+      "Refuses phone calls under a hospital-visit excuse and asks for secrecy",
+      "Requests buying four $100 gift cards ($400) within an hour and emailing photos of scratched 16-digit PINs"
+    ],
+    "notes": "Medium-difficulty email impersonating a community pastor demanding gift-card PIN photos."
+  },
+  {
+    "file": "account-suspension.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Lookalike sender (notice@harborhealth-verify-record.example) mismatches real harborhealth.example seen in inbox",
+      "Plain-HTTP link (http://harborhealth-verify-record.example/member-restore) threatening 5:00 PM same-day suspension of health and pharmacy access",
+      "Asks member to sign in and submit portal password, Member Number, and last 4 digits of Tax ID"
+    ],
+    "notes": "Subtle, calm corporate benefit suspension email with no shouting or flashy colors."
+  }
+]

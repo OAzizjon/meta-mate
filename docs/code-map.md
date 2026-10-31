@@ -88,9 +88,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   PttEvent:87 Ptt:96 Ptt::new:108 Ptt::key_pressed:117 Ptt::input:121
   tests: crates/mm-core/tests/ptt.rs (13)
 - crates/mm-core/src/redaction.rs — The redaction step (invariant 3, convention 4, D37): the only producer of [`RedactedImage`].
-  painted_areas:14 overlaps_any:39 point_in_any:47 RedactedImage:54 RedactedImage::data_url:64 Field:83 RedactionInput:91 RedactionError:112
-  Redacted:142 redact:148
-  tests: crates/mm-core/tests/redaction.rs (11)
+  painted_areas:14 overlaps_any:39 same_areas:48 point_in_any:61 RedactedImage:68 RedactedImage::data_url:78 Field:97 RedactionInput:105
+  RedactionError:126 Redacted:156 redact:162
+  tests: crates/mm-core/tests/redaction.rs (12)
 - crates/mm-core/src/shot.rs — Pure pixel preparation for model screenshots.
   REDACTION_PAD_PX:10 ShotError:13 Bgra:37 Bgra::new:44 ShotRectPx:90 paint_black:100 downscale_to_rgb:153 redact_to_rgb:161
   encode_png_rgb:251 png_data_url:267
@@ -271,7 +271,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Wakes:6 Wakes::new:13 Wakes::wake:21
 - src-tauri/src/pointing.rs — Pointing at the answer's target, in time with the speech: the WebView's timeline player asks `point_at` when it reaches the sentence that points (src/mate.ts), so the beam lights up while Mate says …
   Pointing:33 Pointing::prefetch_outline:42 Pointing::set:93 Pointing::set_shared:101 Pointing::look:108 Pointing::take:115 Pointing::generation:128 Pointing::stop_warmth:140
-  StepNumber:315 MateRect:322 point_at:333 show_target:407 stop_pointing:538
+  StepNumber:315 MateRect:322 point_at:333 show_target:407 stop_pointing:544
   inline tests (4)
 - src-tauri/src/presence.rs — Mate's page menu and session visibility.
   Presence:10 is_hidden:22 quit_app:27 hide_mate:36 hide:44 wake:89 mate_menu_size:148
@@ -296,8 +296,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   inline tests (3)
 - src-tauri/src/screen.rs — "Where's the button?" (docs/plan.md Day 4), the part between the platform and the model: one look at the target window turned into what the model may see and point at, and its answer turned back into …
   MAX_EDGE:21 MAX_LISTED:23 Look:26 LookError:54 Look::resolve_live:188 Look::scan:228 Look::parser_settings:282 Look::resolve:294
-  LookFailure:331 LookFailure::line:365 take_look_at:503 confirm_look:528 probe:806
-  inline tests (25)
+  LookFailure:331 LookFailure::line:365 take_look_at:503 confirm_look:528 probe:801
+  inline tests (26)
 - src-tauri/src/selftest.rs — Spike S1 without a person at the desk: run with `--s1-selftest`.
   spawn:41 spawn_control:151
 - src-tauri/src/settings.rs — The user's settings (WP30): the settings window (settings.html, src/settings/model.ts) reads them with `load_settings` and saves them with `save_settings`.
@@ -406,8 +406,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/home.ts — Home window controller (WP89a): the friendly start page for older users.
   setHomeI18n:19 HOME_TRY_COMMAND:25 OPEN_SETTINGS_COMMAND:27 HOME_TRY_KEYS:30 HomeTryKey:35 HOME_TRY_HINTS:38 HOME_NEVER_KEYS:45 HOME_STATUS_MS:52
   HomeInvoke:55 isHomeTryKey:57 HomeTryOutcome:62 HomeTryRunner:64 createHomeTryRunner:75 tryStatusKey:102 openSettingsWindow:114 HomeSettings:126
-  startHomeSettings:148 HomeMate:201 MountHomeOptions:207 HomeController:214 mountHome:255
-  tests: src/home.test.ts (15)
+  startHomeSettings:148 HomeMate:203 MountHomeOptions:209 HomeController:216 mountHome:257
+  tests: src/home.test.ts (16)
 - src/i18n/index.ts — Localization loader, language resolution, and typed translation helpers (invariant 7).
   interpolate:7^ TemplateVars:7^ LocaleCode:9 LocaleKey:10 APP_NAME:17 ROBOT_NAME:18 TeacherLineKey:23 StepVars:33
   I18nInitOptions:39 resolveLocale:115 initI18n:136 getLocale:154 setLocale:158 getRobotName:163 getAppName:167 resetMissingKeyWarnings:172
@@ -486,7 +486,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: src/settings/account.test.ts (18)
 - src/settings/actions.ts — Settings controller actions and motion policy, independent of the DOM and Tauri.
   settingsReduceMotion:5 createSettingsActions:10
-  tests: src/settings/actions.test.ts (10)
+  tests: src/settings/actions.test.ts (11)
 - src/settings/apply.ts — Applies validated Settings (src/settings/model.ts) to Mate's WebView: root reduce-motion class, robot controller (reduceMotion, calm/fun mode, and window-fitted SVG size S/M/L/XL), and the Web Audio …
   SETTINGS_CHANGED_EVENT:23^ parseSettings:23^ REDUCE_MOTION_CLASS:27 MATE_WINDOW_SIZE_PX:33 ROBOT_VIEWBOX_W:36 ROBOT_VIEWBOX_H:37 ViewportSize:39 MateAudioSettings:44
   ClassListTarget:50 MateRobotTarget:56 MateAudioTarget:62 MateSettingsTarget:66 AppliedMateSettings:75 robotSizeDimensions:87 doesRobotSizeFit:96 fitRobotSize:114
@@ -495,14 +495,14 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/settings/choices-view.ts — The Settings window's choices (src/settings.ts): how Mate thinks, how to talk to him, the sound mode and his size as radio groups, and the two on/off toggles.
   buildPttKeyGroup:13 buildModelGroup:35 buildPttGroup:60 buildSoundGroup:83 buildSizeGroup:105 TogglesRefs:121 buildToggles:129 buildLanguageGroup:154
 - src/settings/controls.ts — The Settings window's form controls (src/settings.ts): a radio group in a fieldset and a checkbox, each choice a whole clickable option.
-  RadioSpec:7 RadioLayout:19 RadioGroupRefs:21 buildRadioGroup:38 syncRadioSelection:121 CheckboxRefs:135 buildCheckbox:142
-  tests: src/settings/controls.test.ts (3)
+  RadioSpec:7 RadioLayout:19 RadioGroupRefs:21 buildRadioGroup:38 syncRadioSelection:125 CheckboxRefs:139 buildCheckbox:146
+  tests: src/settings/controls.test.ts (4)
 - src/settings/model.ts — Pure settings model, validation, and in-memory store (WP24).
   MODEL_CHOICES:4 ModelChoice:5 PTT_MODES:7 PttMode:8 PTT_KEYS:10 PttKey:11 isPttKey:13 SOUND_MODES:17
   SoundMode:18 ROBOT_SIZES:20 RobotSize:21 MIN_VOICE_SPEED:23 MAX_VOICE_SPEED:24 VOICE_SPEED_STEP:25 DEFAULT_VOICE_SPEED:26 SETTINGS_CHANGED_EVENT:27
   Language:29 Settings:31 SETTINGS_KEYS:45 DEFAULT_SETTINGS:59 defaultSettings:74 isModelChoice:78 isPttMode:82 isSoundMode:86
   isRobotSize:90 isValidVoiceSpeed:94 snapVoiceSpeed:108 parseSettings:135 updateSettings:179 formatVoiceSpeed:186 VoiceSpeedPace:192 voiceSpeedPace:195
-  SettingsInvoke:203 SettingsSubscribe:209 SettingsStore:213 createSettingsStore:230 subscribeSettingsChanged:281
+  SettingsInvoke:203 SettingsSubscribe:209 SettingsStore:213 createSettingsStore:230 subscribeSettingsChanged:277
   tests: src/settings/model.test.ts (15)
 - src/settings/ptt-key.ts — Pure localized key rendering shared by Home and onboarding.
   pttKeyLabel:5 pttKeycapLabel:9 withPttKey:13
@@ -541,12 +541,16 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_map.py — Write docs/code-map.md: where things live, for agents that read files but have no shell.
   is_secret:25 mask:176 Source:267 Project:285 summary:346 outline:471 render:910 main:954
   tests: tools/tests/test_mm_map.py (21)
-- tools/mm_probe.py — mm probe models|stream|click|sam|asr|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe stream QUESTION …
-  ProbeError:99 is_plain_file:116 read_secret:127 scrub:143 provider_config:156 iter_sse:230 output_text:249 computer_actions:259
-  point_actions:284 action_points:307 usage_tokens:319 cost_usd:324 ledger_total:353 ledger_unpriced:357 ledger_add:361 guard_budget:367
-  record:379 report:389 multipart:399 wav_info:411 cmd_asr:423 cmd_models:459 add_reasoning:467 cmd_stream:474
-  verdict:549 computer_tool:560 png_size:566 cmd_click:577 cmd_sam:674 cmd_ledger:750 build_parser:772 main:812
+- tools/mm_probe.py — mm probe models|stream|click|sam|asr|safety|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe stream …
+  ProbeError:110 is_plain_file:127 read_secret:138 scrub:154 provider_config:167 iter_sse:241 output_text:260 computer_actions:270
+  point_actions:295 action_points:318 usage_tokens:330 cost_usd:335 ledger_total:364 ledger_unpriced:368 ledger_add:372 guard_budget:378
+  record:390 report:400 multipart:410 wav_info:422 cmd_asr:434 cmd_models:470 add_reasoning:478 cmd_stream:485
+  verdict:560 computer_tool:571 png_size:577 cmd_click:588 cmd_sam:685 cmd_ledger:761 build_parser:783 main:825
   tests: tools/tests/test_mm_probe.py (25)
+- tools/mm_probe_safety.py — Synthetic-page safety benchmark; HTTP, secrets and ledger belong to mm_probe.
+  load_pages:21 classify:59 rule_violations:80 aggregate:106 write_report:128 render_page:154 request_body:174 exchange:186
+  cmd_safety:206 add_parser:285
+  tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_stats.py — mm stats [--save] [--json] [--since DAYS]
   area:34 crate:39 source_files:46 read:61 run:68 code_summary:78 parse_scc:90 collect_code:104
   mask_code:128 count_tests:153 production_rust:168 is_test:191 related_test:197 parse_numstat:215 churn_summary:239 locale_stats:270
@@ -625,23 +629,23 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_clear` src-tauri/src/chat.rs:299 <- src/chat.ts:160
 - `chat_send` src-tauri/src/chat.rs:269 <- src/chat.ts:145
 - `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:184
-- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:375, src/signin.ts:100
+- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:375, src/signin.ts:104
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:25
 - `load_settings` src-tauri/src/settings.rs:255 <- src/highlight.ts:514, src/home.ts:158, src/i18n/settings.ts:20, src/settings/model.ts:243
 - `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:289
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
-- `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:392, src/mate-menu.ts:5
+- `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:397, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
 - `open_settings_window` src-tauri/src/lib.rs:457 <- src/home.ts:27, src/mate-menu.ts:7
 - `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:262
-- `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:410, src/mate-menu.ts:11
+- `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:415, src/mate-menu.ts:11
 - `report_playback` src-tauri/src/answer_stream.rs:299 <- src/ipc/answer-stream.ts:281
-- `save_settings` src-tauri/src/settings.rs:262 <- src/settings/model.ts:258
+- `save_settings` src-tauri/src/settings.rs:262 <- src/settings/model.ts:257
 - `sign_in` src-tauri/src/auth.rs:177 <- src/settings/account.ts:254
 - `sign_out` src-tauri/src/auth.rs:278 <- src/settings/account.ts:275
 - `subscribe_answer_stream` src-tauri/src/answer_stream.rs:325 <- src/ipc/answer-stream.ts:291
-- `try_as_guest` src-tauri/src/signin.rs:214 <- src/signin.ts:97
+- `try_as_guest` src-tauri/src/signin.rs:214 <- src/signin.ts:101
 
 ### Tauri Channels
 
@@ -669,8 +673,8 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:416; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
 - `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:391; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:370, src/signin.ts:102; const src-tauri/src/signin.rs:18
-- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:447; ts listen src/highlight.ts:523, src/mate.ts:348; const src-tauri/src/highlight.rs:15
+- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:370, src/signin.ts:106; const src-tauri/src/signin.rs:18
+- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:348; const src-tauri/src/highlight.rs:15
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:380
 - `lesson-card`: rs emit src-tauri/src/card.rs:466; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
 - `lesson-interrupt`: rs emit src-tauri/src/voice.rs:531; ts listen src/mate.ts:214; const src/mate.ts:34
@@ -714,7 +718,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.browser_failed`: rs src-tauri/src/auth.rs:374
 - `auth.cancelled`: rs src-tauri/src/auth.rs:216,259,330,429; ts src/settings/account.ts:75
 - `auth.failed`: rs src-tauri/src/auth.rs:215,225,256,360,361,363,364,387,391,404,425; ts src/settings/account.ts:75,263,266
-- `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account.ts:75
+- `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:146, src/settings/account.ts:75, src/signin.ts:136
 - `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:170
 - `mate.explain_question`: rs src-tauri/src/explain.rs:304
 - `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:152
@@ -756,12 +760,12 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_insert`: rs src-tauri/src/settings.rs:126; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:124; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
 - `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:123; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
-- `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:92
+- `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:96
 - `tray.chat`: rs src-tauri/src/lib.rs:249; ts src/mate-menu.ts:5
 - `tray.hide_hour`: rs src-tauri/src/lib.rs:315,368; ts src/mate-menu.ts:9
 - `tray.open_home`: rs src-tauri/src/lib.rs:248
 - `tray.quit`: rs src-tauri/src/lib.rs:308,370
-- `tray.settings`: rs src-tauri/src/lib.rs:301,367,477; ts src/home.ts:394, src/mate-menu.ts:7, src/settings.ts:324,326
+- `tray.settings`: rs src-tauri/src/lib.rs:301,367,477; ts src/home.ts:399, src/mate-menu.ts:7, src/settings.ts:328,330
 - `tray.tooltip`: rs src-tauri/src/lib.rs:406
 - `tray.try_bigger`: rs src-tauri/src/home.rs:6,74; ts src/home.ts:33,41
 - `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:32,40
@@ -776,7 +780,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `model.*` (4 keys): src/mate.ts
 - `onboarding.*` (7 keys): src/onboarding.ts
 - `robot.*` (2 keys): src/i18n/index.ts, src/onboarding.ts
-- `settings.*` (37 keys): src/settings.ts, src/settings/choices-view.ts, src/settings/ptt-key.ts, src/settings/voice-speed-view.ts
+- `settings.*` (38 keys): src/home.ts, src/settings.ts, src/settings/choices-view.ts, src/settings/ptt-key.ts, src/settings/voice-speed-view.ts
 - `signin.*` (6 keys): src/signin.ts
 - `tray.*` (2 keys): src/settings/choices-view.ts
 - no literal use (14 keys); prefixes: `card.*`, `robot.*`, `settings.*`, `tray.*`
@@ -801,11 +805,11 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 248 | 31 |
+| crates/mm-core | 251 | 32 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
-| src-tauri | 177 | 20 |
-| src | 245 | 28 |
-| tools | 265 | 17 |
+| src-tauri | 178 | 20 |
+| src | 248 | 28 |
+| tools | 279 | 18 |
 | server | 87 | 4 |
 | tts | 27 | 2 |

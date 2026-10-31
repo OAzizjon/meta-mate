@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fall Clearance Event - SilverMeadow Apparel &amp; Home</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #ffffff;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        height: 40px;
+        background-color: #f1f5f9;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .circles {
+        display: flex;
+        gap: 6px;
+      }
+      .circle {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .c-1 { background-color: #f87171; }
+      .c-2 { background-color: #fbbf24; }
+      .c-3 { background-color: #34d399; }
+      .address-field {
+        flex: 1;
+        max-width: 680px;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 4px 12px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .top-promo-banner {
+        background-color: #9a3412;
+        color: #ffffff;
+        text-align: center;
+        padding: 9px 20px;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        flex-shrink: 0;
+      }
+      .top-promo-banner span {
+        background-color: #ea580c;
+        padding: 2px 8px;
+        border-radius: 4px;
+        margin-left: 6px;
+      }
+      .site-header {
+        height: 64px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+        flex-shrink: 0;
+      }
+      .brand-title {
+        font-family: Georgia, serif;
+        font-size: 24px;
+        font-weight: 700;
+        color: #1c1917;
+      }
+      .brand-title span {
+        color: #c2410c;
+      }
+      .nav-menu {
+        display: flex;
+        gap: 28px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .nav-menu a {
+        color: #475569;
+        text-decoration: none;
+      }
+      .nav-menu a.sale-link {
+        color: #c2410c;
+        font-weight: 700;
+      }
+      .header-right {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .page-scroll {
+        flex: 1;
+        overflow-y: auto;
+        padding: 28px 40px;
+      }
+      .hero-banner {
+        background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+        border: 1px solid #fed7aa;
+        border-radius: 12px;
+        padding: 36px 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 32px;
+      }
+      .hero-text h1 {
+        font-family: Georgia, serif;
+        font-size: 32px;
+        font-weight: 700;
+        color: #7c2d12;
+        margin-bottom: 8px;
+      }
+      .hero-text p {
+        font-size: 16px;
+        color: #9a3412;
+        max-width: 580px;
+        line-height: 1.5;
+        margin-bottom: 16px;
+      }
+      .code-pill {
+        display: inline-block;
+        background-color: #ffffff;
+        border: 2px dashed #ea580c;
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-weight: 700;
+        color: #c2410c;
+        font-size: 14px;
+      }
+      .catalog-heading {
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 20px;
+      }
+      .product-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+        margin-bottom: 32px;
+      }
+      .product-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        background-color: #ffffff;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      }
+      .product-placeholder {
+        height: 160px;
+        background-color: #f1f5f9;
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #64748b;
+        font-size: 13px;
+        margin-bottom: 14px;
+      }
+      .product-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 6px;
+      }
+      .pricing {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .current-price {
+        font-size: 18px;
+        font-weight: 700;
+        color: #c2410c;
+      }
+      .original-price {
+        font-size: 13px;
+        color: #94a3b8;
+        text-decoration: line-through;
+      }
+      .product-rating {
+        font-size: 12px;
+        color: #eab308;
+      }
+      .product-rating span {
+        color: #64748b;
+        margin-left: 4px;
+      }
+      .store-trust-banner {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px 24px;
+        display: flex;
+        justify-content: space-around;
+        font-size: 13px;
+        color: #475569;
+        margin-bottom: 24px;
+      }
+      .store-footer {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 20px;
+        text-align: center;
+        font-size: 12px;
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="circles">
+        <span class="circle c-1"></span>
+        <span class="circle c-2"></span>
+        <span class="circle c-3"></span>
+      </div>
+      <div class="address-field">
+        <span style="color: #059669; font-weight: bold;">&#128274;</span>
+        <span>https://silvermeadow.example/sale/autumn-clearance</span>
+      </div>
+    </div>
+
+    <div class="top-promo-banner">
+      Annual Autumn Clearance: Up to 40% Off Select Outerwear &amp; Bedding &bull; Free Shipping Over $45 <span>Use Code: FALL40</span>
+    </div>
+
+    <header class="site-header">
+      <div class="brand-title">Silver<span>Meadow</span></div>
+      <nav class="nav-menu">
+        <a href="#">Women's</a>
+        <a href="#">Men's</a>
+        <a href="#">Home &amp; Quilts</a>
+        <a href="#">Footwear</a>
+        <a href="#" class="sale-link">Fall Sale</a>
+      </nav>
+      <div class="header-right">Customer Care: +1 555 0131</div>
+    </header>
+
+    <main class="page-scroll">
+      <section class="hero-banner">
+        <div class="hero-text">
+          <h1>Mid-Season Autumn Clearance</h1>
+          <p>
+            Stay warm this season with generous savings on our signature knitwear, cozy flannel quilts, and lined indoor slippers. Quality guaranteed since 1984.
+          </p>
+          <div class="code-pill">Coupon Code: FALL40</div>
+        </div>
+      </section>
+
+      <h2 class="catalog-heading">Featured Clearance Selections</h2>
+
+      <div class="product-grid">
+        <div class="product-card">
+          <div class="product-placeholder">
+            <span>&#129509;</span>
+            <span style="margin-top: 6px;">Wool Blend Cardigan</span>
+          </div>
+          <div class="product-title">Classic Cable Knit Cardigan</div>
+          <div class="pricing">
+            <span class="current-price">$48.00</span>
+            <span class="original-price">$80.00</span>
+          </div>
+          <div class="product-rating">&#9733;&#9733;&#9733;&#9733;&#9734; <span>(142 reviews)</span></div>
+        </div>
+
+        <div class="product-card">
+          <div class="product-placeholder">
+            <span>&#129539;</span>
+            <span style="margin-top: 6px;">Flannel Bed Quilt</span>
+          </div>
+          <div class="product-title">Heritage Patchwork Quilt (Full/Queen)</div>
+          <div class="pricing">
+            <span class="current-price">$65.00</span>
+            <span class="original-price">$105.00</span>
+          </div>
+          <div class="product-rating">&#9733;&#9733;&#9733;&#9733;&#9733; <span>(89 reviews)</span></div>
+        </div>
+
+        <div class="product-card">
+          <div class="product-placeholder">
+            <span>&#129486;</span>
+            <span style="margin-top: 6px;">Fleece House Slippers</span>
+          </div>
+          <div class="product-title">Memory Foam Suede Slippers</div>
+          <div class="pricing">
+            <span class="current-price">$24.00</span>
+            <span class="original-price">$40.00</span>
+          </div>
+          <div class="product-rating">&#9733;&#9733;&#9733;&#9733;&#9734; <span>(210 reviews)</span></div>
+        </div>
+      </div>
+
+      <div class="store-trust-banner">
+        <div>&#10004; 30-Day Hassle-Free Returns In-Store or by Mail</div>
+        <div>&#10004; Secure Checkout &bull; Encrypted SSL</div>
+        <div>&#10004; Phone Orders &amp; Inquiries: +1 555 0131</div>
+      </div>
+
+      <footer class="store-footer">
+        SilverMeadow Apparel &amp; Home LLC &bull; 500 Market Square, Riverdale &bull; silvermeadow.example
+      </footer>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Order Confirmation #HC-883019 - HomeCraft Goods</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f8fafc;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        height: 40px;
+        background-color: #f1f5f9;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .nav-bullets {
+        display: flex;
+        gap: 6px;
+      }
+      .nav-b {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .b-red { background-color: #f87171; }
+      .b-yel { background-color: #fbbf24; }
+      .b-grn { background-color: #34d399; }
+      .address-box {
+        flex: 1;
+        max-width: 640px;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 4px 12px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .site-header {
+        height: 60px;
+        background-color: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 36px;
+        flex-shrink: 0;
+      }
+      .store-logo {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0d9488;
+      }
+      .store-logo span {
+        color: #0f172a;
+      }
+      .store-support {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .main-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 30px 48px;
+        max-width: 900px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      .success-banner {
+        background-color: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 10px;
+        padding: 24px 28px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 24px;
+      }
+      .check-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background-color: #16a34a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .banner-text h1 {
+        font-size: 22px;
+        font-weight: 700;
+        color: #166534;
+        margin-bottom: 4px;
+      }
+      .banner-text p {
+        font-size: 14px;
+        color: #15803d;
+      }
+      .order-grid {
+        display: grid;
+        grid-template-columns: 3fr 2fr;
+        gap: 24px;
+      }
+      .panel {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 20px 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      }
+      .panel-h2 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 16px;
+        border-bottom: 1px solid #f1f5f9;
+        padding-bottom: 8px;
+      }
+      .item-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 12px 0;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 14px;
+      }
+      .item-name {
+        font-weight: 600;
+        color: #1e293b;
+      }
+      .item-sku {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 2px;
+      }
+      .item-price {
+        font-weight: 600;
+        color: #0f172a;
+      }
+      .cost-summary {
+        margin-top: 16px;
+        font-size: 13px;
+      }
+      .cost-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        color: #64748b;
+      }
+      .cost-row.total {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+        border-top: 2px solid #e2e8f0;
+        padding-top: 10px;
+        margin-top: 8px;
+      }
+      .detail-group {
+        margin-bottom: 16px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .detail-group strong {
+        display: block;
+        color: #475569;
+        font-size: 11px;
+        text-transform: uppercase;
+        margin-bottom: 2px;
+      }
+      .help-box {
+        background-color: #f8fafc;
+        border-radius: 6px;
+        padding: 12px 16px;
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 16px;
+      }
+      .page-footer {
+        margin-top: 24px;
+        text-align: center;
+        font-size: 12px;
+        color: #94a3b8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="nav-bullets">
+        <span class="nav-b b-red"></span>
+        <span class="nav-b b-yel"></span>
+        <span class="nav-b b-grn"></span>
+      </div>
+      <div class="address-box">
+        <span style="color: #059669; font-weight: bold;">&#128274;</span>
+        <span>https://homecraft.example/checkout/order-received/HC-883019</span>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="store-logo">HomeCraft <span>Goods</span></div>
+      <div class="store-support">Order Support: +1 555 0165 (Toll-Free)</div>
+    </header>
+
+    <main class="main-content">
+      <section class="success-banner">
+        <div class="check-icon">&#10003;</div>
+        <div class="banner-text">
+          <h1>Thank You for Your Order!</h1>
+          <p>Order #HC-883019 has been received and is being prepared for shipment.</p>
+        </div>
+      </section>
+
+      <div class="order-grid">
+        <section class="panel">
+          <h2 class="panel-h2">Items Ordered</h2>
+
+          <div class="item-row">
+            <div>
+              <div class="item-name">Ergonomic Garden Kneeler &amp; Folding Seat</div>
+              <div class="item-sku">SKU: HG-3829 &bull; Qty: 1</div>
+            </div>
+            <div class="item-price">$32.50</div>
+          </div>
+
+          <div class="item-row">
+            <div>
+              <div class="item-name">Soft-Grip Bypass Pruning Shears (8 inch)</div>
+              <div class="item-sku">SKU: HG-1048 &bull; Qty: 1</div>
+            </div>
+            <div class="item-price">$14.99</div>
+          </div>
+
+          <div class="cost-summary">
+            <div class="cost-row">
+              <span>Items Subtotal:</span>
+              <span>$47.49</span>
+            </div>
+            <div class="cost-row">
+              <span>Standard Ground Shipping:</span>
+              <span style="color: #16a34a; font-weight: 600;">FREE</span>
+            </div>
+            <div class="cost-row">
+              <span>Estimated Sales Tax:</span>
+              <span>$3.32</span>
+            </div>
+            <div class="cost-row total">
+              <span>Total Paid:</span>
+              <span>$50.81</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-h2">Delivery &amp; Payment</h2>
+
+          <div class="detail-group">
+            <strong>Shipping Address</strong>
+            Harold Simmons<br />
+            14 Maple Ridge Road<br />
+            Riverdale, OR 97201
+          </div>
+
+          <div class="detail-group">
+            <strong>Shipping Method</strong>
+            Standard Ground (Estimated delivery: Nov 4 – Nov 6, 2026)
+          </div>
+
+          <div class="detail-group">
+            <strong>Payment Method</strong>
+            Visa ending in 4108
+          </div>
+
+          <div class="help-box">
+            A confirmation receipt was sent to <strong>harold.s@mailbox.example</strong>. Need to modify or cancel? Contact customer care at <strong>+1 555 0165</strong> within 2 hours.
+          </div>
+        </section>
+      </div>
+
+      <footer class="page-footer">
+        HomeCraft Goods Retail LLC &bull; 2026 All Rights Reserved &bull; homecraft.example
+      </footer>
+    </main>
+  </body>
+</html>

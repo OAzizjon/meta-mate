@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>Winner Notification - GoldenHarvest Annual Shopper Draw</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f8fafc;
+        color: #1e293b;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        background-color: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .browser-dots {
+        display: flex;
+        gap: 6px;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #94a3b8;
+      }
+      .address-box {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 5px 14px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .warn-tag {
+        color: #b91c1c;
+        font-weight: 700;
+      }
+      .addr-url {
+        font-family: Consolas, "Courier New", monospace;
+        color: #475569;
+      }
+      .addr-url strong {
+        color: #0f172a;
+      }
+      .top-ribbon {
+        background: linear-gradient(90deg, #065f46 0%, #047857 50%, #065f46 100%);
+        color: #ffffff;
+        padding: 12px 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+      .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 19px;
+        font-weight: 800;
+      }
+      .star-icon {
+        width: 26px;
+        height: 26px;
+        fill: #fbbf24;
+      }
+      .urgency-pill {
+        background-color: #fef3c7;
+        color: #92400e;
+        font-size: 13px;
+        font-weight: 800;
+        padding: 6px 14px;
+        border-radius: 20px;
+        border: 1px solid #f59e0b;
+      }
+      .page-body {
+        flex: 1;
+        max-width: 1180px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 22px 28px;
+        display: grid;
+        grid-template-columns: 1.15fr 1fr;
+        gap: 26px;
+        align-items: start;
+      }
+      .prize-card {
+        background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
+        border: 2px solid #f59e0b;
+        border-radius: 14px;
+        padding: 24px 26px;
+        box-shadow: 0 8px 24px rgba(245, 158, 11, 0.14);
+      }
+      .winner-badge {
+        display: inline-block;
+        background-color: #d97706;
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        padding: 4px 12px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+      }
+      .prize-title {
+        font-size: 28px;
+        font-weight: 900;
+        color: #064e3b;
+        line-height: 1.2;
+        margin-bottom: 10px;
+      }
+      .prize-amount {
+        font-size: 40px;
+        font-weight: 900;
+        color: #b45309;
+        margin: 8px 0 14px;
+      }
+      .prize-copy {
+        font-size: 14px;
+        line-height: 1.55;
+        color: #334155;
+        margin-bottom: 16px;
+      }
+      .summary-box {
+        background-color: #ffffff;
+        border: 1px solid #fde68a;
+        border-radius: 10px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+      .summary-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        color: #475569;
+      }
+      .summary-row strong {
+        color: #0f172a;
+      }
+      .helpline-note {
+        font-size: 13px;
+        color: #475569;
+        background-color: #f1f5f9;
+        padding: 10px 14px;
+        border-radius: 8px;
+      }
+      .claim-form-card {
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 14px;
+        padding: 22px 26px;
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+      }
+      .form-title {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 6px;
+      }
+      .form-subtitle {
+        font-size: 13px;
+        color: #b91c1c;
+        font-weight: 600;
+        margin-bottom: 16px;
+      }
+      .field-group {
+        margin-bottom: 12px;
+      }
+      .field-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
+        margin-bottom: 4px;
+      }
+      .field-group input {
+        width: 100%;
+        padding: 9px 12px;
+        font-size: 14px;
+        border: 1px solid #94a3b8;
+        border-radius: 6px;
+        background-color: #f8fafc;
+      }
+      .row-2col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .fee-callout {
+        background-color: #ecfdf5;
+        border: 1px solid #6ee7b7;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 14px 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+        color: #065f46;
+        font-weight: 700;
+      }
+      .claim-btn {
+        display: block;
+        width: 100%;
+        background-color: #d97706;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 800;
+        padding: 13px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        text-align: center;
+        text-decoration: none;
+      }
+      .fine-print {
+        margin-top: 10px;
+        font-size: 11px;
+        color: #64748b;
+        line-height: 1.4;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="browser-bar">
+      <div class="browser-dots">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="address-box">
+        <span class="warn-tag">Not Secure</span>
+        <span class="addr-url"
+          >http://<strong>goldenharvest-winner-claim.example</strong>/draw-884/payout-form</span
+        >
+      </div>
+    </header>
+
+    <div class="top-ribbon">
+      <div class="brand-row">
+        <svg class="star-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+        <span>GoldenHarvest Annual Shopper Sweepstakes</span>
+      </div>
+      <div class="urgency-pill">Prize Reservation Expires in 08:14</div>
+    </div>
+
+    <main class="page-body">
+      <section class="prize-card">
+        <span class="winner-badge">Confirmed Grand Prize Selection</span>
+        <h1 class="prize-title">Congratulations, Lucky Visitor! Your IP Was Selected Today</h1>
+        <div class="prize-amount">$25,000.00 Cash Award</div>
+        <p class="prize-copy">
+          Your browser session matched winning Ballot <strong>#GH-99204</strong> in our Regional Customer Appreciation Draw. No prior ticket purchase was needed. To prevent forfeiture to the runner-up queue, confirm delivery and settle the mandatory courier clearance fee below.
+        </p>
+
+        <div class="summary-box">
+          <div class="summary-row">
+            <span>Award Certificate Number:</span>
+            <strong>GH-2026-99204-US</strong>
+          </div>
+          <div class="summary-row">
+            <span>Payout Method:</span>
+            <strong>Certified Cashier Check + Direct Deposit</strong>
+          </div>
+          <div class="summary-row">
+            <span>Mandatory Insured Processing Fee:</span>
+            <strong>$19.95 (One-Time)</strong>
+          </div>
+        </div>
+
+        <div class="helpline-note">
+          Need assistance claiming your check? Call our Prize Dispatch Desk at <strong>+1 555 0156</strong> and give code <strong>WIN-884</strong>.
+        </div>
+      </section>
+
+      <section class="claim-form-card">
+        <h2 class="form-title">Step 1: Pay $19.95 Release &amp; Courier Fee</h2>
+        <p class="form-subtitle">
+          Act now — unclaimed funds transfer to the next household if timer reaches 00:00.
+        </p>
+
+        <form action="#">
+          <div class="field-group">
+            <label for="winner-name">Full Name on Bank Account</label>
+            <input id="winner-name" type="text" placeholder="e.g. Margaret Hale" />
+          </div>
+          <div class="field-group">
+            <label for="street-addr">Home Delivery Address</label>
+            <input id="street-addr" type="text" placeholder="Street address, City, State, ZIP" />
+          </div>
+          <div class="field-group">
+            <label for="card-num">Credit or Debit Card Number</label>
+            <input id="card-num" type="text" placeholder="0000 0000 0000 0000" />
+          </div>
+          <div class="row-2col">
+            <div class="field-group">
+              <label for="card-exp">Expiration Date</label>
+              <input id="card-exp" type="text" placeholder="MM / YY" />
+            </div>
+            <div class="field-group">
+              <label for="card-cvv">3-Digit Security Code</label>
+              <input id="card-cvv" type="text" placeholder="CVV" />
+            </div>
+          </div>
+
+          <div class="fee-callout">
+            <span>Due Now for Bonded Check Dispatch:</span>
+            <span>$19.95 USD</span>
+          </div>
+
+          <button type="button" class="claim-btn">Pay $19.95 &amp; Claim $25,000.00 Now</button>
+        </form>
+
+        <p class="fine-print">
+          GoldenHarvest Prize Fulfillment Services &bull; goldenharvest-winner-claim.example
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

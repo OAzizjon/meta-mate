@@ -1,0 +1,116 @@
+[
+  {
+    "file": "bank-security-call.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Unsaved personal phone number +7 900 000-14-82 impersonating bank security in a web messenger",
+      "Urgent claim of an unauthorized 450,000 RUB loan and demand to move savings to a 'protected reserve account' (+7 900 000-91-04)",
+      "Input box asking for a 6-digit SMS confirmation code",
+      "Secrecy instruction telling the user not to inform family members or bank branch employees"
+    ],
+    "notes": "Medium: messenger voice-call and chat impersonating fictional SeverBank security with safe-account and SMS-code demands."
+  },
+  {
+    "file": "prize-winner.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Unencrypted HTTP URL promo-prize2026-draw.example unrelated to the store domain comfort-market.example",
+      "Unexpected 250,000 RUB IP-address prize announcement with a 09:42 countdown timer",
+      "Upfront 1,490 RUB 'booking and conversion fee' required before receiving the prize",
+      "Form requesting full 16-digit card number, expiry date, and 3-digit CVV code"
+    ],
+    "notes": "Easy: celebratory loyalty giveaway page demanding an upfront fee and full card details including CVV."
+  },
+  {
+    "file": "bank-login-phishing.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Lookalike address-bar domain taiga-bank.login-portal.example does not match stated bank domain taiga-bank.example",
+      "Sign-in form requests full 16-digit card number, CVV2, and 6-digit SMS code alongside login password",
+      "Threat of same-day suspension of card operations unless 'certificate synchronization' is completed"
+    ],
+    "notes": "Hard (subtle): calm, clean corporate banking sign-in layout with domain mismatch and card/CVV/OTP harvesting."
+  },
+  {
+    "file": "customs-duty-parcel.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Sender domain post-customs-duty.example and HTTP payment link do not match carrier domain post-express.example",
+      "Vague international parcel notice omitting recipient name, street address, and item description",
+      "Small 389 RUB customs fee demand paired with a 500 RUB/day storage penalty threat after midnight"
+    ],
+    "notes": "Medium-hard (subtle): structured webmail parcel notice using a small 389 RUB fee and mismatched HTTP payment URL."
+  },
+  {
+    "file": "double-investments.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Promise of risk-free, 100% guaranteed doubling of pension savings in 7 days",
+      "Instruction to transfer the deposit by phone number (+7 900 000-63-19) to an individual ('duty curator') without payment comments",
+      "Artificial scarcity ('3 spots left today') and mention of remote screen-sharing assistance"
+    ],
+    "notes": "Medium: polished pensioner investment landing page promising 2x returns in 7 days via transfer to a personal phone number."
+  },
+  {
+    "file": "state-compensation.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Address-bar domain citizen-payout-registry.example mismatches the fictional portal's stated domain people-service.example",
+      "Unsolicited 34,680 RUB social compensation expiring tonight at 23:59",
+      "Requirement to pay an upfront 420 RUB 'registry stamp fee' with full card number and CVV to unlock the payout"
+    ],
+    "notes": "Hard (subtle): clean civic-portal layout for fictional NarodSluzhba asking for a 420 RUB registry fee before a 34,680 RUB payout."
+  },
+  {
+    "file": "mom-in-trouble.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Sender writes from an unknown unsaved number (+7 900 000-47-11) while the real son's contact is visible in the chat list",
+      "Emergency traffic-accident story demanding 85,000 RUB within 20 minutes to avoid a criminal case",
+      "Payment requested to a third-party stranger's phone number (+7 900 000-89-34, 'Igor V.')",
+      "Explicit plea not to call the old phone number or tell the father"
+    ],
+    "notes": "Easy-medium: web messenger 'Mom, I am in trouble' crisis impersonation from an unknown number."
+  },
+  {
+    "file": "fake-browser-update.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Unencrypted third-party HTTP page update-navigator-patch.example (mismatching navigator-web.example) claiming the browser is expired",
+      "Direct download prompt for an executable file Navigator_Security_Setup_2026.exe with a 10-minute lockout threat",
+      "Instruction to bypass security warnings ('Run anyway') and disable file protection for 15 minutes"
+    ],
+    "notes": "Medium-hard (subtle): clean system-dialog style browser update prompt serving an .exe from an unencrypted lookalike domain."
+  },
+  {
+    "file": "traffic-fine-link.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Sender domain road-fine-pay24.example and HTTP payment link fine-discount75.example mismatch stated portal road-control.example",
+      "Fine notice omits vehicle license plate and model, referencing only the recipient's email address",
+      "High-pressure 2-hour 75% discount countdown threatening immediate double penalty (3,000 RUB)"
+    ],
+    "notes": "Hard (subtle): official-looking webmail traffic fine notice missing license plate details and pushing an HTTP fast-pay link."
+  },
+  {
+    "file": "account-blocked.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Lookalike URL id-friends-unlock.example does not match the social network domain friends-circle.example",
+      "29:45 countdown threatening permanent deletion of profile, messages, and family photo albums",
+      "Unblock form demands account password, 6-digit SMS code, and full card + CVV for an 11 RUB 'anti-spam check'",
+      "Self-declared '100% safe and verified resource' badge at the bottom of the form"
+    ],
+    "notes": "Medium: social account suspension page combining photo-deletion urgency, password/card/OTP phishing, and a fake trust badge."
+  }
+]

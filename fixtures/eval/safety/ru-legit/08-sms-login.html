@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Подтверждение входа по SMS — Портал «УслугиРегион»</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        border-bottom: 1px solid #cbd5e1;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        padding: 5px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid #cbd5e1;
+      }
+      .portal-top {
+        height: 64px;
+        background: #ffffff;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+      }
+      .portal-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 800;
+        color: #1d4ed8;
+      }
+      .support-link {
+        font-size: 14px;
+        color: #64748b;
+      }
+      .support-link strong {
+        color: #1d4ed8;
+      }
+      .auth-container {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 24px;
+      }
+      .auth-card {
+        width: 100%;
+        max-width: 520px;
+        background: #ffffff;
+        border-radius: 14px;
+        border: 1px solid #cbd5e1;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+        padding: 36px 36px 28px;
+        text-align: center;
+      }
+      .auth-icon-wrap {
+        width: 52px;
+        height: 52px;
+        background: #eff6ff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        color: #1d4ed8;
+      }
+      .auth-heading {
+        font-size: 22px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 8px;
+      }
+      .auth-desc {
+        font-size: 14px;
+        color: #475569;
+        line-height: 1.5;
+        margin-bottom: 24px;
+      }
+      .code-inputs {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .code-cell {
+        width: 48px;
+        height: 54px;
+        border: 2px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 24px;
+        font-weight: 700;
+        text-align: center;
+        color: #0f172a;
+        background: #ffffff;
+        outline: none;
+      }
+      .code-cell.filled {
+        border-color: #3b82f6;
+        background: #f8fafc;
+      }
+      .code-cell.active {
+        border-color: #1d4ed8;
+        box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+      }
+      .timer-info {
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 24px;
+      }
+      .submit-btn {
+        width: 100%;
+        padding: 13px;
+        background: #1d4ed8;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 700;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-bottom: 20px;
+      }
+      .security-advisory {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 12px;
+        color: #92400e;
+        line-height: 1.5;
+        text-align: left;
+      }
+      .security-advisory strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #78350f;
+      }
+      .extra-links {
+        margin-top: 18px;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .extra-links a {
+        color: #1d4ed8;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="browser-url">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#16a34a">
+          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+        </svg>
+        <span>https://auth.uslugi-region.example/login/step2-sms</span>
+      </div>
+    </div>
+
+    <div class="portal-top">
+      <div class="portal-brand">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.8l7 3.5v7.4l-7 3.5-7-3.5V8.3l7-3.5z"/>
+        </svg>
+        <span>УслугиРегион</span>
+      </div>
+      <div class="support-link">
+        Единая служба поддержки: <strong>+7 800 000-08-99</strong>
+      </div>
+    </div>
+
+    <div class="auth-container">
+      <div class="auth-card">
+        <div class="auth-icon-wrap">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
+        </div>
+
+        <h1 class="auth-heading">Подтверждение входа</h1>
+        <p class="auth-desc">
+          На привязанный номер телефона <strong>+7 900 000-12-**</strong> направлено SMS с одноразовым 6-значным кодом подтверждения.
+        </p>
+
+        <div class="code-inputs">
+          <input class="code-cell filled" type="text" value="4" readonly />
+          <input class="code-cell filled" type="text" value="9" readonly />
+          <input class="code-cell filled" type="text" value="1" readonly />
+          <input class="code-cell active" type="text" value="" readonly />
+          <input class="code-cell" type="text" value="" readonly />
+          <input class="code-cell" type="text" value="" readonly />
+        </div>
+
+        <div class="timer-info">
+          Запросить повторный код можно через: <strong>01:42</strong>
+        </div>
+
+        <button class="submit-btn" type="button">Подтвердить и войти</button>
+
+        <div class="security-advisory">
+          <strong>Безопасность учётной записи:</strong>
+          Код действует 5 минут. Никогда и никому не сообщайте этот проверочный код. Специалисты службы поддержки и администраторы портала никогда не запрашивают код из SMS по телефону.
+        </div>
+
+        <div class="extra-links">
+          <a href="#">Не приходит SMS?</a>
+          <a href="#">Войти другим способом</a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

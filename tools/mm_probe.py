@@ -1,4 +1,4 @@
-"""mm probe models|stream|click|sam|asr|ledger
+"""mm probe models|stream|click|sam|asr|safety|ledger
     mm probe models [--provider P] [--model M] [--timeout S] [--budget USD]
                     [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT]
     mm probe stream QUESTION [--provider P] [--model M] [--timeout S] [--budget USD]
@@ -11,6 +11,9 @@
                  [--mode PUSH_TO_TALK|ENDPOINTING]
     mm probe sam FIXTURE X Y [--provider P] [--model M] [--timeout S] [--budget USD]
                  [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] [--text TEXT]
+    mm probe safety DIR [--models muse-spark-1.3,muse-wonder-1.0] [--repeat N] [--jobs K]
+                    [--max-edge 1280] [--reasoning EFFORT] [--budget USD] [--max-unpriced N]
+                    [--out REPORT_DIR] [--dry-run] [--only GLOB]
     mm probe ledger
 
 The Meta Model API from the lead's machine (never from the agents' copies).
@@ -26,14 +29,22 @@ The Meta Model API from the lead's machine (never from the agents' copies).
         transcribe speech from a WAV file
     mm probe sam FIXTURE X Y [--text TEXT]
         ask SAM 3.1 about a point in the fixture image
+    mm probe safety DIR
+        benchmark synthetic HTML pages using mm-core's real safety request and downscaler;
+        report.json and report.md, with cached 1280x800 Edge screenshots alongside them.
+        Verdict: first mood sad/calm/surprised -> scam/legit/unsure, otherwise bilingual
+        keywords (see mm_probe_safety.classify). Rule checking is a sentence heuristic,
+        not a semantic guarantee; quoted click/call/pay advice is flagged conservatively.
     mm probe ledger
         what the probes have spent so far (estimated from the token counts)
 
-Every exchange is recorded in fixtures/replay/<case>/probe-*.json (no key; the image by path),
-so the teacher loop can be built and tested offline. The keys (META_API_KEY with META_API_BASE,
+Interactive exchanges are recorded in fixtures/replay/<case>/probe-*.json (no key; image by path),
+so the teacher loop can be tested offline; safety batches use their report directory instead.
+The keys (META_API_KEY with META_API_BASE,
 or the development fallback CHATGPT_KEY, invariant 8) are read from the project's secrets file
 by this process only and never printed. Fail closed: a fixture with a password-like field, a
-truncated tree or no PNG is never sent. Standard library only (ffmpeg downscales the image).
+truncated tree or no PNG is never sent. Python uses only the standard library; ffmpeg downscales
+interactive fixtures, while safety uses mm-core's image preparation and request builder.
 """
 
 import argparse
@@ -190,8 +201,8 @@ def _retry_after(error: urllib.error.HTTPError, attempt: int) -> float:
 
 
 def _request(url: str, key: str, payload: dict | None, timeout: float, stream: bool = False,
-             body: bytes | None = None, content_type: str | None = None):
-    """Only 429 and 503 are retried, and only before any byte of an answer arrived:
+             body: bytes | None = None, content_type: str | None = None, retry_5xx: bool = False):
+    """429 and 503 (all 5xx with retry_5xx) are retried before an answer arrives:
     a retry after that could pay twice. `body` + `content_type` send raw bytes instead of
     the JSON `payload` (the multipart ASR upload)."""
     data = body if body is not None else (None if payload is None else json.dumps(payload).encode('utf-8'))
@@ -208,7 +219,7 @@ def _request(url: str, key: str, payload: dict | None, timeout: float, stream: b
             with error:
                 if error.code == 401:
                     raise ProbeError('HTTP 401: the API key was rejected') from None
-                if error.code in (429, 503) and attempt < 2:
+                if (error.code in (429, 503) or retry_5xx and 500 <= error.code < 600) and attempt < 2:
                     wait = _retry_after(error, attempt)
                     print(f'HTTP {error.code}: retrying in {wait:.0f} s')
                     time.sleep(wait)
@@ -806,6 +817,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(func=cmd_sam)
     sp = sub.add_parser('ledger')
     sp.set_defaults(func=cmd_ledger)
+    from mm_probe_safety import add_parser
+    add_parser(sub)
     return parser
 
 
