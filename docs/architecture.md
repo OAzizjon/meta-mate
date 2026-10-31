@@ -34,6 +34,8 @@ v0.2 folds in the reviews of Codex (#233) and Gemini (#234).
 
 The desktop app never ships with our provider keys. It holds a guest token (`/auth/guest`, 12 messages an hour) or a signed-in session from Google or GitHub OAuth, sealed with Windows DPAPI; invite codes remain for development and the self-tests only (D54, D58).
 
+**Home and lesson cards:** Home is a separate window with a Guide and "My lessons". On first use, its profile panel asks once for the person's name and optional about line; Save or Skip records that the question was asked. Settings keep the sanitized profile. Rust adds a nonempty profile to answer, screen and lesson model requests as the `THE PERSON` data section; it is not sent to the intent classifier, Muse Glimmer, Muse Image or SAM 3.1 (D72). A lesson that ends well is worded by Glimmer and illustrated by Muse Image. Its versioned JSON note and optional PNG are saved under `Pictures\MetaMate`; the card WebView composes a captioned comic PNG locally and saves it through `card_save_captioned`. Home lists saved cards newest first with `cards_list`, opens one with `card_show`, and opens the folder with `cards_open_folder`.
+
 ## 2. Windows layer
 
 | Module | Responsibility | Library / API | Notes |
@@ -173,7 +175,7 @@ Small HTTPS service on the VPS (FastAPI preferred; upstream `https://api.meta.ai
 2. Password fields are painted black before anything leaves the PC. UIA `IsPassword` fields and on-screen password-like fields are found; a reveal toggle also hides its on-screen Edit, Document, Custom, and Text siblings. A complete walk is rechecked directly; if the walk is cut, a provider `FindAll` search completes it, and that search is repeated after the copy (D49, D50). **Fail closed:** our windows must report hidden before the copy, which waits for a compositor frame after the 50 ms hide; after copying, the target, popups, and windows above it must be unchanged, and the same hidden fields must be found in the same places (`same_hidden`). Otherwise the look is retried once, then refused. Card numbers and chat text are not detected automatically: the user is told that the active window is sent.
 3. Banking/password windows (title/URL heuristics) always ask first.
 4. Never auto-click payment, purchase, delete, send-money or password actions; never auto-acknowledge safety checks; re-check the foreground window before any injected input.
-5. No provider keys in the client; no content stored on the proxy.
+5. No provider keys in the client; no content stored on the proxy. The optional profile is stored in local Settings, sanitized to a 40-character name and 300-character about line, and is added only to answer, screen and lesson requests as data, never instructions. The name is used at most once per answer; the about line is used silently, never quoted, summarised or announced, and never changes a safety verdict. Logs record profile lengths only. It never reaches the intent classifier, card wording (Muse Glimmer), Muse Image or SAM 3.1 (D72). Lesson questions and steps do go to Muse Glimmer for card wording; its English scene goes to Muse Image. Saved card notes and images live in `Pictures\MetaMate`.
 6. Never steal focus from the user's app.
 7. Say "I can't find it" rather than point at a guess.
 
