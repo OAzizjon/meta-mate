@@ -353,3 +353,14 @@ test("look consent hides once its generation starts thinking or returns idle", (
     assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", "Answer text."]]);
   }
 });
+
+test("a lesson's look consent that closes during a recording is not shown afterwards", () => {
+  const h = harness();
+  h.send({ type: "model", generation: 1, model: "sam-3.1" });
+  h.send({ type: "state", generation: 2, state: "listening" });
+  h.send({ type: "line", generation: 1, key: "robot.look_consent" });
+  h.send({ type: "state", generation: 1, state: "thinking" });
+  h.calls.length = 0;
+  h.send({ type: "state", generation: 2, state: "thinking" });
+  assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", null]]);
+});

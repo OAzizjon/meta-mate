@@ -81,7 +81,8 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
       case "state":
         if (msg.generation === lookConsentGeneration && (msg.state === "thinking" || msg.state === "idle")) {
           lookConsentGeneration = null;
-          bubble.show(null);
+          // A held consent question is replaced, never shown after its window closed.
+          present("bubble", () => bubble.show(null));
         }
         if (msg.generation !== generations.listening && generations.holdPresentation) {
           present("state", () => setState(msg.state));
@@ -127,11 +128,12 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
           }
           return;
         }
+        // The consent question must stay up until its answer window closes; tracked on
+        // arrival, so a close that comes while presentation is held still finds it.
+        lookConsentGeneration = msg.key === "robot.look_consent" ? msg.generation : null;
         present("bubble", () => {
           showingHeard = false;
           const text = t(msg.key);
-          // The consent question must stay up until its answer window closes.
-          lookConsentGeneration = msg.key === "robot.look_consent" ? msg.generation : null;
           bubble.show(text, msg.key === "robot.look_consent" ? LOOK_CONSENT_MS : bubbleReadMs(text));
         });
         return;
