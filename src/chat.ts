@@ -5,6 +5,8 @@ import { getLocale, t } from "./i18n/index.ts";
 import { canSend, parseHistory, sendsOnKey } from "./chat/model.ts";
 import { followSettingsLocale } from "./i18n/settings.ts";
 import type { Message } from "./chat/model.ts";
+import { canReuseMessages, nextAwaitingReply } from "./chat/history.ts";
+import type { AwaitingReply } from "./chat/history.ts";
 
 // A cancelled answer never arrives: the thinking bubble gives up after this long.
 const THINKING_LIMIT_MS = 120_000;
@@ -66,7 +68,7 @@ let messages: Message[] = [];
 let ready = false;
 let sending = false;
 // From Send: "sent" until the question shows in the history, then "asked" until Mate writes.
-let awaiting: "sent" | "asked" | null = null;
+let awaiting: AwaitingReply = null;
 let thinkingTimer = 0;
 const update = (): void => { send.disabled = !ready || sending || !canSend(input.value); };
 
@@ -90,10 +92,7 @@ function render(raw: unknown): void {
   const next = parseHistory(raw);
   const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   // Keep existing nodes and the reader's scroll position while a sentence arrives.
-  const prefix = messages.length <= next.length && messages.every((old, index) => {
-    const current = next[index];
-    return current.role === old.role && current.timestamp === old.timestamp;
-  });
+  const prefix = canReuseMessages(messages, next);
   if (!prefix) log.replaceChildren(emptyState);
   emptyState.hidden = next.length > 0 || awaiting !== null;
   next.forEach((message, index) => {
@@ -120,11 +119,9 @@ function render(raw: unknown): void {
     if (text.textContent !== message.text) text.textContent = message.text;
   });
   messages = next;
-  const last = next[next.length - 1]?.role;
-  if (awaiting === "sent" && last === "person") awaiting = "asked";
-  // A Mate reply ends the wait; so does an empty history once the question was in it (cleared,
-  // even when the cleared file could not be written).
-  else if (awaiting === "asked" && (last === "mate" || last === undefined)) stopThinking();
+  const nextAwaiting = nextAwaitingReply(awaiting, next);
+  if (awaiting !== null && nextAwaiting === null) stopThinking();
+  else awaiting = nextAwaiting;
   if (awaiting !== null && thinking.parentNode !== log) log.append(thinking);
   if (atBottom) log.scrollTop = log.scrollHeight;
 }

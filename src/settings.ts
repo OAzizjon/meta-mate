@@ -9,6 +9,7 @@ import { getLocale, setLocale, t } from "./i18n/index.ts";
 import type { LocaleCode } from "./i18n/index.ts";
 import { bulbBadge } from "./bulb-badge.ts";
 import { buildAccountSection } from "./settings/account-view.ts";
+import { createSettingsActions, settingsReduceMotion } from "./settings/actions.ts";
 import {
   buildLanguageGroup,
   buildModelGroup,
@@ -227,10 +228,7 @@ export function mountSettings(
   });
 
   const applyPatch = (patch: Partial<Settings>): Promise<Settings> => {
-    return store.update(patch).then((updated) => {
-      syncControls(updated);
-      return updated;
-    });
+    return settingsActions.applyPatch(patch);
   };
 
   const accountGroup = buildAccountSection(accountStore);
@@ -308,7 +306,7 @@ export function mountSettings(
       : null;
 
   const syncReducedMotionClass = (reduceMotionSetting: boolean): void => {
-    const reduced = reduceMotionSetting || Boolean(motionQuery?.matches);
+    const reduced = settingsReduceMotion(reduceMotionSetting, motionQuery?.matches);
     container.classList.toggle("reduce-motion", reduced);
     if (typeof document !== "undefined") {
       document.documentElement.classList.toggle("reduce-motion", reduced);
@@ -387,6 +385,8 @@ export function mountSettings(
   syncText();
   syncControls(store.get());
 
+  const settingsActions = createSettingsActions(store, syncControls, () => !destroyed);
+
   const unsubscribeChanged = subscribeSettingsChanged(
     store,
     subscribe,
@@ -397,11 +397,7 @@ export function mountSettings(
     },
   );
 
-  void store.load().then((loaded) => {
-    if (!destroyed) {
-      syncControls(loaded);
-    }
-  });
+  void settingsActions.load();
 
   const unsubscribeAccount = accountStore.subscribe((accountState) => {
     if (!destroyed) {
@@ -424,12 +420,7 @@ export function mountSettings(
     },
     reload(): Promise<Settings> {
       void accountStore.load();
-      return store.load().then((loaded) => {
-        if (!destroyed) {
-          syncControls(loaded);
-        }
-        return loaded;
-      });
+      return settingsActions.load();
     },
     setLocale(locale: LocaleCode): void {
       setLocale(locale);

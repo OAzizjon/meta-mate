@@ -1,8 +1,8 @@
 //! Mate's page menu and session visibility. Window changes run on the event thread.
 
-use std::sync::Mutex;
 #[cfg(windows)]
 use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -49,7 +49,12 @@ pub fn hide(app: &AppHandle) {
         let Some(window) = handle.get_webview_window("mate") else {
             return;
         };
-        handle.state::<Presence>().0.lock().unwrap().hide(started);
+        handle
+            .state::<Presence>()
+            .0
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .hide(started);
         crate::show_tray_wake(&handle, true);
         let _ = window.emit("mate-hiding", serde_json::json!({ "minutes": 60 }));
         tauri::async_runtime::spawn(async move {
@@ -60,7 +65,7 @@ pub fn hide(app: &AppHandle) {
                     .state::<Presence>()
                     .0
                     .lock()
-                    .unwrap()
+                    .unwrap_or_else(PoisonError::into_inner)
                     .hide_is_current(started)
                     && let Some(window) = delayed.get_webview_window("mate")
                 {
@@ -86,7 +91,7 @@ pub fn wake(app: &AppHandle, timer: bool) {
     let _ = app.run_on_main_thread(move || {
         let show = {
             let state = handle.state::<Presence>();
-            let mut state = state.0.lock().unwrap();
+            let mut state = state.0.lock().unwrap_or_else(PoisonError::into_inner);
             if timer {
                 state.wake_if_due(Instant::now())
             } else {
@@ -149,7 +154,7 @@ pub fn mate_menu_size(window: tauri::WebviewWindow, open: bool) -> Result<(), St
         use mm_core::geom::PhysRect;
         let app = window.app_handle();
         let state = app.state::<Presence>();
-        let mut saved = state.1.lock().unwrap();
+        let mut saved = state.1.lock().unwrap_or_else(PoisonError::into_inner);
         let hwnd = window.hwnd().map_err(|error| error.to_string())?;
         if open && saved.is_none() {
             let position = window.outer_position().map_err(|error| error.to_string())?;
@@ -186,7 +191,13 @@ pub fn mate_menu_size(window: tauri::WebviewWindow, open: bool) -> Result<(), St
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(Duration::from_millis(100)).await;
-                    if handle.state::<Presence>().1.lock().unwrap().is_none() {
+                    if handle
+                        .state::<Presence>()
+                        .1
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .is_none()
+                    {
                         break;
                     }
                     if let Some((cursor, true)) = mm_win32::mouse::drag_pointer()

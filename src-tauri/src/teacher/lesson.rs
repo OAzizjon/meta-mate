@@ -584,8 +584,9 @@ pub(crate) async fn teach(
                         // conservative bound and require a fresh press after the repeat.
                         if let Some(duration) = crate::voice::phrase(&phrases, &stream.locale(), "robot.do_it_for_me")
                             .and_then(|wav| wav_duration(&wav)) {
-                            offered_at = Some(confirmation_ready_at(Instant::now(), audio_until, duration));
-                            audio_until = offered_at.unwrap() - Duration::from_millis(300);
+                            let ready = confirmation_ready_at(Instant::now(), audio_until, duration);
+                            offered_at = Some(ready);
+                            audio_until = ready - Duration::from_millis(300);
                             prompt_epoch = speech_epoch.load(Ordering::Acquire);
                             say_line(&stream, &phrases, &locale, generation, "robot.do_it_for_me");
                         } else {

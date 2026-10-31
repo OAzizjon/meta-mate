@@ -2,7 +2,7 @@
 //! items, its speech PCM, barge-in cancels and localized lines (src/ipc/answer-stream.ts
 //! is the other end). One channel keeps items and audio in order.
 
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::time::Instant;
 
 use base64::Engine;
@@ -167,7 +167,7 @@ mod model_tests {
 
 impl AnswerStream {
     pub fn attach_chat(&self, app: tauri::AppHandle) {
-        *self.chat.lock().unwrap() = Some(app);
+        *self.chat.lock().unwrap_or_else(PoisonError::into_inner) = Some(app);
     }
 
     /// Whether `generation` was cancelled (a newer press): its work must not touch the

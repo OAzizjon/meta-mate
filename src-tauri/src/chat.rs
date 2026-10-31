@@ -1,7 +1,7 @@
 //! Session chat mirrored from the answer stream; history stays in the app data folder.
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// The longest one Mate message may grow in the history.
@@ -177,13 +177,13 @@ pub(crate) fn start_request(app: &AppHandle, epoch: u64, generation: u64) -> boo
     app.state::<Chat>()
         .0
         .lock()
-        .unwrap()
+        .unwrap_or_else(PoisonError::into_inner)
         .start_request(epoch, generation)
 }
 
 pub fn init(app: &AppHandle) {
     let chat = app.state::<Chat>();
-    let mut history = chat.0.lock().unwrap();
+    let mut history = chat.0.lock().unwrap_or_else(PoisonError::into_inner);
     history.path = app
         .path()
         .app_data_dir()
@@ -252,7 +252,7 @@ pub fn chat_subscribe(
     channel: Channel<Vec<Message>>,
     chat: tauri::State<'_, Chat>,
 ) -> String {
-    let mut history = chat.0.lock().unwrap();
+    let mut history = chat.0.lock().unwrap_or_else(PoisonError::into_inner);
     let _ = channel.send(history.messages.clone());
     history.subscriber = Some(channel);
     app.state::<crate::answer_stream::AnswerStream>().locale()
@@ -270,7 +270,7 @@ pub async fn chat_send(app: AppHandle, text: String) -> Result<(), String> {
     let text = question(&text)?;
     let epoch = {
         let chat = app.state::<Chat>();
-        let mut history = chat.0.lock().unwrap();
+        let mut history = chat.0.lock().unwrap_or_else(PoisonError::into_inner);
         history.push(Role::Person, text.clone(), None);
         // Keep the session usable if the disk is unavailable.
         let _ = history.publish();
@@ -279,7 +279,7 @@ pub async fn chat_send(app: AppHandle, text: String) -> Result<(), String> {
     #[cfg(windows)]
     if !crate::voice::ask_chat(&app, text, epoch) {
         let chat = app.state::<Chat>();
-        let mut history = chat.0.lock().unwrap();
+        let mut history = chat.0.lock().unwrap_or_else(PoisonError::into_inner);
         if history.epoch != epoch {
             return Ok(());
         }
@@ -297,7 +297,7 @@ pub async fn chat_send(app: AppHandle, text: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn chat_clear(chat: tauri::State<'_, Chat>) -> Result<(), String> {
-    let mut history = chat.0.lock().unwrap();
+    let mut history = chat.0.lock().unwrap_or_else(PoisonError::into_inner);
     // Late sentences from the answer being cleared must not recreate its bubbles.
     history.clear();
     history.publish()

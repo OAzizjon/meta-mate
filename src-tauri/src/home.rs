@@ -29,7 +29,7 @@ pub(crate) fn open(app: &AppHandle) -> tauri::Result<()> {
                 .state::<crate::presence::Presence>()
                 .0
                 .lock()
-                .unwrap()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .close_home();
             if first {
                 use tauri::Emitter;
