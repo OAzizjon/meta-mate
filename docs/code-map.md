@@ -528,7 +528,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   ROBOT_STATES:5 RobotState:19 ROBOT_MOODS:21 RobotMood:22 RobotSizePreset:24 ROBOT_SIZE_PX:27 DEFAULT_ROBOT_SIZE:28 CssPoint:34
   CssRect:40 isRobotState:47 isRobotMood:51
 - src/safety-stamp.ts — "Is this safe?" (crates/mm-core/src/api/prompts.rs SAFETY_CHECK_PROMPT): the comic stamp Mate's window shows with the verdict for the length of the answer (src/mate.ts).
-  SAFETY_CHECK_EVENT:9 SafetyVerdict:11 STAMP_KEYS:20 StampState:27 nextStamp:35 stampClearOf:51
+  SAFETY_CHECK_EVENT:9 SafetyVerdict:11 STAMP_KEYS:24 StampState:30 nextStamp:37 stampClearOf:53
   tests: src/safety-stamp.test.ts (5)
 - src/settings.ts — Settings window controller (WP24): renders accessible controls for every `Settings` field using localized labels (`src/i18n`, invariant 7), loads initial state with `invoke("load_settings")`, and …
   AUTH_CHANGED_EVENT:81^ AUTH_PROVIDERS:81^ createAccountStore:81^ isAuthProvider:81^ isAuthStatus:81^ DEFAULT_SETTINGS:81^ MAX_VOICE_SPEED:81^ MIN_VOICE_SPEED:81^
@@ -876,7 +876,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `chat.*` (16 keys): src/chat.ts
 - `highlight.*` (3 keys): src/highlight.ts, src/highlight/geometry.ts
 - `home.*` (81 keys): src/home.ts, src/home/guide.ts, src/home/lessons-view.ts, src/home/profile.ts, src/mate-menu.ts, src/mate.ts
-- `mate.*` (7 keys): src/mate-menu.ts, src/mate.ts, src/safety-stamp.ts
+- `mate.*` (6 keys): src/mate-menu.ts, src/mate.ts, src/safety-stamp.ts
 - `model.*` (4 keys): src/mate.ts
 - `onboarding.*` (7 keys): src/onboarding.ts
 - `open.*` (1 keys): src/mate.ts

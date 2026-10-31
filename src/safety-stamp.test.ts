@@ -23,7 +23,8 @@ test("the first sentence's mood after <lang> is the verdict", () => {
   assert.equal(stampOf([lang]), undefined);
   assert.equal(stampOf([lang, say(mood("sad"))]), "scam");
   assert.equal(stampOf([lang, say(mood("surprised"))]), "careful");
-  assert.equal(stampOf([lang, say(mood("calm"))]), "ok");
+  // "Looks fine" gets no stamp at all (D73).
+  assert.equal(stampOf([lang, say(mood("calm"))]), null);
   // The prompt's own example: the warning first, the red flag pointed at after it.
   assert.equal(stampOf([lang, say(mood("sad")), say(point), say(), { kind: "end" }]), "scam");
 });
@@ -45,19 +46,10 @@ test("anything else first leaves no stamp, for good", () => {
   }
 });
 
-test("a later warning sign withdraws 'looks OK' but never a warning", () => {
-  for (const later of [
-    say(mood("sad")),
-    say(mood("surprised")),
-    say(point),
-    say({ kind: "step", value: { number: 1, total: 2, target: { kind: "pixel", value: [4, 5] } } }),
-    { kind: "bound", value: mood("surprised") },
-    { kind: "point_rejected" },
-  ] satisfies TimelineItem[]) {
+test("a calm first sentence never stamps; a warning stays for the answer", () => {
+  for (const later of [say(mood("sad")), say(mood("surprised")), say(point), { kind: "point_rejected" }] satisfies TimelineItem[]) {
     assert.equal(stampOf([lang, say(mood("calm")), later]), null, JSON.stringify(later));
-    assert.equal(stampOf([lang, say(mood("calm")), later, say(mood("calm"))]), null);
   }
-  assert.equal(stampOf([lang, say(mood("calm")), say(mood("happy")), say(), { kind: "end" }]), "ok");
   assert.equal(stampOf([lang, say(mood("sad")), say(mood("calm"))]), "scam");
   assert.equal(stampOf([lang, say(mood("surprised")), say(mood("sad"))]), "careful");
 });

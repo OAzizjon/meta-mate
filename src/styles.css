@@ -177,9 +177,6 @@ body {
   color: #92400e;
 }
 
-#mate-stamp[data-verdict="ok"] {
-  color: #166534;
-}
 
 @keyframes mate-stamp-down {
   from {
@@ -359,9 +356,6 @@ html.reduce-motion *,
   color: #fcd34d;
 }
 
-:root[data-theme="dark"] #mate-stamp[data-verdict="ok"] {
-  color: #86efac;
-}
 
 @media (forced-colors: active) {
   #mate-trial,

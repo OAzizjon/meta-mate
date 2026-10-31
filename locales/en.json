@@ -273,7 +273,6 @@
   "mate.explain_question": "In two short sentences, what is \"{control}\" ({type}) for in the {app} app?",
   "mate.stamp_scam": "SCAM ALERT!",
   "mate.stamp_careful": "BE CAREFUL",
-  "mate.stamp_ok": "LOOKS OK",
   "card.operation_failed": "I couldn't open or save that card. Please try again.",
   "highlight.burst_click": "CLICK!",
   "highlight.burst_nice": "NICE!",

@@ -242,14 +242,14 @@ test("no stamp without the safety event, for another answer, after a newer press
   assert.deepEqual(stampCalls(ambiguous.calls), []);
 });
 
-test("'looks OK' is withdrawn by a later warning; a cancel takes the stamp down", () => {
+test("a calm verdict shows no stamp; a cancel takes a warning stamp down", () => {
   const h = harness();
   h.router.markSafety(1);
   h.router.markSafety(1);
   h.send(sayWith("calm"));
   h.router.markSafety(1);
   h.send(sayWith("surprised"));
-  assert.deepEqual(stampCalls(h.calls), [["stamp", "ok"], ["stamp", null]]);
+  assert.deepEqual(stampCalls(h.calls), []);
   const cancelled = harness();
   cancelled.router.markSafety(1);
   cancelled.send(sayWith("surprised"));
