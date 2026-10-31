@@ -5,6 +5,17 @@
    by default; the saved Background choice sets data-theme="dark" for the dark palette, with
    Windows contrast themes and reduced motion. */
 
+/* Comic look, readable for older eyes. Rules for every window:
+   - Text always sits on a solid surface: halftone and patterns only behind
+     panels, never under text.
+   - Display or condensed fonts only for headings of 24 px and larger; body
+     text stays in the normal font at 18 px or more.
+   - Text contrast at least 4.5:1 in light and dark; tools/tests/test_theme.py
+     checks the tokens.
+   - Ink outlines at most 3 px and offset shadows at most 4 px.
+   - No decorative motion under reduced motion.
+   - One burst or onomatopoeia per view at most. */
+
 :root {
   color-scheme: light;
   --bg: #fcf9f1;
