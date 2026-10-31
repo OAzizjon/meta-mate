@@ -113,10 +113,7 @@ impl Parser {
             State::Tag(mut raw, count) => {
                 if ch == '>' {
                     self.tag(&raw);
-                } else if ch == '\n'
-                    || ch == '\r'
-                    || count + 1 >= if raw.starts_with("open ") { 206 } else { 64 }
-                {
+                } else if ch == '\n' || ch == '\r' || count + 1 >= tag_limit(&raw) {
                     self.rejected(&raw);
                     if ch == '\n' || ch == '\r' {
                         self.flush();
@@ -256,5 +253,17 @@ impl Parser {
 impl Default for Parser {
     fn default() -> Self {
         Self::new(Settings::default())
+    }
+}
+
+/// The longest tag body kept while reading: an `<open>` URL up to 200 characters, a `<show>`
+/// text up to `SHOW_MAX` (three example questions for "What can you do?"), anything else 64.
+fn tag_limit(raw: &str) -> usize {
+    if raw.starts_with("open ") {
+        206
+    } else if raw.starts_with("show ") {
+        super::tags::SHOW_MAX + 6
+    } else {
+        64
     }
 }

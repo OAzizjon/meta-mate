@@ -1,8 +1,11 @@
-"""mm probe models|stream|click|sam|asr|safety|point|ledger
+"""mm probe models|stream|chat|click|sam|asr|safety|point|ledger
     mm probe models [--provider P] [--model M] [--timeout S] [--budget USD]
                     [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT]
     mm probe stream QUESTION [--provider P] [--model M] [--timeout S] [--budget USD]
                     [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] [--max-tokens N]
+    mm probe chat QUESTION [--lang en|ru] [--name NAME] [--about TEXT]
+                   [--model muse-spark-1.3|muse-wonder-1.0] [--reasoning EFFORT]
+                   [--repeat N] [--budget USD]
     mm probe click FIXTURE QUESTION [--provider P] [--model M] [--timeout S] [--budget USD]
                    [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT]
                    [--max-edge PX] [--dry-run] [--mode computer|point]
@@ -25,6 +28,11 @@ The Meta Model API from the lead's machine (never from the agents' copies).
         the model ids the key can use (confirm the names at the kickoff)
     mm probe stream "QUESTION" [--model M] [--provider ...] [--max-tokens N]
         stream one answer: print it live, then time to first token, total time, tokens, cost
+    mm probe chat "QUESTION" [--lang ru] [--name NAME] [--about TEXT] [--repeat N]
+        the app's real chat request (mm-core chat_request; THE PERSON with --name/--about),
+        streamed like `mm probe stream`: the raw MateScript answer, then the parsed items
+        (sentences, <show>, <open>, moods, sounds) and timings/tokens; --repeat N prints
+        a compact table instead (sentence count, has <show>, name used, length)
     mm probe click FIXTURE "QUESTION" [--max-edge PX] [--model M] [--provider ...] [--dry-run]
         one computer-use turn on fixtures/uia/FIXTURE.png; the model's click is mapped back to
         the fixture's UI Automation tree, and the element it hit is named
@@ -800,6 +808,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument('question')
     sp.add_argument('--max-tokens', type=int, default=400)
     sp.set_defaults(func=cmd_stream)
+    from mm_probe_chat import add_parser as add_chat_parser
+    add_chat_parser(sub)
     sp = sub.add_parser('click', parents=[common])
     sp.add_argument('fixture')
     sp.add_argument('question')

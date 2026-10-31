@@ -6,6 +6,9 @@ pub(super) enum Tag {
     Item(Item),
 }
 
+/// The longest `<show>` text: room for three short example questions (the capability answer).
+pub(super) const SHOW_MAX: usize = 120;
+
 pub(super) fn parse(raw: &str, settings: &Settings, sfx_count: &mut usize) -> Option<Tag> {
     let (name, payload) = raw.split_once(' ').unwrap_or((raw, ""));
     if !(2..=6).contains(&name.len()) || !name.bytes().all(|b| b.is_ascii_lowercase()) {
@@ -13,7 +16,7 @@ pub(super) fn parse(raw: &str, settings: &Settings, sfx_count: &mut usize) -> Op
     }
     if name == "show" {
         return (!payload.is_empty()
-            && payload.chars().count() <= 64
+            && payload.chars().count() <= SHOW_MAX
             && !payload.contains(['<', '>', '\n', '\r']))
         .then(|| Tag::Bound(Bound::Show(payload.into())));
     }

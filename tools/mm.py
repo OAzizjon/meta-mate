@@ -24,9 +24,10 @@
     mm agents [status|stats]       the drafting team's queue (team.py)
     mm keys SOURCE_DIR [--apply]   copy the keys named in env_keys_names.txt from another project's
                                    secrets file into this one; prints names only, never values
-    mm probe models|stream|click|sam|asr|safety|point|ledger
+    mm probe models|stream|chat|click|sam|asr|safety|point|ledger
                                    the Meta Model API from this machine: stream an answer with timings and
-                                   cost, or one computer-use turn on a fixture with the element it hit
+                                   cost, ask the app's real chat question (raw answer + parsed MateScript
+                                   items), or one computer-use turn on a fixture with the element it hit
                                    (tools/mm_probe.py; reads the keys, never prints them)
     mm where TERM [--all] [--limit N] [--json]
                                    where a name is defined and used across Rust, TS, Python, locales
@@ -41,8 +42,13 @@
                                    markers, UI strings outside the locales, secrets (default: git diff)
     mm contracts [--verbose]       Rust <-> TypeScript contracts: commands registered and called with
                                    the right argument names, events emitted and listened, locale keys
-    mm agent check [--only CHECKS]|test|where|cite|map|stats|difflint|contracts|shot
+    mm locales merge PATCH [--dry-run] [--theirs] [--locales-only]
+                                   the locale keys a patch adds, merged key by key (no end-of-file
+                                   git conflicts), then the rest of the patch via git apply
+    mm locales add KEY EN RU       add one key to locales/en.json and locales/ru.json, both at once
+    mm agent check [--only CHECKS]|test|locales add KEY EN RU|where|cite|map|stats|difflint|contracts|shot
                                    the restricted set for sandboxed agents: offline, no secrets, no GUI
+                                   (agent locales is add-only: it writes nothing outside locales/)
 
 Agent mode is forced when MM_AGENT=1, when the project has no .git folder (the drafting agents'
 copies never contain one) or when it runs inside ~/.cache/draft-agents/sandboxes: every command
@@ -412,6 +418,12 @@ def cmd_test(args, agent=False):
 def cmd_agent(args):
     if args.what == 'check':
         return cmd_check(args, agent=True)
+    if args.what == 'locales':
+        # Agent mode allows only `mm agent locales add`: it writes nothing outside locales/.
+        if not args.rest or args.rest[0] != 'add':
+            print("mm agent locales: only 'add' is allowed in agent mode (it writes locales/ only).")
+            return 2
+        return _run_tool('locales', args.rest)
     if args.what in TOOL_MODULES:
         return _run_tool(args.what, args.rest)
     return cmd_test(args, agent=True)
@@ -420,7 +432,8 @@ def cmd_agent(args):
 # --- code tools: where, cite, map, stats (tools/mm_*.py) -----------------------
 
 TOOL_MODULES = {'where': 'mm_where', 'cite': 'mm_cite', 'map': 'mm_map', 'stats': 'mm_stats',
-                'difflint': 'mm_difflint', 'contracts': 'mm_contracts', 'shot': 'mm_shot'}
+                'difflint': 'mm_difflint', 'contracts': 'mm_contracts', 'shot': 'mm_shot',
+                'locales': 'mm_locales'}
 
 
 def _run_tool(name, rest):
@@ -883,10 +896,11 @@ def build_parser():
                        ('stats', 'code, tests, churn and agent numbers'),
                        ('difflint', "leftovers in a patch's added lines"),
                        ('contracts', 'Rust <-> TypeScript contracts: commands, arguments, events, keys'),
-                       ('shot', 'render WebView pages to PNG without Tauri (mock IPC, headless Edge)')):
+                       ('shot', 'render WebView pages to PNG without Tauri (mock IPC, headless Edge)'),
+                       ('locales', 'merge locale keys from a patch / add one key')):
         sp = sub.add_parser(name, help=text, add_help=False)
         sp.add_argument('rest', nargs=argparse.REMAINDER)
-    sp = sub.add_parser('probe', help='Meta API probe: models | stream | click | sam | asr | safety DIR | point DIR | ledger (uses keys)',
+    sp = sub.add_parser('probe', help='Meta API probe: models | stream | chat | click | sam | asr | safety DIR | point DIR | ledger (uses keys)',
                         add_help=False)
     sp.add_argument('rest', nargs=argparse.REMAINDER)
     return p

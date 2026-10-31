@@ -73,7 +73,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - crates/mm-core/src/matescript/settings.rs — Sound policy selected by the user, independently of the robot's mood.
   Mode:3 Settings:13
 - crates/mm-core/src/matescript/tags.rs
-  Tag:4 parse:9
+  Tag:4 SHOW_MAX:10 parse:12
 - crates/mm-core/src/matescript/timeline.rs — Playback volume for a sound or ambience bed.
   Level:8 Sound:19 Point:32 Step:41 Bound:53 Say:83 Item:107
 - crates/mm-core/src/matescript/vocabulary.rs
@@ -279,7 +279,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   TRY_QUESTIONS:6 open:10 open_home:49 home_try:87
   inline tests (2)
 - src-tauri/src/lib.rs — MetaMate's Tauri shell: wiring only, no business logic (docs/project-structure.md).
-  run:60 show_tray_wake:299 refresh_tray_labels:418 refresh_tray_tooltip:444 locale_text:527
+  run:60 show_tray_wake:298 refresh_tray_labels:417 refresh_tray_tooltip:443 locale_text:526
   inline tests (1)
 - src-tauri/src/main.rs
 - src-tauri/src/mic.rs — Microphone capture while push-to-talk is held (docs/architecture.md section 2).
@@ -580,9 +580,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:118 first_line:133 agent_mode_reason:137 say:149 cmd_doctor:186 plan_sections:252 cmd_plan:275 cmd_status:302
-  cmd_check:350 cmd_test:374 cmd_agent:417 cmd_tool:449 cmd_release:455 cmd_uia:561 cmd_art:595 cmd_sounds:643
-  cmd_phrases:685 cmd_agents:698 wanted_key_names:711 parse_env:719 cmd_keys:774 build_parser:853 cmd_probe:908 main:924
+  run:119 first_line:134 agent_mode_reason:138 say:150 cmd_doctor:187 plan_sections:253 cmd_plan:276 cmd_status:303
+  cmd_check:351 cmd_test:375 cmd_agent:418 cmd_tool:450 cmd_release:456 cmd_uia:562 cmd_art:596 cmd_sounds:644
+  cmd_phrases:686 cmd_agents:699 wanted_key_names:712 parse_env:720 cmd_keys:775 build_parser:854 cmd_probe:909 main:925
   tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
@@ -603,17 +603,20 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Fixture:21 load_fixture:40 unsafe_reason:71 FrameMap:93 element_list:140 Hit:156 hit_test:162 describe:178
   tests: tools/tests/test_mm_fixture.py (12)
 - tools/mm_locales.py — mm_locales: safe edits to the locale files, for the lead and for agents.
-  parse_patch:59 insert_key:107 cmd_merge:194 cmd_add:268 build_parser:298 main:316
-  tests: tools/tests/test_mm_locales.py (27)
+  parse_patch:59 insert_key:107 cmd_merge:197 cmd_add:271 build_parser:301 main:319
+  tests: tools/tests/test_mm_locales.py (28)
 - tools/mm_map.py — Write docs/code-map.md: where things live, for agents that read files but have no shell.
   is_secret:25 mask:176 Source:267 Project:285 summary:346 outline:471 render:910 main:954
   tests: tools/tests/test_mm_map.py (21)
-- tools/mm_probe.py — mm probe models|stream|click|sam|asr|safety|point|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe …
-  ProbeError:113 is_plain_file:130 read_secret:141 scrub:157 provider_config:170 iter_sse:244 output_text:263 computer_actions:273
-  point_actions:298 action_points:321 usage_tokens:333 cost_usd:338 ledger_total:367 ledger_unpriced:371 ledger_add:375 guard_budget:381
-  record:393 report:403 multipart:413 wav_info:425 cmd_asr:437 cmd_models:473 add_reasoning:481 cmd_stream:488
-  verdict:563 computer_tool:574 png_size:580 cmd_click:591 cmd_sam:688 cmd_ledger:764 build_parser:786 main:830
+- tools/mm_probe.py — mm probe models|stream|chat|click|sam|asr|safety|point|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe …
+  ProbeError:121 is_plain_file:138 read_secret:149 scrub:165 provider_config:178 iter_sse:252 output_text:271 computer_actions:281
+  point_actions:306 action_points:329 usage_tokens:341 cost_usd:346 ledger_total:375 ledger_unpriced:379 ledger_add:383 guard_budget:389
+  record:401 report:411 multipart:421 wav_info:433 cmd_asr:445 cmd_models:481 add_reasoning:489 cmd_stream:496
+  verdict:571 computer_tool:582 png_size:588 cmd_click:599 cmd_sam:696 cmd_ledger:772 build_parser:794 main:840
   tests: tools/tests/test_mm_probe.py (25)
+- tools/mm_probe_chat.py — `mm probe chat` (loaded by tools/mm_probe.py like mm_probe_safety/mm_probe_point).
+  add_parser:27 chat_request_body:66 matescript_items:80 kind_of:89 describe_items:96 format_table:105 cmd_chat:152
+  tests: tools/tests/test_mm_probe_chat.py (8)
 - tools/mm_probe_point.py — Pointing benchmark: synthetic fixtures, real app requests and MateScript parsing.
   PageParser:21 validate:38 load_pages:75 rust:107 prepare:116 score:138 evaluate:158 exchange:166
   aggregate:183 write_report:209 cmd_point:236 add_parser:244
@@ -718,7 +721,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `open_answer_target` src-tauri/src/opening.rs:16 <- src/mate.ts:317
 - `open_chat` src-tauri/src/chat.rs:275 <- src/home.ts:450, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
-- `open_settings_window` src-tauri/src/lib.rs:490 <- src/home.ts:32, src/mate-menu.ts:7
+- `open_settings_window` src-tauri/src/lib.rs:489 <- src/home.ts:32, src/mate-menu.ts:7
 - `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:265
 - `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:468, src/mate-menu.ts:11
 - `report_playback` src-tauri/src/answer_stream.rs:340 <- src/ipc/answer-stream.ts:284
@@ -860,17 +863,17 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:138; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
 - `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:137; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
 - `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:96
-- `tray.chat`: rs src-tauri/src/lib.rs:282; ts src/mate-menu.ts:5
-- `tray.hide_hour`: rs src-tauri/src/lib.rs:348,401; ts src/mate-menu.ts:9
-- `tray.open_home`: rs src-tauri/src/lib.rs:281
-- `tray.quit`: rs src-tauri/src/lib.rs:341,403
-- `tray.settings`: rs src-tauri/src/lib.rs:334,400,510; ts src/home.ts:452, src/mate-menu.ts:7, src/settings.ts:335,337
-- `tray.tooltip`: rs src-tauri/src/lib.rs:439
+- `tray.chat`: rs src-tauri/src/lib.rs:281; ts src/mate-menu.ts:5
+- `tray.hide_hour`: rs src-tauri/src/lib.rs:347,400; ts src/mate-menu.ts:9
+- `tray.open_home`: rs src-tauri/src/lib.rs:280
+- `tray.quit`: rs src-tauri/src/lib.rs:340,402
+- `tray.settings`: rs src-tauri/src/lib.rs:333,399,509; ts src/home.ts:452, src/mate-menu.ts:7, src/settings.ts:335,337
+- `tray.tooltip`: rs src-tauri/src/lib.rs:438
 - `tray.try_bigger`: rs src-tauri/src/home.rs:6,74; ts src/home.ts:38,46
 - `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:37,45
 - `tray.try_search`: rs src-tauri/src/home.rs:6; ts src/home.ts:36,44
-- `tray.try_title`: rs src-tauri/src/lib.rs:365,427
-- `tray.wake`: rs src-tauri/src/lib.rs:355,402
+- `tray.try_title`: rs src-tauri/src/lib.rs:364,426
+- `tray.wake`: rs src-tauri/src/lib.rs:354,401
 - `auth.*` (10 keys): src/settings/account-view.ts, src/settings/account.ts, src/signin.ts
 - `card.*` (11 keys): src/card.ts
 - `chat.*` (16 keys): src/chat.ts
@@ -911,6 +914,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 62 | 11 |
 | src-tauri | 197 | 20 |
 | src | 323 | 32 |
-| tools | 365 | 22 |
+| tools | 374 | 23 |
 | server | 94 | 4 |
 | tts | 27 | 2 |
