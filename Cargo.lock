@@ -2150,6 +2150,7 @@ dependencies = [
  "mm-core",
  "mm-platform",
  "mm-win32",
+ "png",
  "reqwest",
  "ringbuf",
  "serde",

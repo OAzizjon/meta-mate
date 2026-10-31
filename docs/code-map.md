@@ -23,7 +23,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   intent:4 profile:5 request:7 response:8 sam:9 sse:10
 - crates/mm-core/src/api/profile.rs — Settings data included only in a person's model request.
   Profile:8 Profile::sanitized:23 with_profile:69
-  inline tests (2)
+  inline tests (3)
 - crates/mm-core/src/api/prompts.rs — The prompt texts (docs/prompts.md, D41) that the builders in api/request.rs send as `instructions`: model input, not UI text, so invariant 7 does not apply.
   PERSONA_PROMPT:8 SCREEN_PROMPT:44 NO_SCREEN_PROMPT:53 SAFETY_PROMPT:60 EXAMPLES_PROMPT:68 SCREEN_EXAMPLE_PROMPT:81 SAFETY_CHECK_PROMPT:89 TEACHER_PROMPT:108
   inline tests (1)
@@ -252,8 +252,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   CardNote:31^ MAX_STEPS:40 PendingCard:64 init:67 make:112 without_tags:320 cards_list:492 card_show:502
   card_save_captioned:528 cards_open_folder:541 selftest:559
 - src-tauri/src/card_notes.rs — Versioned keepsake sidecars; paths come only from validated local stems.
-  SavedCard:17 CardNote:28 valid_id:40 load:87 image:108 list:115 save:179 decode_png:225
-  save_captioned:238 ensure_folder:246
+  SavedCard:17 CardNote:28 valid_id:40 load:87 image:108 list:181 save:253 decode_png:301
+  save_captioned:314 ensure_folder:324
 - src-tauri/src/card_tests.rs
 - src-tauri/src/chat.rs — Session chat mirrored from the answer stream; history stays in the app data folder.
   Message:26 Chat:55 start_request:215 init:223 record:239 open:248 open_chat:275 chat_subscribe:289
@@ -894,10 +894,10 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 278 | 36 |
+| crates/mm-core | 279 | 36 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
-| src-tauri | 193 | 20 |
+| src-tauri | 196 | 20 |
 | src | 315 | 31 |
 | tools | 304 | 20 |
 | server | 94 | 4 |

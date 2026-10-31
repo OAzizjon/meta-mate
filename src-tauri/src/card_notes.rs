@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 const PNG_LIMIT: usize = 8 * 1024 * 1024;
-const THUMB_LIMIT: usize = 2 * 1024 * 1024;
+const THUMB_LIMIT: usize = 256 * 1024;
 const JSON_LIMIT: usize = 64 * 1024;
 const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
 static NEXT_TEMP: AtomicU64 = AtomicU64::new(0);
@@ -112,6 +112,72 @@ pub(super) fn image(folder: &Path, card: &SavedCard, limit: usize) -> Option<Str
         .then(|| super::data_url(&bytes))
 }
 
+fn thumbnail(bytes: &[u8]) -> io::Result<Vec<u8>> {
+    let mut decoder = png::Decoder::new(io::Cursor::new(bytes));
+    decoder.set_limits(png::Limits {
+        bytes: 32 * 1024 * 1024,
+    });
+    decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut reader = decoder.read_info().map_err(|_| invalid())?;
+    let size = reader.output_buffer_size().ok_or_else(invalid)?;
+    if size > 32 * 1024 * 1024 {
+        return Err(invalid());
+    }
+    let mut pixels = vec![0; size];
+    let info = reader.next_frame(&mut pixels).map_err(|_| invalid())?;
+    let (width, height) = (info.width as usize, info.height as usize);
+    let out_width = width.min(360);
+    let out_height = (height * out_width / width).max(1);
+    let channels = info.color_type.samples();
+    let mut scaled = vec![0; out_width * out_height * channels];
+    for y in 0..out_height {
+        for x in 0..out_width {
+            let (left, right) = (x * width / out_width, (x + 1) * width / out_width);
+            let (top, bottom) = (y * height / out_height, (y + 1) * height / out_height);
+            for channel in 0..channels {
+                let mut sum = 0u64;
+                for sy in top..bottom {
+                    for sx in left..right {
+                        sum += pixels[(sy * width + sx) * channels + channel] as u64;
+                    }
+                }
+                scaled[(y * out_width + x) * channels + channel] =
+                    (sum / ((right - left) * (bottom - top)) as u64) as u8;
+            }
+        }
+    }
+    let mut bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut bytes, out_width as u32, out_height as u32);
+        encoder.set_color(info.color_type);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder
+            .write_header()
+            .map_err(|_| invalid())?
+            .write_image_data(&scaled)
+            .map_err(|_| invalid())?;
+    }
+    Ok(bytes)
+}
+
+fn thumb(folder: &Path, card: &SavedCard, remaining: &mut usize) -> Option<String> {
+    card.image.as_ref()?;
+    let name = format!("{}.thumb.png", card.id);
+    if fs::symlink_metadata(folder.join(&name))
+        .is_err_and(|error| error.kind() == io::ErrorKind::NotFound)
+        && *remaining > 0
+    {
+        *remaining -= 1;
+        let bytes = bounded(folder, card.image.as_ref()?, PNG_LIMIT).ok()?;
+        let bytes = thumbnail(&bytes).ok()?;
+        atomic(folder, &name, &bytes).ok()?;
+    }
+    let bytes = bounded(folder, &name, THUMB_LIMIT).ok()?;
+    bytes
+        .starts_with(PNG_SIGNATURE)
+        .then(|| super::data_url(&bytes))
+}
+
 pub(super) fn list(folder: &Path) -> Vec<CardNote> {
     if regular(folder, true).is_err() {
         return Vec::new();
@@ -119,22 +185,30 @@ pub(super) fn list(folder: &Path) -> Vec<CardNote> {
     let Ok(entries) = fs::read_dir(folder) else {
         return Vec::new();
     };
-    let mut cards: Vec<_> = entries
+    let mut paths: Vec<_> = entries
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let path = entry.path();
             if path.extension()?.to_str()? != "json" {
                 return None;
             }
-            load(folder, path.file_stem()?.to_str()?).ok()
+            let modified = fs::symlink_metadata(&path).ok()?.modified().ok()?;
+            Some((modified, path))
         })
         .collect();
+    paths.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)));
+    let mut cards: Vec<_> = paths
+        .into_iter()
+        .take(200)
+        .filter_map(|(_, path)| load(folder, path.file_stem()?.to_str()?).ok())
+        .collect();
     cards.sort_by(|a, b| b.created.cmp(&a.created).then_with(|| b.id.cmp(&a.id)));
+    let mut remaining = 6;
     cards
         .into_iter()
         .take(60)
         .map(|card| {
-            let thumb = image(folder, &card, THUMB_LIMIT);
+            let thumb = thumb(folder, &card, &mut remaining);
             CardNote {
                 id: card.id,
                 title: card.title,
@@ -209,8 +283,10 @@ pub(super) fn save(
         drop(file);
         if let Some(png) =
             png.filter(|png| png.len() <= PNG_LIMIT && png.starts_with(PNG_SIGNATURE))
+            && let Ok(thumb) = thumbnail(png)
             && atomic(folder, &format!("{}.png", card.id), png).is_ok()
         {
+            atomic(folder, &format!("{}.thumb.png", card.id), &thumb)?;
             card.image = Some(format!("{}.png", card.id));
             atomic(folder, &format!("{}.json", card.id), &json(&card)?)?;
         }
@@ -238,7 +314,9 @@ pub(super) fn decode_png(encoded: &str) -> io::Result<Vec<u8>> {
 pub(super) fn save_captioned(folder: &Path, id: &str, encoded: &str) -> io::Result<()> {
     let mut card = load(folder, id)?;
     let bytes = decode_png(encoded)?;
+    let thumb = thumbnail(&bytes)?;
     atomic(folder, &format!("{id}.png"), &bytes)?;
+    atomic(folder, &format!("{id}.thumb.png"), &thumb)?;
     card.image = Some(format!("{id}.png"));
     atomic(folder, &format!("{id}.json"), &json(&card)?)
 }

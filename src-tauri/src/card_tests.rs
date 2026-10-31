@@ -316,16 +316,19 @@ fn sidecars_round_trip_text_and_captioned_images() {
     assert_eq!(loaded.question, "How do I make text bigger?");
     assert_eq!(loaded.steps, vec!["Open Settings."]);
     assert!(loaded.image.is_none());
-    let png = b"\x89PNG\r\n\x1a\ncaptioned";
-    let encoded = base64::engine::general_purpose::STANDARD.encode(png);
+    let png = test_png(1200, 1600, 80);
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&png);
     notes::save_captioned(&dir, &saved.id, &encoded).unwrap();
     notes::save_captioned(&dir, &saved.id, &encoded).unwrap();
     let loaded = notes::load(&dir, &saved.id).unwrap();
     assert_eq!(loaded.image.as_deref(), Some("text.png"));
     assert_eq!(fs::read(dir.join("text.png")).unwrap(), png);
+    let thumb = fs::read(dir.join("text.thumb.png")).unwrap();
+    assert_png_size(&thumb, 360, 480);
+    assert_eq!(notes::list(&dir)[0].thumb, Some(data_url(&thumb)));
     assert_eq!(
-        notes::list(&dir)[0].thumb.as_deref(),
-        Some(data_url(png).as_str())
+        notes::image(&dir, &loaded, PNG_MAX_BYTES),
+        Some(data_url(&png))
     );
     assert!(notes::save_captioned(&dir, "missing", &encoded).is_err());
     let _ = fs::remove_dir_all(dir);
@@ -364,8 +367,9 @@ fn cards_list_is_newest_first_capped_and_omits_large_thumbnails() {
     let mut card = notes::load(&dir, "card-64").unwrap();
     card.image = Some("card-64.png".into());
     let mut png = b"\x89PNG\r\n\x1a\n".to_vec();
-    png.resize(2 * 1024 * 1024 + 1, 0);
-    fs::write(dir.join("card-64.png"), png).unwrap();
+    png.resize(256 * 1024 + 1, 0);
+    fs::write(dir.join("card-64.thumb.png"), png).unwrap();
+    fs::write(dir.join("card-64.png"), test_png(90, 120, 100)).unwrap();
     fs::write(dir.join("card-64.json"), serde_json::to_vec(&card).unwrap()).unwrap();
     fs::write(dir.join("broken.json"), b"not json").unwrap();
     let cards = notes::list(&dir);
@@ -373,5 +377,102 @@ fn cards_list_is_newest_first_capped_and_omits_large_thumbnails() {
     assert_eq!(cards.first().unwrap().created, 64);
     assert_eq!(cards.last().unwrap().created, 5);
     assert!(cards[0].thumb.is_none());
+    let _ = fs::remove_dir_all(dir);
+}
+
+fn test_png(width: u32, height: u32, value: u8) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut bytes, width, height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder
+            .write_header()
+            .unwrap()
+            .write_image_data(&vec![value; (width * height * 4) as usize])
+            .unwrap();
+    }
+    bytes
+}
+
+fn assert_png_size(bytes: &[u8], width: u32, height: u32) {
+    let reader = png::Decoder::new(std::io::Cursor::new(bytes))
+        .read_info()
+        .unwrap();
+    assert_eq!((reader.info().width, reader.info().height), (width, height));
+}
+
+#[test]
+fn first_save_downscales_and_captioning_replaces_the_thumbnail() {
+    let dir = folder("thumbnails");
+    let png = test_png(720, 960, 120);
+    notes::save(&dir, "card", saved_card(1), Some(&png)).unwrap();
+    let thumb = fs::read(dir.join("card.thumb.png")).unwrap();
+    assert_png_size(&thumb, 360, 480);
+    assert_eq!(fs::read(dir.join("card.png")).unwrap(), png);
+    let small = test_png(90, 120, 200);
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&small);
+    notes::save_captioned(&dir, "card", &encoded).unwrap();
+    let replaced = fs::read(dir.join("card.thumb.png")).unwrap();
+    assert_png_size(&replaced, 90, 120);
+    assert_ne!(replaced, thumb);
+    assert_eq!(notes::list(&dir)[0].thumb, Some(data_url(&replaced)));
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn legacy_thumbnails_are_generated_for_only_six_cards_per_call() {
+    let dir = folder("legacy-thumbnails");
+    let png = test_png(720, 960, 100);
+    for created in 0..8 {
+        let id = format!("card-{created}");
+        let card = notes::save(&dir, &id, saved_card(created), None).unwrap();
+        let mut card = notes::load(&dir, &card.id).unwrap();
+        card.image = Some(format!("{id}.png"));
+        fs::write(dir.join(format!("{id}.png")), &png).unwrap();
+        fs::write(
+            dir.join(format!("{id}.json")),
+            serde_json::to_vec(&card).unwrap(),
+        )
+        .unwrap();
+    }
+    let cards = notes::list(&dir);
+    assert_eq!(cards.iter().filter(|card| card.thumb.is_some()).count(), 6);
+    assert!(cards[6].thumb.is_none());
+    assert!(!dir.join("card-1.thumb.png").exists());
+    assert_eq!(
+        notes::list(&dir)
+            .iter()
+            .filter(|card| card.thumb.is_some())
+            .count(),
+        8
+    );
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[test]
+fn only_the_newest_200_json_files_are_parsed() {
+    let dir = folder("json-budget");
+    notes::save(&dir, "old", saved_card(999), None).unwrap();
+    let epoch = UNIX_EPOCH + Duration::from_secs(1_700_000_000);
+    let set_modified = |path: PathBuf, time| {
+        fs::File::options()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(time))
+            .unwrap();
+    };
+    set_modified(dir.join("old.json"), epoch);
+    notes::save(&dir, "new", saved_card(1), None).unwrap();
+    set_modified(dir.join("new.json"), epoch + Duration::from_secs(2));
+    for index in 0..199 {
+        let path = dir.join(format!("broken-{index}.json"));
+        fs::write(&path, b"not json").unwrap();
+        set_modified(path, epoch + Duration::from_secs(1));
+    }
+    let cards = notes::list(&dir);
+    assert_eq!(cards.len(), 1);
+    assert_eq!(cards[0].id, "new");
     let _ = fs::remove_dir_all(dir);
 }
