@@ -51,7 +51,7 @@ npm ci
 
 After checks and git status, the command resolves Cargo's target directory with offline metadata, runs `npm run build`, then `npx tauri build --bundles nsis --target x86_64-pc-windows-msvc`. It overrides Tauri's `beforeBuildCommand` for this invocation because the frontend has already been built. It prints the produced installer's full path, size in bytes and SHA-256. A failed command or missing installer returns a non-zero exit code; an unchanged installer left by an earlier build does not count as a produced artifact.
 
-The MetaMate setup executable is under `target/x86_64-pc-windows-msvc/release/bundle/nsis/` (or the equivalent in Cargo's configured target directory, including `CARGO_TARGET_DIR`). Product name and existing icons come from `src-tauri/tauri.conf.json`. The release build embeds the hosted proxy URL and capped judge invite (`METAMATE_PROXY_URL` and `METAMATE_INVITE` via `option_env!`; D51) so that the resulting installer works out-of-the-box for judges with zero configuration. NSIS installs for the current user without administrator rights and offers English and Russian. It does not register Start with Windows; that setting remains store only. Audio autoplay is already configured in `overlay.rs`.
+The MetaMate setup executable is under `target/x86_64-pc-windows-msvc/release/bundle/nsis/` (or the equivalent in Cargo's configured target directory, including `CARGO_TARGET_DIR`). Product name and existing icons come from `src-tauri/tauri.conf.json`. The release build needs both `METAMATE_PROXY_URL` and `METAMATE_INVITE` at build time (`option_env!`; D51, `mm release` refuses without them), but the installed app never sends that invite: it starts on the guest trial and works out of the box for judges with zero configuration (D58). NSIS installs for the current user without administrator rights and offers English and Russian. It does not register Start with Windows; that setting remains store only. Audio autoplay is already configured in `overlay.rs`.
 
 `offlineInstaller` embeds the full WebView2 runtime installer, increasing the download size substantially. Both downloaded and embedded bootstrappers still fetch the runtime from the internet, so neither supports a judge installing offline. The build machine needs network access to fetch bundler tools and the runtime unless already cached; installation needs no network. MetaMate's cloud answers still require network access.
 
@@ -62,7 +62,7 @@ Before handing the installer to judges, the lead must verify on a real build:
 - Install as a standard user without UAC, on a clean x64 Windows profile with network disabled and no WebView2 runtime; launch successfully after runtime installation.
 - Check both language choices in setup and uninstall, the existing app icons, and playback on first launch. Confirm no Startup entry or Run registry value is created, including after saving Start with Windows.
 - Save settings, uninstall with the deletion box untouched, and reinstall: settings must survive. Repeat with the box checked: the app's config folder must be removed. Verify an upgrade preserves settings too. These checks must confirm the pinned CLI's standard-template checkbox behavior before release.
-- Document the unsigned installer's SmartScreen steps (**More info** → **Run anyway**); then verify the zero-config judge path (holding Right Ctrl to ask with no account, keys, or invite codes required; optional Google/GitHub sign-in in Settings).
+- Document the unsigned installer's SmartScreen steps (**More info** → **Run anyway**); then verify the zero-config judge path (holding Right Ctrl to ask with no account, keys, or invite codes required; optional sign-in in Settings with the providers the proxy enables).
 
 ## Judge path (Windows 10/11 x64)
 
@@ -75,7 +75,7 @@ MetaMate supports Windows 10 and 11 x64 only. The evaluation path is designed to
    - Complete setup (NSIS installs for the current user without administrator privileges or UAC elevation).
 
 2. **Zero-configuration evaluation (no account, keys, or invite codes)**:
-   - The release installer is built for our hosted proxy and includes a capped judge invite (`METAMATE_PROXY_URL` and `METAMATE_INVITE` embedded at build time per D51).
+   - The release installer is built for our hosted proxy (`METAMATE_PROXY_URL` and `METAMATE_INVITE` embedded at build time per D51). The installed app never answers on the built-in invite (`invite_for_proxy` clears it): without an account it runs the guest trial, 12 messages an hour counted by the proxy (D58).
    - A judge installs, clicks **Try without signing in** in the sign-in window, holds **Right Ctrl**, and asks aloud—with no account, no API keys, and no invite codes required.
    - Live speech recognition: Muse Voice Transcribe opens its WebSocket at key-down and delivers the final transcript 250–360 ms after key-up, rendering live text in Mate's speech bubble.
    - Spoken answers and beam pointing: Mate responds aloud using MMS-TTS (90–110 ms GPU synthesis per sentence on a Modal T4), flies beside the target control in any app, and shines his beam on the right button.
@@ -83,7 +83,7 @@ MetaMate supports Windows 10 and 11 x64 only. The evaluation path is designed to
 
 3. **Step-by-step teaching & model escalation**:
    - For "how do I..." requests, Mate guides the user step by step while the user clicks each step themselves (Mate never clicks Pay, Delete, or passwords).
-   - If Mate misses twice on Quick (`muse-spark-1.3`), he automatically escalates to Muse Wonder 1.0.
+   - If the person clicks away from the beam twice on Quick (`muse-spark-1.3`), Mate automatically hands the next step to Muse Wonder 1.0, then returns to Quick.
    - Keepsake lesson cards: when a lesson finishes, Muse Glimmer 30B (Meta open weights on a Modal L4 GPU, ~15 tokens/s) writes simplified steps and a scene description when its GPU answers; Muse Image renders an accompanying gouache picture without text. The card window displays the text and image with Print and Close buttons.
 
 4. **"Is this safe?" scam check**:
@@ -91,10 +91,9 @@ MetaMate supports Windows 10 and 11 x64 only. The evaluation path is designed to
    - Mate inspects only the target window, gives a verdict with red flags, and shines his flashlight beam on the worst red flag. He never tells anyone to click, call, or pay.
    - Privacy guarantee: only the active target window is captured, passwords and non-target regions are painted black on the client, and inspection fails closed if safety cannot be guaranteed.
 
-5. **Optional Google / GitHub sign-in**:
-   - Account sign-in is optional (D54).
-   - Judges evaluate under the pre-configured capped judge invite out of the box.
-   - If a judge or tester wants their own personal daily allowance, they can right-click Mate's tray icon, open **Settings**, and sign in with Google or GitHub.
+5. **Optional sign-in**:
+   - Signing in is optional while the guest trial lasts (D54, D58); when its 12 answers for the hour are used up, the sign-in window opens.
+   - If a judge or tester wants their own personal daily allowance, they can right-click Mate's tray icon, open **Settings**, and sign in. The sign-in window and Settings show only the providers the proxy enables (Google; GitHub once it is configured on the proxy).
 
 ## Chosen helper tools (why each one earns its place)
 

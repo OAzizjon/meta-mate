@@ -1,6 +1,6 @@
 # MetaMate
 
-**Ask out loud how to do something on your PC. Mate, a small light bulb on your desktop, answers aloud, shines his beam on the exact button to click, and presses it only when you ask and say yes.** Made for older people and anyone lost in an unfamiliar app; built on Meta models (Muse Spark, Muse Voice Transcribe, SAM 3.1, MMS-TTS).
+**Ask out loud how to do something on your PC. Mate, a small light bulb on your desktop, answers aloud and shines his beam on the exact button so you can click it yourself. He presses a button only when you ask and say yes, and never Pay, Delete, money transfer or password buttons.** Made for older people and anyone lost in an unfamiliar app; built on seven Meta models (Muse Spark 1.3, Muse Wonder 1.0, Muse Voice Transcribe, SAM 3.1, MMS-TTS, Muse Image, Muse Glimmer 30B).
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
@@ -35,7 +35,7 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 - **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it.
 - **Spotlight:** While Mate points, the rest of the screen dims around a soft opening on the target, so the button stands out even in a small video call window (`src/highlight.ts`; Settings: "Dim the rest of the screen while I point").
 - **X-ray look:** While Mate thinks, faint outlines sweep top to bottom over the elements he is reading, and every field painted over for privacy shows as a dark tile with a lock, so you see what he looks at and what he never sees (`src-tauri/src/highlight.rs`, `src/highlight.ts`).
-- **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and automatically escalates to Muse Wonder 1.0 after two misses on Quick.
+- **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and if the person clicks away from the beam twice on Quick, Muse Wonder 1.0 automatically plans the next step.
 - **Warmer, warmer:** During a lesson step, the ring and Mate's glow brighten as the mouse nears the right button and hold steady once it is on it, guiding the hand before the click (`src-tauri/src/pointing.rs`).
 - **A trail, not a scolding:** After a click in the wrong place during a lesson, a dotted line of light runs from that spot to the ring while Mate says "Almost"; no red, no cross (`src-tauri/src/teacher/lesson.rs`).
 - **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name; password fields and sign-in codes are skipped.
@@ -46,7 +46,7 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 | Meta model | Role in MetaMate | Measured performance |
 |---|---|---|
 | **Muse Spark 1.3** | Spoken answers, pointing beam, step-by-step lessons, and "Is this safe?" scam check | First token in 1.4–2.6 s at reasoning effort `minimal` (D41, D45) |
-| **Muse Wonder 1.0** | Thorough answers; lessons escalate to Wonder after two misses on Quick | High-reasoning model for complex guidance and fallback escalation (D56) |
+| **Muse Wonder 1.0** | Thorough answers; on Quick, a lesson's next step after two clicks away from the beam | High-reasoning model for complex guidance and fallback escalation (D56) |
 | **Muse Voice Transcribe** | Realtime push-to-talk speech recognition (Right Ctrl) | Final transcript 250–360 ms after key-up (socket opens at key-down) (D44, D45) |
 | **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal GPU) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
 | **Muse Glimmer 30B** | Keepsake lesson card text: rewrites lesson steps in simple words (Meta open weights on Modal GPU) | Q4_K_M ~15 tokens/s on a Modal L4 / A10G GPU (D53, D57) |
@@ -68,7 +68,7 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 MetaMate is built in **Rust + Tauri v2** with a TypeScript WebView (SVG character animations, multi-monitor highlight overlays, and Web Audio API engine).
 
 ```text
-Voice:  Right Ctrl (WH_KEYBOARD_LL) → Muse Voice Transcribe (WSS) → Muse Spark / Wonder → MateScript → MMS-TTS (Modal GPU)
+Voice:  Right Ctrl (WH_KEYBOARD_LL) → Muse Voice Transcribe (WSS) → Muse Spark 1.3 / Muse Wonder 1.0 → MateScript → MMS-TTS (Modal GPU)
 Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + computer use → SAM 3.1 fallback → Beam & flight
 ```
 
@@ -85,7 +85,7 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 
 **No Right Ctrl on my laptop?** Pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings, or simply click Mate to start and stop talking. You can also type in the chat window.
 
-**Which Meta models?** Muse Voice Transcribe hears you while you talk, Muse Spark 1.3 answers and finds the button, Muse Wonder 1.0 takes over after two misses, SAM 3.1 outlines controls in apps without an accessibility tree, MMS-TTS (Meta open weights) speaks, and Muse Glimmer with Muse Image make the keepsake lesson card.
+**Which Meta models?** Muse Voice Transcribe hears you while you talk, Muse Spark 1.3 answers and finds the button, Muse Wonder 1.0 plans a lesson's next step after two clicks away from the beam, SAM 3.1 outlines controls in apps without an accessibility tree, MMS-TTS (Meta open weights) speaks, and Muse Glimmer 30B with Muse Image make the keepsake lesson card.
 
 **Languages?** English and Russian for speech, voice and the interface; it follows Windows, and you can switch it in Settings under Language.
 

@@ -9,7 +9,7 @@
 **Invariants (breaking one is a bug).**
 1. Our windows never take focus from the person's app (`WS_EX_NOACTIVATE`, `SWP_NOACTIVATE`).
 2. Per-Monitor DPI Aware v2: physical virtual-screen pixels inside, CSS pixels only when drawing, one transform per captured frame.
-3. Screenshots: only the target window (and its popups), only during a request, password fields painted over before sending; fail closed when that cannot be guaranteed.
+3. Screenshots: only the target window (and its popups), only during a request that needs the screen (D65), password fields painted over before sending; fail closed when that cannot be guaranteed.
 4. Mate never clicks payment, purchase, delete, money-transfer or password actions by himself; safety checks are confirmed by a person.
 5. "I can't find it" beats pointing at a guess.
 6. The product name lives in one constant (`APP_NAME`); the robot is `ROBOT_NAME = "Mate"` ("he").

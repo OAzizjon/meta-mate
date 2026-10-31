@@ -37,7 +37,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Mate's answer bubble shows which Meta model answered; the tray offers "Try a question" for people whose microphone does not work.
 - The team added a second Claude worker for design and backup lead coverage, plus a fourth Gemini account.
 - Sign-in hardening: a new sign-in replaces a forgotten one, links opened elsewhere are refused, and sessions are sealed with DPAPI in local app data.
-- Lessons escalate to Muse Wonder after two misses, with Mate explaining the escalation.
+- Lessons escalate to Muse Wonder after the person clicks away from the beam twice, with Mate explaining the escalation.
 - Keepsake card filenames use local time, and each card draws exactly one Mate.
 - Glimmer on Modal may use an A10G or L40S when no L4 is free.
 - `mm check` byte-compiles Python; `--card-selftest` checks keepsake card generation.
@@ -158,6 +158,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - The target ring glows in Mate's bright yellow, and the step number is larger.
 - Mate's right-click menu stays open instead of closing as soon as it appears.
 - Questions like "help me save money" no longer start a lesson or take a screenshot.
+- Scam reports, infection warnings and requests about bank codes are checked for safety before Mate points; longer safety questions need screen, message or computer context.
+- "How do I find..." and "Покажи, как..." start lessons, as do English text-size and sound commands; learning for oneself takes precedence over delegation.
+- Screen answers may begin by honestly saying Mate cannot find the target instead of guessing.
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)
 
