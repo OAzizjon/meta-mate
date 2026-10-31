@@ -53,6 +53,21 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 | **Muse Image** | Keepsake lesson card illustration (soft gouache art with Mate, without text; printable) | Generates custom scene illustration for completed lessons (D55) |
 | **SAM 3.1** | Outlines UI targets where the accessibility tree has nothing (canvas, Qt apps, games) | Target segmentation masks and boundary guidance |
 
+### Measured: "Is this safe?"
+
+`mm probe safety` sends the app's real safety request (the same prompt, image size and reasoning effort) for 40 fictional pages: 10 scams and 10 legitimate pages in English and in Russian, with invented brands and `.example` addresses, rendered at 1280×800 by headless Edge. Each page went 10 times to each model on 2026-10-31 (800 answers, no errors):
+
+| Model | Language | Scams called a scam | Legitimate pages called a scam | Legitimate pages called "be careful" | Median full answer |
+|---|---|---:|---:|---:|---:|
+| Muse Spark 1.3 | English | 100 % (100/100) | 0 % | 5 % | 5.2 s |
+| Muse Spark 1.3 | Russian | 100 % (100/100) | 8 % | 31 % | 5.3 s |
+| Muse Wonder 1.0 | English | 100 % (100/100) | 0 % | 16 % | 4.2 s |
+| Muse Wonder 1.0 | Russian | 100 % (100/100) | 10 % | 32 % | 5.1 s |
+
+- No answer called a scam safe, and none told the person to click, call or pay from the page: every "call" in the 800 answers meant a number they already know or the one on their card.
+- 16 of the 18 false alarms are one Russian email whose mail app shows a green "verified address" badge: the prompt treats any text that claims to be verified as a red flag on purpose, because pages can talk to the model. "Be careful" answers come from pages that ask for a code, a payment or act on a countdown, which is the cautious answer we want.
+- Before this prompt (D68), an unfamiliar address alone was enough for a scam verdict: Muse Wonder called 28 % of the Russian and 9 % of the English legitimate pages scams. These are fictional pages, not a real-world rate.
+
 ## Privacy and safety
 
 - **Never steals focus:** Overlay windows use `WS_EX_NOACTIVATE` and `SWP_NOACTIVATE`, never taking focus away from the user's active application.
