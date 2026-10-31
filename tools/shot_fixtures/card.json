@@ -1,0 +1,26 @@
+{
+  "load_settings": {
+    "theme": "light",
+    "language": "en",
+    "profile": { "name": "", "about": "" },
+    "profileAsked": true
+  },
+  "events": [
+    {
+      "event": "lesson-card",
+      "at_ms": 300,
+      "payload": {
+        "id": "card-videocall",
+        "title": "How to join a video call",
+        "steps": [
+          "Open the video-call app (the blue camera icon).",
+          "Press the big green New call button.",
+          "Choose the person and press the video symbol.",
+          "Wait for the call to connect — you will see them on screen."
+        ],
+        "imagePath": "",
+        "wordsBy": "lesson"
+      }
+    }
+  ]
+}

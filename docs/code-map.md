@@ -577,9 +577,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:111 first_line:126 agent_mode_reason:130 say:142 cmd_doctor:179 plan_sections:245 cmd_plan:268 cmd_status:295
-  cmd_check:343 cmd_test:367 cmd_agent:410 cmd_tool:435 cmd_release:441 cmd_uia:547 cmd_art:581 cmd_sounds:629
-  cmd_phrases:671 cmd_agents:684 wanted_key_names:697 parse_env:705 cmd_keys:760 build_parser:839 cmd_probe:892 main:908
+  run:113 first_line:128 agent_mode_reason:132 say:144 cmd_doctor:181 plan_sections:247 cmd_plan:270 cmd_status:297
+  cmd_check:345 cmd_test:369 cmd_agent:412 cmd_tool:437 cmd_release:443 cmd_uia:549 cmd_art:583 cmd_sounds:631
+  cmd_phrases:673 cmd_agents:686 wanted_key_names:699 parse_env:707 cmd_keys:762 build_parser:841 cmd_probe:895 main:911
   tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
@@ -616,6 +616,11 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   load_pages:21 classify:59 rule_violations:80 aggregate:106 write_report:128 render_page:154 request_body:174 exchange:186
   cmd_safety:208 run_batch:223 add_parser:306
   tests: tools/tests/test_mm_probe_safety.py (14)
+- tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
+  expand:186 last_line:190 source_files:197 dist_stale:208 npm_cmd:215 build_dist:219 load_fixture:239 mock_context:253
+  render_mock_js:277 inject_mock:285 make_handler:305 start_server:402 find_edge:411 png_size:422 run_edge:430 shoot_page:492
+  build_parser:527 main:545
+  tests: tools/tests/test_mm_shot.py (34)
 - tools/mm_stats.py — mm stats [--save] [--json] [--since DAYS]
   area:34 crate:39 source_files:46 read:61 run:68 code_summary:78 parse_scc:90 collect_code:104
   mask_code:128 count_tests:153 production_rust:168 is_test:191 related_test:197 parse_numstat:215 churn_summary:239 locale_stats:270
@@ -899,6 +904,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 62 | 11 |
 | src-tauri | 196 | 20 |
 | src | 315 | 31 |
-| tools | 304 | 20 |
+| tools | 338 | 21 |
 | server | 94 | 4 |
 | tts | 27 | 2 |

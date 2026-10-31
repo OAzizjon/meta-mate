@@ -29,6 +29,7 @@ The build started at the kickoff on 2026-10-26, 22:00 Tashkent (D38); submission
 | `mm stats [--save] [--json] [--since DAYS]` | code by language and area, largest and most complex files, test counts, churn and hot spots without tests, TODOs, production `unwrap`s, unused locale keys, the agents' table; `--save` keeps a snapshot and shows deltas |
 | `mm uia [--delay S] [--depth N] [--save NAME]` | UI Automation tree + screenshot of the foreground window → `fixtures/uia/` (Demo user's windows only) |
 | `mm art [NAME ...]` | render `assets/art/src/*.html|svg` to PNG (headless Edge) |
+| `mm shot [PAGE ...]` | render WebView pages to `shots/` with fixture IPC and headless Edge; also `mm agent shot` |
 | `mm sounds [check\|normalize] [--force]` | sound licences check / convert + loudness-normalize (ffmpeg; cues keep their levels) |
 | `mm agents [status\|stats]` | drafting team queue |
 | `mm keys SOURCE_DIR [--apply]` | owner only: copy key values from another project's secrets file (prints names only) |

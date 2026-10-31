@@ -1,0 +1,36 @@
+{
+  "load_settings": {
+    "theme": "light",
+    "language": "en",
+    "profileAsked": true,
+    "profile": {
+      "name": "Anna",
+      "about": "Loves crossword puzzles, gardening, and Sunday calls with her sister."
+    },
+    "startWithWindows": true
+  },
+  "cards_list": [
+    {
+      "id": "card-photos",
+      "title": "Send a photo in WhatsApp",
+      "steps": ["Open WhatsApp.", "Choose a conversation.", "Attach a photo and send it."],
+      "created": 1793448000,
+      "thumb": null
+    },
+    {
+      "id": "card-bills",
+      "title": "Оплатить счёт за свет в Госуслугах",
+      "steps": ["Откройте Госуслуги.", "Найдите свой счёт.", "Проверьте получателя и сумму."],
+      "created": 1793361600,
+      "thumb": null
+    },
+    {
+      "id": "card-videocall",
+      "title": "Позвонить по видео внуку",
+      "steps": ["Откройте приложение для звонков.", "Выберите контакт.", "Нажмите значок камеры."],
+      "created": 1793275200,
+      "thumb": null
+    }
+  ],
+  "events": []
+}

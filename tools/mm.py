@@ -15,6 +15,8 @@
                                    UI Automation tree of the foreground window; --save writes
                                    fixtures/uia/NAME.json and NAME.png (record only the Demo user's windows)
     mm art [NAME ...]              render assets/art/src/*.html|*.svg to PNG with headless Edge
+    mm shot [PAGE ...]             render the WebView pages to PNG without Tauri: a mock IPC
+                                   answers from tools/shot_fixtures, headless Edge screenshots
     mm sounds [check|normalize] [--force]
                                    loudness-normalize assets/sounds/src with ffmpeg; every file needs a LICENSES.md line
     mm phrases [build|check] [--tts-python PATH] [--force]
@@ -39,7 +41,7 @@
                                    markers, UI strings outside the locales, secrets (default: git diff)
     mm contracts [--verbose]       Rust <-> TypeScript contracts: commands registered and called with
                                    the right argument names, events emitted and listened, locale keys
-    mm agent check [--only CHECKS]|test|where|cite|map|stats|difflint|contracts
+    mm agent check [--only CHECKS]|test|where|cite|map|stats|difflint|contracts|shot
                                    the restricted set for sandboxed agents: offline, no secrets, no GUI
 
 Agent mode is forced when MM_AGENT=1, when the project has no .git folder (the drafting agents'
@@ -418,7 +420,7 @@ def cmd_agent(args):
 # --- code tools: where, cite, map, stats (tools/mm_*.py) -----------------------
 
 TOOL_MODULES = {'where': 'mm_where', 'cite': 'mm_cite', 'map': 'mm_map', 'stats': 'mm_stats',
-                'difflint': 'mm_difflint', 'contracts': 'mm_contracts'}
+                'difflint': 'mm_difflint', 'contracts': 'mm_contracts', 'shot': 'mm_shot'}
 
 
 def _run_tool(name, rest):
@@ -880,7 +882,8 @@ def build_parser():
                        ('map', 'regenerate docs/code-map.md'),
                        ('stats', 'code, tests, churn and agent numbers'),
                        ('difflint', "leftovers in a patch's added lines"),
-                       ('contracts', 'Rust <-> TypeScript contracts: commands, arguments, events, keys')):
+                       ('contracts', 'Rust <-> TypeScript contracts: commands, arguments, events, keys'),
+                       ('shot', 'render WebView pages to PNG without Tauri (mock IPC, headless Edge)')):
         sp = sub.add_parser(name, help=text, add_help=False)
         sp.add_argument('rest', nargs=argparse.REMAINDER)
     sp = sub.add_parser('probe', help='Meta API probe: models | stream | click | sam | asr | safety DIR | point DIR | ledger (uses keys)',

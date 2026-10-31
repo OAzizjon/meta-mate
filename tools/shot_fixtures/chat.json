@@ -1,0 +1,21 @@
+{
+  "load_settings": {
+    "theme": "light",
+    "language": "en",
+    "profileAsked": true,
+    "profile": {
+      "name": "Anna",
+      "about": "Loves crossword puzzles and Sunday calls with her sister."
+    }
+  },
+  "chat_subscribe": [
+    { "role": "person", "text": "Mate, how do I make the letters bigger?", "timestamp": 1793448000000 },
+    { "role": "mate", "text": "With pleasure! Open Settings — I will show you where.", "timestamp": 1793448001000, "mood": "happy" },
+    { "role": "person", "text": "I don't see Settings anywhere.", "timestamp": 1793448010000 },
+    { "role": "mate", "text": "Oh! It is hiding in the top-right corner — the little gear.", "timestamp": 1793448011000, "mood": "surprised" },
+    { "role": "person", "text": "I still can't find it.", "timestamp": 1793448020000 },
+    { "role": "mate", "text": "That is alright. We can try again tomorrow — I will be here.", "timestamp": 1793448021000, "mood": "sad" }
+  ],
+  "chat_send": null,
+  "events": []
+}

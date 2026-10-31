@@ -13,6 +13,7 @@ __pycache__/
 /src-tauri/target/
 /node_modules/
 /dist/
+/shots/
 /build/
 
 # Local data and media

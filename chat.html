@@ -220,11 +220,15 @@
         font-weight: 700;
       }
 
+      /* The mood is shown by the balloon's tint and stripe; its name ("Sad") is read by screen
+         readers only, since a printed label over Mate's line reads oddly to people. */
       .mood-label {
-        display: block;
-        margin-bottom: 6px;
-        font-size: var(--text-sm);
-        font-weight: 700;
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
       }
 
       .mood-label[hidden] {
