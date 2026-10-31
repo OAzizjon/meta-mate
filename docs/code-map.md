@@ -83,9 +83,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   lost:51
   inline tests (6)
 - crates/mm-core/src/privacy.rs — Label-based password detection from `tools/uia_dump.ps1` (D37, invariant 3), and the "do it for me" blocklist (`forbidden`, invariant 4).
-  password_words:53 password_toggle:58 password_like:100 forbidden:258
+  private_explain_name:20 password_words:68 password_toggle:73 password_like:115 forbidden:273
   tests: crates/mm-core/tests/privacy.rs (9)
-  inline tests (6)
+  inline tests (7)
 - crates/mm-core/src/ptt.rs — Pure push-to-talk transitions (D16/D17).
   STALE_KEY_MS:8 Key:11 Key::from_virtual_key:18 suppress_lock_key:28 Mode:33 PttSettings:39 PttInput:56 StopReason:78
   PttEvent:87 Ptt:96 Ptt::new:108 Ptt::key_pressed:117 Ptt::input:121
@@ -251,8 +251,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src-tauri/src/drag.rs — Native cursor polling: dragging keeps working outside the SVG and WebView, with every placement on the UI thread through SWP_NOACTIVATE.
   mate_drag_start:16
 - src-tauri/src/explain.rs — "What's this?" (WP124): the person drags Mate onto a control and lets go.
-  withdraw:107 dropped:113 clicked:287
-  inline tests (11)
+  withdraw:107 dropped:113 clicked:298
+  inline tests (13)
 - src-tauri/src/flight.rs — Mate's flight: one worker thread for the app's lifetime moves Mate's window along `mm_core::flight::flight_path` at ~60 fps, every frame through `overlay::place`, which never activates it (invariant …
   Flight:25 Flight::begin_drag:105 Flight::drag_allowed:114 Flight::dragged:120 Flight::end_drag:124 Flight::set_home:129 Flight::home:133 Flight::new:139
   Flight::fly_to:173 Flight::land:179 Flight::position:184 Flight::wait_idle:193
@@ -683,7 +683,7 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:371, src/settings.ts:154, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:416; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
-- `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:391; const src-tauri/src/explain.rs:39
+- `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:391; const src-tauri/src/explain.rs:39
 - `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:370, src/signin.ts:106; const src-tauri/src/signin.rs:18
 - `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:348; const src-tauri/src/highlight.rs:15
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:380
@@ -731,7 +731,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.failed`: rs src-tauri/src/auth.rs:215,225,256,360,361,363,364,387,391,404,425; ts src/settings/account.ts:75,263,266
 - `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:146, src/settings/account.ts:75, src/signin.ts:136
 - `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:170
-- `mate.explain_question`: rs src-tauri/src/explain.rs:304
+- `mate.explain_question`: rs src-tauri/src/explain.rs:315
 - `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:327, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:154
 - `robot.cant_look`: rs src-tauri/src/screen.rs:377, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:29
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
@@ -816,10 +816,10 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 261 | 34 |
+| crates/mm-core | 262 | 34 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
-| src-tauri | 179 | 20 |
+| src-tauri | 181 | 20 |
 | src | 249 | 28 |
 | tools | 298 | 19 |
 | server | 94 | 4 |

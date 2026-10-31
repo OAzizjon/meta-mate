@@ -109,7 +109,7 @@ pub(crate) fn withdraw() {
 }
 
 /// Mate let go at `at` after a drag (drag.rs, on the UI thread): what is there is read off
-/// this thread and offered. A drop on nothing explainable does nothing.
+/// this thread and offered. A drop on nothing explainable (or on a private name) does nothing.
 pub(crate) fn dropped(app: &AppHandle, at: PhysPoint) {
     let (was_open, epoch) = {
         let mut state = offers();
@@ -132,6 +132,8 @@ pub(crate) fn dropped(app: &AppHandle, at: PhysPoint) {
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         let hide = covered.then_some(mate);
+        // Nothing explainable there (or a name that must not leave the PC): Mate was only
+        // moved, so he says nothing.
         let Ok(Some(control)) = tokio::task::spawn_blocking(move || probe(hide, at)).await else {
             return;
         };
@@ -206,18 +208,27 @@ fn explainable(
             mm_platform::can_borrow_click_name(&first.control_type, &parent.control_type)
         })?
     };
+    // Page titles and content rows are private content, not control labels.
     // Fields a person types into are never offered: a revealed password is a plain edit whose
     // "Password" label is a sibling, not an ancestor (D37), and some fields name themselves
     // after what was typed. Failing closed costs little: buttons and icons are the point.
     if matches!(
         target.control_type.to_ascii_lowercase().as_str(),
-        "edit" | "document" | "combobox" | "spinner"
+        "edit"
+            | "document"
+            | "combobox"
+            | "spinner"
+            | "tabitem"
+            | "window"
+            | "dataitem"
+            | "titlebar"
     ) {
         return None;
     }
     let name = target.name.trim();
     if name.is_empty()
         || name.chars().count() > MAX_NAME_CHARS
+        || mm_core::privacy::private_explain_name(name)
         || target.offscreen
         || !target.rect.is_some_and(|rect| rect.contains(at))
     {
@@ -508,6 +519,59 @@ mod tests {
         assert_eq!(picked(&chain, THEIRS), Some("p1"));
         let loose = in_settings(element("p0", "Image", "Wi-Fi"));
         assert_eq!(picked(&loose, THEIRS), None);
+    }
+
+    #[test]
+    fn page_titles_and_content_targets_are_never_offered() {
+        for kind in ["TabItem", "Window", "Document", "DataItem", "TitleBar"] {
+            assert_eq!(
+                picked(&in_settings(element("p0", kind, "Overview")), THEIRS),
+                None
+            );
+            for child in ["Image", "Text", "Custom"] {
+                let chain = [
+                    element("p0", child, ""),
+                    element("p1", kind, "Overview"),
+                    element("p2", "Window", "Browser"),
+                ];
+                assert_eq!(picked(&chain, THEIRS), None, "{child} in {kind}");
+            }
+        }
+    }
+
+    #[test]
+    fn private_names_are_skipped_on_controls_and_borrowed_buttons() {
+        for name in [
+            "Inbox - person@example.test",
+            "Contact @ support",
+            "482916",
+            "Your sign-in code is 482916",
+            "Call 5551234",
+            "Balance 1234",
+            "x1234y",
+            "https://example.test/private",
+            "www.example.test",
+            "Open example.test/path",
+            "example.test",
+        ] {
+            for kind in ["Button", "ListItem", "Hyperlink"] {
+                assert_eq!(
+                    picked(&in_settings(element("p0", kind, name)), THEIRS),
+                    None,
+                    "{kind}: {name}"
+                );
+            }
+            for child in ["Image", "Text", "Custom"] {
+                let chain = [element("p0", child, ""), element("p1", "Button", name)];
+                assert_eq!(picked(&chain, THEIRS), None, "{child}: {name}");
+            }
+        }
+        for name in ["Wi-Fi", "Print", "Step 123", "Zoom 100%"] {
+            assert_eq!(
+                picked(&in_settings(element("p0", "Button", name)), THEIRS),
+                Some("p0")
+            );
+        }
     }
 
     #[test]

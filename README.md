@@ -38,7 +38,7 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 - **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and if the person clicks away from the beam twice on Quick, Muse Wonder 1.0 automatically plans the next step.
 - **Warmer, warmer:** During a lesson step, the ring and Mate's glow brighten as the mouse nears the right button and hold steady once it is on it, guiding the hand before the click (`src-tauri/src/pointing.rs`).
 - **A trail, not a scolding:** After a click in the wrong place during a lesson, a dotted line of light runs from that spot to the ring while Mate says "Almost"; no red, no cross (`src-tauri/src/teacher/lesson.rs`).
-- **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name; password fields and sign-in codes are skipped.
+- **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name; password fields, sign-in codes, tabs and window titles, and any name with an e-mail or web address or a run of four digits are skipped.
 - **Keepsake lesson cards:** After completing a lesson, Mate produces a printable recap card saved in `Pictures\MetaMate` with steps rewritten into plain language by Muse Glimmer 30B and illustrated in a soft gouache style by Muse Image.
 
 ## Built with Meta

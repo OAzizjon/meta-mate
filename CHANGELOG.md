@@ -99,6 +99,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - A second click on Sign in with the same provider, from the sign-in window or Settings, joins the sign-in already waiting in the browser (2 minutes) instead of opening another tab; signing out ends it at once.
 - The app's own Rust tests (153) run on Windows again: the test binaries get the Common Controls manifest the app has (`src-tauri/build.rs`).
 - During a lesson, Mate's request to share a window that may hold private content (F8 twice, or Esc) no longer pops up for 30 seconds after it has already closed, when the person was talking at the time.
+- "Drop Mate on it" never sends a browser tab's or a window's title, a mail row's subject, or any name with an e-mail or web address or four digits in a row (codes, phone numbers, amounts): Mate stays quiet there, as on an empty spot.
 - Opening MetaMate again while it already runs (from the Start menu after the installer started it) shows its Home window instead of a second Mate with a second talk-key hook.
 - An answer the proxy has to cut (too slow, or an oversized event) ends with an error Mate can say instead of silence; a rejected Meta key on the proxy no longer signs the person out (502 instead of 401), and Meta's own rate limit no longer looks like the person's allowance being used up (503 instead of 429).
 - The proxy's daily allowances survive a restart with calls still in flight (they stay charged), log any call that cost more than reserved, and refund a SAM outline Meta refused.

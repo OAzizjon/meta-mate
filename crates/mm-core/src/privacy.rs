@@ -6,6 +6,21 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+static PRIVATE_EXPLAIN_NAME: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(concat!(
+        r"(?i)@|\d{4}|[a-z][a-z0-9+.-]*://|www\.|",
+        r"\b(?:https?|ftp|file|mailto|about|data):|\b(?:\d{1,3}\.){3}\d{1,3}\b|",
+        r"(?:[\p{L}\p{N}-]+\.)+[\p{L}]{2,}\b|\blocalhost(?::\d+|/)",
+    ))
+    .expect("constant explain privacy regex must compile")
+});
+
+/// Names offered for explanation must not carry contact details, codes or URLs.
+/// This is stricter than the click blocklist: these names would leave the PC.
+pub fn private_explain_name(name: &str) -> bool {
+    PRIVATE_EXPLAIN_NAME.is_match(name)
+}
+
 #[cfg(test)]
 mod wp87_tests {
     #[test]
@@ -360,6 +375,47 @@ fn word_start(before: Option<char>, first: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explain_names_reject_contact_details_codes_and_urls() {
+        for name in [
+            "Inbox - person@example.test",
+            "Contact @ support",
+            "482916",
+            "Your sign-in code is 482916",
+            "Call 5551234",
+            "Balance 1234",
+            "x1234y",
+            "Code \u{0661}\u{0662}\u{0663}\u{0664}",
+            "https://example.test/private",
+            "HTTP://example.test",
+            "www.example.test",
+            "Open example.test/path",
+            "example.test",
+            "ftp://host/file",
+            "http://localhost",
+            "localhost:8080/path",
+            "127.0.0.1/private",
+            "about:blank",
+            "file:C:/private",
+        ] {
+            assert!(private_explain_name(name), "{name}");
+        }
+        for name in [
+            "Wi-Fi",
+            "Recycle Bin",
+            "Print",
+            "Step 123",
+            "Zoom 100%",
+            "A1 B23",
+        ] {
+            assert!(!private_explain_name(name), "{name}");
+        }
+        // The click blocklist does not protect names sent for explanation.
+        for name in ["482916", "Inbox - person@example.test", "example.test"] {
+            assert!(!forbidden(name, "Button"), "{name}");
+        }
+    }
 
     #[test]
     fn money_delete_and_password_controls_are_forbidden() {
