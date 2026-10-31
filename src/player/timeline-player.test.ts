@@ -80,6 +80,10 @@ function setup() {
     onLine(line: string) { log.push(`line ${line}`); },
     onDone(generation: number) { log.push(`done ${generation}`); },
     onWaitReached(generation: number) { log.push(`wait ${generation}`); },
+    async openTarget(generation: number) {
+      log.push(`open ${generation}`);
+      return "Opening Paint";
+    },
     sleep(ms: number) {
       log.push(`sleep ${ms}`);
       return new Promise<void>((resolve) => sleeps.push(resolve));
@@ -117,6 +121,43 @@ function setup() {
 function pushAll(player: TimelinePlayer, generation: number, lines: string[]) {
   for (const item of items(...lines)) player.push(generation, item);
 }
+
+test("opening waits for its announcement and happens once per answer", async () => {
+  const run = setup();
+  pushAll(run.player, 7, [
+    '{"kind":"say","value":{"id":1,"text":"Opening Paint.","bound":[]}}',
+    '{"kind":"open","value":{"kind":"app","value":"paint"}}',
+    '{"kind":"open","value":{"kind":"app","value":"notepad"}}',
+  ]);
+  await settle();
+  assert.ok(!run.take().some((line) => line.startsWith("open ")));
+  run.endSentence(7, 1);
+  await settle();
+  assert.deepEqual(run.take(), ["open 7", "bubble Opening Paint"]);
+});
+
+test("opening without speech or after cancellation does nothing", async () => {
+  const run = setup();
+  pushAll(run.player, 7, ['{"kind":"open","value":{"kind":"app","value":"paint"}}']);
+  await settle();
+  assert.deepEqual(run.take(), []);
+  pushAll(run.player, 7, [
+    '{"kind":"say","value":{"id":1,"text":"Opening Paint.","bound":[]}}',
+    '{"kind":"open","value":{"kind":"app","value":"paint"}}',
+  ]);
+  run.player.cancel(7);
+  await settle();
+  assert.ok(!run.take().some((line) => line.startsWith("open ")));
+});
+
+test("open wire values require a string and a known target kind", () => {
+  for (const value of [null, {}, { kind: "app", value: 1 },
+    { kind: "file", value: "calc.exe" }, { kind: "site", value: "https://example.com", extra: 1 }]) {
+    assert.equal(parseTimelineItem({ kind: "open", value }), null);
+  }
+  assert.deepEqual(parseTimelineItem({ kind: "open", value: { kind: "site", value: "https://example.com" } }),
+    { kind: "open", value: { kind: "site", value: "https://example.com" } });
+});
 
 test("silent sentences replace the bubble after each sentence's reading time", async () => {
   const h = setup();

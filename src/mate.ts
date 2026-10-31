@@ -248,6 +248,13 @@ async function createRouter(
     },
     audio,
     resolveTarget: (point, generation, step) => pointAt(generation, point, step),
+    openTarget: async (generation) => {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const result = await invoke<{ name: string; opened: boolean } | null>(
+        "open_answer_target", { generation },
+      );
+      return result ? t(result.opened ? "open.opening" : "open.failed", { name: result.name }) : null;
+    },
     showBubble: router.showBubble,
     onLine: router.onLine,
     onDone: router.onDone,

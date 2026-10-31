@@ -41,6 +41,7 @@ export interface Say {
 
 /** `Item`: one timeline entry. Unit variants carry no `value`. */
 export type TimelineItem =
+  | { readonly kind: "open"; readonly value: { readonly kind: "site" | "app"; readonly value: string } }
   | { readonly kind: "lang"; readonly value: string }
   | { readonly kind: "say"; readonly value: Say }
   | { readonly kind: "bound"; readonly value: Bound }
@@ -91,6 +92,12 @@ function parseItem(json: unknown): TimelineItem | null {
   if (!tag) return null;
   const { value } = tag;
   switch (tag.kind) {
+    case "open": {
+      const target = tagged(value);
+      return target && (target.kind === "site" || target.kind === "app") && typeof target.value === "string"
+        ? { kind: "open", value: { kind: target.kind, value: target.value } }
+        : null;
+    }
     case "lang":
       return typeof value === "string" ? { kind: "lang", value } : null;
     case "say": {

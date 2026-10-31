@@ -238,6 +238,8 @@ export function formatBoundChip(bound: Bound): TimelineChip {
  */
 export function formatTimelineItem(item: TimelineItem): TimelineRowView {
   switch (item.kind) {
+    case "open":
+      return { chips: [{ label: "<open>", kind: "open" }] };
     case "say": {
       const boundChips = item.value.bound.map(formatBoundChip);
       const sayChip: TimelineChip = { label: `say #${item.value.id}`, kind: "say" };

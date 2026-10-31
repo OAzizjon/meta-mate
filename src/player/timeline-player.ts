@@ -19,6 +19,8 @@ export type PlayerRobot = Pick<RobotController, "setState" | "setMood" | "aimAt"
 export type PlayerAudio = Pick<AudioEngine, "cancel" | "waitForSentenceEnd" | "playSfx" | "setAmbience">;
 
 export interface TimelinePlayerOptions {
+  /** Consumes Rust's stored target once; returns a localized status bubble. */
+  readonly openTarget?: (generation: number) => Promise<string | null>;
   readonly robot: PlayerRobot;
   readonly audio: PlayerAudio;
   /** `setLocale` from src/i18n; called only for an English or Russian answer. */
@@ -57,6 +59,8 @@ interface Run {
   shown: boolean;
   fallbackShown: boolean;
   releaseWait: (() => void) | null;
+  announced: boolean;
+  opened: boolean;
 }
 
 export class TimelinePlayer {
@@ -90,6 +94,8 @@ export class TimelinePlayer {
         shown: false,
         fallbackShown: false,
         releaseWait: null,
+        announced: false,
+        opened: false,
       };
       this.run = run;
     }
@@ -146,6 +152,18 @@ export class TimelinePlayer {
     const { robot, audio } = this.options;
     const { signal } = run.abort;
     switch (item.kind) {
+      case "open": {
+        // Cancelled or interrupted after the announcement: nothing opens (Command Code #1449).
+        if (signal.aborted || !run.announced || run.opened) return;
+        run.opened = true;
+        const text = await this.options.openTarget?.(run.generation);
+        if (!signal.aborted && text) {
+          this.options.showBubble(text);
+          run.shown = true;
+          run.fallbackShown = false;
+        }
+        return;
+      }
       case "lang": {
         const locale = localeOf(item.value);
         if (locale) this.options.setLocale(locale);
@@ -207,6 +225,7 @@ export class TimelinePlayer {
       if (run.abort.signal.aborted) return;
     }
     this.options.robot.setState(pointing ? "pointing" : "speaking");
+    run.announced = true;
     let hadSamples = true;
     await untilAborted(run.abort.signal, this.options.audio.waitForSentenceEnd(run.generation, say.id)
       .then((played) => { hadSamples = played; }));

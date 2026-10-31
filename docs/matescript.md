@@ -13,8 +13,10 @@ Design goals:
 ```
 answer   := item*
 item     := text | tag
-tag      := "<" name ( " " arg )* ">"        (all tags except show)
+tag      := "<" name ( " " arg )* ">"        (all tags except show and open)
+          | "<open " target ">"             (validated target, at most 200 ASCII characters)
           | "<show " payload ">"
+target   := HTTPS-URL | "app:" allowlisted-app-name
 name     := [a-z]{2,6}
 arg      := [A-Za-z0-9_.,/:+-]{1,32}
 payload  := any Unicode except "<", ">" and newline, 1..64 characters
@@ -40,8 +42,13 @@ text     := any characters except a "<" that starts a tag
 | `<wait click>` | (App-generated in teacher mode.) Pause the answer until the user clicks the current target (or says "next"). | `<wait click>` |
 | `<show TEXT>` | Show a short text bubble the user must type or read (URL, number). Free Unicode text up to `>`, spaces allowed. | `<show 125%>` |
 | `<end>` | The model is done (optional; end of stream also ends). | `<end>` |
+| `<open TARGET>` | Open one requested website or allowlisted Windows app after its announcement. Invalid targets are dropped, never spoken. | `Opening YouTube. <open https://www.youtube.com>` |
 
 Timeline: the parser turns the answer into **one ordered timeline**; the player runs it in order.
+- `open` becomes `Item::Open` after the announcement sentence; if placed before all speech, it waits for the first sentence. Playback opens it after that sentence finishes. Only the first valid target per answer is kept; a tag with no announcement does nothing.
+- Website targets are at most 200 ASCII characters: HTTPS only, a dotted DNS host, no userinfo, IP literals, localhost, `xn--` labels, ports, whitespace, controls, quotes or backslashes. Unicode/IDNA addresses are conservatively rejected. Use only an official address the model is sure of; otherwise say so without a tag. Never open an unsolicited site, a screen link, or a payment, banking or login page on Mate's initiative.
+- App targets use `app:NAME`. The single name/Windows shell target table is `crates/mm-core/src/matescript/open.rs` (`APPS`): calculator, notepad, paint, settings, files, camera, photos, clock (also alarms), mail, calendar, store. Browser is omitted. Settings subpages remain lessons.
+- The `open` tag body has a separate 205-character limit (5 for `open ` plus 200 for its target); other tags keep the recovery limit below.
 - `sfx` (without `solo`), `mood`, `point`, `step`, `show` **bind to the next sentence**: they start together with it. So write them right **before** the sentence they go with, never after it (a trailing `<sfx>` plays with the following sentence).
 - `sfx … solo`, `pause`, `wait`, `amb`, `lang`, `end` are **timeline items** at their position: e.g. a `<wait click>` after sentence 2 is reached only when sentence 2 has finished playing; a `solo` sound is a barrier (the next sentence starts when it ends).
 - Bound tags with no following sentence (end of answer) become timeline items after the last sentence.

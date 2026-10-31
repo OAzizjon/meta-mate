@@ -25,6 +25,8 @@ pub struct Parser {
     point_rejected: bool,
     point_accepted: bool,
     finished: bool,
+    open_seen: bool,
+    pending_open: Option<super::OpenTarget>,
 }
 
 impl Parser {
@@ -42,6 +44,8 @@ impl Parser {
             point_rejected: false,
             point_accepted: false,
             finished: false,
+            open_seen: false,
+            pending_open: None,
         }
     }
 
@@ -109,7 +113,10 @@ impl Parser {
             State::Tag(mut raw, count) => {
                 if ch == '>' {
                     self.tag(&raw);
-                } else if ch == '\n' || ch == '\r' || count + 1 >= 64 {
+                } else if ch == '\n'
+                    || ch == '\r'
+                    || count + 1 >= if raw.starts_with("open ") { 206 } else { 64 }
+                {
                     self.rejected(&raw);
                     if ch == '\n' || ch == '\r' {
                         self.flush();
@@ -161,6 +168,24 @@ impl Parser {
             Some(Tag::Item(item)) => {
                 // A positional action follows all speech already encountered.
                 self.flush();
+                if let Item::Open(target) = item {
+                    // The person did not ask to open anything: the tag is dropped, so text
+                    // on screen can never make Mate open a site or an app.
+                    let asked = self
+                        .settings
+                        .open_request
+                        .as_deref()
+                        .is_some_and(|request| target.named_in(request));
+                    if asked && !self.open_seen {
+                        self.open_seen = true;
+                        if self.next_id > 1 {
+                            self.output.push(Item::Open(target));
+                        } else {
+                            self.pending_open = Some(target);
+                        }
+                    }
+                    return;
+                }
                 // Waiting for a click needs the pointer up first: pending actions play
                 // before the wait instead of riding on the next sentence.
                 if matches!(item, Item::End | Item::Wait) {
@@ -215,6 +240,9 @@ impl Parser {
             bound: std::mem::take(&mut self.bound),
         }));
         self.next_id = self.next_id.saturating_add(1);
+        if let Some(target) = self.pending_open.take() {
+            self.output.push(Item::Open(target));
+        }
     }
 
     fn orphans(&mut self) {

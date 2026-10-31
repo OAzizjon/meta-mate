@@ -285,6 +285,8 @@ impl Look {
             mode,
             point_ids: self.list.ids.clone(),
             screenshot: Some(self.redacted.frame.sent_size()),
+            // Screen answers never open anything: a page could ask for it (prompt injection).
+            open_request: None,
         }
     }
 
@@ -524,7 +526,58 @@ pub fn take_look_at(
     }
 }
 
-/// Ask without taking focus. Only a fresh physical F8 in the target grants one look.
+/// Walks of a flat window before Mate asks, `FLAT_REWALK_EVERY` apart: Chromium's tree can
+/// be poor on the first query (CLAUDE.md "Known pitfalls").
+const FLAT_REWALKS: u32 = 2;
+const FLAT_REWALK_EVERY: std::time::Duration = std::time::Duration::from_millis(300);
+
+/// How long to wait before walking the window again after `rewalks` walks, or None to go on
+/// with this one. Only a flat walk is retried, never a window that always asks
+/// (`requires_consent`): no walk makes that one classifiable.
+fn flat_rewalk(requires_consent: bool, flat: bool, rewalks: u32) -> Option<std::time::Duration> {
+    (!requires_consent && flat && rewalks < FLAT_REWALKS).then_some(FLAT_REWALK_EVERY)
+}
+
+/// Clicks on Mate (drag.rs) while a consent question is shown: when each one's press
+/// reached us. One question at a time (`LOOKING`).
+static CONSENT_CLICKS: std::sync::Mutex<Option<std::sync::mpsc::Sender<std::time::Instant>>> =
+    std::sync::Mutex::new(None);
+
+/// The shown question's clicks; dropping it gives clicks on Mate back to talking.
+struct ConsentClicks(std::sync::mpsc::Receiver<std::time::Instant>);
+
+impl ConsentClicks {
+    fn open() -> Self {
+        let (send, receive) = std::sync::mpsc::channel();
+        *consent_clicks() = Some(send);
+        Self(receive)
+    }
+}
+
+impl Drop for ConsentClicks {
+    fn drop(&mut self) {
+        *consent_clicks() = None;
+    }
+}
+
+fn consent_clicks()
+-> std::sync::MutexGuard<'static, Option<std::sync::mpsc::Sender<std::time::Instant>>> {
+    CONSENT_CLICKS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// A click on Mate (drag.rs, on the UI thread) whose press reached us at `pressed`: true when
+/// a consent question is shown and took it (`confirm_look`); false, and the click explains
+/// or talks as before.
+pub(crate) fn consent_clicked(pressed: std::time::Instant) -> bool {
+    consent_clicks()
+        .as_ref()
+        .is_some_and(|clicks| clicks.send(pressed).is_ok())
+}
+
+/// Ask without taking focus. Only a fresh physical F8 in the target, or a fresh physical
+/// click on Mate while the target is in front (his window never activates), grants one look.
 pub(crate) fn confirm_look(
     app: &tauri::AppHandle,
     generation: u64,
@@ -539,6 +592,10 @@ pub(crate) fn confirm_look(
     let Ok(_hook) = mm_win32::keyboard::start(send) else {
         return false;
     };
+    // Without the mouse hook no click can be shown to be a person's: only F8 answers then.
+    let (mouse_send, presses) = std::sync::mpsc::channel();
+    let _mouse = mm_win32::mouse::start(mouse_send).ok();
+    let clicks = ConsentClicks::open();
     let stream = app.state::<AnswerStream>();
     stream.send(AnswerMsg::Line {
         generation,
@@ -546,10 +603,25 @@ pub(crate) fn confirm_look(
     });
     let offered = Instant::now();
     let mut released = false;
+    let mut press = None;
     while wanted() && offered.elapsed() < Duration::from_secs(30) {
-        let front = mm_win32::window::foreground_target(&[]);
-        if !front.is_some_and(|front| front.window == target) {
+        let front = mm_win32::window::foreground_target(&[]).map(|front| front.window);
+        if front != Some(target) {
             return false;
+        }
+        // A press's hook event is queued before its click can reach us: take the click first.
+        let clicked = clicks.0.try_recv().ok();
+        for event in presses.try_iter() {
+            if event.button == mm_win32::mouse::Button::Left && event.down {
+                press = Some((event.time, event.injected));
+            }
+        }
+        if let Some(clicked) = clicked {
+            if let Some(answer) = consent_click_answer(target, offered, press, clicked, front) {
+                return answer;
+            }
+            // A press is used up by the click it went with, answered or not.
+            press = None;
         }
         if let Ok(event) = receive.recv_timeout(Duration::from_millis(50))
             && let Some(answer) = consent_key_answer(target, offered, event, &mut released)
@@ -588,6 +660,39 @@ fn consent_key_answer(
     None
 }
 
+/// A click meant for something else (talking to Mate just as the question appeared) must
+/// not say yes: a press counts only this long after the question was sent (Meta #1447).
+const CONSENT_READ_MS: u64 = 700;
+/// The press must be this click's own: a physical press elsewhere long before a click that
+/// reached Mate without passing the mouse hook is no answer (Meta #1447).
+const CONSENT_PRESS_MAX_MS: u64 = 1500;
+
+/// A click on Mate that reached us at `clicked` answers as F8 does: yes only when `press`,
+/// the last left press the mouse hook saw (when, injected), was a person's, at least
+/// `CONSENT_READ_MS` after the question and at most `CONSENT_PRESS_MAX_MS` before the click;
+/// no when the target is not in front. Another click (software's, one held since before the
+/// question, one too soon to have been read) is no answer.
+fn consent_click_answer(
+    target: mm_platform::TargetWindow,
+    offered: std::time::Instant,
+    press: Option<(std::time::Instant, bool)>,
+    clicked: std::time::Instant,
+    front: Option<mm_platform::TargetWindow>,
+) -> Option<bool> {
+    if front != Some(target) {
+        return Some(false);
+    }
+    press
+        .is_some_and(|(at, injected)| {
+            !injected
+                && at >= offered + std::time::Duration::from_millis(CONSENT_READ_MS)
+                && at < clicked
+                && clicked.duration_since(at)
+                    <= std::time::Duration::from_millis(CONSENT_PRESS_MAX_MS)
+        })
+        .then_some(true)
+}
+
 fn look_once(
     own: &[mm_win32::HWND],
     wanted: &dyn Fn() -> bool,
@@ -606,15 +711,35 @@ fn look_once(
     };
     let target = target_now().ok_or(LookFailure::NoWindow)?;
     let walker = uia::UiaWalker::new().map_err(|_| LookFailure::Uia)?;
-    let mut snapshot = walker
-        .snapshot_with_popups(
-            target.hwnd,
-            &target.popup_hwnds,
-            target.region,
-            uia::WalkLimits::default(),
-        )
-        .map_err(|_| LookFailure::Uia)?;
+    let walk = || {
+        walker
+            .snapshot_with_popups(
+                target.hwnd,
+                &target.popup_hwnds,
+                target.region,
+                uia::WalkLimits::default(),
+            )
+            .map_err(|_| LookFailure::Uia)
+    };
+    let mut snapshot = walk()?;
     remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
+    // A flat first walk may only be Chromium still building its tree: walk the same window
+    // again before asking (nothing is copied in between).
+    let mut rewalks = 0;
+    while !consent
+        && let Some(delay) = flat_rewalk(target.requires_consent, snapshot.flat(), rewalks)
+    {
+        std::thread::sleep(delay);
+        if !wanted() {
+            return Err(LookFailure::Cancelled);
+        }
+        if target_now().as_ref() != Some(&target) {
+            return Err(LookFailure::Changed);
+        }
+        snapshot = walk()?;
+        remember_passwords(snapshot.target, target.frame, &mut snapshot.elements);
+        rewalks += 1;
+    }
     // Check the actual walk before scan results can make a flat tree look complete.
     // Ambiguous private edits need no consent: they are always painted (`hidden_ids`).
     let needs_consent = target.requires_consent || snapshot.flat();
@@ -1039,6 +1164,95 @@ mod tests {
             consent_key_answer(target, offered, event, &mut released),
             Some(false)
         );
+    }
+
+    #[test]
+    fn a_click_on_mate_says_yes_only_for_a_new_physical_press_in_the_same_window() {
+        use std::time::{Duration, Instant};
+        let target = TargetWindow {
+            handle: 8,
+            process_id: 9,
+        };
+        let offered = Instant::now();
+        let pressed = offered + Duration::from_millis(CONSENT_READ_MS + 5);
+        let clicked = pressed + Duration::from_millis(15);
+        let front = Some(target);
+        // Too soon after the question to have been read: a click meant for talking.
+        assert_eq!(
+            consent_click_answer(
+                target,
+                offered,
+                Some((
+                    offered + Duration::from_millis(CONSENT_READ_MS - 100),
+                    false
+                )),
+                clicked,
+                front
+            ),
+            None
+        );
+        // A press long before this click is another click's.
+        let late = pressed + Duration::from_millis(CONSENT_PRESS_MAX_MS + 1);
+        assert_eq!(
+            consent_click_answer(target, offered, Some((pressed, false)), late, front),
+            None
+        );
+        assert_eq!(
+            consent_click_answer(target, offered, Some((pressed, false)), clicked, front),
+            Some(true)
+        );
+        // No press seen (no mouse hook) or software's: no answer, the question stays.
+        assert_eq!(
+            consent_click_answer(target, offered, None, clicked, front),
+            None
+        );
+        assert_eq!(
+            consent_click_answer(target, offered, Some((pressed, true)), clicked, front),
+            None
+        );
+        // Pressed when the question came, though released and delivered after it.
+        assert_eq!(
+            consent_click_answer(target, offered, Some((offered, false)), clicked, front),
+            None
+        );
+        // A press after this click reached us belongs to another click.
+        assert_eq!(
+            consent_click_answer(target, offered, Some((clicked, false)), clicked, front),
+            None
+        );
+        let other = TargetWindow {
+            process_id: 10,
+            ..target
+        };
+        for front in [Some(other), None] {
+            assert_eq!(
+                consent_click_answer(target, offered, Some((pressed, false)), clicked, front),
+                Some(false)
+            );
+        }
+    }
+
+    #[test]
+    fn clicks_on_mate_go_to_the_consent_question_only_while_it_is_shown() {
+        let pressed = std::time::Instant::now();
+        assert!(!consent_clicked(pressed));
+        let clicks = ConsentClicks::open();
+        assert!(consent_clicked(pressed));
+        assert_eq!(clicks.0.try_recv().ok(), Some(pressed));
+        drop(clicks);
+        assert!(!consent_clicked(pressed));
+    }
+
+    #[test]
+    fn only_a_flat_walk_is_walked_again_twice_before_asking() {
+        let every = std::time::Duration::from_millis(300);
+        assert_eq!(flat_rewalk(false, true, 0), Some(every));
+        assert_eq!(flat_rewalk(false, true, 1), Some(every));
+        assert_eq!(flat_rewalk(false, true, 2), None);
+        assert_eq!(flat_rewalk(false, false, 0), None);
+        // A window that always asks gains nothing from another walk.
+        assert_eq!(flat_rewalk(true, true, 0), None);
+        assert_eq!(flat_rewalk(true, false, 0), None);
     }
 
     #[test]

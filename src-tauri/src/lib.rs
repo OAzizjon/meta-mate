@@ -27,6 +27,8 @@ mod flight;
 mod highlight;
 mod home;
 mod mic;
+#[cfg(windows)]
+mod opening;
 mod overlay;
 #[cfg(debug_assertions)]
 mod perf;
@@ -108,6 +110,7 @@ pub fn run() {
             answer_stream::subscribe_answer_stream,
             answer_stream::report_playback,
             pointing::point_at,
+            opening::open_answer_target,
             drag::mate_drag_start,
             settings::load_settings,
             settings::save_settings,

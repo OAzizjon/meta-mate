@@ -18,7 +18,16 @@ pub fn open_url(url: &str) -> bool {
     if !openable(url) {
         return false;
     }
-    let target = HSTRING::from(url);
+    execute(url)
+}
+
+/// Opens only a fixed app target from mm-core's allowlist, with no arguments.
+pub fn open_app(app: mm_core::matescript::AppId) -> bool {
+    execute(app.spec().0)
+}
+
+fn execute(target: &str) -> bool {
+    let target = HSTRING::from(target);
     // SAFETY: the operation and the target are NUL-terminated wide strings that outlive the
     // call; no parameters, no directory, no owner window.
     let result = unsafe {

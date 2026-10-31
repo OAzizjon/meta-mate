@@ -937,6 +937,7 @@ async fn answer(
         );
         let settings = Settings {
             language: locale.clone(),
+            open_request: mm_core::api::intent::wants_open(&question).then(|| question.clone()),
             ..Settings::default()
         };
         let turn = usize::try_from(generation).unwrap_or(0) % THINKING.len();

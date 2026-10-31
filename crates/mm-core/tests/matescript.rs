@@ -14,6 +14,7 @@ fn settings(calm: bool) -> Settings {
             "e21".into(),
         ],
         screenshot: Some((1280, 720)),
+        open_request: None,
     }
 }
 

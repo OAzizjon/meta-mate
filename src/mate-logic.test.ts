@@ -332,6 +332,10 @@ test("the look-consent question stays up for the whole consent window", () => {
     const text = locales[locale]["robot.look_consent"];
     assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", text, LOOK_CONSENT_MS]]);
     assert.ok(LOOK_CONSENT_MS > bubbleReadMs(text));
+    // A click on Mate answers on any laptop; F8 still works but is not offered.
+    assert.ok(!text.includes("F8"), `${locale}: ${text}`);
+    assert.ok(text.includes("Esc"), `${locale}: ${text}`);
+    assert.match(text, locale === "en" ? /Click me/ : /Нажмите на меня/);
   }
 });
 

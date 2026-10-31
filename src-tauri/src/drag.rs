@@ -2,7 +2,7 @@
 //! every placement on the UI thread through SWP_NOACTIVATE. One frame is queued at a
 //! time; no lock is held across SetWindowPos or while waiting for the UI thread.
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use mm_core::drag::{ClickGesture, Drag};
 use mm_core::geom::PhysPoint;
@@ -14,6 +14,8 @@ use crate::pointing::Pointing;
 /// Only the robot's own left-button pointerdown starts a drag (src/mate.ts).
 #[tauri::command]
 pub async fn mate_drag_start(app: AppHandle, window: WebviewWindow, x: f64, y: f64) {
+    // Just after the press: a look-consent answer must have been pressed before this.
+    let pressed = Instant::now();
     if window.label() != "mate" || !x.is_finite() || !y.is_finite() {
         return;
     }
@@ -42,7 +44,8 @@ pub async fn mate_drag_start(app: AppHandle, window: WebviewWindow, x: f64, y: f
                 break;
             }
             if !held {
-                if !crate::explain::clicked(&app) {
+                // A shown look-consent question takes the click first (screen.rs).
+                if !crate::screen::consent_clicked(pressed) && !crate::explain::clicked(&app) {
                     crate::ptt::click();
                 }
                 break;
@@ -60,7 +63,7 @@ pub async fn mate_drag_start(app: AppHandle, window: WebviewWindow, x: f64, y: f
         let (sent, received) = tokio::sync::oneshot::channel();
         if app
             .run_on_main_thread(move || {
-                let keep_going = frame(&ui, drag, &mut gesture, &monitors);
+                let keep_going = frame(&ui, drag, &mut gesture, &monitors, pressed);
                 let _ = sent.send((keep_going, gesture));
             })
             .is_err()
@@ -81,6 +84,7 @@ fn frame(
     drag: Drag,
     gesture: &mut ClickGesture,
     monitors: &[mm_win32::monitors::Monitor],
+    pressed: Instant,
 ) -> bool {
     let flight = app.state::<Flight>();
     // A pending flight or a new look takes priority. Its worker waits until end_drag.
@@ -91,8 +95,9 @@ fn frame(
         return false;
     };
     if gesture.update(cursor) && !held {
-        // While a "What's this?" offer is open the click asks it; otherwise it talks.
-        if !crate::explain::clicked(app) {
+        // A shown look-consent question takes the click (screen.rs); while a "What's this?"
+        // offer is open the click asks it; otherwise it talks.
+        if !crate::screen::consent_clicked(pressed) && !crate::explain::clicked(app) {
             crate::ptt::click();
         }
         return false;

@@ -384,6 +384,14 @@ fn persona(language_hint: Option<&str>) -> String {
         None => String::new(),
     };
     PERSONA_PROMPT
+        .replace(
+            "{OPEN_APPS}",
+            &crate::matescript::APPS
+                .iter()
+                .map(|entry| entry.1)
+                .collect::<Vec<_>>()
+                .join(", "),
+        )
         .replace("{ROBOT_NAME}", ROBOT_NAME)
         .replace("{MODE}", mode_name(Mode::default()))
         .replace("{LANG_HINT}", &hint)
@@ -850,6 +858,31 @@ mod tests {
             );
             assert!(spoken.contains("or in the element list; if unsure, say so plainly"));
             assert!(spoken.contains("instead of guessing."));
+        }
+    }
+
+    #[test]
+    fn spoken_prompts_allow_only_requested_openings_with_known_addresses() {
+        let list = render_element_list(&[large_button()], 150);
+        for body in [
+            chat_request(QUICK, SPOKEN, Some("en"), "Open YouTube"),
+            point_request(QUICK, SPOKEN, "Open YouTube", &list, &image()),
+            safety_request(QUICK, SPOKEN, "Is this safe?", &list, &image()),
+        ] {
+            let text = instructions(&body);
+            for rule in [
+                "exactly one <open TARGET> tag and one short sentence",
+                "https://www.youtube.com",
+                "Never open a site the user did not ask for",
+                "Never open payment, banking or login pages on your own initiative",
+                "Never open a link shown on the screen",
+                "If unsure of the official address, say so instead of guessing",
+            ] {
+                assert!(text.contains(rule), "missing: {rule}");
+            }
+            for &(_, name, _, _) in crate::matescript::APPS {
+                assert!(text.contains(name), "missing app: {name}");
+            }
         }
     }
 }

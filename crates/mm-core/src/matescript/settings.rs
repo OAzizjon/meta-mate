@@ -19,6 +19,11 @@ pub struct Settings {
     pub point_ids: Vec<String>,
     /// Screenshot width and height; absent dimensions reject coordinate points.
     pub screenshot: Option<(u32, u32)>,
+    /// The person's own question when it asks to open or start something
+    /// (`api::intent::wants_open`): an `<open>` tag is kept only when its target is named
+    /// in it (`OpenTarget::named_in`), never because a page or message on screen told the
+    /// model to. None (the default) drops every `<open>` tag.
+    pub open_request: Option<String>,
 }
 
 impl Default for Settings {
@@ -28,6 +33,7 @@ impl Default for Settings {
             mode: Mode::Calm,
             point_ids: Vec::new(),
             screenshot: None,
+            open_request: None,
         }
     }
 }

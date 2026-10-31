@@ -73,8 +73,8 @@ Request: Responses API, always `model: muse-spark-1.3`, `reasoning: {"effort": "
 ```
 Classify the user's request. Reply with one word:
 WHERE  - they want to find one thing on the screen
-HOW    - they want guidance through a task, including imperatives like "click X", "press OK", or "open Settings"
-CHAT   - conversation, a story, a joke, a question not about the screen
+HOW    - they want guidance through a task, including imperatives like "click X", "press OK", or opening a Settings page inside an app
+CHAT   - conversation, a story, a joke, a question not about the screen, or a request to open a website or whole app such as YouTube or Calculator (no screenshot needed)
 DO     - they ask you to do it for them: "do it", "click it for me", "сделай", or an imperative with "за меня", "сам", or "yourself"
 ```
 

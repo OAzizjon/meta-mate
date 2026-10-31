@@ -17,6 +17,9 @@ pub(super) fn parse(raw: &str, settings: &Settings, sfx_count: &mut usize) -> Op
             && !payload.contains(['<', '>', '\n', '\r']))
         .then(|| Tag::Bound(Bound::Show(payload.into())));
     }
+    if name == "open" {
+        return super::OpenTarget::parse(payload).map(|target| Tag::Item(Item::Open(target)));
+    }
     let args: Vec<&str> = if payload.is_empty() {
         Vec::new()
     } else {

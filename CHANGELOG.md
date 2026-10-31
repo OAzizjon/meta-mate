@@ -11,6 +11,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
 - Mate plays his sounds again: the cue, effect and ambience OGG files are served by the dev server and copied into the build (`tools/vite-sounds.mjs`); before, `/sounds/...` was never bundled and the installed app was silent (owner, 2026-11-01).
+- Mate can open a requested website or allowlisted Windows app with a validated `<open TARGET>` tag after announcing it ("Open the calculator", "Открой ютуб"); an opening runs only when the person's own words ask to open or start something (not negated) and name that app or site, so a page or message on screen can never make Mate open anything (Meta Muse Wonder, Command Code, Cursor reviews).
 - Guest trial: up to 12 messages an hour per device without signing in; Mate and the sign-in window show what is left (`/auth/guest`).
 - Click Mate to talk: one click starts listening, another click asks.
 - Language choice in Settings: Automatic (as in Windows), English or Русский.
@@ -91,6 +92,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Fixed
 
+- Screen questions work in Chrome on laptops again: when its UIA tree is flat, Mate rewalks it up to twice, 300 ms apart, before asking; while the consent question is shown, a fresh physical left click on Mate grants one look if the target window remains in front and the press came at least 0.7 s after the question (a click meant for talking does not count) (F8 still works; Esc cancels), avoiding Fn+F8 (owner, 2026-11-01).
 - Home, Settings, Chat and sign-in share one warm look (`src/theme.css`): Mate's yellow and navy, soft rounded cards, 18 px text, one main yellow button per view, switches for on/off settings, matching dark mode and focus rings; Mate's bubble and menu use the same colours.
 - Mate presses again when asked: "click Font", "нажми Шрифт" and "открой настройки" start a guided lesson even when the classifier is down, and "do it for me" ("сделай за меня", "нажми сам") offers each click at once; every click still needs its own spoken yes.
 - Clearer answers: one to three short sentences with the next action first, the exact button label and where it is, no Markdown or links read aloud; an answer cut by the network does not speak its half-word. The voice reads a minus sign, "5/10" ("five of ten") and "=" instead of dropping them.

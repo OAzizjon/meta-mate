@@ -14,7 +14,7 @@ fn imperatives_guide_unless_the_user_explicitly_delegates() {
         "нажми",
         "нажми Шрифт",
         "нажми на кнопку",
-        "открой настройки",
+        "открой настройки звука",
         "open Settings and click Font",
         "Пожалуйста, нажмите Шрифт",
         "кликни Шрифт",

@@ -105,6 +105,8 @@ impl fmt::Debug for Say {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum Item {
+    /// Open a validated target after its spoken announcement.
+    Open(super::OpenTarget),
     /// Select the TTS language.
     Lang(String),
     /// Speak a sentence and start its bound actions.

@@ -55,6 +55,8 @@ pub enum AnswerMsg {
 /// about playback.
 #[derive(Default)]
 pub struct AnswerStream {
+    /// Rust-owned target, consumed once by playback; the WebView never supplies a URL.
+    opening: Mutex<Option<(u64, Option<mm_core::matescript::OpenTarget>)>>,
     inner: Mutex<Option<(Channel<AnswerMsg>, String)>>,
     chat: Mutex<Option<tauri::AppHandle>>,
     /// The newest cancelled generation: a dying task's late message for it, or an older
@@ -88,7 +90,28 @@ pub fn model_chip(served: Option<&str>) -> Option<&'static str> {
 
 #[cfg(test)]
 mod model_tests {
-    use super::{AnswerMsg, model_chip};
+    use super::{AnswerMsg, AnswerStream, model_chip};
+
+    #[test]
+    fn opening_is_rust_owned_consumed_once_and_cancelled_with_the_answer() {
+        use mm_core::matescript::{AppId, Item, OpenTarget};
+        let stream = AnswerStream::default();
+        let item = AnswerMsg::Item {
+            generation: 7,
+            item: Item::Open(OpenTarget::App(AppId::Paint)),
+        };
+        stream.send(item.clone());
+        assert!(stream.take_open(6).is_none());
+        assert_eq!(stream.take_open(7), Some(OpenTarget::App(AppId::Paint)));
+        stream.send(item);
+        assert!(stream.take_open(7).is_none());
+        stream.send(AnswerMsg::Item {
+            generation: 8,
+            item: Item::Open(OpenTarget::App(AppId::Calculator)),
+        });
+        stream.send(AnswerMsg::Cancel { generation: 8 });
+        assert!(stream.take_open(8).is_none());
+    }
 
     #[test]
     fn streamed_tags_never_become_bubble_or_speech_text() {
@@ -166,6 +189,15 @@ mod model_tests {
 }
 
 impl AnswerStream {
+    pub fn take_open(&self, generation: u64) -> Option<mm_core::matescript::OpenTarget> {
+        if self.is_cancelled(generation) {
+            return None;
+        }
+        let mut opening = self.opening.lock().ok()?;
+        let (owner, target) = opening.as_mut()?;
+        (*owner == generation).then(|| target.take()).flatten()
+    }
+
     pub fn attach_chat(&self, app: tauri::AppHandle) {
         *self.chat.lock().unwrap_or_else(PoisonError::into_inner) = Some(app);
     }
@@ -234,6 +266,15 @@ impl AnswerStream {
                     return;
                 }
             }
+        }
+        if let AnswerMsg::Item {
+            generation,
+            item: Item::Open(target),
+        } = &message
+            && let Ok(mut opening) = self.opening.lock()
+            && opening.as_ref().is_none_or(|(owner, _)| generation > owner)
+        {
+            *opening = Some((*generation, Some(target.clone())));
         }
         #[cfg(debug_assertions)]
         if let Some(app) = self.debug.lock().ok().and_then(|debug| debug.clone()) {

@@ -2,6 +2,11 @@
 
 use serde_json::{Value, json};
 
+#[path = "intent_open.rs"]
+mod opening;
+use opening::asks_open;
+pub use opening::wants_open;
+
 #[path = "intent_safety.rs"]
 mod safety;
 use safety::asks_safety;
@@ -18,8 +23,8 @@ pub enum Intent {
 
 const CLASSIFIER: &str = "Classify the user's request. Reply with one word:\n\
 WHERE  - they want to find one thing on the screen\n\
-HOW    - they want guidance through a task, including imperatives like \"click X\", \"press OK\", or \"open Settings\"\n\
-CHAT   - conversation, a story, a joke, a question not about the screen\n\
+HOW    - they want guidance through a task, including imperatives like \"click X\", \"press OK\", or opening a Settings page inside an app\n\
+CHAT   - conversation, a story, a joke, a question not about the screen, or a request to open a website or whole app such as YouTube or Calculator (no screenshot needed)\n\
 DO     - they ask you to do it for them: \"do it\", \"click it for me\", \"сделай\", or an imperative with \"за меня\", \"сам\", or \"yourself\"\n";
 
 /// A non-streamed Responses API body; send it with proxy call kind `intent`.
@@ -553,6 +558,9 @@ pub fn guess_intent(question: &str) -> Intent {
     }
     let lower = spoken_words(question);
     let words: Vec<&str> = words(&lower).collect();
+    if asks_open(&words, &lower) {
+        return Intent::Chat;
+    }
     // "Press Cancel" names a button; it is not a refusal to act.
     let refusal_words: Vec<_> = words
         .iter()

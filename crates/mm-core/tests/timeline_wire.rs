@@ -10,6 +10,7 @@ fn wire_format() {
         mode: Mode::Fun,
         point_ids: vec!["e12".into()],
         screenshot: Some((1280, 800)),
+        open_request: None,
     });
     let answer = "<lang en><mood happy><point e12><sfx ping soft>It's right here. \
                   <step 1/2 e12><show 125%>Click it.<wait click><pause 400>\

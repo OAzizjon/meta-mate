@@ -9,7 +9,7 @@ import type { RobotController, RobotState } from "./robot/index.ts";
 import type { TimelinePlayer, TimelinePlayerOptions } from "./player/timeline-player.ts";
 
 export const CANT_FIND_HOLD_MS = 3000;
-/** As long as Rust waits for F8 before an unclear window is looked at (screen.rs confirm_look). */
+/** As long as Rust waits for a click on Mate (or F8) before an unclear window is looked at (screen.rs confirm_look). */
 export const LOOK_CONSENT_MS = 30_000;
 
 export interface Bubble {
