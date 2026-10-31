@@ -11,7 +11,7 @@ Windows 10/11 x64.
 1. **Download** the release installer — no API keys or invite codes needed.
 2. **SmartScreen:** click **More info**, then **Run anyway** (not code-signed yet).
 3. **Start:** **Try without signing in** (12 messages/hour, count shown under Mate) or **Sign in with Google** for your own daily allowance.
-4. **Ask:** Press **Win+I**, click Mate once and ask *"How do I make the text bigger?"* Or ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only what your own request names; a page cannot ask him to open something. Click him again, or just pause, when you are done. Or hold **Right Ctrl** while you speak; pressing any other key cancels. No Right Ctrl? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
+4. **Ask:** Press **Win+I**, click Mate once and ask *"How do I make the text bigger?"* Or ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only apps or sites named in your own request, never names that appear only on a page or in a screenshot. Click him again, or just pause, when you are done. Or hold **Right Ctrl** while you speak; pressing any other key cancels. No Right Ctrl? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
 5. **Or type:** Right-click the tray icon (or Mate) → **Chat with Mate**. Mate still points on screen.
 
 ## Links
@@ -29,13 +29,18 @@ Windows 10/11 x64.
 
 MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Click Mate or hold **Right Ctrl** (or another talk key chosen in Settings) and ask in English or Russian; Mate answers aloud with a live transcript in his bubble. The core:
 
-- **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it. In apps Windows can read he names the right control every time we measured (below); where it cannot read the window, he says he can't find it rather than guess.
+- **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it. With the accessibility element list he named the right control in all 610 measured answers (below); where it cannot read the window, he says he can't find it rather than guess.
 - **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and if the person clicks away from the beam twice on Quick, Muse Wonder 1.0 automatically plans the next step.
 - **Scam check ("Is this safe?"):** Evaluates suspicious emails, pop-ups, and websites in the active window. Muse Spark 1.3 delivers an immediate verdict via Mate's expression (`<mood calm>`, `<mood surprised>`, or `<mood sad>`), explains the specific red flags detected (mismatched domains, artificial urgency, fake security warnings), and shines a beam on the worst one—without ever telling the user to click, call, or pay.
 - **Keepsake lesson cards:** After completing a lesson, Mate produces a printable recap card saved in `Pictures\MetaMate` with steps rewritten into plain language by Muse Glimmer 30B and illustrated in a soft gouache style by Muse Image.
 
 Also inside:
 
+- **Spotlight:** While Mate points, the rest of the screen dims around a soft opening on the target, so the button stands out even in a small video call window (`src/highlight.ts`; Settings: "Dim the rest of the screen while I point").
+- **Warmer, warmer:** During a lesson step, the ring and Mate's glow brighten as the mouse nears the right button and hold steady once it is on it, guiding the hand before the click (`src-tauri/src/pointing.rs`).
+- **A trail, not a scolding:** After a click in the wrong place during a lesson, a dotted line of light runs from that spot to the ring while Mate says "Almost"; no red, no cross (`src-tauri/src/teacher/lesson.rs`).
+- **X-ray look:** While Mate thinks, faint outlines sweep top to bottom over the elements he is reading, and every field painted over for privacy shows as a dark tile with a lock, so you can see what he is reading and which fields were painted over for privacy (`src-tauri/src/highlight.rs`, `src/highlight.ts`).
+- **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name; password fields, sign-in codes, tabs and window titles, and any name with an e-mail or web address or a run of four digits are skipped.
 - **Home window:** An accessible starting hub (`home.html`) featuring an animated Right Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
 - **Chat window:** Type a question instead of speaking (`chat.html`): Mate's answers appear in comic-style speech balloons tinted by his mood, button names look like key chips, and steps appear as lists. Mate still points on screen.
 - **Look with permission:** In Chrome, when Mate asks if he may look at the window, click him to answer yes.
@@ -43,12 +48,6 @@ Also inside:
 - **"What can you do?"** gets a short spoken tour with three example questions on screen, and the **Guide** on Home (button or "?") shows everything one card at a time.
 - **My lessons:** every lesson card on Home, newest first; each saved card is a captioned comic page (picture, title, numbered steps, date), so the PNG makes sense on its own.
 - **A living bulb:** Mate floats, squashes and leans on springs and lands with a wobble, but never while his beam is on a target; a step done right gets a "CLICK!" burst.
-- **Landing page:** On a wide screen, the site (`site/`) reads as a horizontal comic; on a small screen, its panels stack vertically.
-- **Spotlight:** While Mate points, the rest of the screen dims around a soft opening on the target, so the button stands out even in a small video call window (`src/highlight.ts`; Settings: "Dim the rest of the screen while I point").
-- **Warmer, warmer:** During a lesson step, the ring and Mate's glow brighten as the mouse nears the right button and hold steady once it is on it, guiding the hand before the click (`src-tauri/src/pointing.rs`).
-- **A trail, not a scolding:** After a click in the wrong place during a lesson, a dotted line of light runs from that spot to the ring while Mate says "Almost"; no red, no cross (`src-tauri/src/teacher/lesson.rs`).
-- **X-ray look:** While Mate thinks, faint outlines sweep top to bottom over the elements he is reading, and every field painted over for privacy shows as a dark tile with a lock, so you see what he looks at and what he never sees (`src-tauri/src/highlight.rs`, `src/highlight.ts`).
-- **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name; password fields, sign-in codes, tabs and window titles, and any name with an e-mail or web address or a run of four digits are skipped.
 
 ## Built with Meta
 
