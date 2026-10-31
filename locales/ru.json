@@ -271,5 +271,8 @@
   "mate.menu_home": "Главная",
   "mate.explain_offer": "«{control}»: нажмите на меня — расскажу, для чего это.",
   "mate.explain_question": "Объясните в двух коротких предложениях, для чего «{control}» ({type}) в программе {app}.",
-  "card.operation_failed": "Не удалось открыть или сохранить карточку. Попробуйте ещё раз."
+  "card.operation_failed": "Не удалось открыть или сохранить карточку. Попробуйте ещё раз.",
+  "highlight.burst_click": "КЛИК!",
+  "highlight.burst_nice": "ЕСТЬ!",
+  "highlight.burst_done": "ГОТОВО!"
 }

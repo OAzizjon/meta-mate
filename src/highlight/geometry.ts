@@ -51,12 +51,19 @@ export interface HighlightScanMsg {
   readonly locked: readonly CssRect[];
 }
 
+/** A short comic onomatopoeia burst when the person does a lesson step right. */
+export interface HighlightBurstMsg {
+  readonly type: "burst";
+  readonly rect: CssRect;
+}
+
 export type HighlightMsg =
   | HighlightTargetMsg
   | HighlightClearMsg
   | HighlightWarmthMsg
   | HighlightMissMsg
-  | HighlightScanMsg;
+  | HighlightScanMsg
+  | HighlightBurstMsg;
 
 export type RectEdgeSide = "left" | "right" | "top" | "bottom";
 
@@ -95,6 +102,37 @@ export const SCAN_LIFETIME_MS = 4000;
 export const SCAN_FADE_MS = 300;
 /** A locked tile gets its lock only when both sides are at least this long (CSS px). */
 export const LOCK_MIN_SIDE = 16;
+/** Name of the Tauri event signaling a comic burst. */
+export const BURST_EVENT = "highlight-burst";
+/** Default outer radius of the comic star burst (CSS px). */
+export const BURST_OUTER_RADIUS = 60;
+/** Default inner radius of the comic star burst valleys (CSS px). */
+export const BURST_INNER_RADIUS = 36;
+/** Number of outer spikes on the star burst. */
+export const BURST_SPIKES = 12;
+/** Minimum clearance from viewport edges (CSS px). */
+export const BURST_MARGIN = 16;
+/** Overshoot pop-in duration (ms). */
+export const BURST_POP_MS = 200;
+/** Hold duration on screen (ms). */
+export const BURST_HOLD_MS = 600;
+/** Fade-out duration (ms). */
+export const BURST_FADE_MS = 250;
+/** Maximum time the burst may cover the next target (ms). */
+export const BURST_MAX_COVER_MS = 1000;
+export const BURST_WORDS_EN = ["CLICK!", "NICE!", "DONE!"] as const;
+export const BURST_WORDS_RU = ["КЛИК!", "ЕСТЬ!", "ГОТОВО!"] as const;
+export const BURST_LOCALE_KEYS = [
+  "highlight.burst_click",
+  "highlight.burst_nice",
+  "highlight.burst_done",
+] as const;
+
+export interface BurstGeometry {
+  readonly center: CssPoint;
+  readonly points: readonly CssPoint[];
+  readonly radius: number;
+}
 
 type JsonObject = Readonly<Record<string, unknown>>;
 
@@ -166,6 +204,11 @@ function parseMsg(raw: unknown): HighlightMsg | null {
     const locked = parseRects(raw.locked);
     return rects && locked && rects.length + locked.length <= MAX_SCAN_RECTS
       ? { type, rects, locked } : null;
+  }
+  if (type === "burst") {
+    if (!exact(raw, ["type", "rect"])) return null;
+    const rect = parseRect(raw.rect);
+    return rect ? { type: "burst", rect } : null;
   }
   if (type !== "target") return null;
 
@@ -470,3 +513,86 @@ export function computeBadgePosition(
 }
 
 export const badgePosition = computeBadgePosition;
+
+/** Picks the word for this step in turn (0 -> CLICK!, 1 -> NICE!, 2 -> DONE!, 3 -> CLICK!, ...). */
+export function nextBurstWord(turn: number, words: readonly string[]): string {
+  if (words.length === 0) return "";
+  const index = ((Math.trunc(turn) % words.length) + words.length) % words.length;
+  return words[index];
+}
+
+/** Slight comic tilt angle in degrees (-6, +4, -4, +5) varying with turn. */
+export function burstTiltAngle(turn: number): number {
+  const angles = [-6, 4, -4, 5];
+  const index = ((Math.trunc(turn) % angles.length) + angles.length) % angles.length;
+  return angles[index];
+}
+
+/** Clamps the burst center so the star burst with outer `radius` stays within `viewport` margin. */
+export function clampBurstCenter(
+  center: CssPoint,
+  viewport: CssSize,
+  radius: number = BURST_OUTER_RADIUS,
+  margin: number = BURST_MARGIN,
+): CssPoint {
+  const vw = Number.isFinite(viewport.width) && viewport.width > 0 ? viewport.width : radius * 2;
+  const vh = Number.isFinite(viewport.height) && viewport.height > 0 ? viewport.height : radius * 2;
+  const r = Number.isFinite(radius) && radius > 0 ? radius : BURST_OUTER_RADIUS;
+  const pad = Number.isFinite(margin) && margin >= 0 ? margin : BURST_MARGIN;
+
+  const minX = pad + r;
+  const maxX = Math.max(minX, vw - pad - r);
+  const minY = pad + r;
+  const maxY = Math.max(minY, vh - pad - r);
+
+  return {
+    x: clamp(center.x, minX, maxX),
+    y: clamp(center.y, minY, maxY),
+  };
+}
+
+/** Computes the points of a jagged comic star burst polygon around `center`. */
+export function computeBurstPolygon(
+  center: CssPoint,
+  outerRadius: number = BURST_OUTER_RADIUS,
+  innerRadius: number = BURST_INNER_RADIUS,
+  spikes: number = BURST_SPIKES,
+): readonly CssPoint[] {
+  const points: CssPoint[] = [];
+  const nSpikes = Number.isInteger(spikes) && spikes >= 3 ? spikes : BURST_SPIKES;
+  const rOut = Number.isFinite(outerRadius) && outerRadius > 0 ? outerRadius : BURST_OUTER_RADIUS;
+  const rIn = Number.isFinite(innerRadius) && innerRadius > 0 ? innerRadius : BURST_INNER_RADIUS;
+  const total = nSpikes * 2;
+
+  for (let i = 0; i < total; i++) {
+    const angle = (i * Math.PI) / nSpikes - Math.PI / 2;
+    const isOuter = i % 2 === 0;
+    const r = isOuter
+      ? rOut * (1 + 0.12 * Math.sin(i * 1.5))
+      : rIn * (1 - 0.08 * Math.cos(i * 1.5));
+    points.push({
+      x: Math.round((center.x + r * Math.cos(angle)) * 100) / 100,
+      y: Math.round((center.y + r * Math.sin(angle)) * 100) / 100,
+    });
+  }
+  return points;
+}
+
+/** Computes the clamped center and burst polygon for `target` within `viewport`. */
+export function computeBurstGeometry(
+  target: CssRect,
+  viewport: CssSize,
+  outerRadius: number = BURST_OUTER_RADIUS,
+  innerRadius: number = BURST_INNER_RADIUS,
+  spikes: number = BURST_SPIKES,
+  margin: number = BURST_MARGIN,
+): BurstGeometry {
+  const rawCenter = {
+    x: (target.left + target.right) / 2,
+    y: (target.top + target.bottom) / 2,
+  };
+  const maxRadius = outerRadius * 1.15;
+  const center = clampBurstCenter(rawCenter, viewport, maxRadius, margin);
+  const points = computeBurstPolygon(center, outerRadius, innerRadius, spikes);
+  return { center, points, radius: maxRadius };
+}

@@ -178,3 +178,91 @@
     opacity: 0.55;
   }
 }
+
+/* Comic onomatopoeia burst for successful lesson step clicks */
+.highlight-burst-group {
+  pointer-events: none;
+  user-select: none;
+}
+
+.highlight-burst {
+  transform-origin: var(--burst-cx, 0px) var(--burst-cy, 0px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.highlight-burst-star {
+  fill: var(--accent, #ffcd3c);
+  stroke: var(--text, #1f2a44);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 4px 12px rgba(31, 42, 68, 0.28));
+}
+
+.highlight-burst-text {
+  fill: var(--text, #1f2a44);
+  font-family: var(--font-display, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif);
+  font-weight: 900;
+  font-size: 20px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+@keyframes highlight-burst-pop {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes highlight-burst-fade {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.highlight-burst.is-popping {
+  animation: highlight-burst-pop 200ms cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.highlight-burst.is-fading {
+  animation: highlight-burst-fade 250ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highlight-burst.is-popping {
+    animation: highlight-burst-fade 200ms ease-out reverse forwards;
+    transform: none;
+  }
+  .highlight-burst.is-fading {
+    animation: highlight-burst-fade 250ms ease-out forwards;
+    transform: none;
+  }
+}
+
+:root.reduce-motion .highlight-burst.is-popping,
+:root[data-reduce-motion="true"] .highlight-burst.is-popping,
+.reduce-motion .highlight-burst.is-popping {
+  animation: highlight-burst-fade 200ms ease-out reverse forwards;
+  transform: none;
+}
+
+:root.reduce-motion .highlight-burst.is-fading,
+:root[data-reduce-motion="true"] .highlight-burst.is-fading,
+.reduce-motion .highlight-burst.is-fading {
+  animation: highlight-burst-fade 250ms ease-out forwards;
+  transform: none;
+}

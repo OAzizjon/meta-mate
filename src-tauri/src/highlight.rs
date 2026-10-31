@@ -13,6 +13,7 @@ use tauri::{AppHandle, Emitter, Manager};
 /// the event they listen to.
 const WINDOW_PREFIX: &str = "highlight-";
 const EVENT: &str = "highlight";
+pub const BURST_EVENT: &str = "highlight-burst";
 /// The highest step total the window draws a badge for (src/highlight.ts drops the
 /// whole message otherwise).
 const MAX_STEPS: u32 = 20;
@@ -43,6 +44,8 @@ pub enum HighlightMsg {
     /// What Mate read while the model thinks: outlines of the listed elements and dark
     /// tiles over the hidden fields. Rectangles only, never a name or a value.
     Scan { rects: Vec<Rect>, locked: Vec<Rect> },
+    /// A comic onomatopoeia burst when the person does a lesson step right.
+    Burst { rect: Rect },
 }
 
 /// CSS pixels relative to the highlight window.
@@ -206,6 +209,39 @@ fn miss_message(
         from: transform.phys_to_css(at).into(),
         rect,
     })
+}
+
+/// Draws the comic burst in the existing click-through window; never spans monitors.
+#[cfg(windows)]
+pub fn burst(app: &AppHandle, target: PhysRect) -> Result<(), HighlightError> {
+    let monitors = mm_win32::monitors::monitors();
+    let Some((index, monitor)) = monitors
+        .iter()
+        .enumerate()
+        .find(|(_, monitor)| monitor.area.contains(target.center()))
+    else {
+        return Ok(());
+    };
+    match burst_message(monitor.area, monitor.scale(), target) {
+        Ok(payload) => {
+            let win_label = label(index);
+            let _ = app.emit_to(&win_label, BURST_EVENT, payload.clone());
+            send(app, &win_label, payload)
+        }
+        Err(HighlightError::OtherMonitor) => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
+fn burst_message(
+    area: PhysRect,
+    scale: f64,
+    target: PhysRect,
+) -> Result<HighlightMsg, HighlightError> {
+    let HighlightMsg::Target { rect, .. } = message(area, scale, target, None, None)? else {
+        unreachable!();
+    };
+    Ok(HighlightMsg::Burst { rect })
 }
 
 /// The X-ray look of `look` while the model thinks: each monitor's window gets the part on
@@ -713,6 +749,16 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&HighlightMsg::Clear).ok(),
             Some(json!({"type": "clear"}))
+        );
+        assert_eq!(
+            serde_json::to_value(&HighlightMsg::Burst {
+                rect: css(1.0, 2.0, 3.5, 4.0),
+            })
+            .ok(),
+            Some(json!({
+                "type": "burst",
+                "rect": {"left": 1.0, "top": 2.0, "right": 3.5, "bottom": 4.0}
+            }))
         );
     }
 }

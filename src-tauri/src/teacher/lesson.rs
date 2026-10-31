@@ -234,6 +234,7 @@ pub(crate) async fn teach(
         // Clicks and chords from before the current step was shown never complete it
         // (invariant 4: input must not confirm a step the person never saw).
         let mut pointed_ms = now();
+        let mut pointed_target: Option<PhysRect> = None;
         let existing_windows = mm_win32::window::existing_windows();
         loop {
             #[cfg(debug_assertions)]
@@ -307,6 +308,7 @@ pub(crate) async fn teach(
                             )
                             .is_some();
                         pointed_ms = now();
+                        pointed_target = shown.then_some(rect);
                         if !shown {
                             // The last step's ring would stay over whatever is there now.
                             let _ = crate::highlight::clear(&app);
@@ -645,6 +647,13 @@ pub(crate) async fn teach(
                                     _ => {}
                                 }
                             }
+                        }
+                        // A step done right: a comic burst on the target (highlight.rs).
+                        if pending.iter().any(|command| {
+                            matches!(command, TeacherCommand::Say(LineKey::RightClick))
+                        }) && let Some(target) = pointed_target
+                        {
+                            let _ = crate::highlight::burst(&app, target);
                         }
                         if pending.iter().any(|command| matches!(command,
                             TeacherCommand::PointAt { .. }

@@ -9,6 +9,16 @@ import {
   BADGE_HEIGHT,
   BADGE_WIDTH,
   BEAM_HALF_WIDTH,
+  BURST_EVENT,
+  BURST_FADE_MS,
+  BURST_HOLD_MS,
+  BURST_INNER_RADIUS,
+  BURST_MARGIN,
+  BURST_OUTER_RADIUS,
+  BURST_POP_MS,
+  BURST_SPIKES,
+  BURST_WORDS_EN,
+  BURST_WORDS_RU,
   LOCK_MIN_SIDE,
   MAX_SCAN_RECTS,
   MAX_STEP_TOTAL,
@@ -17,12 +27,17 @@ import {
   SCAN_LIFETIME_MS,
   SCAN_SWEEP_MS,
   VIEWPORT_MARGIN,
+  burstTiltAngle,
+  clampBurstCenter,
   computeBadgePosition,
   computeBeamPolygon,
+  computeBurstGeometry,
+  computeBurstPolygon,
   formatPolygonPoints,
   formatStepBadge,
   lockCenter,
   nearestRectEdge,
+  nextBurstWord,
   missPath,
   parseHighlightMsg,
   ringRect,
@@ -461,4 +476,102 @@ test("warmth accepts exactly ten levels and rejects malformed fields", () => {
   assert.deepEqual(parseHighlightMsg({ type: "target", rect: RECT, dim: false }), {
     type: "target", rect: RECT, dim: false, beamFrom: null, step: null,
   });
+});
+
+test("burst word rotation picks words in turn and handles bounds", () => {
+  assert.equal(nextBurstWord(0, BURST_WORDS_EN), "CLICK!");
+  assert.equal(nextBurstWord(1, BURST_WORDS_EN), "NICE!");
+  assert.equal(nextBurstWord(2, BURST_WORDS_EN), "DONE!");
+  assert.equal(nextBurstWord(3, BURST_WORDS_EN), "CLICK!");
+  assert.equal(nextBurstWord(4, BURST_WORDS_EN), "NICE!");
+
+  assert.equal(nextBurstWord(0, BURST_WORDS_RU), "КЛИК!");
+  assert.equal(nextBurstWord(1, BURST_WORDS_RU), "ЕСТЬ!");
+  assert.equal(nextBurstWord(2, BURST_WORDS_RU), "ГОТОВО!");
+  assert.equal(nextBurstWord(3, BURST_WORDS_RU), "КЛИК!");
+
+  assert.equal(nextBurstWord(-1, BURST_WORDS_EN), "DONE!");
+  assert.equal(nextBurstWord(0, []), "");
+
+  assert.equal(burstTiltAngle(0), -6);
+  assert.equal(burstTiltAngle(1), 4);
+  assert.equal(burstTiltAngle(2), -4);
+  assert.equal(burstTiltAngle(3), 5);
+  assert.equal(burstTiltAngle(4), -6);
+});
+
+test("clampBurstCenter keeps the burst within viewport margins", () => {
+  const vp = { width: 800, height: 600 };
+  const r = BURST_OUTER_RADIUS;
+  const m = BURST_MARGIN;
+
+  // Well inside viewport
+  assert.deepEqual(clampBurstCenter({ x: 400, y: 300 }, vp, r, m), { x: 400, y: 300 });
+
+  // Pushed past left/top edges
+  assert.deepEqual(clampBurstCenter({ x: 10, y: 5 }, vp, r, m), { x: m + r, y: m + r });
+
+  // Pushed past right/bottom edges
+  assert.deepEqual(clampBurstCenter({ x: 900, y: 700 }, vp, r, m), {
+    x: vp.width - m - r,
+    y: vp.height - m - r,
+  });
+
+  // Zero / negative center
+  assert.deepEqual(clampBurstCenter({ x: -100, y: -50 }, vp, r, m), { x: m + r, y: m + r });
+});
+
+test("computeBurstPolygon produces a closed star polygon around center", () => {
+  const center = { x: 200, y: 200 };
+  const points = computeBurstPolygon(center, 60, 36, 12);
+  assert.equal(points.length, 24);
+
+  // Polygon has positive non-zero area
+  const area = polygonSignedArea(points);
+  assert.ok(area > 0);
+
+  // All points stay within outer radius bound
+  for (const pt of points) {
+    const dist = Math.hypot(pt.x - center.x, pt.y - center.y);
+    assert.ok(dist >= 30 && dist <= 75, `Point distance ${dist} out of bounds`);
+  }
+});
+
+test("computeBurstGeometry clamps target burst inside viewport", () => {
+  const vp = { width: 1024, height: 768 };
+
+  // Center target
+  const midTarget: CssRect = { left: 400, top: 300, right: 500, bottom: 350 };
+  const midGeo = computeBurstGeometry(midTarget, vp);
+  assert.equal(midGeo.center.x, 450);
+  assert.equal(midGeo.center.y, 325);
+  assert.equal(midGeo.points.length, BURST_SPIKES * 2);
+
+  // Top-left corner target
+  const edgeTarget: CssRect = { left: 0, top: 0, right: 40, bottom: 30 };
+  const edgeGeo = computeBurstGeometry(edgeTarget, vp);
+  assert.ok(edgeGeo.center.x >= BURST_MARGIN + edgeGeo.radius);
+  assert.ok(edgeGeo.center.y >= BURST_MARGIN + edgeGeo.radius);
+  for (const pt of edgeGeo.points) {
+    assert.ok(pt.x >= 0 && pt.x <= vp.width, `Point x ${pt.x} outside viewport`);
+    assert.ok(pt.y >= 0 && pt.y <= vp.height, `Point y ${pt.y} outside viewport`);
+  }
+});
+
+test("parseHighlightMsg validates burst payloads strictly", () => {
+  const valid = {
+    type: "burst",
+    rect: { left: 50, top: 60, right: 150, bottom: 120 },
+  };
+  assert.deepEqual(parseHighlightMsg(valid), valid);
+
+  // Reject missing rect
+  assert.equal(parseHighlightMsg({ type: "burst" }), null);
+  // Reject extra properties
+  assert.equal(parseHighlightMsg({ ...valid, extra: 123 }), null);
+  // Reject inverted/empty rect
+  assert.equal(parseHighlightMsg({ type: "burst", rect: { left: 150, top: 60, right: 50, bottom: 120 } }), null);
+  assert.equal(parseHighlightMsg({ type: "burst", rect: { left: 50, top: 60, right: 50, bottom: 120 } }), null);
+  // Reject non-number coordinates
+  assert.equal(parseHighlightMsg({ type: "burst", rect: { left: "50", top: 60, right: 150, bottom: 120 } }), null);
 });

@@ -7,22 +7,31 @@
 
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { parseSettings, SETTINGS_CHANGED_EVENT } from "./settings/model.ts";
+import { applyTheme } from "./settings/theme.ts";
+import { setLocale, t } from "./i18n/index.ts";
 import {
   BADGE_HEIGHT,
   BADGE_WIDTH,
   BEAM_COLOR,
   BEAM_HALF_WIDTH,
+  BURST_EVENT,
+  BURST_FADE_MS,
+  BURST_HOLD_MS,
+  BURST_POP_MS,
   CLEAR_FADE_MS,
   RING_PAD,
   RING_RADIUS,
   SCAN_FADE_MS,
   SCAN_LIFETIME_MS,
+  burstTiltAngle,
   computeBadgePosition,
   computeBeamPolygon,
+  computeBurstGeometry,
   formatPolygonPoints,
   formatStepBadge,
   lockCenter,
   missPath,
+  nextBurstWord,
   num,
   parseHighlightMsg,
   ringRect,
@@ -70,11 +79,28 @@ export {
   parseHighlightMsg,
   ringRect,
   scanDelay,
+  BURST_EVENT,
+  BURST_FADE_MS,
+  BURST_HOLD_MS,
+  BURST_INNER_RADIUS,
+  BURST_MARGIN,
+  BURST_OUTER_RADIUS,
+  BURST_POP_MS,
+  BURST_SPIKES,
+  BURST_WORDS_EN,
+  BURST_WORDS_RU,
+  burstTiltAngle,
+  clampBurstCenter,
+  computeBurstGeometry,
+  computeBurstPolygon,
+  nextBurstWord,
 } from "./highlight/geometry.ts";
 export type {
+  BurstGeometry,
   CssPoint,
   CssRect,
   CssSize,
+  HighlightBurstMsg,
   HighlightClearMsg,
   HighlightMissMsg,
   HighlightMsg,
@@ -97,6 +123,8 @@ export interface HighlightController {
   apply(msg: HighlightMsg): void;
   /** Parses an untrusted payload and applies it if valid; returns `true` when accepted. */
   handleRaw(raw: unknown): boolean;
+  /** Shows a comic onomatopoeia burst at `rect`. */
+  burst(rect: CssRect): void;
   /** Fades out the current highlight in 200 ms. */
   clear(): void;
   destroy(): void;
@@ -213,9 +241,10 @@ export function mountHighlight(
   const missMask = svgEl("mask", { id: "miss-reveal", maskUnits: "userSpaceOnUse" });
   defs.append(missMask);
   scene.append(dim, beam, ringGroup, missGroup);
-  // After the scene: the Spotlight dim never covers the scan.
+  // After the scene: the Spotlight dim never covers the scan or burst.
   const scanGroup = svgEl("g", { class: "highlight-scan" });
-  svgRoot.replaceChildren(defs, scene, scanGroup);
+  const burstGroup = svgEl("g", { class: "highlight-burst-group" });
+  svgRoot.replaceChildren(defs, scene, scanGroup, burstGroup);
 
   const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
   let reduceSetting = false;
@@ -428,12 +457,95 @@ export function mountHighlight(
       badge.textContent = "";
     }
 
+    if (burstEl && !burstEl.classList.contains("is-fading")) {
+      // Never cover the next target for more than 1 s: transition immediately to fade-out.
+      if (burstTimer) {
+        clearTimeout(burstTimer);
+        burstTimer = undefined;
+      }
+      burstEl.classList.remove("is-popping");
+      burstEl.classList.add("is-fading");
+      burstFadeTimer = setTimeout(() => {
+        stopBurst();
+      }, BURST_FADE_MS);
+    }
+
     scene.classList.add("is-active");
+  };
+
+  let burstTurn = 0;
+  let burstTimer: ReturnType<typeof setTimeout> | undefined;
+  let burstFadeTimer: ReturnType<typeof setTimeout> | undefined;
+  let burstEl: SVGElement | null = null;
+
+  const stopBurst = (): void => {
+    if (burstTimer) {
+      clearTimeout(burstTimer);
+      burstTimer = undefined;
+    }
+    if (burstFadeTimer) {
+      clearTimeout(burstFadeTimer);
+      burstFadeTimer = undefined;
+    }
+    if (burstEl) {
+      burstEl.remove();
+      burstEl = null;
+    }
+  };
+
+  const showBurst = (rect: CssRect): void => {
+    stopBurst();
+    const words = [
+      t("highlight.burst_click"),
+      t("highlight.burst_nice"),
+      t("highlight.burst_done"),
+    ];
+    const word = nextBurstWord(burstTurn, words);
+    const tilt = burstTiltAngle(burstTurn);
+    burstTurn += 1;
+
+    const geo = computeBurstGeometry(rect, viewportSize());
+    burstEl = svgEl("g", {
+      class: "highlight-burst is-popping",
+    });
+    setAttr(
+      burstEl,
+      "style",
+      `--burst-cx: ${num(geo.center.x)}px; --burst-cy: ${num(geo.center.y)}px;`,
+    );
+
+    const star = svgEl("polygon", {
+      class: "highlight-burst-star",
+      points: formatPolygonPoints(geo.points),
+    });
+
+    const text = svgEl("text", {
+      class: "highlight-burst-text",
+      x: num(geo.center.x),
+      y: num(geo.center.y),
+      transform: `rotate(${tilt} ${num(geo.center.x)} ${num(geo.center.y)})`,
+    });
+    text.textContent = word;
+
+    burstEl.append(star, text);
+    burstGroup.append(burstEl);
+
+    // Pops in with an overshoot scale (200 ms), holds 600 ms, fades out (250 ms).
+    burstTimer = setTimeout(() => {
+      burstTimer = undefined;
+      if (!burstEl) return;
+      burstEl.classList.remove("is-popping");
+      burstEl.classList.add("is-fading");
+      burstFadeTimer = setTimeout(() => {
+        stopBurst();
+      }, BURST_FADE_MS);
+    }, BURST_POP_MS + BURST_HOLD_MS);
   };
 
   const clear = (): void => {
     stopClearTimer();
     stopMiss();
+    stopBurst();
     fadeScan();
     activeTarget = null;
     scene.classList.remove("is-active");
@@ -467,6 +579,10 @@ export function mountHighlight(
       drawScan(msg);
       return;
     }
+    if (msg.type === "burst") {
+      showBurst(msg.rect);
+      return;
+    }
     drawTarget(msg);
   };
 
@@ -474,6 +590,10 @@ export function mountHighlight(
     apply,
     setSettings(raw) {
       const settings = parseSettings(raw);
+      setLocale(settings.language);
+      if (typeof document !== "undefined") {
+        applyTheme(settings.theme, document.documentElement);
+      }
       reduceSetting = settings.reduceMotion;
       syncMotion();
       if (activeTarget) {
@@ -487,15 +607,18 @@ export function mountHighlight(
       apply(msg);
       return true;
     },
+    burst: showBurst,
     clear,
     destroy() {
       stopClearTimer();
       stopMiss();
       stopScanTimer();
+      stopBurst();
       motionQuery.removeEventListener("change", syncMotion);
       window.removeEventListener("resize", onResize);
       scene.remove();
       scanGroup.remove();
+      burstGroup.remove();
       defs.remove();
       badge.hidden = true;
       badge.textContent = "";
@@ -524,6 +647,11 @@ if (typeof document !== "undefined") {
         controller.handleRaw(event.payload);
       }).catch((error: unknown) => {
         console.error("[highlight] event listener failed", error);
+      });
+      void getCurrentWebviewWindow().listen<unknown>(BURST_EVENT, (event) => {
+        controller.handleRaw(event.payload);
+      }).catch((error: unknown) => {
+        console.error("[highlight] burst event listener failed", error);
       });
     }
     if (import.meta.env.DEV) {

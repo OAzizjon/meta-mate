@@ -271,5 +271,8 @@
   "mate.menu_home": "Home",
   "mate.explain_offer": "\"{control}\": click me and I'll tell you what it does.",
   "mate.explain_question": "In two short sentences, what is \"{control}\" ({type}) for in the {app} app?",
-  "card.operation_failed": "I couldn't open or save that card. Please try again."
+  "card.operation_failed": "I couldn't open or save that card. Please try again.",
+  "highlight.burst_click": "CLICK!",
+  "highlight.burst_nice": "NICE!",
+  "highlight.burst_done": "DONE!"
 }

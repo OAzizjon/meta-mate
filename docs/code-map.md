@@ -272,8 +272,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Flight::fly_to:173 Flight::land:179 Flight::position:184 Flight::wait_idle:193
   inline tests (13)
 - src-tauri/src/highlight.rs — Rust → the highlight windows: the ring around the element Mate points at, the beam from Mate, the step badge and the X-ray scan of a look (src/highlight.ts is the other end).
-  HighlightMsg:29 Rect:50 Point:59 Step:65 HighlightError:91 label:124 show:132 clear:152
-  warmth:161 miss:169 scan:215
+  BURST_EVENT:16 HighlightMsg:30 Rect:53 Point:62 Step:68 HighlightError:94 label:127 show:135
+  clear:155 warmth:164 miss:172 burst:216 scan:251
   inline tests (14)
 - src-tauri/src/home.rs — The Home window: instructions and sample questions, shown without taking focus.
   TRY_QUESTIONS:6 open:10 open_home:49 home_try:87
@@ -338,7 +338,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src-tauri/src/teacher/inputs.rs — The person's clicks while a lesson runs: the low-level mouse hook, recognized into clicks and double clicks, sent to the lesson.
   Clicks:5 listen_for_clicks:9 Keys:40 listen_for_keys:44
 - src-tauri/src/teacher/lesson.rs — One lesson for `question`.
-  teach:41 screenshot_wait_expired:672 input_staleness:677
+  teach:41 screenshot_wait_expired:681 input_staleness:686
 - src-tauri/src/teacher/presentation.rs — Check the whole snapshot ancestry, including the window's title, before offering.
   pressable:4 PRAISE:60 line_key:67 targets_for:95 lesson_session:133 fell_back:145 outline_unlisted:151 wav_duration:207
   speak:214 finish:251
@@ -420,19 +420,22 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   DebugStore:400 renderGenerationHtml:479 renderDebugViewHtml:590
   tests: src/debug/view.test.ts (18)
 - src/highlight.ts — Highlight overlay window (docs/architecture.md section 2, WP5): listens for the `"highlight"` Tauri event from `src-tauri/src/highlight.rs`, validates the payload strictly, and draws the glowing …
-  BADGE_GAP:41^ BADGE_HEIGHT:41^ BADGE_WIDTH:41^ BEAM_COLOR:41^ BEAM_HALF_WIDTH:41^ CLEAR_FADE_MS:41^ LOCK_MIN_SIDE:41^ MAX_SCAN_RECTS:41^
-  MAX_STEP_TOTAL:41^ RING_PAD:41^ RING_RADIUS:41^ SCAN_FADE_MS:41^ SCAN_LIFETIME_MS:41^ SCAN_SWEEP_MS:41^ VIEWPORT_MARGIN:41^ badgePosition:41^
-  beamPolygon:41^ computeBadgePosition:41^ computeBeamPolygon:41^ formatPolygonPoints:41^ formatStepBadge:41^ inflateRect:41^ isValidPoint:41^ isValidRect:41^
-  isValidStep:41^ lockCenter:41^ missPath:41^ nearestRectEdge:41^ parseHighlightMsg:41^ ringRect:41^ scanDelay:41^ HighlightController:94
-  mountHighlight:151
+  BADGE_GAP:50^ BADGE_HEIGHT:50^ BADGE_WIDTH:50^ BEAM_COLOR:50^ BEAM_HALF_WIDTH:50^ CLEAR_FADE_MS:50^ LOCK_MIN_SIDE:50^ MAX_SCAN_RECTS:50^
+  MAX_STEP_TOTAL:50^ RING_PAD:50^ RING_RADIUS:50^ SCAN_FADE_MS:50^ SCAN_LIFETIME_MS:50^ SCAN_SWEEP_MS:50^ VIEWPORT_MARGIN:50^ badgePosition:50^
+  beamPolygon:50^ computeBadgePosition:50^ computeBeamPolygon:50^ formatPolygonPoints:50^ formatStepBadge:50^ inflateRect:50^ isValidPoint:50^ isValidRect:50^
+  isValidStep:50^ lockCenter:50^ missPath:50^ nearestRectEdge:50^ parseHighlightMsg:50^ ringRect:50^ scanDelay:50^ BURST_EVENT:50^
+  BURST_FADE_MS:50^ BURST_HOLD_MS:50^ BURST_INNER_RADIUS:50^ BURST_MARGIN:50^ BURST_OUTER_RADIUS:50^ BURST_POP_MS:50^ BURST_SPIKES:50^ BURST_WORDS_EN:50^
+  BURST_WORDS_RU:50^ burstTiltAngle:50^ clampBurstCenter:50^ computeBurstGeometry:50^ computeBurstPolygon:50^ nextBurstWord:50^ HighlightController:120 mountHighlight:179
 - src/highlight/geometry.ts — Pure geometry and wire validation for the click-through highlight window (docs/architecture.md section 2, WP5): parses `HighlightMsg` payloads from Rust, inflates the target ring, builds the …
-  CssSize:11 HighlightStep:17 HighlightTargetMsg:22 HighlightClearMsg:30 HighlightWarmthMsg:35 HighlightMissMsg:41 HighlightScanMsg:48 HighlightMsg:54
-  RectEdgeSide:61 RectEdge:63 RING_PAD:70 RING_RADIUS:72 BEAM_COLOR:74 BEAM_HALF_WIDTH:76 MAX_STEP_TOTAL:78 BADGE_WIDTH:80
-  BADGE_HEIGHT:81 BADGE_GAP:83 VIEWPORT_MARGIN:85 CLEAR_FADE_MS:87 MAX_SCAN_RECTS:89 SCAN_SWEEP_MS:91 SCAN_LIFETIME_MS:93 SCAN_FADE_MS:95
-  LOCK_MIN_SIDE:97 clamp:107 num:112 isValidPoint:117 isValidRect:122 isValidStep:127 parseHighlightMsg:136 shouldDim:202
-  ringRect:282 inflateRect:291 nearestRectEdge:297 computeBeamPolygon:355 beamPolygon:392 missPath:395 scanDelay:411 lockCenter:421
-  formatPolygonPoints:429 formatStepBadge:436 computeBadgePosition:444 badgePosition:472
-  tests: src/highlight/geometry.test.ts (14)
+  CssSize:11 HighlightStep:17 HighlightTargetMsg:22 HighlightClearMsg:30 HighlightWarmthMsg:35 HighlightMissMsg:41 HighlightScanMsg:48 HighlightBurstMsg:55
+  HighlightMsg:60 RectEdgeSide:68 RectEdge:70 RING_PAD:77 RING_RADIUS:79 BEAM_COLOR:81 BEAM_HALF_WIDTH:83 MAX_STEP_TOTAL:85
+  BADGE_WIDTH:87 BADGE_HEIGHT:88 BADGE_GAP:90 VIEWPORT_MARGIN:92 CLEAR_FADE_MS:94 MAX_SCAN_RECTS:96 SCAN_SWEEP_MS:98 SCAN_LIFETIME_MS:100
+  SCAN_FADE_MS:102 LOCK_MIN_SIDE:104 BURST_EVENT:106 BURST_OUTER_RADIUS:108 BURST_INNER_RADIUS:110 BURST_SPIKES:112 BURST_MARGIN:114 BURST_POP_MS:116
+  BURST_HOLD_MS:118 BURST_FADE_MS:120 BURST_MAX_COVER_MS:122 BURST_WORDS_EN:123 BURST_WORDS_RU:124 BURST_LOCALE_KEYS:125 BurstGeometry:131 clamp:145
+  num:150 isValidPoint:155 isValidRect:160 isValidStep:165 parseHighlightMsg:174 shouldDim:245 ringRect:325 inflateRect:334
+  nearestRectEdge:340 computeBeamPolygon:398 beamPolygon:435 missPath:438 scanDelay:454 lockCenter:464 formatPolygonPoints:472 formatStepBadge:479
+  computeBadgePosition:487 badgePosition:515 nextBurstWord:518 burstTiltAngle:525 clampBurstCenter:532 computeBurstPolygon:555 computeBurstGeometry:582
+  tests: src/highlight/geometry.test.ts (19)
 - src/home-page.ts — The Home window's entry (home.html): the locale lookup, Mate, then the page itself.
 - src/home.ts — Home window controller (WP89a): the friendly start page for older users.
   setHomeI18n:24 HOME_TRY_COMMAND:30 OPEN_SETTINGS_COMMAND:32 HOME_TRY_KEYS:35 HomeTryKey:40 HOME_TRY_HINTS:43 HOME_NEVER_KEYS:50 HOME_STATUS_MS:57
@@ -698,7 +701,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:400, src/signin.ts:104
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:30
-- `load_settings` src-tauri/src/settings.rs:279 <- src/highlight.ts:514, src/home.ts:168, src/settings/model.ts:283, src/settings/theme.ts:31
+- `load_settings` src-tauri/src/settings.rs:279 <- src/highlight.ts:637, src/home.ts:168, src/settings/model.ts:283, src/settings/theme.ts:31
 - `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:298
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_answer_target` src-tauri/src/opening.rs:16 <- src/mate.ts:254
@@ -741,14 +744,15 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
 - `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:416; const src-tauri/src/explain.rs:39
 - `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:395, src/signin.ts:106; const src-tauri/src/signin.rs:18
-- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:373; const src-tauri/src/highlight.rs:15
+- `highlight`: rs emit src-tauri/src/highlight.rs:160,166,302, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:646, src/mate.ts:373; const src-tauri/src/highlight.rs:15
+- `highlight-burst`: rs emit src-tauri/src/highlight.rs:228; ts listen src/highlight.ts:651; const src-tauri/src/highlight.rs:16, src/highlight/geometry.ts:106
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:405
 - `lesson-card`: rs emit src-tauri/src/card.rs:470; ts listen src/card-page.ts:26; const src-tauri/src/card.rs:37, src/card.ts:37
 - `lesson-interrupt`: rs emit src-tauri/src/voice.rs:524; ts listen src/mate.ts:215; const src/mate.ts:35
 - `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:379
 - `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:378
 - `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:380
-- `settings-changed`: rs emit src-tauri/src/settings.rs:307,343; ts listen src/highlight.ts:519, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:53, src/settings.ts:144; const src-tauri/src/settings.rs:25, src/settings/model.ts:27
+- `settings-changed`: rs emit src-tauri/src/settings.rs:307,343; ts listen src/highlight.ts:642, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:53, src/settings.ts:144; const src-tauri/src/settings.rs:25, src/settings/model.ts:27
 
 ### Proxy routes
 
@@ -801,12 +805,12 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `open.app_settings`: rs crates/mm-core/src/matescript/open.rs:32
 - `open.app_store`: rs crates/mm-core/src/matescript/open.rs:39
 - `open.failed`: rs src-tauri/src/opening.rs:43; ts src/mate.ts:256
-- `robot.cant_find`: rs src-tauri/src/chat.rs:128, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:372, src-tauri/src/teacher/lesson.rs:328, src-tauri/src/teacher/presentation.rs:78; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:154
+- `robot.cant_find`: rs src-tauri/src/chat.rs:128, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:372, src-tauri/src/teacher/lesson.rs:330, src-tauri/src/teacher/presentation.rs:78; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:154
 - `robot.cant_look`: rs src-tauri/src/screen.rs:379, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:29
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
-- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:494,620,621; ts src/ipc/answer-stream.ts:40
+- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:496,622,623; ts src/ipc/answer-stream.ts:40
 - `robot.click_stop`: rs src-tauri/src/voice.rs:578; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:102,123
-- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:377,385,593,599, src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:54
+- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:379,387,595,601, src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:54
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:80; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:49
 - `robot.double_click`: rs src-tauri/src/teacher/presentation.rs:71; ts src/ipc/answer-stream.ts:43
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/ipc/answer-stream.ts:38
@@ -827,11 +831,11 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.screen_changed`: rs src-tauri/src/teacher/presentation.rs:72; ts src/ipc/answer-stream.ts:44
 - `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:186, src-tauri/src/voice.rs:1230; ts src/ipc/answer-stream.ts:36
 - `robot.sign_in_first`: rs src-tauri/src/signin.rs:96; ts src/ipc/answer-stream.ts:37
-- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:474,555; ts src/ipc/answer-stream.ts:58
+- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:476,557; ts src/ipc/answer-stream.ts:58
 - `robot.thinking`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_2`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_3`: rs src-tauri/src/voice.rs:63
-- `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:441,446; ts src/ipc/answer-stream.ts:52
+- `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:443,448; ts src/ipc/answer-stream.ts:52
 - `robot.too_many_turns`: rs src-tauri/src/teacher/presentation.rs:82; ts src/i18n/index.ts:66, src/ipc/answer-stream.ts:50
 - `robot.window_closed`: rs src-tauri/src/pointing.rs:346; ts src/ipc/answer-stream.ts:31
 - `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:83; ts src/i18n/index.ts:67, src/ipc/answer-stream.ts:51
@@ -858,6 +862,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.*` (10 keys): src/settings/account-view.ts, src/settings/account.ts, src/signin.ts
 - `card.*` (11 keys): src/card.ts
 - `chat.*` (16 keys): src/chat.ts
+- `highlight.*` (3 keys): src/highlight.ts, src/highlight/geometry.ts
 - `home.*` (81 keys): src/home.ts, src/home/guide.ts, src/home/lessons-view.ts, src/home/profile.ts, src/mate-menu.ts, src/mate.ts
 - `mate.*` (4 keys): src/mate-menu.ts, src/mate.ts
 - `model.*` (4 keys): src/mate.ts
@@ -893,7 +898,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
 | src-tauri | 193 | 20 |
-| src | 310 | 31 |
+| src | 315 | 31 |
 | tools | 304 | 20 |
 | server | 94 | 4 |
 | tts | 27 | 2 |
