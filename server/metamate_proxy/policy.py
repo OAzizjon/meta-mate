@@ -33,11 +33,12 @@ IMAGE_PROMPT_CHARS = 1500
 GLIMMER_MAX_TOKENS = 600
 SAM_POINT = re.compile(r"<0f>1<\|point;x=(\d{1,4});y=(\d{1,4});w=(\d{1,4});h=(\d{1,4})\|>")
 # Reasoning counts as output (D41: ~100 tokens even at minimal, 356-570 for a computer
-# turn), so a cap below that ends the turn before any text: keep these generous.
+# turn; the safety benchmark of 2026-10-31 saw 11 % of Spark's screen answers hit 1200 and end
+# without text), so a cap below that ends the turn before any text: keep these generous.
 INTENT_CAP = 200
 SPEECH_CAP = 300
-ANSWER_CAP = 1200
-COMPUTER_CAP = 1200
+ANSWER_CAP = 2400
+COMPUTER_CAP = 2400
 MAX_BODY_BYTES = 2_500_000
 MAX_IMAGES = 2
 # S4 measured about 3.7k tokens for a 1280x800 screenshot with 15 elements.

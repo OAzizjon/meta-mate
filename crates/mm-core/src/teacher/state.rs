@@ -150,7 +150,6 @@ impl Teacher {
                 self.failures = 0;
                 self.do_it = DoItState::Pointing;
                 self.offered = false;
-                self.restore_quick(&mut out);
                 out.push(TeacherCommand::RequestScreenshot);
             }
             event => self.human_event(event, &mut out),
@@ -191,6 +190,10 @@ impl Teacher {
             return;
         }
         self.model_failures = 0;
+        // Wonder, escalated after two misses (D56), has now answered the turn after
+        // them: later turns are Quick again. Escalation happens between turns, so an
+        // earlier restore would undo it before Wonder is ever asked.
+        self.restore_quick(out);
         // The spoken line is played only once the turn is known to be usable: on a
         // refused turn Mate must not first say "click here" (invariant 5).
         let commentary: Vec<TeacherCommand> = response
@@ -406,7 +409,6 @@ impl Teacher {
         }
         self.index += 1;
         self.failures = 0;
-        self.restore_quick(out);
     }
 
     fn present(&mut self, out: &mut Vec<TeacherCommand>) {

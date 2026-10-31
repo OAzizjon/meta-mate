@@ -63,8 +63,10 @@ impl ReasoningEffort {
 pub const SPOKEN_MAX_OUTPUT_TOKENS: u32 = 1000;
 
 /// Screen turns reason over the screenshot first and reasoning counts as output: the
-/// fixture's computer-use turns took 356 (`minimal`) and 570 (`low`) output tokens.
-pub const SCREEN_MAX_OUTPUT_TOKENS: u32 = 1200;
+/// fixture's computer-use turns took 356 (`minimal`) and 570 (`low`) output tokens, but on
+/// the safety benchmark (`mm probe safety`, 2026-10-31) Spark at `low` needed 842 tokens in
+/// the median, 1076 at p90, and 11 % of its answers hit 1200 and ended without text.
+pub const SCREEN_MAX_OUTPUT_TOKENS: u32 = 2400;
 
 /// What stays the same for one teacher task. Follow-up turns repeat the first request's
 /// model, effort, instructions and tool: the screenshot size is fixed for the whole task

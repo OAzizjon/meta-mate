@@ -441,15 +441,8 @@ async fn run(
                 crate::presence::wake(&app, false);
                 next_generation += 1;
                 recording = None;
-                if let Some(previous) = current.take() {
-                    stream.send(AnswerMsg::Cancel {
-                        generation: previous.generation,
-                    });
-                    previous.abort().await;
-                }
-                if let Some(lesson) = live_lesson(&lessons) {
-                    lesson.abort.abort();
-                }
+                // A detached lesson's queued speech and timeline must stop, not only its task.
+                cancel_feedback(&stream, &mut current, &lessons).await;
                 stop_pointing(&app);
                 say_line(&stream, &phrases, &stream.locale(), next_generation, key);
                 stream.send(AnswerMsg::State {
@@ -1399,6 +1392,27 @@ mod tests {
         assert!(stream.is_cancelled(1));
         assert!(stream.is_cancelled(2));
         assert!(!stream.is_cancelled(3));
+    }
+
+    /// A press cancelled by a chord, or a failed microphone, leaves no session while the
+    /// lesson it interrupted still talks: a line shown then must still cancel the lesson.
+    #[tokio::test]
+    async fn feedback_without_a_session_cancels_the_detached_lesson() {
+        use super::*;
+        let stream = AnswerStream::default();
+        let task = tokio::spawn(std::future::pending::<()>());
+        let (words, _receiver) = mpsc::unbounded_channel();
+        let lessons = Arc::new(Mutex::new(Some(Lesson {
+            generation: 3,
+            words,
+            abort: task.abort_handle(),
+            speech_epoch: Arc::default(),
+        })));
+        let mut current: Option<Session> = None;
+        cancel_feedback(&stream, &mut current, &lessons).await;
+        assert!(task.await.unwrap_err().is_cancelled());
+        assert!(stream.is_cancelled(3));
+        assert!(!stream.is_cancelled(4));
     }
 
     #[test]

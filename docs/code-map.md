@@ -19,8 +19,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   PERSONA_PROMPT:8 SCREEN_PROMPT:39 NO_SCREEN_PROMPT:48 SAFETY_PROMPT:55 EXAMPLES_PROMPT:63 SCREEN_EXAMPLE_PROMPT:76 SAFETY_CHECK_PROMPT:84 TEACHER_PROMPT:102
   inline tests (1)
 - crates/mm-core/src/api/request.rs — Building a Responses API request body (docs/prompts.md, D41).
-  RedactedImage:18^ ModelChoice:27 ReasoningEffort:41 SPOKEN_MAX_OUTPUT_TOKENS:63 SCREEN_MAX_OUTPUT_TOKENS:67 ComputerSession:74 must_hide:84 ElementList:91
-  ElementLine:104 ElementLine::new:120 render_element_list:192 chat_request:212 point_request:231 safety_request:252 computer_request:272 computer_followup:298
+  RedactedImage:18^ ModelChoice:27 ReasoningEffort:41 SPOKEN_MAX_OUTPUT_TOKENS:63 SCREEN_MAX_OUTPUT_TOKENS:69 ComputerSession:76 must_hide:86 ElementList:93
+  ElementLine:106 ElementLine::new:122 render_element_list:194 chat_request:214 point_request:233 safety_request:254 computer_request:274 computer_followup:300
   inline tests (13)
 - crates/mm-core/src/api/response.rs — Reading a Responses API response: reasoning, the commentary line, computer calls (D41).
   ParsedResponse:9 ComputerCall:44 SafetyCheck:52 Usage:59 Action:67 ResponseError:144 parse_response:204 parse_response_value:209
@@ -316,15 +316,15 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src-tauri/src/teacher/inputs.rs — The person's clicks while a lesson runs: the low-level mouse hook, recognized into clicks and double clicks, sent to the lesson.
   Clicks:5 listen_for_clicks:9 Keys:40 listen_for_keys:44
 - src-tauri/src/teacher/lesson.rs — One lesson for `question`.
-  teach:41 screenshot_wait_expired:664 input_staleness:669
+  teach:41 screenshot_wait_expired:671 input_staleness:676
 - src-tauri/src/teacher/presentation.rs — Check the whole snapshot ancestry, including the window's title, before offering.
   pressable:4 PRAISE:60 line_key:67 targets_for:92 lesson_session:130 fell_back:142 outline_unlisted:148 wav_duration:204
   speak:211 finish:248
 - src-tauri/src/teacher/tests.rs
 - src-tauri/src/voice.rs — The live voice loop (docs/plan.md Day 2): push-to-talk → microphone → speech recognition (the socket opens at key-down, D44) → Muse Spark → MateScript timeline → MMS-TTS sentence by sentence, all …
   Phrases:74 VoiceLoop:115 ask_text:134 ask_chat:145 ask_explain:156 remembered_target:161 show_line:171 start:179
-  ask:213 proxy_config:295 invalidate_overlays:1139 overlays_changed:1143 phrase:1199 say_line:1205 error_line:1233 voice_of:1241
-  inline tests (3)
+  ask:213 proxy_config:295 invalidate_overlays:1132 overlays_changed:1136 phrase:1192 say_line:1198 error_line:1226 voice_of:1234
+  inline tests (4)
 - src-tauri/src/voice_selftest.rs — `--voice-selftest FILE.wav [--proxy URL]`: the whole voice path against the dev proxy, unattended, with every latency measured.
   run_if_requested:26
 
@@ -595,10 +595,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - server/metamate_proxy/media_routes.py — One call each behind the invite and a daily allowance, taken before the call: `/v1/tts` (MMS-TTS, tts/), `/v1/image` (Muse Image) and `/v1/glimmer` (Muse Glimmer on Modal).
   register:24 tts:26 image:70 glimmer:112
 - server/metamate_proxy/policy.py — Pure request and spending policy; callers must serialize ledger operations.
-  CallKind:68 Prices:105 check_input:203 check_images:227 input_token_bound:249 clamp_sam:276 clamp_request:310 estimate_cost:349
-  actual_cost:365 InviteLimits:374 Budget:409 Totals:420 DayTotals:426 Decision:438 Reservation:446 body_for:454
-  ResponseOwners:460 context_tokens:493 Ledger:504 decide:600 reserve:630 reconcile:657 asr_allowance:697 charge_asr:703
-  reserve_asr:711 settle_asr:723 tts_allowance:735 charge_tts:741 glimmer_allowance:749 charge_glimmer:755 refund_image:761
+  CallKind:69 Prices:106 check_input:204 check_images:228 input_token_bound:250 clamp_sam:277 clamp_request:311 estimate_cost:350
+  actual_cost:366 InviteLimits:375 Budget:410 Totals:421 DayTotals:427 Decision:439 Reservation:447 body_for:455
+  ResponseOwners:461 context_tokens:494 Ledger:505 decide:601 reserve:631 reconcile:658 asr_allowance:698 charge_asr:704
+  reserve_asr:712 settle_asr:724 tts_allowance:736 charge_tts:742 glimmer_allowance:750 charge_glimmer:756 refund_image:762
   tests: server/tests/test_policy.py (38)
 - server/metamate_proxy/responses_route.py — `/v1/responses`: the pure policy (policy.py) before the call, Meta's answer passed through (a stream as whole events, each scrubbed) and the reservation settled however the call ends.
   scrub_event:29 Relay:39 guest_headers:54 register:59 responses:61 final_response:252
@@ -678,7 +678,7 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:348; const src-tauri/src/highlight.rs:15
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:380
 - `lesson-card`: rs emit src-tauri/src/card.rs:466; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
-- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:531; ts listen src/mate.ts:214; const src/mate.ts:34
+- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:524; ts listen src/mate.ts:214; const src/mate.ts:34
 - `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:354
 - `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:353
 - `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:355
@@ -705,11 +705,11 @@ Server route decorators <- Rust string literals (URLs, `format!` templates) that
 The header names the kind of a proxy call: server `CallKind` value (py) and the Rust `CallKind` variant that sends it (rs), then the Rust calls that use it.
 
 - header: rs src-tauri/src/proxy.rs:416; py server/metamate_proxy/responses_route.py:66
-- `answer`: py server/metamate_proxy/policy.py:71; rs src-tauri/src/proxy.rs:70; used src-tauri/src/voice.rs:1055, src-tauri/src/voice_selftest.rs:179
-- `computer`: py server/metamate_proxy/policy.py:72; rs src-tauri/src/proxy.rs:71; used src-tauri/src/teacher/lesson.rs:130
-- `intent`: py server/metamate_proxy/policy.py:69; rs src-tauri/src/proxy.rs:68
-- `sam`: py server/metamate_proxy/policy.py:73; rs src-tauri/src/proxy.rs:72; used src-tauri/src/sam.rs:108
-- `speech`: py server/metamate_proxy/policy.py:70; rs src-tauri/src/proxy.rs:69
+- `answer`: py server/metamate_proxy/policy.py:72; rs src-tauri/src/proxy.rs:70; used src-tauri/src/voice.rs:1048, src-tauri/src/voice_selftest.rs:179
+- `computer`: py server/metamate_proxy/policy.py:73; rs src-tauri/src/proxy.rs:71; used src-tauri/src/teacher/lesson.rs:130
+- `intent`: py server/metamate_proxy/policy.py:70; rs src-tauri/src/proxy.rs:68
+- `sam`: py server/metamate_proxy/policy.py:74; rs src-tauri/src/proxy.rs:72; used src-tauri/src/sam.rs:108
+- `speech`: py server/metamate_proxy/policy.py:71; rs src-tauri/src/proxy.rs:69
 
 ### Locale keys
 
@@ -722,19 +722,19 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:146, src/settings/account.ts:75, src/signin.ts:136
 - `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:170
 - `mate.explain_question`: rs src-tauri/src/explain.rs:304
-- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:152
+- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:327, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:152
 - `robot.cant_look`: rs src-tauri/src/screen.rs:377, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:29
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
-- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:486,612,613; ts src/ipc/answer-stream.ts:40
-- `robot.click_stop`: rs src-tauri/src/voice.rs:585; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:101,122
-- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:369,377,585,591, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:51
+- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:493,619,620; ts src/ipc/answer-stream.ts:40
+- `robot.click_stop`: rs src-tauri/src/voice.rs:578; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:101,122
+- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:376,384,592,598, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:51
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:77; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:46
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/ipc/answer-stream.ts:38
 - `robot.look_consent`: rs src-tauri/src/screen.rs:545; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:134,135
 - `robot.looking`: rs src-tauri/src/voice.rs:64
-- `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1237; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
-- `robot.no_microphone`: rs src-tauri/src/voice.rs:622,638,758,1271; ts src/ipc/answer-stream.ts:24
-- `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1272; ts src/ipc/answer-stream.ts:25
+- `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1230; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
+- `robot.no_microphone`: rs src-tauri/src/voice.rs:615,631,751,1264; ts src/ipc/answer-stream.ts:24
+- `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1265; ts src/ipc/answer-stream.ts:25
 - `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:83; ts src/ipc/answer-stream.ts:53
 - `robot.press_failed`: rs src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:54
 - `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:82; ts src/ipc/answer-stream.ts:52
@@ -744,13 +744,13 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/ipc/answer-stream.ts:43
 - `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/ipc/answer-stream.ts:44
 - `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/ipc/answer-stream.ts:45
-- `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:185, src-tauri/src/voice.rs:1235; ts src/ipc/answer-stream.ts:36
+- `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:185, src-tauri/src/voice.rs:1228; ts src/ipc/answer-stream.ts:36
 - `robot.sign_in_first`: rs src-tauri/src/signin.rs:96; ts src/ipc/answer-stream.ts:37
-- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:466,547; ts src/ipc/answer-stream.ts:55
+- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:473,554; ts src/ipc/answer-stream.ts:55
 - `robot.thinking`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_2`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_3`: rs src-tauri/src/voice.rs:63
-- `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:433,438; ts src/ipc/answer-stream.ts:49
+- `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:440,445; ts src/ipc/answer-stream.ts:49
 - `robot.too_many_turns`: rs src-tauri/src/teacher/presentation.rs:79; ts src/i18n/index.ts:66, src/ipc/answer-stream.ts:47
 - `robot.window_closed`: rs src-tauri/src/pointing.rs:346; ts src/ipc/answer-stream.ts:31
 - `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:80; ts src/i18n/index.ts:67, src/ipc/answer-stream.ts:48
@@ -806,10 +806,10 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 253 | 33 |
+| crates/mm-core | 254 | 33 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
-| src-tauri | 178 | 20 |
+| src-tauri | 179 | 20 |
 | src | 248 | 28 |
 | tools | 279 | 18 |
 | server | 87 | 4 |

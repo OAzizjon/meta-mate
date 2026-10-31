@@ -182,7 +182,6 @@ fn far_drag_releases_repoint_and_count_as_failed_attempts() {
             teacher.input(click(150, 3)),
             vec![
                 Command::AcknowledgeSafetyChecks(vec!["confirm".into()]),
-                Command::UseModel(ModelChoice::Quick),
                 Command::Say(LineKey::RightClick),
             ]
         );

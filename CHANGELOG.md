@@ -98,6 +98,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - A microphone failure also ends a click-to-talk recording.
 - A second click on Sign in with the same provider, from the sign-in window or Settings, joins the sign-in already waiting in the browser (2 minutes) instead of opening another tab; signing out ends it at once.
 - The app's own Rust tests (153) run on Windows again: the test binaries get the Common Controls manifest the app has (`src-tauri/build.rs`).
+- A window that pops up over the target only while the screen is copied no longer reaches the model unpainted: the look is refused as changed. A password field the search finds slightly shifted hides its walked original whole.
 
 ### Changed
 

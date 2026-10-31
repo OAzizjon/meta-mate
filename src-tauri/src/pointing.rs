@@ -419,6 +419,12 @@ pub fn show_target(
     if pointing.generation() != Some(generation) {
         return None;
     }
+    // The window may have moved since the caller's check, before the hook could see it
+    // (Follower::start then gives None): the target is no longer where the ring would go.
+    // Nothing is drawn yet, and the look stays: a lesson re-looks at the screen with it.
+    if !mm_win32::window::still_shown(look.snapshot.target, look.window_frame) {
+        return None;
+    }
     let shown = render_target(app, generation, target, step);
     if shown.is_none() {
         stop_pointing(app);

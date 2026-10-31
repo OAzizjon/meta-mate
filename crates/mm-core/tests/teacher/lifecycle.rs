@@ -86,7 +86,48 @@ fn near_and_far_clicks_repoint_and_only_far_counts_as_failure() {
     assert!(!ack(&out));
     let out = teacher.input(click(128, 5));
     assert!(ack(&out));
-    assert!(out.contains(&Command::UseModel(ModelChoice::Quick)));
+    assert!(!out.contains(&Command::UseModel(ModelChoice::Quick)));
+}
+
+#[test]
+fn escalation_lasts_until_wonder_has_answered_the_next_turn() {
+    for screen_change in [false, true] {
+        let mut teacher = Teacher::new(TeacherConfig {
+            auto_escalate: true,
+            ..Default::default()
+        });
+        teacher.input(turn(vec![click_action(), click_action()]));
+        teacher.input(click(200, 1));
+        assert!(
+            teacher
+                .input(click(200, 2))
+                .contains(&Command::UseModel(ModelChoice::Thorough))
+        );
+        // Neither the finished batch nor a changed screen undoes the escalation
+        // before the turn it was for (D56).
+        let mut out = Vec::new();
+        if screen_change {
+            out.extend(teacher.input(Input::ScreenChangedUnexpectedly { now_ms: 3 }));
+        } else {
+            out.extend(teacher.input(click(110, 3)));
+            out.extend(teacher.input(click(110, 4)));
+            out.extend(teacher.input(Input::Tick { now_ms: 604 }));
+        }
+        assert!(out.contains(&Command::RequestScreenshot));
+        assert!(!out.iter().any(|c| matches!(c, Command::UseModel(_))));
+        assert_eq!(
+            teacher.input(turn(vec![click_action()])),
+            vec![
+                Command::UseModel(ModelChoice::Quick),
+                Command::Say(LineKey::StepN),
+                Command::PointAt {
+                    rect: rect(),
+                    step: 1,
+                    total: 1,
+                },
+            ]
+        );
+    }
 }
 
 #[test]

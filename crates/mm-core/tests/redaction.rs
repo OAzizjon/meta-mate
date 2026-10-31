@@ -1,6 +1,7 @@
 use mm_core::geom::{PhysPoint, PhysRect};
 use mm_core::redaction::{
     Field, RedactionError, RedactionInput, overlaps_any, painted_areas, point_in_any, redact,
+    same_areas,
 };
 use mm_core::shot::Bgra;
 
@@ -92,6 +93,17 @@ fn painted_hits_use_half_open_bounds_and_ignore_invalid_rectangles() {
     }
     assert!(!overlaps_any(rect(0, 0, 10, 10), &[]));
     assert!(!point_in_any(PhysPoint { x: 0, y: 0 }, &[]));
+}
+
+#[test]
+fn same_areas_ignores_order_but_not_a_window_that_came_went_or_moved() {
+    let (a, b) = (rect(0, 0, 10, 10), rect(5, 5, 20, 20));
+    assert!(same_areas(&[], &[]));
+    assert!(same_areas(&[a, b], &[b, a]));
+    assert!(!same_areas(&[a], &[a, b]));
+    assert!(!same_areas(&[a, b], &[a]));
+    assert!(!same_areas(&[a], &[rect(1, 0, 11, 10)]));
+    assert!(!same_areas(&[a, a], &[a]));
 }
 
 fn white() -> Vec<u8> {

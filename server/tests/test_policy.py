@@ -123,7 +123,7 @@ class LedgerFileTests(unittest.TestCase):
 class RequestTests(unittest.TestCase):
     def test_caps_and_model_forcing_for_every_kind(self):
         caps = (INTENT_CAP, SPEECH_CAP, ANSWER_CAP, COMPUTER_CAP)
-        self.assertEqual(caps, (200, 300, 1200, 1200))
+        self.assertEqual(caps, (200, 300, 2400, 2400))
         for kind, cap in zip(TEXT_KINDS, caps):
             with self.subTest(kind=kind):
                 for requested in (None, 10, 10000):

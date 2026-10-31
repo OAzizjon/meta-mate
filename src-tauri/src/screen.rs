@@ -12,7 +12,7 @@ use mm_core::geom::{PhysRect, ShotPoint};
 use mm_core::matescript::{Mode, Point, Settings};
 use mm_core::redaction::{
     Field, Redacted, RedactionError, RedactionInput, overlaps_any, painted_areas, point_in_any,
-    redact,
+    redact, same_areas,
 };
 use mm_core::shot::Bgra;
 use mm_platform::{CapturedImage, UiElement, UiSnapshot};
@@ -646,11 +646,19 @@ fn look_once(
             return Err(LookFailure::OwnWindows);
         }
         std::thread::sleep(HIDDEN_FRAME);
-        // And the compositor has presented a frame without them.
+        // Windows above the target just before the copied frame is composed and just after
+        // the copy: one that came or went in between may be in the picture yet in neither
+        // the read before nor the one after it, so any change fails closed (invariant 3).
+        let around = window::occluders(&target, own);
+        // The compositor has presented a frame without our windows.
         overlay::wait_for_composition();
-        capture::capture_region(target.region)
+        let copied = capture::capture_region(target.region);
+        if !same_areas(&around, &window::occluders(&target, own)) {
+            return Err(LookFailure::Changed);
+        }
+        copied.map(|capture| (capture, around))
     };
-    let capture = copied.map_err(LookFailure::Capture)?;
+    let (capture, around) = copied.map_err(LookFailure::Capture)?;
     #[cfg(debug_assertions)]
     let copied_at = started.elapsed();
     // The masks come from the walk: the window must be exactly where it was then.
@@ -671,11 +679,10 @@ fn look_once(
         );
         return Err(LookFailure::Changed);
     }
-    // Windows above the target before and after the copy are both painted: the taskbar
-    // re-raises itself when our windows come back, and whatever was above during the
-    // copy was above at one of the two moments.
+    // Windows above the target before, around and after the copy are all painted: the
+    // taskbar re-raises itself when our windows come back.
     let mut occluders = occluders;
-    for above in window::occluders(&after, own) {
+    for above in around.into_iter().chain(window::occluders(&after, own)) {
         if !occluders.contains(&above) {
             occluders.push(above);
         }
@@ -743,18 +750,19 @@ const SEARCHED: &str = "s";
 /// The search's fields join the walk's elements (new ids, no parent: never pointable,
 /// never named in the prompt), and the snapshot then vouches for the picture. The
 /// provider search must classify contextual inputs before returning this complete list.
-/// A walked element the search also found (the same control type at the same place) is marked too,
-/// so its name and everything below it stay out of the prompt.
+/// A walked element the search also found (the same control type overlapping it) is marked
+/// too, so its name and everything below it stay out of the prompt.
 fn complete_with(snapshot: &mut UiSnapshot, found: &[mm_platform::UiElement]) {
     for walked in &mut snapshot.elements {
         let Some(rect) = walked.rect else {
             continue;
         };
-        // The same element: the same type, mostly the same place (the two reads may differ
-        // by a pixel or a scroll step). Hiding a neighbour too is safe.
+        // The same element: the same type, overlapping at all (the two reads may differ by
+        // a pixel or a scroll step, and the part outside the found rect is not painted
+        // otherwise). Hiding a neighbour too is safe.
         let same = |field: &&mm_platform::UiElement| {
             field.control_type == walked.control_type
-                && field.rect.is_some_and(|other| mostly_overlap(rect, other))
+                && field.rect.is_some_and(|other| overlaps_any(rect, &[other]))
         };
         if found.iter().any(|field| same(&field)) {
             walked.password_like = true;
@@ -768,19 +776,6 @@ fn complete_with(snapshot: &mut UiSnapshot, found: &[mm_platform::UiElement]) {
         snapshot.elements.push(field);
     }
     snapshot.truncated = false;
-}
-
-/// Whether the overlap of `a` and `b` is more than half of the smaller one.
-fn mostly_overlap(a: PhysRect, b: PhysRect) -> bool {
-    let width = i64::from(a.right.min(b.right)) - i64::from(a.left.max(b.left));
-    let height = i64::from(a.bottom.min(b.bottom)) - i64::from(a.top.max(b.top));
-    if width <= 0 || height <= 0 {
-        return false;
-    }
-    let area = |r: PhysRect| {
-        (i64::from(r.right) - i64::from(r.left)) * (i64::from(r.bottom) - i64::from(r.top))
-    };
-    2 * width * height > area(a).min(area(b))
 }
 
 /// A field to hide as two searches compare it: its control type and its edges.
@@ -1548,6 +1543,23 @@ mod tests {
         assert!(!look.list.text.contains("hunter2"));
         assert_eq!(look.resolve(&Point::Id("s0".into())), None);
         assert!(!look.list.text.contains("s0 "));
+    }
+
+    #[test]
+    fn a_searched_field_overlapping_its_walked_original_only_in_part_still_hides_it() {
+        let mut walked = snapshot();
+        // The two reads disagree: the found field covers only 40 % of the walked one.
+        let revealed = PhysRect::new(150, 250, 350, 280).unwrap();
+        walked
+            .elements
+            .push(element("e4", "Text", "hunter2", revealed));
+        let shifted = PhysRect::new(270, 250, 470, 280).unwrap();
+        let mut found = element("s0", "Text", "", shifted);
+        found.password_like = true;
+        complete_with(&mut walked, &[found]);
+        assert!(walked.element("e4").is_some_and(|e4| e4.password_like));
+        let look = prepare(walked, &capture(), &[]).unwrap();
+        assert!(!look.list.text.contains("hunter2"));
     }
 
     #[test]

@@ -189,7 +189,7 @@ class ProxyTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'ledger.json'
-            env = {**ENV, 'PROXY_LEDGER_PATH': str(path), 'PROXY_DAILY_BUDGET_USD': '0.025'}
+            env = {**ENV, 'PROXY_LEDGER_PATH': str(path), 'PROXY_DAILY_BUDGET_USD': '0.049'}
             body = {'model': 'muse-spark-1.3', 'input': 'Hi'}
             self.assertEqual(ask(client_for(FakeMeta(), env), body).status_code, 200)
             saved = json.loads(path.read_text(encoding='utf-8'))[today().isoformat()]
@@ -359,10 +359,10 @@ class ProxyTests(unittest.TestCase):
                     self.assertEqual(set(answer.json()['error']), {'message'})
 
     def test_a_refused_call_costs_nothing_and_a_failed_one_keeps_its_reservation(self):
-        env = {**ENV, 'PROXY_DAILY_BUDGET_USD': '0.05'}
+        env = {**ENV, 'PROXY_DAILY_BUDGET_USD': '0.1'}
         body = {'model': 'muse-spark-1.3', 'input': 'Hi'}
         refused = client_for(FakeMeta(status=400), env)
-        for _ in range(5):  # each call reserves about $0.024 of the $0.05 budget
+        for _ in range(5):  # each call reserves about $0.048 of the $0.10 budget
             self.assertEqual(ask(refused, body).status_code, 400)
         failed = client_for(FakeMeta(status=503), env)
         statuses = [ask(failed, body).status_code for _ in range(3)]
@@ -451,10 +451,10 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(asr.sent[1:], [b'\0' * 3840, '{"type":"endStream"}'])
 
     def test_stream_settlement_refunds_4xx_reconciles_final_and_keeps_cut_or_5xx(self):
-        env = {**ENV, 'PROXY_DAILY_BUDGET_USD': '0.05'}
+        env = {**ENV, 'PROXY_DAILY_BUDGET_USD': '0.1'}
         body = {'model': 'muse-spark-1.3', 'input': 'Hi', 'stream': True}
         refused = client_for(FakeMeta(stream=True, status=400), env)
-        for _ in range(5):  # each call reserves about $0.024 of the $0.05 budget
+        for _ in range(5):  # each call reserves about $0.048 of the $0.10 budget
             self.assertEqual(ask(refused, body).status_code, 400)
         failed = client_for(FakeMeta(stream=True, status=503), env)
         self.assertEqual([ask(failed, body).status_code for _ in range(3)], [503, 503, 429])

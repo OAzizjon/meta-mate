@@ -310,7 +310,14 @@ pub(crate) async fn teach(
                             // The last step's ring would stay over whatever is there now.
                             let _ = crate::highlight::clear(&app);
                         }
-                        if !true_picture {
+                        // A window that moved during show_target is a changed screen too.
+                        let moved = !shown
+                            && true_picture
+                            && !mm_win32::window::still_shown(
+                                current.snapshot.target,
+                                current.window_frame,
+                            );
+                        if !true_picture || moved {
                             pending.extend(
                                 teacher.input(TeacherInput::ScreenChangedUnexpectedly {
                                     now_ms: now(),

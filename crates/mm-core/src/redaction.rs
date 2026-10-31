@@ -43,6 +43,20 @@ pub fn overlaps_any(rect: PhysRect, painted: &[PhysRect]) -> bool {
     })
 }
 
+/// Whether two reads of the windows above the target cover the same rectangles, in any
+/// order (a window that came or went between the reads makes them differ).
+pub fn same_areas(before: &[PhysRect], after: &[PhysRect]) -> bool {
+    let edges = |areas: &[PhysRect]| {
+        let mut edges: Vec<_> = areas
+            .iter()
+            .map(|r| (r.left, r.top, r.right, r.bottom))
+            .collect();
+        edges.sort_unstable();
+        edges
+    };
+    edges(before) == edges(after)
+}
+
 /// Includes left/top and excludes right/bottom, just like `PhysRect::contains`.
 pub fn point_in_any(point: PhysPoint, painted: &[PhysRect]) -> bool {
     painted.iter().any(|area| area.contains(point))
