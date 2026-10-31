@@ -25,7 +25,7 @@ if (typeof document !== "undefined") {
           await listen<unknown>(LESSON_CARD_EVENT, (event) => {
             if (controller.handleRaw(event.payload)) receivedCard = true;
           });
-          // card.rs sends the card (a picture of megabytes) once the page listens.
+          // Request the retained card after listening, even after a slow load or reload.
           await emit(CARD_READY_EVENT);
         } catch (error) {
           console.error("[card] failed to listen for lesson-card event", error);

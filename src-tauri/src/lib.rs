@@ -99,6 +99,7 @@ pub fn run() {
     let result = tauri::Builder::default()
         .manage(answer_stream::AnswerStream::default())
         .manage(chat::Chat::default())
+        .manage(card::PendingCard::default())
         .manage(pointing::Pointing::default())
         .manage(auth::Auth::default())
         .manage(presence::Presence::default())
@@ -144,6 +145,7 @@ pub fn run() {
                 use tauri::Manager;
                 app.manage(settings::SettingsStore::new(settings::load(app.handle())));
                 chat::init(app.handle());
+                card::init(app.handle());
                 app.state::<answer_stream::AnswerStream>()
                     .attach_chat(app.handle().clone());
             }

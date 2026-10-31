@@ -35,7 +35,7 @@ export const CARD_READY_EVENT = "card-ready";
 
 /**
  * Validates and parses an untrusted event payload into a `LessonCard`.
- * Returns `null` if any field is missing, not a string, or empty.
+ * Returns `null` for malformed text; a missing or empty image is a text-only card.
  * `wordsBy` is optional: anything but `"glimmer"` is `"lesson"` (older payloads have none).
  * Never throws.
  */
@@ -49,7 +49,7 @@ export function parseLessonCard(raw: unknown): LessonCard | null {
     if (typeof title !== "string" || !title.trim()) {
       return null;
     }
-    if (typeof imagePath !== "string" || !imagePath.trim()) {
+    if (imagePath != null && typeof imagePath !== "string") {
       return null;
     }
     if (!Array.isArray(steps) || steps.length === 0) {
@@ -67,7 +67,7 @@ export function parseLessonCard(raw: unknown): LessonCard | null {
     return {
       title: title.trim(),
       steps: cleanSteps,
-      imagePath: imagePath.trim(),
+      imagePath: typeof imagePath === "string" ? imagePath.trim() : "",
       wordsBy: wordsBy === "glimmer" ? "glimmer" : "lesson",
     };
   } catch {
@@ -355,16 +355,15 @@ export function mountLessonCard(
     renderSteps(card.steps);
     credits.textContent = t(creditsKey(card.wordsBy));
 
+    img.removeAttribute("src");
+    img.style.display = "none";
+    placeholderArt.style.display = "flex";
+    credits.hidden = true;
     if (card.imagePath) {
       const resolvedUrl = await resolveCardImageUrl(card.imagePath);
-      if (!destroyed) {
+      if (!destroyed && currentCard === card) {
         img.src = resolvedUrl;
       }
-    } else {
-      img.removeAttribute("src");
-      img.style.display = "none";
-      placeholderArt.style.display = "flex";
-      credits.hidden = true;
     }
   };
 

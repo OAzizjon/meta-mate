@@ -11,6 +11,7 @@ import {
   creditsKey,
   escapeHtml,
   getPlaceholderCard,
+  mountLessonCard,
   parseLessonCard,
   resolveCardImageUrl,
 } from "./card.ts";
@@ -182,13 +183,13 @@ test("parseLessonCard rejects missing, non-array, empty, or invalid steps", () =
   }
 });
 
-test("parseLessonCard rejects missing or malformed imagePath", () => {
+test("parseLessonCard accepts missing images and rejects malformed imagePath", () => {
+  for (const imagePath of [undefined, null, "", "   ", "\t\n"]) {
+    assert.deepEqual(parseLessonCard({ ...VALID_CARD, imagePath }), {
+      ...VALID_CARD, imagePath: "",
+    });
+  }
   const badPaths = [
-    undefined,
-    null,
-    "",
-    "   ",
-    "\t\n",
     123,
     false,
     {},
@@ -288,4 +289,64 @@ test("PLACEHOLDER_MATE_SVG contains valid SVG markup", () => {
   assert.ok(PLACEHOLDER_MATE_SVG.endsWith("</svg>"));
   assert.ok(PLACEHOLDER_MATE_SVG.includes("bulb-glow"));
   assert.ok(PLACEHOLDER_MATE_SVG.includes("placeholder-bulb"));
+});
+
+test("text-only and failed images keep steps and Print usable", async () => {
+  class Element {
+    id = "";
+    className = "";
+    textContent = "";
+    innerHTML = "";
+    hidden = false;
+    style = { display: "" };
+    children: Element[] = [];
+    attributes = new Map<string, string>();
+    listeners = new Map<string, () => void>();
+    append(...nodes: Element[]): void { this.children.push(...nodes); }
+    replaceChildren(...nodes: Element[]): void { this.children = nodes; }
+    setAttribute(key: string, value: string): void { this.attributes.set(key, value); }
+    getAttribute(key: string): string | null { return this.attributes.get(key) ?? null; }
+    removeAttribute(key: string): void { this.attributes.delete(key); }
+    set src(value: string) { this.setAttribute("src", value); }
+    addEventListener(event: string, listener: () => void): void { this.listeners.set(event, listener); }
+  }
+  const globals = globalThis as { document?: unknown; window?: unknown };
+  const oldDocument = globals.document;
+  const oldWindow = globals.window;
+  const nodes: Element[] = [];
+  let prints = 0;
+  globals.document = {
+    documentElement: { lang: "en" },
+    createElement: () => { const node = new Element(); nodes.push(node); return node; },
+  };
+  globals.window = { print: () => { prints += 1; } };
+  const root = new Element();
+  try {
+    const controller = mountLessonCard(root as unknown as HTMLElement);
+    const byId = (id: string): Element => {
+      const node = nodes.find((node) => node.id === id);
+      assert.ok(node, id);
+      return node;
+    };
+    for (const imagePath of [undefined, null, ""]) {
+      assert.equal(controller.handleRaw({ ...VALID_CARD, imagePath }), true);
+      assert.equal(byId("card-image").getAttribute("src"), null);
+      assert.equal(byId("card-image").style.display, "none");
+      assert.equal(byId("card-placeholder-art").style.display, "flex");
+      assert.equal(byId("card-steps").children.length, VALID_CARD.steps.length);
+      byId("card-print-btn").listeners.get("click")?.();
+    }
+    await controller.setCard({ ...VALID_CARD, imagePath: "data:image/png;base64,bad" });
+    byId("card-image").listeners.get("error")?.();
+    assert.equal(byId("card-image").style.display, "none");
+    assert.equal(byId("card-placeholder-art").style.display, "flex");
+    assert.equal(byId("card-credits").hidden, true);
+    assert.equal(byId("card-steps").children[0].children[1].textContent, VALID_CARD.steps[0]);
+    byId("card-print-btn").listeners.get("click")?.();
+    assert.equal(prints, 4);
+    controller.destroy();
+  } finally {
+    globals.document = oldDocument;
+    globals.window = oldWindow;
+  }
 });

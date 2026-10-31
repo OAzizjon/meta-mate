@@ -239,8 +239,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   watch_rejected:285 random_url_safe:529
   inline tests (7)
 - src-tauri/src/card.rs — Mate's lesson card (Muse Glimmer + Muse Image): when a lesson ends well, a keepsake of its steps that an older person can keep or print.
-  MAX_STEPS:37 make:91 without_tags:276 selftest:474
-  inline tests (12)
+  MAX_STEPS:37 PendingCard:61 init:64 make:108 without_tags:319 selftest:508
+- src-tauri/src/card_tests.rs
 - src-tauri/src/chat.rs — Session chat mirrored from the answer stream; history stays in the app data folder.
   Message:22 Chat:49 start_request:176 init:184 record:200 open:209 open_chat:236 chat_subscribe:250
   chat_send:269 chat_clear:299
@@ -265,7 +265,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   TRY_QUESTIONS:6 open:10 open_home:49 home_try:87
   inline tests (2)
 - src-tauri/src/lib.rs — MetaMate's Tauri shell: wiring only, no business logic (docs/project-structure.md).
-  run:58 show_tray_wake:290 refresh_tray_labels:409 refresh_tray_tooltip:435 locale_text:518
+  run:58 show_tray_wake:292 refresh_tray_labels:411 refresh_tray_tooltip:437 locale_text:520
   inline tests (1)
 - src-tauri/src/main.rs
 - src-tauri/src/mic.rs — Microphone capture while push-to-talk is held (docs/architecture.md section 2).
@@ -378,7 +378,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/card.ts — Lesson card window controller (WP62): Muse Image recap for older users.
   setCardI18n:15 CardWordsBy:21 LessonCard:24 LESSON_CARD_EVENT:32 CARD_READY_EVENT:34 parseLessonCard:42 creditsKey:79 getPlaceholderCard:87
   resolveCardImageUrl:104 printCard:134 closeCard:141 escapeHtml:161 PLACEHOLDER_MATE_SVG:171 CardController:207 MountCardOptions:214 mountLessonCard:222
-  tests: src/card.test.ts (15)
+  tests: src/card.test.ts (16)
 - src/chat.ts — Chat is a normal, deliberately opened window.
   startThinking:75· stopThinking:84· render:91· localize:168· start:180·
 - src/chat/history.ts — Chat history rendering policy, independent of the DOM and Tauri.
@@ -648,7 +648,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:397, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
-- `open_settings_window` src-tauri/src/lib.rs:481 <- src/home.ts:27, src/mate-menu.ts:7
+- `open_settings_window` src-tauri/src/lib.rs:483 <- src/home.ts:27, src/mate-menu.ts:7
 - `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:262
 - `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:415, src/mate-menu.ts:11
 - `report_playback` src-tauri/src/answer_stream.rs:299 <- src/ipc/answer-stream.ts:281
@@ -681,13 +681,13 @@ File names declared as Rust string constants (read or written by the app).
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
 - `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:371, src/settings.ts:154, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
-- `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:416; const src-tauri/src/card.rs:35, src/card.ts:34
+- `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:66; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
 - `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:391; const src-tauri/src/explain.rs:39
 - `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:370, src/signin.ts:106; const src-tauri/src/signin.rs:18
 - `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:523, src/mate.ts:348; const src-tauri/src/highlight.rs:15
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:380
-- `lesson-card`: rs emit src-tauri/src/card.rs:466; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
+- `lesson-card`: rs emit src-tauri/src/card.rs:500; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
 - `lesson-interrupt`: rs emit src-tauri/src/voice.rs:524; ts listen src/mate.ts:214; const src/mate.ts:34
 - `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:354
 - `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:353
@@ -772,17 +772,17 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:124; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
 - `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:123; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
 - `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:96
-- `tray.chat`: rs src-tauri/src/lib.rs:273; ts src/mate-menu.ts:5
-- `tray.hide_hour`: rs src-tauri/src/lib.rs:339,392; ts src/mate-menu.ts:9
-- `tray.open_home`: rs src-tauri/src/lib.rs:272
-- `tray.quit`: rs src-tauri/src/lib.rs:332,394
-- `tray.settings`: rs src-tauri/src/lib.rs:325,391,501; ts src/home.ts:399, src/mate-menu.ts:7, src/settings.ts:328,330
-- `tray.tooltip`: rs src-tauri/src/lib.rs:430
+- `tray.chat`: rs src-tauri/src/lib.rs:275; ts src/mate-menu.ts:5
+- `tray.hide_hour`: rs src-tauri/src/lib.rs:341,394; ts src/mate-menu.ts:9
+- `tray.open_home`: rs src-tauri/src/lib.rs:274
+- `tray.quit`: rs src-tauri/src/lib.rs:334,396
+- `tray.settings`: rs src-tauri/src/lib.rs:327,393,503; ts src/home.ts:399, src/mate-menu.ts:7, src/settings.ts:328,330
+- `tray.tooltip`: rs src-tauri/src/lib.rs:432
 - `tray.try_bigger`: rs src-tauri/src/home.rs:6,74; ts src/home.ts:33,41
 - `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:32,40
 - `tray.try_search`: rs src-tauri/src/home.rs:6; ts src/home.ts:31,39
-- `tray.try_title`: rs src-tauri/src/lib.rs:356,418
-- `tray.wake`: rs src-tauri/src/lib.rs:346,393
+- `tray.try_title`: rs src-tauri/src/lib.rs:358,420
+- `tray.wake`: rs src-tauri/src/lib.rs:348,395
 - `auth.*` (10 keys): src/settings/account-view.ts, src/settings/account.ts, src/signin.ts
 - `card.*` (10 keys): src/card.ts
 - `chat.*` (12 keys): src/chat.ts
@@ -819,8 +819,8 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-core | 262 | 34 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
-| src-tauri | 181 | 20 |
-| src | 249 | 28 |
+| src-tauri | 183 | 20 |
+| src | 250 | 28 |
 | tools | 298 | 19 |
 | server | 94 | 4 |
 | tts | 27 | 2 |
