@@ -592,9 +592,12 @@ pub(crate) fn confirm_look(
     let Ok(_hook) = mm_win32::keyboard::start(send) else {
         return false;
     };
-    // Without the mouse hook no click can be shown to be a person's: only F8 answers then.
+    // Without the mouse hook no click can be shown to be a person's, and the question asks
+    // for a click: refuse (fail closed) instead of showing a question nobody can answer.
     let (mouse_send, presses) = std::sync::mpsc::channel();
-    let _mouse = mm_win32::mouse::start(mouse_send).ok();
+    let Ok(_mouse) = mm_win32::mouse::start(mouse_send) else {
+        return false;
+    };
     let clicks = ConsentClicks::open();
     let stream = app.state::<AnswerStream>();
     stream.send(AnswerMsg::Line {
@@ -603,7 +606,9 @@ pub(crate) fn confirm_look(
     });
     let offered = Instant::now();
     let mut released = false;
-    let mut press = None;
+    // Recent left presses (when, injected), oldest first: a double click on Mate sends two
+    // clicks, and each must find its own press (Gemini #1461).
+    let mut recent: std::collections::VecDeque<(Instant, bool)> = std::collections::VecDeque::new();
     while wanted() && offered.elapsed() < Duration::from_secs(30) {
         let front = mm_win32::window::foreground_target(&[]).map(|front| front.window);
         if front != Some(target) {
@@ -613,15 +618,20 @@ pub(crate) fn confirm_look(
         let clicked = clicks.0.try_recv().ok();
         for event in presses.try_iter() {
             if event.button == mm_win32::mouse::Button::Left && event.down {
-                press = Some((event.time, event.injected));
+                if recent.len() == 8 {
+                    recent.pop_front();
+                }
+                recent.push_back((event.time, event.injected));
             }
         }
         if let Some(clicked) = clicked {
+            // This click's press: the newest one before it reached us.
+            let press = recent.iter().rev().find(|(at, _)| *at < clicked).copied();
             if let Some(answer) = consent_click_answer(target, offered, press, clicked, front) {
                 return answer;
             }
-            // A press is used up by the click it went with, answered or not.
-            press = None;
+            // Presses up to this click are used up by it, answered or not.
+            recent.retain(|(at, _)| *at >= clicked);
         }
         if let Ok(event) = receive.recv_timeout(Duration::from_millis(50))
             && let Some(answer) = consent_key_answer(target, offered, event, &mut released)

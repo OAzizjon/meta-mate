@@ -310,7 +310,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   inline tests (3)
 - src-tauri/src/screen.rs — "Where's the button?" (docs/plan.md Day 4), the part between the platform and the model: one look at the target window turned into what the model may see and point at, and its answer turned back into …
   MAX_EDGE:21 MAX_LISTED:23 Look:26 LookError:54 Look::resolve_live:188 Look::scan:228 Look::parser_settings:282 Look::resolve:296
-  LookFailure:333 LookFailure::line:367 take_look_at:505 consent_clicked:573 confirm_look:581 probe:926
+  LookFailure:333 LookFailure::line:367 take_look_at:505 consent_clicked:573 confirm_look:581 probe:936
   inline tests (29)
 - src-tauri/src/selftest.rs — Spike S1 without a person at the desk: run with `--s1-selftest`.
   spawn:41 spawn_control:151
@@ -765,7 +765,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:376,384,592,598, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:51
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:77; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:46
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/ipc/answer-stream.ts:38
-- `robot.look_consent`: rs src-tauri/src/screen.rs:602; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:133,137
+- `robot.look_consent`: rs src-tauri/src/screen.rs:605; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:133,137
 - `robot.looking`: rs src-tauri/src/voice.rs:64
 - `robot.network_error`: rs src-tauri/src/chat.rs:329, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1231; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
 - `robot.no_microphone`: rs src-tauri/src/voice.rs:615,631,751,1265; ts src/ipc/answer-stream.ts:24
