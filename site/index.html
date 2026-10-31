@@ -15,7 +15,7 @@
 
     <header class="site-header">
       <div class="container header-inner">
-        <span class="brand">MetaMate</span>
+        <a class="brand" href="#hero">MetaMate</a>
         <nav class="site-nav" aria-label="Page sections">
           <a href="#how-it-works">How it works</a>
           <a href="#lesson-cards">Lesson cards</a>
@@ -27,226 +27,325 @@
       </div>
     </header>
 
-    <main id="main">
-      <section class="hero" aria-labelledby="hero-heading">
-        <div class="container hero-grid">
-          <div class="hero-copy">
-            <p class="eyebrow">Peace of mind for you, confidence for your parent.</p>
-            <h1 id="hero-heading">Mate lights the button. Your parent clicks it.</h1>
-            <p class="hero-sentence">
-              Mate is a small light-bulb helper for Windows who flies to the right button in the app they are using, guides your parent step by step, and waits for them to click—never pressing Pay or Delete.
-            </p>
-            <div class="hero-actions">
-              <a class="button" href="https://github.com/OAzizjon/meta-mate/releases/latest">Download for Windows</a>
-              <span class="hero-note">Windows 10 &amp; 11 (x64) only · Hold Right Ctrl or click Mate to talk</span>
+    <main id="main" class="comic-strip" tabindex="-1">
+      <section id="hero" class="panel hero" aria-labelledby="hero-heading" tabindex="-1">
+        <div class="panel-frame">
+          <div class="container panel-inner">
+            <div class="panel-top-row">
+              <p class="comic-caption">Issue #1 &middot; Meanwhile, on Grandma&rsquo;s laptop&hellip;</p>
+              <span class="panel-stamp" aria-hidden="true">Panel 1 / 7</span>
             </div>
-          </div>
-          <figure class="hero-figure">
-            <img
-              class="hero-image"
-              src="images/mate.png"
-              alt="Mate, a friendly light bulb with a face, shining his flashlight to the right"
-              width="280"
-              height="280"
-            />
-          </figure>
-        </div>
-      </section>
-
-      <section id="how-it-works" class="section" aria-labelledby="how-heading">
-        <div class="container">
-          <h2 id="how-heading" class="section-title">How it works</h2>
-          <p class="section-lead">
-            A patient teacher on the screen, not an agent that takes the mouse away.
-          </p>
-          <ol class="steps-grid">
-            <li class="step-card">
-              <span class="step-number" aria-hidden="true">1</span>
-              <h3 class="step-title">Ask aloud</h3>
-              <p class="step-body">
-                Press <strong>Win+I</strong> to open Windows Settings. Hold only <strong>Right Ctrl</strong> while you speak, ask &ldquo;How do I make the text bigger?&rdquo;, then let go. Pressing any other key cancels the question. No Right Ctrl on your laptop? Pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings. What Mate hears appears live in his bubble while you speak.
-              </p>
-            </li>
-            <li class="step-card">
-              <span class="step-number" aria-hidden="true">2</span>
-              <h3 class="step-title">Mate flies to the button and lights it</h3>
-              <p class="step-body">
-                Mate glides across the screen to the exact button and shines a warm golden ring around it, giving one clear step at a time.
-              </p>
-            </li>
-            <li class="step-card">
-              <span class="step-number" aria-hidden="true">3</span>
-              <h3 class="step-title">You click, he cheers</h3>
-              <p class="step-body">
-                Your parent clicks the button themselves. Mate checks that it was the right spot, cheers them on, and moves to the next step. If they click away from the beam twice on Quick, Muse Wonder 1.0 plans the next step.
-              </p>
-            </li>
-          </ol>
-        </div>
-      </section>
-
-      <section id="lesson-cards" class="section section-alt" aria-labelledby="lesson-cards-heading">
-        <div class="container">
-          <h2 id="lesson-cards-heading" class="section-title">Keepsake lesson cards</h2>
-          <p class="section-lead">
-            A printed reminder to keep by the keyboard, written simply and painted in soft gouache.
-          </p>
-          <div class="feature-grid">
-            <div class="feature-card">
-              <h3 class="feature-title">Simple steps in your language</h3>
-              <p class="feature-body">
-                After a lesson the model finished, Muse Glimmer 30B (Meta open weights on our own Modal L4 GPU, ~15 tokens/s) rewrites the steps in simple words in the person&rsquo;s language and writes a short scene to accompany it when its GPU answers.
-              </p>
-            </div>
-            <div class="feature-card">
-              <h3 class="feature-title">Soft gouache picture, ready to print</h3>
-              <p class="feature-body">
-                Muse Image draws that scene in soft gouache with Mate in a corner and no text in the picture. The card window displays the artwork alongside the steps as text, with Print and Close buttons, and saves a PNG in Pictures\MetaMate.
-              </p>
+            <div class="hero-grid">
+              <div class="hero-copy">
+                <p class="eyebrow">Peace of mind for you, confidence for your parent.</p>
+                <h1 id="hero-heading">Mate lights the button. Your parent clicks it.</h1>
+                <p class="hero-sentence">
+                  Mate is a small light-bulb helper for Windows who flies to the right button in the app they are using, guides your parent step by step, and waits for them to click—never pressing Pay or Delete.
+                </p>
+                <div class="hero-actions">
+                  <a class="button" href="https://github.com/OAzizjon/meta-mate/releases/latest">Download for Windows</a>
+                  <span class="hero-note">Windows 10 &amp; 11 (x64) only · Hold Right Ctrl or click Mate to talk</span>
+                </div>
+              </div>
+              <figure class="hero-figure">
+                <div class="mate-comic-stage">
+                  <img
+                    class="hero-image"
+                    src="images/mate.png"
+                    alt="Mate, a friendly light bulb with a face, shining his flashlight to the right"
+                    width="280"
+                    height="280"
+                  />
+                  <blockquote class="speech-bubble speech-tail-top">
+                    <p>&ldquo;Right here! I&rsquo;ll shine a warm ring around the button and wait while you click it.&rdquo;</p>
+                  </blockquote>
+                </div>
+              </figure>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="scam-check" class="section" aria-labelledby="scam-heading">
-        <div class="container">
-          <h2 id="scam-heading" class="section-title">Scam check: &ldquo;Is this safe?&rdquo;</h2>
-          <p class="section-lead">
-            A calm second opinion when an unfamiliar message, email, or pop-up looks suspicious.
-          </p>
-          <div class="feature-grid">
-            <div class="feature-card">
-              <h3 class="feature-title">Clear verdict with mood and red flags</h3>
-              <p class="feature-body">
-                Mate looks only at the current window, delivers a verdict with a mood, and names up to 3 red flags he actually sees. Using Muse Spark 1.3, he shines his flashlight beam directly at the worst one.
-              </p>
+      <section id="how-it-works" class="panel section" aria-labelledby="how-heading" tabindex="-1">
+        <div class="panel-frame">
+          <div class="container panel-inner">
+            <div class="panel-top-row">
+              <p class="comic-caption">Meanwhile, one clear step at a time&hellip;</p>
+              <span class="panel-stamp" aria-hidden="true">Panel 2 / 7</span>
             </div>
-            <div class="feature-card">
-              <h3 class="feature-title">Never clicks and never urges action</h3>
-              <p class="feature-body">
-                Mate never clicks anything on screen and never tells the person to click a link, call a phone number, or pay. He shows what is there so your parent can stay safe without being rushed.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="safety-and-privacy" class="section section-alt" aria-labelledby="safety-heading">
-        <div class="container">
-          <h2 id="safety-heading" class="section-title">Safety and privacy</h2>
-          <p class="section-lead">
-            He never presses Pay or Delete. He only shows the way.
-          </p>
-          <ul class="safety-grid">
-            <li class="safety-card">
-              <h3 class="card-title">Never clicks Pay, Delete or password buttons</h3>
-              <p class="card-body">
-                Mate points out where to click and waits. He never clicks payment, purchase, delete, money transfer, or password buttons.
-              </p>
-            </li>
-            <li class="safety-card">
-              <h3 class="card-title">One verified click only when asked</h3>
-              <p class="card-body">
-                In a lesson, if your parent asks Mate to press a safe button for them, he asks &ldquo;Should I press this button for you? Say yes or no.&rdquo; and performs at most one left click per spoken &ldquo;yes&rdquo;.
-              </p>
-            </li>
-            <li class="safety-card">
-              <h3 class="card-title">Only the active window, only when the screen is needed</h3>
-              <p class="card-body">
-                A screenshot is taken only when the question needs the screen (where something is, how to do something, whether a window is safe, or a question about a button, a link or the screen), and includes only the app window being asked about and its pop-up menus.
-              </p>
-            </li>
-            <li class="safety-card">
-              <h3 class="card-title">Passwords blacked out before leaving the PC</h3>
-              <p class="card-body">
-                Password fields, gaps, and every other app&rsquo;s window are painted black on the computer before anything is sent. If Mate cannot guarantee a safe view, he fails closed and refuses to look.
-              </p>
-            </li>
-            <li class="safety-card">
-              <h3 class="card-title">Honest when he cannot find something</h3>
-              <p class="card-body">
-                If a button is not on screen, Mate says &ldquo;I can&rsquo;t find it&rdquo; rather than pointing at a guess.
-              </p>
-            </li>
-            <li class="safety-card">
-              <h3 class="card-title">Never steals focus or exposes keys</h3>
-              <p class="card-body">
-                Mate&rsquo;s overlay windows never take focus away from your parent&rsquo;s app. Provider keys stay on the proxy server, never inside the desktop app.
-              </p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <section id="built-with-meta" class="section" aria-labelledby="meta-heading">
-        <div class="container">
-          <h2 id="meta-heading" class="section-title">Built with Meta</h2>
-          <p class="section-lead">
-            Powered by Meta models for speech, computer use, visual grounding, and voice.
-          </p>
-          <dl class="meta-grid">
-            <div class="meta-card">
-              <dt class="meta-name">Muse Spark 1.3</dt>
-              <dd class="meta-role">
-                First token in 1.4&ndash;2.6&nbsp;s at reasoning effort minimal. Provides answers, guides each step as the computer-use teacher, and powers the &ldquo;Is this safe?&rdquo; scam check.
-              </dd>
-            </div>
-            <div class="meta-card">
-              <dt class="meta-name">Muse Wonder 1.0</dt>
-              <dd class="meta-role">
-                Powers the Thorough setting for complex tasks, and plans a lesson's next step after two clicks away from the beam on Quick.
-              </dd>
-            </div>
-            <div class="meta-card">
-              <dt class="meta-name">Muse Voice Transcribe</dt>
-              <dd class="meta-role">
-                Transcribes spoken questions in real time. The socket opens at key-down and the final transcript arrives 250&ndash;360&nbsp;ms after key-up, so words appear live in Mate&rsquo;s bubble.
-              </dd>
-            </div>
-            <div class="meta-card">
-              <dt class="meta-name">SAM 3.1</dt>
-              <dd class="meta-role">
-                Outlines buttons and icons visually when an app has an empty accessibility tree, such as canvas pages.
-              </dd>
-            </div>
-            <div class="meta-card">
-              <dt class="meta-name">Muse Glimmer 30B</dt>
-              <dd class="meta-role">
-                Meta open weights running on our own Modal L4 GPU (~15&nbsp;tokens/s), rewriting completed lessons into clear steps and scenes when its GPU answers.
-              </dd>
-            </div>
-            <div class="meta-card">
-              <dt class="meta-name">Muse Image</dt>
-              <dd class="meta-role">
-                Draws lesson scenes in soft gouache with Mate in a corner and no text in the picture for keepsake cards.
-              </dd>
-            </div>
-            <div class="meta-card">
-              <dt class="meta-name">MMS-TTS</dt>
-              <dd class="meta-role">
-                Gives Mate a warm spoken voice using Meta open weights on a Modal T4 (90&ndash;110&nbsp;ms GPU synthesis per sentence).
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </section>
-
-      <section id="download" class="section download-section" aria-labelledby="download-heading">
-        <div class="container">
-          <div class="download-card">
-            <h2 id="download-heading" class="section-title">Put Mate on your parent&rsquo;s computer in two minutes</h2>
+            <h2 id="how-heading" class="section-title">How it works</h2>
             <p class="section-lead">
-              Built for our hosted proxy: install, click <strong>Try without signing in</strong> for 12 free messages an hour or sign in with Google, then hold <strong>Right Ctrl</strong> (or the key you pick in Settings) and ask aloud—no API keys or invite codes needed. Each account gets its own daily allowance of questions.
+              A patient teacher on the screen, not an agent that takes the mouse away.
             </p>
-            <div class="hero-actions" style="align-items: center; margin-bottom: 24px;">
-              <a class="button" href="https://github.com/OAzizjon/meta-mate/releases/latest">Download for Windows</a>
-              <span class="hero-note">Windows 10 &amp; 11 (x64) only</span>
+            <ol class="steps-grid">
+              <li class="step-card">
+                <span class="step-number" aria-hidden="true">1</span>
+                <h3 class="step-title">Ask aloud</h3>
+                <p class="step-body">
+                  Press <strong>Win+I</strong> to open Windows Settings. Hold only <strong>Right Ctrl</strong> while you speak, ask &ldquo;How do I make the text bigger?&rdquo;, then let go. Pressing any other key cancels the question. No Right Ctrl on your laptop? Pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings. What Mate hears appears live in his bubble while you speak.
+                </p>
+              </li>
+              <li class="step-card">
+                <span class="step-number" aria-hidden="true">2</span>
+                <h3 class="step-title">Mate flies to the button and lights it</h3>
+                <p class="step-body">
+                  Mate glides across the screen to the exact button and shines a warm golden ring around it, giving one clear step at a time.
+                </p>
+              </li>
+              <li class="step-card step-card-burst">
+                <div class="step-card-head">
+                  <span class="step-number" aria-hidden="true">3</span>
+                  <span class="comic-burst" aria-hidden="true">
+                    <svg viewBox="0 0 120 64" width="96" height="52" focusable="false">
+                      <polygon
+                        class="comic-burst-polygon"
+                        points="60,3 74,14 96,6 91,23 116,28 97,39 112,55 86,51 77,61 60,52 43,61 34,51 8,55 23,39 4,28 29,23 24,6 46,14"
+                      />
+                    </svg>
+                    <span class="comic-burst-word">CLICK!</span>
+                  </span>
+                </div>
+                <h3 class="step-title">You click, he cheers</h3>
+                <p class="step-body">
+                  Your parent clicks the button themselves. Mate checks that it was the right spot, cheers them on, and moves to the next step. If they click away from the beam twice on Quick, Muse Wonder 1.0 plans the next step.
+                </p>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section id="lesson-cards" class="panel section section-alt" aria-labelledby="lesson-cards-heading" tabindex="-1">
+        <div class="panel-frame panel-frame-alt">
+          <div class="container panel-inner">
+            <div class="panel-top-row">
+              <p class="comic-caption">After the lesson is won&hellip;</p>
+              <span class="panel-stamp" aria-hidden="true">Panel 3 / 7</span>
             </div>
-            <div class="feature-card" style="text-align: left; max-width: 680px; margin: 0 auto;">
-              <h3 class="card-title">Windows SmartScreen note</h3>
-              <p class="card-body">
-                If SmartScreen shows &ldquo;Windows protected your PC&rdquo;, click the small <strong>More info</strong> link, then <strong>Run anyway</strong> (the installer is not code-signed yet).
+            <h2 id="lesson-cards-heading" class="section-title">Keepsake lesson cards</h2>
+            <p class="section-lead">
+              A printed reminder to keep by the keyboard, written simply and painted in soft gouache.
+            </p>
+            <div class="feature-grid">
+              <div class="feature-card">
+                <h3 class="feature-title">Simple steps in your language</h3>
+                <p class="feature-body">
+                  After a lesson the model finished, Muse Glimmer 30B (Meta open weights on our own Modal L4 GPU, ~15 tokens/s) rewrites the steps in simple words in the person&rsquo;s language and writes a short scene to accompany it when its GPU answers.
+                </p>
+              </div>
+              <div class="feature-card">
+                <h3 class="feature-title">Soft gouache picture, ready to print</h3>
+                <p class="feature-body">
+                  Muse Image draws that scene in soft gouache with Mate in a corner and no text in the picture. The card window displays the artwork alongside the steps as text, with Print and Close buttons, and saves a PNG in Pictures\MetaMate.
+                </p>
+              </div>
+            </div>
+            <div class="mate-dialogue">
+              <img
+                class="mate-avatar"
+                src="images/mate.png"
+                alt=""
+                aria-hidden="true"
+                width="64"
+                height="64"
+              />
+              <blockquote class="speech-bubble speech-tail-left">
+                <p>&ldquo;Print it for the desk or find the saved picture any time in Pictures\MetaMate!&rdquo;</p>
+              </blockquote>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="scam-check" class="panel section" aria-labelledby="scam-heading" tabindex="-1">
+        <div class="panel-frame">
+          <div class="container panel-inner">
+            <div class="panel-top-row">
+              <p class="comic-caption">When an unfamiliar pop-up appears&hellip;</p>
+              <span class="panel-stamp" aria-hidden="true">Panel 4 / 7</span>
+            </div>
+            <h2 id="scam-heading" class="section-title">Scam check: &ldquo;Is this safe?&rdquo;</h2>
+            <p class="section-lead">
+              A calm second opinion when an unfamiliar message, email, or pop-up looks suspicious.
+            </p>
+            <div class="mate-dialogue mate-dialogue-top">
+              <img
+                class="mate-avatar"
+                src="images/mate.png"
+                alt=""
+                aria-hidden="true"
+                width="64"
+                height="64"
+              />
+              <blockquote class="speech-bubble speech-tail-left">
+                <p>&ldquo;Hold on—let&rsquo;s check the red flags on this window together. No rush, and no clicking.&rdquo;</p>
+              </blockquote>
+            </div>
+            <div class="feature-grid">
+              <div class="feature-card">
+                <h3 class="feature-title">Clear verdict with mood and red flags</h3>
+                <p class="feature-body">
+                  Mate looks only at the current window, delivers a verdict with a mood, and names up to 3 red flags he actually sees. Using Muse Spark 1.3, he shines his flashlight beam directly at the worst one.
+                </p>
+              </div>
+              <div class="feature-card">
+                <h3 class="feature-title">Never clicks and never urges action</h3>
+                <p class="feature-body">
+                  Mate never clicks anything on screen and never tells the person to click a link, call a phone number, or pay. He shows what is there so your parent can stay safe without being rushed.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="safety-and-privacy" class="panel section section-alt" aria-labelledby="safety-heading" tabindex="-1">
+        <div class="panel-frame panel-frame-alt">
+          <div class="container panel-inner">
+            <div class="panel-top-row">
+              <p class="comic-caption">Strict house rules for a polite bulb&hellip;</p>
+              <span class="panel-stamp" aria-hidden="true">Panel 5 / 7</span>
+            </div>
+            <h2 id="safety-heading" class="section-title">Safety and privacy</h2>
+            <p class="section-lead">
+              He never presses Pay or Delete. He only shows the way.
+            </p>
+            <ul class="safety-grid">
+              <li class="safety-card">
+                <h3 class="card-title">Never clicks Pay, Delete or password buttons</h3>
+                <p class="card-body">
+                  Mate points out where to click and waits. He never clicks payment, purchase, delete, money transfer, or password buttons.
+                </p>
+              </li>
+              <li class="safety-card">
+                <h3 class="card-title">One verified click only when asked</h3>
+                <p class="card-body">
+                  In a lesson, if your parent asks Mate to press a safe button for them, he asks &ldquo;Should I press this button for you? Say yes or no.&rdquo; and performs at most one left click per spoken &ldquo;yes&rdquo;.
+                </p>
+              </li>
+              <li class="safety-card">
+                <h3 class="card-title">Only the active window, only when the screen is needed</h3>
+                <p class="card-body">
+                  A screenshot is taken only when the question needs the screen (where something is, how to do something, whether a window is safe, or a question about a button, a link or the screen), and includes only the app window being asked about and its pop-up menus.
+                </p>
+              </li>
+              <li class="safety-card">
+                <h3 class="card-title">Passwords blacked out before leaving the PC</h3>
+                <p class="card-body">
+                  Password fields, gaps, and every other app&rsquo;s window are painted black on the computer before anything is sent. If Mate cannot guarantee a safe view, he fails closed and refuses to look.
+                </p>
+              </li>
+              <li class="safety-card">
+                <h3 class="card-title">Honest when he cannot find something</h3>
+                <p class="card-body">
+                  If a button is not on screen, Mate says &ldquo;I can&rsquo;t find it&rdquo; rather than pointing at a guess.
+                </p>
+              </li>
+              <li class="safety-card">
+                <h3 class="card-title">Never steals focus or exposes keys</h3>
+                <p class="card-body">
+                  Mate&rsquo;s overlay windows never take focus away from your parent&rsquo;s app. Provider keys stay on the proxy server, never inside the desktop app.
+                </p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="built-with-meta" class="panel section" aria-labelledby="meta-heading" tabindex="-1">
+        <div class="panel-frame">
+          <div class="container panel-inner">
+            <div class="panel-top-row">
+              <p class="comic-caption">Under the glass &middot; Judges&rsquo; technical sheet</p>
+              <span class="panel-stamp" aria-hidden="true">Panel 6 / 7</span>
+            </div>
+            <h2 id="meta-heading" class="section-title">Built with Meta</h2>
+            <p class="section-lead">
+              Powered by Meta models for speech, computer use, visual grounding, and voice.
+            </p>
+            <dl class="meta-grid">
+              <div class="meta-card">
+                <dt class="meta-name">Muse Spark 1.3</dt>
+                <dd class="meta-role">
+                  First token in 1.4&ndash;2.6&nbsp;s at reasoning effort minimal. Provides answers, guides each step as the computer-use teacher, and powers the &ldquo;Is this safe?&rdquo; scam check.
+                </dd>
+              </div>
+              <div class="meta-card">
+                <dt class="meta-name">Muse Wonder 1.0</dt>
+                <dd class="meta-role">
+                  Powers the Thorough setting for complex tasks, and plans a lesson's next step after two clicks away from the beam on Quick.
+                </dd>
+              </div>
+              <div class="meta-card">
+                <dt class="meta-name">Muse Voice Transcribe</dt>
+                <dd class="meta-role">
+                  Transcribes spoken questions in real time. The socket opens at key-down and the final transcript arrives 250&ndash;360&nbsp;ms after key-up, so words appear live in Mate&rsquo;s bubble.
+                </dd>
+              </div>
+              <div class="meta-card">
+                <dt class="meta-name">SAM 3.1</dt>
+                <dd class="meta-role">
+                  Outlines buttons and icons visually when an app has an empty accessibility tree, such as canvas pages.
+                </dd>
+              </div>
+              <div class="meta-card">
+                <dt class="meta-name">Muse Glimmer 30B</dt>
+                <dd class="meta-role">
+                  Meta open weights running on our own Modal L4 GPU (~15&nbsp;tokens/s), rewriting completed lessons into clear steps and scenes when its GPU answers.
+                </dd>
+              </div>
+              <div class="meta-card">
+                <dt class="meta-name">Muse Image</dt>
+                <dd class="meta-role">
+                  Draws lesson scenes in soft gouache with Mate in a corner and no text in the picture for keepsake cards.
+                </dd>
+              </div>
+              <div class="meta-card">
+                <dt class="meta-name">MMS-TTS</dt>
+                <dd class="meta-role">
+                  Gives Mate a warm spoken voice using Meta open weights on a Modal T4 (90&ndash;110&nbsp;ms GPU synthesis per sentence).
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section id="download" class="panel section download-section" aria-labelledby="download-heading" tabindex="-1">
+        <div class="panel-frame panel-frame-alt">
+          <div class="container panel-inner">
+            <div class="panel-top-row">
+              <p class="comic-caption">Two minutes later, on their desktop&hellip;</p>
+              <span class="panel-stamp" aria-hidden="true">Panel 7 / 7</span>
+            </div>
+            <div class="download-card">
+              <h2 id="download-heading" class="section-title">Put Mate on your parent&rsquo;s computer in two minutes</h2>
+              <p class="section-lead">
+                Built for our hosted proxy: install, click <strong>Try without signing in</strong> for 12 free messages an hour or sign in with Google, then hold <strong>Right Ctrl</strong> (or the key you pick in Settings) and ask aloud—no API keys or invite codes needed. Each account gets its own daily allowance of questions.
               </p>
+              <div class="hero-actions download-actions">
+                <a class="button" href="https://github.com/OAzizjon/meta-mate/releases/latest">Download for Windows</a>
+                <span class="hero-note">Windows 10 &amp; 11 (x64) only</span>
+              </div>
+              <div class="mate-dialogue mate-dialogue-centered">
+                <img
+                  class="mate-avatar"
+                  src="images/mate.png"
+                  alt=""
+                  aria-hidden="true"
+                  width="64"
+                  height="64"
+                />
+                <blockquote class="speech-bubble speech-tail-left">
+                  <p>&ldquo;I&rsquo;ll wait quietly in the corner until you press Right Ctrl!&rdquo;</p>
+                </blockquote>
+              </div>
+              <div class="feature-card smartscreen-card">
+                <h3 class="card-title">Windows SmartScreen note</h3>
+                <p class="card-body">
+                  If SmartScreen shows &ldquo;Windows protected your PC&rdquo;, click the small <strong>More info</strong> link, then <strong>Run anyway</strong> (the installer is not code-signed yet).
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -255,8 +354,52 @@
 
     <footer class="site-footer">
       <div class="container footer-inner">
-        <p>MetaMate — Mate waits; you click.</p>
+        <nav class="panel-nav" aria-label="Comic panel navigation">
+          <div class="progress-track" aria-hidden="true">
+            <span class="progress-fill" id="progress-fill" data-step="1"></span>
+          </div>
+          <ol class="panel-dots">
+            <li>
+              <a class="panel-dot" href="#hero" aria-label="Panel 1 of 7: Mate lights the button" aria-current="step">
+                <span aria-hidden="true">1</span>
+              </a>
+            </li>
+            <li>
+              <a class="panel-dot" href="#how-it-works" aria-label="Panel 2 of 7: How it works">
+                <span aria-hidden="true">2</span>
+              </a>
+            </li>
+            <li>
+              <a class="panel-dot" href="#lesson-cards" aria-label="Panel 3 of 7: Keepsake lesson cards">
+                <span aria-hidden="true">3</span>
+              </a>
+            </li>
+            <li>
+              <a class="panel-dot" href="#scam-check" aria-label="Panel 4 of 7: Scam check">
+                <span aria-hidden="true">4</span>
+              </a>
+            </li>
+            <li>
+              <a class="panel-dot" href="#safety-and-privacy" aria-label="Panel 5 of 7: Safety and privacy">
+                <span aria-hidden="true">5</span>
+              </a>
+            </li>
+            <li>
+              <a class="panel-dot" href="#built-with-meta" aria-label="Panel 6 of 7: Built with Meta">
+                <span aria-hidden="true">6</span>
+              </a>
+            </li>
+            <li>
+              <a class="panel-dot" href="#download" aria-label="Panel 7 of 7: Download for Windows">
+                <span aria-hidden="true">7</span>
+              </a>
+            </li>
+          </ol>
+        </nav>
+        <p class="footer-motto">MetaMate — Mate waits; you click.</p>
       </div>
     </footer>
+
+    <script src="main.js" defer></script>
   </body>
 </html>
