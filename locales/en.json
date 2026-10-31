@@ -107,6 +107,7 @@
   "settings.language_en": "English",
   "settings.language_ru": "Русский",
   "settings.saved_note": "Changes are saved right away. Close this window when you are done.",
+  "settings.save_failed": "This choice is in effect, but could not be saved. It may be lost when you restart.",
   "settings.spotlight": "Dim the rest of the screen while I point",
   "settings.reduce_motion": "Less movement on screen",
   "settings.start_with_windows": "Start MetaMate when the computer turns on",

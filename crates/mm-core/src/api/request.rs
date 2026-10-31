@@ -593,6 +593,11 @@ mod tests {
         assert_eq!(content[1]["image_url"], DATA_URL);
         let text = instructions(&body);
         assert!(text.contains("with an id from the list"));
+        assert!(
+            text.contains(
+                "Saying honestly that you cannot find it is also a valid first sentence."
+            )
+        );
         assert!(text.contains("The first sentence carries the answer: the place for a"));
         assert!(text.contains("at most two short sentences for a simple action"));
         assert!(text.contains("Never invent a menu or button name that is not on the screen"));

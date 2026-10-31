@@ -207,6 +207,7 @@ export function mountSettings(
       : options.subscribe;
   const accountStore = options.accountStore ?? defaultAccountStore;
   let destroyed = false;
+  let saveFailed = false;
 
   const header = document.createElement("header");
   header.className = "settings-header";
@@ -220,6 +221,9 @@ export function mountSettings(
   headerText.className = "settings-header-text";
   headerText.append(titleHeading, savedNote);
   header.append(bulbBadge(), headerText);
+  const saveAlert = document.createElement("p");
+  saveAlert.className = "settings-account-status is-error";
+  saveAlert.setAttribute("role", "alert");
 
   const form = document.createElement("form");
   form.className = "settings-form";
@@ -298,7 +302,7 @@ export function mountSettings(
     accountGroup.section,
   );
 
-  container.replaceChildren(header, form);
+  container.replaceChildren(header, saveAlert, form);
 
   const motionQuery =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -325,6 +329,7 @@ export function mountSettings(
     }
     titleHeading.textContent = t("tray.settings");
     savedNote.textContent = t("settings.saved_note");
+    saveAlert.textContent = saveFailed ? t("settings.save_failed") : "";
 
     const radioGroups: readonly RadioGroupRefs<string>[] = [
       languageGroup,
@@ -385,7 +390,10 @@ export function mountSettings(
   syncText();
   syncControls(store.get());
 
-  const settingsActions = createSettingsActions(store, syncControls, () => !destroyed);
+  const settingsActions = createSettingsActions(store, syncControls, () => !destroyed, (failed) => {
+    saveFailed = failed;
+    saveAlert.textContent = failed ? t("settings.save_failed") : "";
+  });
 
   const unsubscribeChanged = subscribeSettingsChanged(
     store,

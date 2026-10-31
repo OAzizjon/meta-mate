@@ -190,3 +190,7 @@ Each decision records what we chose, why, and what we rejected. Add new entries 
 - Which 25 languages Muse Voice Transcribe supports, and whether MMS-TTS checkpoints are available for them.
 - Server: droplet size and how to gracefully retire JustLog3 (see `server.md`).
 - Prices of Muse Spark per 1M tokens (Billing page) → `PRICES` in `tools/mm_probe.py` and `PROXY_DAILY_BUDGET_USD`.
+
+| Decision | Choice | Basis |
+|---|---|---|
+| D66 | **Routing v4 keeps scam reports and learning requests on their intended paths** (2026-10-31). Message trust questions, computer infection warnings and bank code requests take Safety before pointing. Longer safety questions with only "it"/"это" need screen, message or computer context; bare safety checks remain supported. Learning for oneself beats delegation; "How do I find" and "Покажи, как" start lessons, as do English text-size and sound commands. D65 screen cues, bare finding cues and "for me" delegation remain; the click blocklist still refuses payments. The spoken prompt accepts an honest inability to find the target as its first sentence. All 30 review sentences were characterized before the routing changes. | Lead's scoped routing v4 request; offline regression tests |

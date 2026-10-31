@@ -68,7 +68,11 @@ function mount(root: HTMLElement): void {
     buttons.append(button);
     return { provider, key, button };
   });
-  void syncProviderButtons(store, providerButtons);
+  let providersUnavailable = false;
+  void syncProviderButtons(store, providerButtons).then((providers) => {
+    providersUnavailable = providers.length === 0;
+    sync(store.getState());
+  });
 
   const browser = el("p", "signin-browser", t("signin.browser"));
 
@@ -129,7 +133,7 @@ function mount(root: HTMLElement): void {
         ? t("signin.done")
         : notice.status
           ? t(notice.status as LocaleKey)
-          : "";
+          : providersUnavailable ? t("auth.unavailable") : "";
     alert.textContent = notice.alert ? t(notice.alert as LocaleKey) : "";
   };
   store.subscribe(sync);

@@ -10,8 +10,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### crates/mm-core
 
 - crates/mm-core/src/api/intent.rs — Intent routing as pure data, with an offline fallback.
-  Intent:6 intent_request:22 parse_intent:37 parse_yes_no:101 parse_yes_no_for_locale:106 asks_do_it:242 guess_intent:589
+  Intent:6 intent_request:22 parse_intent:37 parse_yes_no:101 parse_yes_no_for_locale:106 asks_do_it:242 guess_intent:626
   tests: crates/mm-core/tests/intent.rs (15)
+- crates/mm-core/src/api/intent_tests.rs
 - crates/mm-core/src/api/mod.rs — The Meta Model API (Responses API) as pure data: building requests and reading responses, no networking here (the proxy client lives elsewhere).
   intent:4 request:6 response:7 sam:8 sse:9
 - crates/mm-core/src/api/prompts.rs — The prompt texts (docs/prompts.md, D41) that the builders in api/request.rs send as `instructions`: model input, not UI text, so invariant 7 does not apply.
@@ -805,7 +806,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 251 | 32 |
+| crates/mm-core | 253 | 33 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 178 | 20 |

@@ -49,10 +49,14 @@ export function buildAccountSection(accountStore: AccountStore): AccountSectionR
   githubBtn.className = "btn btn-secondary settings-account-btn settings-account-btn-github";
 
   buttonsRow.append(googleBtn, githubBtn);
+  let providersUnavailable = false;
   void syncProviderButtons(accountStore, [
     { provider: "google", button: googleBtn },
     { provider: "github", button: githubBtn },
-  ]);
+  ]).then((providers) => {
+    providersUnavailable = providers.length === 0;
+    syncState(accountStore.getState());
+  });
   signedOutView.append(buttonsRow);
 
   googleBtn.addEventListener("click", () => {
@@ -138,7 +142,8 @@ export function buildAccountSection(accountStore: AccountStore): AccountSectionR
     }
 
     const notice = accountNotice(state);
-    statusEl.textContent = notice.status ? t(notice.status as LocaleKey) : "";
+    statusEl.textContent = notice.status ? t(notice.status as LocaleKey)
+      : providersUnavailable && state.status === "signed_out" ? t("auth.unavailable") : "";
     alertEl.textContent = notice.alert ? t(notice.alert as LocaleKey) : "";
   };
 

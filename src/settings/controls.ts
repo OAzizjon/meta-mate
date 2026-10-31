@@ -78,6 +78,10 @@ export function buildRadioGroup<V extends string>(
 
     const titleEl = document.createElement("span");
     titleEl.className = "option-title";
+    if (!segmented) {
+      titleEl.id = `${spec.id}-title`;
+      input.setAttribute("aria-labelledby", titleEl.id);
+    }
     textWrap.append(titleEl);
 
     let hintEl: HTMLSpanElement | undefined;

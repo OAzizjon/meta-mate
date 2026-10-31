@@ -46,7 +46,11 @@ test("provider discovery hides disabled buttons and preserves Google on failure"
     ]);
     assert.equal(google.hidden, false);
     assert.equal(github.hidden, true);
-    await pending;
+    const visible = await pending;
+    assert.deepEqual(visible, [
+      ...(!googleHidden ? ["google"] : []),
+      ...(!githubHidden ? ["github"] : []),
+    ]);
     assert.deepEqual(calls, ["auth_providers"]);
     assert.equal(google.hidden, googleHidden);
     assert.equal(github.hidden, githubHidden);

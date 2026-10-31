@@ -156,6 +156,16 @@
         border-color: var(--border-strong);
       }
 
+      .settings-segment::before {
+        content: "";
+        flex: none;
+        width: 1em;
+      }
+
+      .settings-segment.is-selected::before {
+        content: "\2713" / "";
+      }
+
       .settings-radio-option.is-selected,
       .settings-segment.is-selected {
         background: var(--accent-soft);

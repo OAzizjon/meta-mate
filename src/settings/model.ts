@@ -254,11 +254,7 @@ export function createSettingsStore(invokeFn: SettingsInvoke | null = null): Set
       state = parseSettings(next);
       const snapshot: Settings = { ...state };
       if (invokeFn) {
-        try {
-          await invokeFn("save_settings", { settings: snapshot });
-        } catch {
-          // Keep the validated change in memory even if IPC fails.
-        }
+        await invokeFn("save_settings", { settings: snapshot });
       }
       return { ...state };
     },

@@ -197,3 +197,13 @@ test("choosing a segment marks it and shows its hint at once, then passes the va
   hold.input.dispatch("change");
   assert.deepEqual(chosen, ["toggle"]);
 });
+
+test("model cards name radios by the title and describe them by the hint", () => {
+  const model = buildModelGroup(noop);
+  for (const { input, titleEl, hintEl } of model.items) {
+    assert.ok(titleEl.id);
+    assert.equal(input.getAttribute("aria-labelledby"), titleEl.id);
+    assert.equal(input.getAttribute("aria-describedby"), hintEl?.id);
+    assert.notEqual(titleEl.id, hintEl?.id);
+  }
+});

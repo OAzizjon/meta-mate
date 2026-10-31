@@ -291,7 +291,7 @@ export function createAccountStore(
 export async function syncProviderButtons(
   store: AccountStore,
   buttons: readonly { provider: AuthProvider; button: Pick<HTMLElement, "hidden"> }[],
-): Promise<void> {
+): Promise<readonly AuthProvider[]> {
   for (const { provider, button } of buttons) {
     button.hidden = provider !== "google";
   }
@@ -299,4 +299,5 @@ export async function syncProviderButtons(
   for (const { provider, button } of buttons) {
     button.hidden = !providers.includes(provider);
   }
+  return buttons.filter(({ button }) => !button.hidden).map(({ provider }) => provider);
 }

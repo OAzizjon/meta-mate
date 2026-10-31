@@ -183,11 +183,13 @@ export function startHomeSettings(
       if (!known) {
         return store.get();
       }
-      const saved = await store.update({ showHomeAtStart: show });
-      if (!destroyed) {
-        onChange(saved, known);
+      try {
+        return await store.update({ showHomeAtStart: show });
+      } finally {
+        if (!destroyed) {
+          onChange(store.get(), known);
+        }
       }
-      return saved;
     },
     ready,
     destroy(): void {
@@ -382,6 +384,9 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   startInput.disabled = true;
   const startText = el("span", "home-start-text", t("home.show_at_start"));
   startOption.append(startInput, startText);
+  const saveAlert = el("p", "home-try-status is-error");
+  saveAlert.setAttribute("role", "alert");
+  saveAlert.hidden = true;
 
   const actions = el("div", "home-actions");
   const chatBtn = el("button", "btn btn-primary", t("home.write"));
@@ -411,7 +416,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
       console.error("[home] could not quit:", error);
     });
   });
-  footer.append(startOption, actions, quitBtn);
+  footer.append(startOption, saveAlert, actions, quitBtn);
 
   container.replaceChildren(content, footer);
 
@@ -467,8 +472,20 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   });
   syncMotion();
 
+  const setSaveFailed = (failed: boolean): void => {
+    saveAlert.hidden = !failed;
+    saveAlert.textContent = failed ? t("settings.save_failed") : "";
+  };
+
   startInput.addEventListener("change", () => {
-    void settings.setShowAtStart(startInput.checked);
+    void settings.setShowAtStart(startInput.checked).then(
+      () => {
+        if (!destroyed) setSaveFailed(false);
+      },
+      () => {
+        if (!destroyed) setSaveFailed(true);
+      },
+    );
   });
 
   return {

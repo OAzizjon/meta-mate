@@ -11,13 +11,23 @@ export function createSettingsActions(
   store: SettingsStore,
   syncControls: (settings: Settings) => void,
   isActive: () => boolean,
+  onSaveFailed: (failed: boolean) => void = () => {},
 ) {
   return {
     applyPatch(patch: Partial<Settings>): Promise<Settings> {
-      return store.update(patch).then((updated) => {
-        syncControls(updated);
-        return updated;
-      });
+      return store.update(patch).then(
+        (updated) => {
+          onSaveFailed(false);
+          syncControls(updated);
+          return updated;
+        },
+        () => {
+          onSaveFailed(true);
+          const updated = store.get();
+          syncControls(updated);
+          return updated;
+        },
+      );
     },
     load(): Promise<Settings> {
       return store.load().then((loaded) => {

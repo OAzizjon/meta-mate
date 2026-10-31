@@ -465,9 +465,10 @@ test("the footer: a start-up switch line, Write to Mate and Settings side by sid
     assert.equal(footer.tagName, "footer");
     assert.deepEqual(
       footer.children.map((node) => node.className),
-      ["home-start-option", "home-actions", "home-quit"],
+      ["home-start-option", "home-try-status is-error", "home-actions", "home-quit"],
     );
-    const [startOption, actions, quit] = footer.children;
+    const [startOption, saveAlert, actions, quit] = footer.children;
+    assert.equal(saveAlert.hidden, true);
 
     // The switch line, enabled once the settings are in.
     const [startInput] = startOption.children;
@@ -505,4 +506,17 @@ test("the footer: a start-up switch line, Write to Mate and Settings side by sid
   } finally {
     unmount();
   }
+});
+
+test("a failed startup save reports failure and keeps the active choice", async () => {
+  const changes: Settings[] = [];
+  const home = startHomeSettings(async (cmd) => {
+    if (cmd === "load_settings") return { ...SAVED };
+    throw new Error("disk full");
+  }, null, (settings) => changes.push(settings));
+  await home.ready;
+  await assert.rejects(home.setShowAtStart(false));
+  assert.equal(home.get().showHomeAtStart, false);
+  assert.equal(changes.at(-1)?.showHomeAtStart, false);
+  home.destroy();
 });

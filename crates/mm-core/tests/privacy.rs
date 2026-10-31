@@ -197,6 +197,7 @@ fn matching_is_independent_of_turkish_case_rules() {
 #[test]
 fn click_safety_whole_words_and_amounts() {
     for name in [
+        "Pay this electricity bill for me",
         "pagar",
         "pague",
         "pago",

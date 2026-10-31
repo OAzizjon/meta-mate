@@ -279,6 +279,43 @@ const VERDICT_REACH: usize = 6;
 fn asks_safety(text: &str) -> bool {
     let lower = spoken_words(text);
     let words: Vec<_> = words(&lower).collect();
+    let screen_subject =
+        words.iter().any(|word| {
+            computer_thing(word)
+                || screen_word(word)
+                || word.starts_with("нажим")
+                || matches!(
+                    *word,
+                    "message" | "window" | "page" | "link" | "card" | "карта"
+                )
+        }) || contains_spoken(&words, &["really from", "действительно от", "правда от"]);
+    // Bare safety checks keep their screen context; other "it/это" needs a subject.
+    let bare_safety = words.iter().enumerate().all(|(at, word)| {
+        is_subject(word)
+            || is_verdict(&words, at)
+            || matches!(
+                *word,
+                "is" | "are" | "a" | "ли" | "не" | "привет" | "hello" | "mate"
+            )
+    });
+    if (screen_subject
+        && (contains_spoken(&words, &["believe it", "это правда"])
+            || (words.contains(&"infected") && words.contains(&"computer"))
+            || (words.contains(&"карта") && words.iter().any(|w| w.starts_with("заблок")))))
+        || (contains_spoken(&words, &["from the bank", "от банка", "из банка"])
+            && words.iter().any(|w| matches!(*w, "code" | "код")))
+    {
+        return true;
+    }
+    if !bare_safety
+        && !screen_subject
+        && words.iter().any(|w| matches!(*w, "it" | "это"))
+        && !words
+            .iter()
+            .any(|w| is_subject(w) && !matches!(*w, "it" | "это"))
+    {
+        return false;
+    }
     // Trust in the thing, never in Mate: "Can I trust you?" is a chat.
     let trust = contains_spoken(
         &words,
@@ -585,7 +622,7 @@ fn command_word(word: &str) -> bool {
 
 /// Conservative English/Russian fallback when the classifier is unavailable. A scam
 /// check wins over delegation (Mate looks before anyone presses), delegation over
-/// finding, and finding over teaching when cues overlap.
+/// finding, except when the person explicitly asks to learn or how to find it.
 pub fn guess_intent(question: &str) -> Intent {
     if asks_safety(question) {
         return Intent::Safety;
@@ -609,7 +646,11 @@ pub fn guess_intent(question: &str) -> Intent {
     let imperative = words
         .iter()
         .find(|word| !matches!(**word, "please" | "mate" | "пожалуйста"))
-        .is_some_and(|word| command_word(word));
+        .is_some_and(|word| {
+            command_word(word)
+                || (*word == "make" && words.contains(&"letters") && words.contains(&"bigger"))
+                || (*word == "turn" && has_phrase(&words, &["turn", "up", "the", "sound"]))
+        });
     // "Не знаю, нажми за меня": a command to Mate anywhere with "за меня", "сам" or
     // "yourself" hands it over (unless an action is negated); "как мне
     // открыть настройки? Я сам хочу разобраться" has no command, so it stays How.
@@ -679,6 +720,13 @@ pub fn guess_intent(question: &str) -> Intent {
                     verb.ends_with("ть") || verb.ends_with("ти") || verb.ends_with("чь")
                 })
         });
+    let learning = contains_spoken(
+        &words,
+        &["do it myself", "i want to learn", "so i can learn"],
+    );
+    if learning {
+        return Intent::How;
+    }
     if negated_action && !where_cue && !how_cue {
         return Intent::Chat;
     }
@@ -690,6 +738,11 @@ pub fn guess_intent(question: &str) -> Intent {
             || for_me)
     {
         return Intent::Do;
+    }
+    if (has_phrase(&words, &["how", "do", "i"]) && words.contains(&"find"))
+        || (has_phrase(&words, &["покажи", "как"]) && how_cue)
+    {
+        return Intent::How;
     }
     if where_cue {
         return Intent::Where;
@@ -751,3 +804,7 @@ pub fn guess_intent(question: &str) -> Intent {
     }
     Intent::Chat
 }
+
+#[cfg(test)]
+#[path = "intent_tests.rs"]
+mod tests;

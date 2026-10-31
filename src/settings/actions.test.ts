@@ -119,7 +119,7 @@ test("a late initial load refreshes with local edits instead of overwriting them
 
 test("failed IPC loads refresh from the current in-memory settings", async () => {
   const store = createSettingsStore(async () => { throw new Error("offline"); });
-  await store.update({ ptt: "toggle" });
+  await assert.rejects(store.update({ ptt: "toggle" }));
   const refreshed: Settings[] = [];
   const actions = createSettingsActions(store, (settings) => refreshed.push(settings), () => true);
   const loaded = await actions.load();
@@ -127,15 +127,34 @@ test("failed IPC loads refresh from the current in-memory settings", async () =>
   assert.deepEqual(refreshed, [loaded]);
 });
 
-test("a rejecting custom store does not refresh and propagates its error", async () => {
+test("a rejecting custom store reports save failure and keeps the current choice", async () => {
   const failure = new Error("custom store failed");
   const failed = deferred<Settings>();
   const store = { ...createSettingsStore(), load: () => failed.promise, update: () => failed.promise };
   const refreshed: Settings[] = [];
   const actions = createSettingsActions(store, (settings) => refreshed.push(settings), () => true);
   const loading = assert.rejects(actions.load(), (error) => error === failure);
-  const updating = assert.rejects(actions.applyPatch({}), (error) => error === failure);
+  const updating = actions.applyPatch({});
   failed.reject(failure);
   await Promise.all([loading, updating]);
-  assert.deepEqual(refreshed, []);
+  assert.deepEqual(refreshed, [store.get()]);
+});
+
+test("a save failure keeps the choice and clears on the next successful save", async () => {
+  let fail = true;
+  const store = createSettingsStore(async () => {
+    if (fail) throw new Error("disk full");
+  });
+  const failures: boolean[] = [];
+  const refreshed: Settings[] = [];
+  const actions = createSettingsActions(store, (settings) => refreshed.push(settings),
+    () => true, (failed) => failures.push(failed));
+  await assert.rejects(store.save({ ...defaultSettings(), model: "thorough" }));
+  assert.equal(store.get().model, "thorough");
+  await actions.applyPatch({ sound: "fun" });
+  assert.equal(refreshed[0].sound, "fun");
+  assert.equal(refreshed[0].model, "thorough");
+  fail = false;
+  await actions.applyPatch({ sound: "calm" });
+  assert.deepEqual(failures, [true, false]);
 });
