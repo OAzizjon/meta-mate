@@ -534,28 +534,54 @@ fn questions_about_the_screen_look_at_it_and_requests_for_help_are_lessons() {
         "Что у меня на экране?",
         "Что это за окно?",
         "Что мне здесь нажать?",
-        "Что ты видишь?",
         "Посмотри на экран",
         "Что это?",
+        "Что означает эта кнопка?",
+        "Что на дисплее?",
         "What's on my screen?",
         "What should I click here?",
         "What is this?",
+        "What does this button do?",
+        "What button should I choose?",
+        "Look at this error",
     ] {
         assert_eq!(guess_intent(text), Intent::Where, "{text}");
     }
     for text in [
         "Помоги мне отправить письмо",
-        "Помогите, пожалуйста",
+        "Помогите распечатать документ",
         "Help me send this email",
+        "Help me with my email",
+        "Помоги с почтой",
+        "Send this email",
+        "Отправь письмо",
+        "Увеличь шрифт",
     ] {
         assert_eq!(guess_intent(text), Intent::How, "{text}");
     }
-    // Conversation stays conversation.
+    // Conversation and life questions take no screenshot and start no lesson (invariant 3).
     for text in [
         "Как дела?",
         "Расскажи анекдот",
         "Хочу оформить развод, это сложно?",
         "Tell me a joke",
+        "У меня тут болит спина, что это может быть?",
+        "Что это за птицы поют за окном утром?",
+        "Tell me a story about a sailor who lived here.",
+        "What is this TikTok my grandchildren talk about?",
+        "Помоги придумать тост на юбилей сестры",
+        "Help me write a birthday card for my granddaughter",
+        "Ты меня видишь?",
+        "Посмотри, какая хорошая погода за окном",
+        "Помоги мне успокоиться",
+        "Что это за шум?",
+        "Я тут подумала о внуках",
+        "Is it cold out here today?",
+        "My blood pressure is high today",
+        "Help me understand why my knees hurt",
+        "I'm sitting here reading a book",
+        "Tell me a joke about a button",
+        "Расскажи анекдот про кнопку",
     ] {
         assert_eq!(guess_intent(text), Intent::Chat, "{text}");
     }

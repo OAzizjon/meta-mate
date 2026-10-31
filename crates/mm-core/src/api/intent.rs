@@ -455,6 +455,116 @@ fn action_word(word: &str) -> bool {
 }
 
 /// A command addressed to Mate ("click", "нажми"), not an infinitive ("открыть").
+/// Words that only make sense about what is on the screen.
+fn screen_word(word: &str) -> bool {
+    matches!(
+        word,
+        "экран"
+            | "экране"
+            | "экрана"
+            | "монитор"
+            | "мониторе"
+            | "дисплей"
+            | "дисплее"
+            | "окне"
+            | "вкладка"
+            | "вкладке"
+            | "вкладку"
+            | "всплывающее"
+            | "всплыло"
+            | "ссылка"
+            | "ссылку"
+            | "кнопка"
+            | "кнопку"
+            | "кнопки"
+            | "кнопке"
+            | "нажать"
+            | "нажимать"
+            | "кликнуть"
+            | "screen"
+            | "monitor"
+            | "display"
+            | "tab"
+            | "popup"
+            | "link"
+            | "button"
+            | "click"
+            | "press"
+    )
+}
+
+/// A thing done on the computer: "помоги отправить", "help me print".
+fn computer_task(word: &str) -> bool {
+    matches!(
+        word,
+        "отправить"
+            | "открыть"
+            | "найти"
+            | "установить"
+            | "удалить"
+            | "сохранить"
+            | "распечатать"
+            | "напечатать"
+            | "настроить"
+            | "включить"
+            | "выключить"
+            | "подключить"
+            | "скачать"
+            | "загрузить"
+            | "войти"
+            | "зайти"
+            | "скопировать"
+            | "вставить"
+            | "увеличить"
+            | "уменьшить"
+            | "нажать"
+            | "send"
+            | "open"
+            | "find"
+            | "install"
+            | "delete"
+            | "remove"
+            | "save"
+            | "print"
+            | "set"
+            | "turn"
+            | "connect"
+            | "download"
+            | "upload"
+            | "sign"
+            | "log"
+            | "copy"
+            | "paste"
+            | "change"
+            | "click"
+            // What the task is about: "помоги с почтой", "help me with my email".
+            | "email"
+            | "mail"
+            | "computer"
+            | "printer"
+            | "internet"
+            | "wifi"
+            | "telegram"
+            | "whatsapp"
+            | "почта"
+            | "почту"
+            | "почтой"
+            | "почте"
+            | "письмо"
+            | "письмом"
+            | "компьютер"
+            | "компьютером"
+            | "принтер"
+            | "принтером"
+            | "интернет"
+            | "интернетом"
+            | "телеграм"
+            | "телеграмом"
+            | "ватсап"
+            | "вайфай"
+    )
+}
+
 fn command_word(word: &str) -> bool {
     matches!(
         word,
@@ -473,6 +583,23 @@ fn command_word(word: &str) -> bool {
             | "щёлкните"
             | "щелкни"
             | "щелкните"
+            | "send"
+            | "print"
+            | "save"
+            | "отправь"
+            | "отправьте"
+            | "распечатай"
+            | "распечатайте"
+            | "сохрани"
+            | "сохраните"
+            | "увеличь"
+            | "увеличьте"
+            | "уменьши"
+            | "уменьшите"
+            | "включи"
+            | "включите"
+            | "выключи"
+            | "выключите"
     )
 }
 
@@ -539,11 +666,19 @@ pub fn guess_intent(question: &str) -> Intent {
     {
         return Intent::Where;
     }
-    // "Помоги мне отправить письмо", "help me send this email": a task to walk through.
-    let help = words
-        .iter()
-        .any(|word| matches!(*word, "помоги" | "помогите"))
-        || has_phrase(&words, &["help", "me"]);
+    // "Помоги мне отправить письмо", "help me send this email": a computer task to walk
+    // through. "Помоги придумать тост", "help me write a card" stay conversation.
+    let help = words.iter().enumerate().any(|(index, word)| {
+        let after = match *word {
+            "помоги" | "помогите" => index + 1,
+            "help" if words.get(index + 1) == Some(&"me") => index + 2,
+            _ => return false,
+        };
+        words[after.min(words.len())..]
+            .iter()
+            .take(3)
+            .any(|word| computer_task(word))
+    });
     if imperative
         || help
         || has_phrase(&words, &["how", "do", "i"])
@@ -584,33 +719,28 @@ pub fn guess_intent(question: &str) -> Intent {
         return Intent::How;
     }
     // A question about what is in front of the person needs the screen even without
-    // "where": "что у меня на экране?", "что мне здесь нажать?", "what should I click here?".
-    // Without the screen the model can only say it does not see it.
-    if words.iter().any(|word| {
+    // "where": "что у меня на экране?", "что мне нажать?", "what does this button do?", a
+    // bare "что это?". Without the screen the model can only say it does not see it. Plain
+    // "здесь", "тут" or a longer "что это ..." do not count: "у меня тут болит спина, что
+    // это может быть?" is no reason for a screenshot (invariant 3).
+    let bare_this = matches!(
+        words.as_slice(),
+        ["что", "это"] | ["а", "что", "это"] | ["what", "is", "this"] | ["whats", "this"]
+    );
+    // "Расскажи анекдот про кнопку" is still a joke.
+    let story = words.iter().any(|word| {
         matches!(
             *word,
-            "экран"
-                | "экране"
-                | "экрана"
-                | "окно"
-                | "окне"
-                | "окна"
-                | "здесь"
-                | "тут"
-                | "видишь"
-                | "посмотри"
-                | "посмотрите"
-                | "нажать"
-                | "нажимать"
-                | "screen"
-                | "window"
-                | "here"
-                | "click"
-                | "press"
+            "joke" | "story" | "poem" | "анекдот" | "историю" | "сказку" | "стих" | "стихи"
         )
-    }) || has_phrase(&words, &["what", "is", "this"])
-        || has_phrase(&words, &["whats", "this"])
-        || has_phrase(&words, &["что", "это"])
+    });
+    if bare_this
+        || (!story && words.iter().any(|word| screen_word(word)))
+        || has_phrase(&words, &["что", "это", "за", "окно"])
+        || has_phrase(&words, &["this", "window"])
+        || has_phrase(&words, &["pop", "up"])
+        || has_phrase(&words, &["look", "at", "this"])
+        || has_phrase(&words, &["посмотри", "на", "это"])
     {
         return Intent::Where;
     }

@@ -145,6 +145,13 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Lesson offers to do a step require safe, visible controls, expire after 30 seconds, and re-check the foreground window before clicking (`src-tauri/src/teacher.rs`).
 - During a lesson, push-to-talk first handles a pending "Do it for me" offer; yes or no stays in the lesson, while unrelated speech starts a new question (`src-tauri/src/teacher.rs`).
 - "Yes" is recognized as confirmation, and `mm probe sam` reports failed answers instead of recording them (`crates/mm-core/src/teacher/`, `tools/mm_probe.py`).
+- "What's on my screen?", "what should I click here?" and "что это за окно?" now trigger a screen look; "help me send/open/print..." starts a lesson.
+- "Is this safe?" warnings now start with "do not click, call or pay", and Mate's beam marks the warning sign.
+- The look-consent question and sign-in lines ("sign in again", "sign in first", "trial used up", "private window") now appear in Mate's bubble; the consent question stays visible for its full 30 seconds.
+- If Mate's voice fails for a sentence, its text appears in his bubble instead of silence.
+- Mate's recorded phrases are included in the installer.
+- The guest trial now appears even if the server is still waking up at first launch.
+- The browser no longer says sign-in succeeded before the app does.
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)
 
