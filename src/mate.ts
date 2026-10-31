@@ -1,8 +1,9 @@
 // Mate's window: mounts the robot (src/robot) idle and calm. Inside Tauri it plays live answers
 // from Rust's answer stream (src/ipc/answer-stream.ts) on him, the audio engine and a speech
-// bubble. In development only, the console gets `window.__mate` to try states, moods, the beam
-// and the UI language by hand, e.g.
-// __mate.setState("pointing"); __mate.aimAt({ left: 20, top: 20, right: 120, bottom: 60 }).
+// bubble. In development only, the console gets `window.__mate` to try states, moods, the beam,
+// the safety stamp and the UI language by hand, e.g.
+// __mate.setState("pointing"); __mate.aimAt({ left: 20, top: 20, right: 120, bottom: 60 });
+// __mate.setStamp("scam").
 import { parseHighlightMsg } from "./highlight/geometry.ts";
 import { createAudioEngine } from "./audio";
 import { bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
@@ -14,7 +15,9 @@ import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
 import { awakeBubble, createMateAnswerRouter, createMateWindowEvents, guestTrialView, interruptLesson, signedIn } from "./mate-logic.ts";
-import type { Bubble } from "./mate-logic.ts";
+import type { Bubble, Stamp } from "./mate-logic.ts";
+import { SAFETY_CHECK_EVENT, STAMP_KEYS, stampClearOf } from "./safety-stamp.ts";
+import type { SafetyVerdict } from "./safety-stamp.ts";
 import type { LocaleKey } from "./i18n";
 import { mountOnboarding, setOnboardingTranslator, setOnboardingPttKey, stopOnboarding } from "./onboarding";
 import { createTimelinePlayer } from "./player";
@@ -60,6 +63,7 @@ interface MateDevHook {
   setMood(mood: string): void;
   aimAt(target: CssRect | null): void;
   setLocale(locale: string): void;
+  setStamp(verdict: string | null): void;
 }
 
 declare global {
@@ -68,7 +72,11 @@ declare global {
   }
 }
 
-function devHook(robot: RobotController, setUiLocale: (locale: LocaleCode) => void): MateDevHook {
+function devHook(
+  robot: RobotController,
+  stamp: LiveStamp,
+  setUiLocale: (locale: LocaleCode) => void,
+): MateDevHook {
   return {
     setState(state) {
       if (!isRobotState(state)) throw new TypeError(`unknown state: ${state}`);
@@ -80,10 +88,17 @@ function devHook(robot: RobotController, setUiLocale: (locale: LocaleCode) => vo
     },
     aimAt(target) {
       robot.aimAt(target);
+      stamp.avoid(target);
     },
     setLocale(locale) {
       if (locale !== "en" && locale !== "ru") throw new TypeError(`unknown locale: ${locale}`);
       setUiLocale(locale);
+    },
+    setStamp(verdict) {
+      if (verdict !== null && !Object.hasOwn(STAMP_KEYS, verdict)) {
+        throw new TypeError(`unknown verdict: ${verdict}`);
+      }
+      stamp.show(verdict as SafetyVerdict | null);
     },
   };
 }
@@ -132,6 +147,43 @@ function mountBubble(element: HTMLElement): Bubble {
   };
 }
 
+/** The stamp, and the beam's target it must never cover. */
+interface LiveStamp extends Stamp {
+  avoid(target: CssRect | null): void;
+}
+
+function mountStamp(element: HTMLElement, isSleeping: () => boolean): LiveStamp {
+  let verdict: SafetyVerdict | null = null;
+  let target: CssRect | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const render = (): void => {
+    if (verdict !== null) {
+      element.textContent = t(STAMP_KEYS[verdict]);
+      element.dataset.verdict = verdict;
+    }
+    // Invisible rather than removed, so it does not stamp down again once the beam moves on.
+    element.classList.toggle("is-covering", !stampClearOf(target, window.innerWidth, window.innerHeight));
+    element.hidden = verdict === null;
+  };
+  const show = (next: SafetyVerdict | null): void => {
+    clearTimeout(timer);
+    timer = undefined;
+    verdict = isSleeping() ? null : next;
+    render();
+  };
+  return {
+    show,
+    hideAfter(ms) {
+      clearTimeout(timer);
+      timer = verdict === null ? undefined : setTimeout(() => show(null), ms);
+    },
+    avoid(next) {
+      target = next;
+      render();
+    },
+  };
+}
+
 interface LiveAnswers {
   /** Switches the UI language; Rust voices its cached phrases in it. */
   setUiLocale(locale: LocaleCode): void;
@@ -144,11 +196,12 @@ interface LiveAnswers {
 function startLiveAnswers(
   robot: RobotController,
   bubble: Bubble,
+  stamp: LiveStamp,
   settings: MateSettingsBinding,
 ): LiveAnswers {
   let uiLocale = getLocale();
   let unsubscribe: (() => void) | null = null;
-  const ready = createRouter(robot, bubble, settings);
+  const ready = createRouter(robot, bubble, stamp, settings);
   // (Re)subscriptions run one at a time, in call order, once the engine is up.
   let queue: Promise<void> = Promise.resolve();
   const subscribe = (): void => {
@@ -178,6 +231,7 @@ function startLiveAnswers(
 async function createRouter(
   robot: RobotController,
   bubble: Bubble,
+  stamp: LiveStamp,
   settings: MateSettingsBinding,
 ): Promise<(msg: AnswerMsg) => void> {
   const audio = await createAudioEngine({
@@ -219,7 +273,7 @@ async function createRouter(
       console.error("[mate] lesson-interrupt listener failed", error);
     });
   const router = createMateAnswerRouter({
-    robot, bubble,
+    robot, bubble, stamp,
     player: {
       push: (generation, item) => player.push(generation, item),
       cancel: (generation) => player.cancel(generation),
@@ -238,13 +292,22 @@ async function createRouter(
       void reportPlayback("pcm", msg.generation, `s=${msg.sentence} n=${samples.length}`);
     },
   });
+  // "Is this safe?" (src-tauri/src/voice.rs): only this event says an answer is a verdict.
+  void getCurrentWebviewWindow()
+    .listen<unknown>(SAFETY_CHECK_EVENT, (event) => router.markSafety(event.payload))
+    .catch((error: unknown) => {
+      console.error("[mate] safety-check listener failed", error);
+    });
   const player: TimelinePlayer = createTimelinePlayer({
     // Answer tags select speech voices; UI labels keep the person's preference.
     setLocale: () => setLocale(settings.get().language),
     robot: {
       setState: (state) => router.present("state", () => router.setState(state)),
       setMood: (mood) => router.present("mood", () => robot.setMood(mood)),
-      aimAt: (target) => router.present("aim", () => robot.aimAt(target)),
+      aimAt: (target) => router.present("aim", () => {
+        robot.aimAt(target);
+        stamp.avoid(target);
+      }),
     },
     audio,
     resolveTarget: (point, generation, step) => pointAt(generation, point, step),
@@ -354,8 +417,12 @@ if (container) {
   const mountedBubble = bubble ? mountBubble(bubble) : null;
   // An answer already playing must not replace the hide explanation or sleeping state.
   const liveBubble = mountedBubble ? awakeBubble(mountedBubble, () => sleeping) : null;
+  const stampElement = document.getElementById("mate-stamp");
+  const stamp: LiveStamp = stampElement
+    ? mountStamp(stampElement, () => sleeping)
+    : { show() {}, hideAfter() {}, avoid() {} };
   const live =
-    liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, settings) : null;
+    liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, stamp, settings) : null;
   if (mountedBubble && inTauri) {
     const events = createMateWindowEvents({
       bubble: mountedBubble, robot,
@@ -376,7 +443,10 @@ if (container) {
         else if (msg?.type === "clear") robot.setWarmth(null, false);
       });
       await listen("mate-menu-outside", () => menu?.close());
-      await listen<{ minutes: number }>("mate-hiding", (event) => events.hide(event.payload.minutes));
+      await listen<{ minutes: number }>("mate-hiding", (event) => {
+        stamp.show(null);
+        events.hide(event.payload.minutes);
+      });
       await listen("mate-woke", () => events.wake());
       // The guest trial's count (src-tauri/src/signin.rs): always in view while it runs.
       const trial = document.getElementById("mate-trial");
@@ -421,7 +491,7 @@ if (container) {
     });
   }
   if (import.meta.env.DEV) {
-    window.__mate = devHook(robot, (locale) => {
+    window.__mate = devHook(robot, stamp, (locale) => {
       if (live) live.setUiLocale(locale);
       else setLocale(locale);
     });

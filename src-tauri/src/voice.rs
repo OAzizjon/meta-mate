@@ -64,6 +64,9 @@ const THINKING: [&str; 3] = ["robot.thinking", "robot.thinking_2", "robot.thinki
 const LOOKING: &str = "robot.looking";
 /// "Is this safe?" reasons longer (`low`): the wait gets its own line.
 const CHECKING: &str = "robot.checking_safety";
+/// Tells Mate's window which generation is "Is this safe?": the answer stream carries no
+/// intent, and the window stamps only a safety verdict (src/safety-stamp.ts).
+const SAFETY_EVENT: &str = "safety-check";
 /// How long the beam stays after the answer played out.
 const POINT_LINGER: Duration = Duration::from_secs(3);
 /// The longest an answer may take to play out before its pointing is cleared anyway.
@@ -900,6 +903,9 @@ async fn answer(
                 let (list, image) = (&look.list, &look.redacted.image);
                 let (body, wait_phrase) = if intent == Intent::Safety {
                     let effort = ReasoningEffort::SAFETY_CHECK;
+                    if app.emit_to("mate", SAFETY_EVENT, generation).is_err() {
+                        eprintln!("voice: safety stamp: delivery failed");
+                    }
                     (
                         safety_request(model, effort, &question, list, image),
                         CHECKING,
@@ -1415,6 +1421,13 @@ mod tests {
         assert!(task.await.unwrap_err().is_cancelled());
         assert!(stream.is_cancelled(3));
         assert!(!stream.is_cancelled(4));
+    }
+
+    #[test]
+    fn mate_window_listens_for_the_safety_event() {
+        let listener = include_str!("../../src/safety-stamp.ts");
+        let declared = format!("SAFETY_CHECK_EVENT = \"{}\";", super::SAFETY_EVENT);
+        assert!(listener.contains(&declared), "{declared}");
     }
 
     #[test]

@@ -135,6 +135,72 @@ body {
   }
 }
 
+/* "Is this safe?": the verdict's comic rubber stamp (src/safety-stamp.ts), low in his window,
+   above the trial pill and under the bubble in paint order so the bubble's words stay readable.
+   Its own paper behind thick ink keeps 6:1 or more over any page (dark mode below); hidden
+   while the beam's target is inside the window. It stamps down (scale 1.4 to 1 in 180ms) and
+   shakes once; the reduced-motion rules below turn that off. */
+#mate-stamp {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 40px;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: calc(100% - 28px);
+  margin: 0 auto;
+  padding: 4px 10px;
+  border: 4px solid currentColor;
+  border-radius: 6px;
+  background: #fffcf3;
+  color: #b91c1c;
+  font: 800 17px/1.15 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  text-align: center;
+  overflow-wrap: anywhere;
+  transform: rotate(-6deg);
+  pointer-events: none;
+  animation:
+    mate-stamp-down 180ms cubic-bezier(0.5, 0, 0.75, 0),
+    mate-stamp-shake 120ms linear 180ms;
+}
+
+#mate-stamp[hidden] {
+  display: none;
+}
+
+#mate-stamp.is-covering {
+  visibility: hidden;
+}
+
+#mate-stamp[data-verdict="careful"] {
+  color: #92400e;
+}
+
+#mate-stamp[data-verdict="ok"] {
+  color: #166534;
+}
+
+@keyframes mate-stamp-down {
+  from {
+    opacity: 0.4;
+    transform: rotate(-6deg) scale(1.4);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-6deg) scale(1);
+  }
+}
+
+@keyframes mate-stamp-shake {
+  25% {
+    transform: rotate(-6deg) translate(-2px, 1px);
+  }
+  75% {
+    transform: rotate(-6deg) translate(2px, -1px);
+  }
+}
+
 /* First-run onboarding prompt (src/onboarding.ts), below Mate; `hidden` removes it. */
 #mate-onboarding {
   position: fixed;
@@ -283,8 +349,23 @@ html.reduce-motion *,
   color: #fca5a5;
 }
 
+/* The stamp's ink on the dark bubble's paper: 8:1 or more. */
+:root[data-theme="dark"] #mate-stamp {
+  background: #1d212c;
+  color: #fca5a5;
+}
+
+:root[data-theme="dark"] #mate-stamp[data-verdict="careful"] {
+  color: #fcd34d;
+}
+
+:root[data-theme="dark"] #mate-stamp[data-verdict="ok"] {
+  color: #86efac;
+}
+
 @media (forced-colors: active) {
-  #mate-trial {
+  #mate-trial,
+  #mate-stamp {
     border-color: CanvasText;
     background: Canvas;
     color: CanvasText;

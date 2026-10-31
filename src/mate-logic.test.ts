@@ -25,10 +25,11 @@ function harness(locale = "en", stop = () => {}) {
     hideAfter: record("linger"),
   };
   const robot = { setState: record("state"), setVoiceLevel: record("level") };
+  const stamp = { show: record("stamp"), hideAfter: record("stamp-linger") };
   const waits: number[] = [];
   let release = () => {};
   const router = createMateAnswerRouter({
-    robot, bubble,
+    robot, bubble, stamp,
     player: { push: record("push"), cancel: record("cancel") },
     t: (key) => locales[locale][key],
     stopOnboarding: () => { calls.push(["stop"]); stop(); },
@@ -195,6 +196,67 @@ test("timeline and PCM messages reach their sinks without losing their generatio
     ["model", null], ["stop"], ["push", 4, { kind: "end" }],
     ["report", "trace", 4, "item end"], ["stop"], ["pcm", pcm],
   ]);
+});
+
+const stampCalls = (calls: unknown[][]) => calls.filter(([kind]) => String(kind).startsWith("stamp"));
+const sayWith = (mood: string): AnswerMsg => ({
+  type: "item", generation: 1,
+  item: { kind: "say", value: { id: 1, text: "Text.", bound: [{ kind: "mood", value: mood }] } },
+});
+
+test("a safety check stamps its first mood's verdict, lingers with the answer, and goes with a new press", () => {
+  const h = harness();
+  h.send({ type: "state", generation: 1, state: "thinking" });
+  h.router.markSafety(1);
+  h.send({ type: "item", generation: 1, item: { kind: "lang", value: "en" } });
+  assert.deepEqual(stampCalls(h.calls), []);
+  h.send(sayWith("sad"));
+  h.send(sayWith("calm"));
+  assert.deepEqual(stampCalls(h.calls), [["stamp", "scam"]]);
+  h.router.onDone(1);
+  assert.deepEqual(stampCalls(h.calls).at(-1), ["stamp-linger", BUBBLE_LINGER_MS]);
+  h.calls.length = 0;
+  h.send({ type: "state", generation: 2, state: "listening" });
+  assert.deepEqual(stampCalls(h.calls), [["stamp", null]]);
+});
+
+test("no stamp without the safety event, for another answer, after a newer press, or when ambiguous", () => {
+  const h = harness();
+  h.send({ type: "state", generation: 1, state: "thinking" });
+  h.send(sayWith("sad"));
+  for (const payload of [null, "1", -1, 1.5, NaN, Number.MAX_SAFE_INTEGER + 1, { generation: 1 }, 0]) {
+    h.router.markSafety(payload);
+  }
+  h.send({ type: "state", generation: 2, state: "thinking" });
+  h.router.markSafety(1);
+  h.send({ type: "item", generation: 1, item: { kind: "say", value: { id: 2, text: "Old.", bound: [] } } });
+  h.router.markSafety(3);
+  h.send({ type: "item", generation: 2, item: { kind: "end" } });
+  h.router.onDone(2);
+  assert.deepEqual(stampCalls(h.calls), []);
+  const ambiguous = harness();
+  ambiguous.router.markSafety(1);
+  ambiguous.send(sayWith("happy"));
+  ambiguous.send(sayWith("sad"));
+  ambiguous.router.onDone(1);
+  assert.deepEqual(stampCalls(ambiguous.calls), []);
+});
+
+test("'looks OK' is withdrawn by a later warning; a cancel takes the stamp down", () => {
+  const h = harness();
+  h.router.markSafety(1);
+  h.router.markSafety(1);
+  h.send(sayWith("calm"));
+  h.router.markSafety(1);
+  h.send(sayWith("surprised"));
+  assert.deepEqual(stampCalls(h.calls), [["stamp", "ok"], ["stamp", null]]);
+  const cancelled = harness();
+  cancelled.router.markSafety(1);
+  cancelled.send(sayWith("surprised"));
+  cancelled.send({ type: "cancel", generation: 1 });
+  cancelled.send(sayWith("sad"));
+  cancelled.router.onDone(1);
+  assert.deepEqual(stampCalls(cancelled.calls), [["stamp", "careful"], ["stamp", null]]);
 });
 
 test("lesson-interrupt accepts nonnegative safe integers only, including generation zero", () => {

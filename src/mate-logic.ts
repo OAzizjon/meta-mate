@@ -3,10 +3,13 @@
 import { BUBBLE_LINGER_MS, bubbleReadMs } from "./bubble-timing.ts";
 import { AnswerGenerations, HeldPresentation } from "./ipc/answer-generation.ts";
 import { guestUsageOf } from "./mate-menu.ts";
+import { nextStamp } from "./safety-stamp.ts";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream.ts";
+import type { TimelineItem } from "./ipc/timeline.ts";
 import type { LocaleKey } from "./i18n/index.ts";
 import type { RobotController, RobotState } from "./robot/index.ts";
 import type { TimelinePlayer, TimelinePlayerOptions } from "./player/timeline-player.ts";
+import type { SafetyVerdict, StampState } from "./safety-stamp.ts";
 
 export const CANT_FIND_HOLD_MS = 3000;
 /** As long as Rust waits for a click on Mate (or F8) before an unclear window is looked at (screen.rs confirm_look). */
@@ -21,9 +24,18 @@ export interface Bubble {
   hideAfter(ms: number): void;
 }
 
+/** The safety check's comic stamp (src/safety-stamp.ts). */
+export interface Stamp {
+  /** Null hides it. */
+  show(verdict: SafetyVerdict | null): void;
+  /** Hides it in `ms` unless it is shown or hidden before. */
+  hideAfter(ms: number): void;
+}
+
 interface AnswerEffects {
   robot: Pick<RobotController, "setState" | "setVoiceLevel">;
   bubble: Bubble;
+  stamp: Stamp;
   player: Pick<TimelinePlayer, "push" | "cancel">;
   t: (key: LocaleKey) => string;
   stopOnboarding: () => void;
@@ -33,7 +45,7 @@ interface AnswerEffects {
 }
 
 export function createMateAnswerRouter(effects: AnswerEffects) {
-  const { robot, bubble, player, t, stopOnboarding, onPcm, reportPlayback, sleep } = effects;
+  const { robot, bubble, stamp, player, t, stopOnboarding, onPcm, reportPlayback, sleep } = effects;
   let listening = false;
   let listeningGeneration: number | null = null;
   let clickListening = false;
@@ -43,6 +55,23 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
   const presentation = new HeldPresentation();
   const present = (key: string, update: () => void): void => {
     presentation.apply(key, generations.holdPresentation, update);
+  };
+  // The answer Rust named a safety check (`markSafety`) and its stamp so far.
+  let safety: { generation: number; state: StampState } | null = null;
+  let stamped = false;
+  const unstamp = (): void => {
+    safety = null;
+    if (stamped) stamp.show(null);
+    stamped = false;
+  };
+  const stampItem = (generation: number, item: TimelineItem): void => {
+    if (safety?.generation !== generation) return;
+    const before = safety.state ?? null;
+    safety.state = nextStamp(safety.state, item);
+    const verdict = safety.state ?? null;
+    if (verdict === before) return;
+    stamped = verdict !== null;
+    present("stamp", () => stamp.show(verdict));
   };
   let idle = false;
   const setState = (state: RobotState): void => {
@@ -69,6 +98,8 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
     if (generations.newest > newest) {
       idle = false;
       bubble.setModel(null);
+      // A newer press ends the verdict's stamp at once, like the chip.
+      if (safety && safety.generation < generations.newest) unstamp();
     }
     // The first sign of a real answer ends the first-run examples.
     stopOnboarding();
@@ -109,12 +140,14 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
         return;
       case "item":
         player.push(msg.generation, msg.item);
+        stampItem(msg.generation, msg.item);
         void reportPlayback("trace", msg.generation, `item ${msg.item.kind}`);
         return;
       case "pcm":
         onPcm(msg);
         return;
       case "cancel":
+        if (safety && safety.generation <= msg.generation) unstamp();
         // Cancels the audio engine too.
         player.cancel(msg.generation);
         if (generations.canIdle(msg.generation)) setState("idle");
@@ -160,11 +193,22 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
       if (doneGeneration !== generations.answer) return;
       present("state", () => setState("idle"));
       present("bubble-hide", () => bubble.hideAfter(BUBBLE_LINGER_MS));
+      if (stamped && safety?.generation === doneGeneration) {
+        present("stamp-hide", () => stamp.hideAfter(BUBBLE_LINGER_MS));
+      }
       // Every sentence before `End` was played out: the worklet reported its end.
       void reportPlayback("done", doneGeneration);
     },
   };
-  return { route, present, setState, ...timeline };
+  /** Rust's `safety-check` event: answer `payload` is "Is this safe?", so its verdict may be stamped. */
+  const markSafety = (payload: unknown): void => {
+    if (typeof payload !== "number" || !Number.isSafeInteger(payload) || payload < 0) return;
+    // A newer press has moved on; a repeat must not restart the verdict.
+    if (payload < generations.newest || safety?.generation === payload) return;
+    unstamp();
+    safety = { generation: payload, state: undefined };
+  };
+  return { route, present, setState, markSafety, ...timeline };
 }
 
 /** Lesson audio is interrupted independently of the answer's presentation generation. */
