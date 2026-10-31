@@ -8,6 +8,7 @@ pub mod flight;
 pub mod geom;
 pub mod matescript;
 pub mod mic;
+pub mod phrases;
 pub mod placement;
 pub mod presence;
 pub mod privacy;

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  awakeBubble, CANT_FIND_HOLD_MS, createMateAnswerRouter, createMateWindowEvents,
+  awakeBubble, CANT_FIND_HOLD_MS, createMateAnswerRouter, createMateWindowEvents, LOOK_CONSENT_MS,
   guestTrialView, interruptLesson, signedIn,
 } from "./mate-logic.ts";
 import { BUBBLE_LINGER_MS, bubbleReadMs } from "./bubble-timing.ts";
@@ -320,5 +320,17 @@ test("every Mate locale key exists in both languages", () => {
     for (const [locale, strings] of Object.entries(locales)) {
       assert.ok(strings[key], `${locale}: missing ${key}`);
     }
+  }
+});
+
+test("the look-consent question stays up for the whole consent window", () => {
+  for (const locale of ["en", "ru"]) {
+    const h = harness(locale);
+    h.send({ type: "state", generation: 1, state: "looking" });
+    h.calls.length = 0;
+    h.send({ type: "line", generation: 1, key: "robot.look_consent" });
+    const text = locales[locale]["robot.look_consent"];
+    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", text, LOOK_CONSENT_MS]]);
+    assert.ok(LOOK_CONSENT_MS > bubbleReadMs(text));
   }
 });

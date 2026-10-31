@@ -9,6 +9,8 @@ import type { RobotController, RobotState } from "./robot/index.ts";
 import type { TimelinePlayer, TimelinePlayerOptions } from "./player/timeline-player.ts";
 
 export const CANT_FIND_HOLD_MS = 3000;
+/** As long as Rust waits for F8 before an unclear window is looked at (screen.rs confirm_look). */
+export const LOOK_CONSENT_MS = 30_000;
 
 export interface Bubble {
   /** The chip goes when the bubble hides; showing text leaves it as it is. */
@@ -123,7 +125,8 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
         present("bubble", () => {
           showingHeard = false;
           const text = t(msg.key);
-          bubble.show(text, bubbleReadMs(text));
+          // The consent question must stay up until its answer window closes.
+          bubble.show(text, msg.key === "robot.look_consent" ? LOOK_CONSENT_MS : bubbleReadMs(text));
         });
         return;
     }

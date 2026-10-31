@@ -18,6 +18,12 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "resources": {
+      "../assets/phrases/manifest.json": "phrases/manifest.json",
+      "../assets/phrases/en/": "phrases/en/",
+      "../assets/phrases/ru/": "phrases/ru/",
+      "../assets/phrases/NOTICE.md": "phrases/NOTICE.md"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

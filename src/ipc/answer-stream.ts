@@ -24,13 +24,18 @@ export const ANSWER_LINE_KEYS = [
   "robot.no_microphone",
   "robot.open_browser_first",
   "robot.cant_find",
-  "robot.listening",
   "robot.click_stop",
   // The look and pointing (src-tauri/src/screen.rs LookFailure::line, pointing.rs).
   "robot.cant_look",
   "robot.protected_window",
-  "robot.other_monitor",
   "robot.window_closed",
+  "robot.private_window",
+  // Asking before an unclear window is looked at (screen.rs confirm_look).
+  "robot.look_consent",
+  // Sign-in (voice.rs error_line, signin.rs refusal_line).
+  "robot.sign_in_again",
+  "robot.sign_in_first",
+  "robot.guest_limit",
   // The teacher (src-tauri/src/teacher.rs line_key) and its idle limit.
   "robot.click_app_first",
   "robot.wrong_place",
@@ -41,6 +46,7 @@ export const ANSWER_LINE_KEYS = [
   "robot.done",
   "robot.too_many_turns",
   "robot.wont_press",
+  "robot.thinking_harder",
   // "Do it for me" (teacher.rs line_key).
   "robot.do_it_for_me",
   "robot.pressing",

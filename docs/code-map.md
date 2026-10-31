@@ -46,8 +46,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   FrameTransform::phys_rect_to_shot:297 MonitorTransform:317 MonitorTransform::new:323 MonitorTransform::phys_to_css:330 MonitorTransform::css_to_phys:339 MonitorTransform::phys_rect_to_css:346 MonitorTransform::css_rect_to_phys:364
   tests: crates/mm-core/tests/geom.rs (6)
 - crates/mm-core/src/lib.rs — MetaMate core: pure Rust with no OS calls, no I/O and no async runtime, so every module is unit- and fuzz-testable anywhere (docs/project-structure.md, "Rust split").
-  api:4 constants:5 drag:6 flight:7 geom:8 matescript:9 mic:10 placement:11
-  presence:12 privacy:13 ptt:14 redaction:15 shot:16 teacher:17 vad:18 wav:19
+  api:4 constants:5 drag:6 flight:7 geom:8 matescript:9 mic:10 phrases:11
+  placement:12 presence:13 privacy:14 ptt:15 redaction:16 shot:17 teacher:18 vad:19
+  wav:20
 - crates/mm-core/src/matescript/mod.rs — MateScript: the streaming markup the model writes (docs/matescript.md).
   Parser:10^ Mode:11^ Settings:11^ Bound:12^ Item:12^ Level:12^ Point:12^ Say:12^
   Sound:12^ Step:12^
@@ -68,6 +69,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   OUTPUT_RATE:3 FRAME_SAMPLES:4 FRAME_BYTES:5 MicError:8 Framer:29 Framer::new:41 Framer::push:63 Framer::finish:106
   level:118
   tests: crates/mm-core/tests/mic.rs (9)
+- crates/mm-core/src/phrases.rs — Directory choice for cached speech, independent of filesystem and Tauri APIs.
+  directory:7
+  inline tests (2)
 - crates/mm-core/src/placement.rs — Place Mate beside a target in physical virtual-screen pixels.
   Side:6 Placement:15 place_mate:25
   tests: crates/mm-core/tests/placement.rs (8)
@@ -303,8 +307,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   voice_speed:318 load:323
   inline tests (18)
 - src-tauri/src/signin.rs — Signing in is required (owner, 2026-10-29): until the person signs in with Google or GitHub, Mate answers nothing and the sign-in window (signin.html, src/signin.ts) is open.
-  required:25 invite_for_proxy:32 guest_used_up:42 missing:50 refusal_line:61 start_guest:71 guest_usage:148 try_as_guest:159
-  open:172 open_later:203 close:217
+  required:25 invite_for_proxy:32 guest_used_up:42 missing:50 refusal_line:61 start_guest:71 guest_usage:165 try_as_guest:176
+  open:189 open_later:220 close:234
   inline tests (1)
 - src-tauri/src/teacher.rs — "How do I ...?" (docs/architecture.md section 3 B, docs/plan.md Day 5): computer use with the person as the hand.
   Words:52
@@ -318,7 +322,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src-tauri/src/teacher/tests.rs
 - src-tauri/src/voice.rs — The live voice loop (docs/plan.md Day 2): push-to-talk → microphone → speech recognition (the socket opens at key-down, D44) → Muse Spark → MateScript timeline → MMS-TTS sentence by sentence, all …
   Phrases:74 VoiceLoop:115 ask_text:134 ask_chat:145 ask_explain:156 remembered_target:161 show_line:171 start:179
-  ask:213 proxy_config:295 invalidate_overlays:1135 overlays_changed:1139 phrase:1195 say_line:1201 error_line:1227 voice_of:1235
+  ask:213 proxy_config:295 invalidate_overlays:1139 overlays_changed:1143 phrase:1199 say_line:1205 error_line:1231 voice_of:1239
   inline tests (2)
 - src-tauri/src/voice_selftest.rs — `--voice-selftest FILE.wav [--proxy URL]`: the whole voice path against the dev proxy, unattended, with every latency measured.
   run_if_requested:26
@@ -416,14 +420,15 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   AnswerGenerations:4 HeldPresentation:47
   tests: src/ipc/answer-generation.test.ts (10)
 - src/ipc/answer-stream.ts — Rust → Mate's WebView: the one ordered Tauri channel of `src-tauri/src/answer_stream.rs` (`AnswerMsg`, serde internal tagging on `type`, camelCase fields).
-  ANSWER_STATES:13 AnswerState:14 ANSWER_MODELS:16 AnswerModel:19 ANSWER_LINE_KEYS:22 AnswerLineKey:51 AnswerMsg:54 parseAnswerMsg:97
-  decodePcm:164 AnswerConnect:187 subscribeAnswerStream:194 PlaybackReport:228 MateRect:238 pointAt:249 reportPlayback:268
+  ANSWER_STATES:13 AnswerState:14 ANSWER_MODELS:16 AnswerModel:19 ANSWER_LINE_KEYS:22 AnswerLineKey:57 AnswerMsg:60 parseAnswerMsg:103
+  decodePcm:170 AnswerConnect:193 subscribeAnswerStream:200 PlaybackReport:234 MateRect:244 pointAt:255 reportPlayback:274
   tests: src/ipc/answer-stream.test.ts (15)
 - src/ipc/timeline.ts — The MateScript timeline as it arrives from Rust: one `{"kind", "value"}` object per item (`crates/mm-core/src/matescript/timeline.rs`, serde adjacent tagging).
   Level:6 Sound:9 Point:16 Step:21 Bound:28 Say:36 TimelineItem:43 parseTimelineItem:65
 - src/mate-logic.ts — Mate's answer presentation policy, independent of the DOM, Tauri and the audio engine.
-  CANT_FIND_HOLD_MS:11 Bubble:13 createMateAnswerRouter:33 interruptLesson:160 awakeBubble:167 createMateWindowEvents:186 guestTrialView:214 signedIn:223
-  tests: src/mate-logic.test.ts (15)
+  CANT_FIND_HOLD_MS:11 LOOK_CONSENT_MS:13 Bubble:15 createMateAnswerRouter:35 interruptLesson:163 awakeBubble:170 createMateWindowEvents:189 guestTrialView:217
+  signedIn:226
+  tests: src/mate-logic.test.ts (16)
 - src/mate-menu.ts — Page controls in Mate's unfocusable WebView; never use a native popup or focus().
   MATE_MENU_ITEMS:4 guestUsageOf:15 hideReturnTime:22 mountMateMenu:29
   tests: src/mate-menu.test.ts (3)
@@ -552,7 +557,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   main:291
 - tools/phrases.py — Build and check the English and Russian cached MMS-TTS phrases.
   synthesize:50 build:69 check:105 main:132
-  tests: tools/tests/test_phrases.py (9)
+  tests: tools/tests/test_phrases.py (10)
 - tools/sounds_commons.py — Fetch CC0 and public-domain sounds from Wikimedia Commons.
   PlainText:27 plain:36 metadata:42 licence:46 http:61 measured_duration:100 duration:116 candidates:126
   choose:162 target_path:167 table_cell:185 update_licences:189 main:214
@@ -617,7 +622,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_clear` src-tauri/src/chat.rs:299 <- src/chat.ts:160
 - `chat_send` src-tauri/src/chat.rs:269 <- src/chat.ts:145
 - `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:184
-- `guest_usage` src-tauri/src/signin.rs:148 <- src/mate.ts:370, src/signin.ts:99
+- `guest_usage` src-tauri/src/signin.rs:165 <- src/mate.ts:370, src/signin.ts:99
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:25
 - `load_settings` src-tauri/src/settings.rs:255 <- src/highlight.ts:494, src/home.ts:174, src/i18n/settings.ts:20, src/settings/model.ts:243
@@ -626,21 +631,21 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:405, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
 - `open_settings_window` src-tauri/src/lib.rs:456 <- src/home.ts:27, src/mate-menu.ts:7
-- `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:256
+- `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:262
 - `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:428, src/mate-menu.ts:11
-- `report_playback` src-tauri/src/answer_stream.rs:299 <- src/ipc/answer-stream.ts:275
+- `report_playback` src-tauri/src/answer_stream.rs:299 <- src/ipc/answer-stream.ts:281
 - `save_settings` src-tauri/src/settings.rs:262 <- src/settings/model.ts:258
 - `sign_in` src-tauri/src/auth.rs:142 <- src/settings/account.ts:241
 - `sign_out` src-tauri/src/auth.rs:243 <- src/settings/account.ts:262
-- `subscribe_answer_stream` src-tauri/src/answer_stream.rs:325 <- src/ipc/answer-stream.ts:285
-- `try_as_guest` src-tauri/src/signin.rs:159 <- src/signin.ts:96
+- `subscribe_answer_stream` src-tauri/src/answer_stream.rs:325 <- src/ipc/answer-stream.ts:291
+- `try_as_guest` src-tauri/src/signin.rs:176 <- src/signin.ts:96
 
 ### Tauri Channels
 
 Commands accepting `Channel<...>` <- TypeScript `new Channel` bindings passed to them.
 
 - `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:181
-- `subscribe_answer_stream` src-tauri/src/answer_stream.rs:325 <- src/ipc/answer-stream.ts:283
+- `subscribe_answer_stream` src-tauri/src/answer_stream.rs:325 <- src/ipc/answer-stream.ts:289
 
 ### Files on disk
 
@@ -661,11 +666,11 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:416; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
 - `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:386; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:112; ts listen src/mate.ts:365, src/signin.ts:101; const src-tauri/src/signin.rs:17
+- `guest-usage`: rs emit src-tauri/src/signin.rs:129; ts listen src/mate.ts:365, src/signin.ts:101; const src-tauri/src/signin.rs:17
 - `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:447; ts listen src/highlight.ts:503, src/mate.ts:343; const src-tauri/src/highlight.rs:15
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:375
 - `lesson-card`: rs emit src-tauri/src/card.rs:466; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
-- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:527; ts listen src/mate.ts:214; const src/mate.ts:34
+- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:531; ts listen src/mate.ts:214; const src/mate.ts:34
 - `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:349
 - `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:348
 - `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:350
@@ -691,7 +696,7 @@ Server route decorators <- Rust string literals (URLs, `format!` templates) that
 The header names the kind of a proxy call: server `CallKind` value (py) and the Rust `CallKind` variant that sends it (rs), then the Rust calls that use it.
 
 - header: rs src-tauri/src/proxy.rs:416; py server/metamate_proxy/responses_route.py:66
-- `answer`: py server/metamate_proxy/policy.py:71; rs src-tauri/src/proxy.rs:70; used src-tauri/src/voice.rs:1051, src-tauri/src/voice_selftest.rs:179
+- `answer`: py server/metamate_proxy/policy.py:71; rs src-tauri/src/proxy.rs:70; used src-tauri/src/voice.rs:1055, src-tauri/src/voice_selftest.rs:179
 - `computer`: py server/metamate_proxy/policy.py:72; rs src-tauri/src/proxy.rs:71; used src-tauri/src/teacher/lesson.rs:130
 - `intent`: py server/metamate_proxy/policy.py:69; rs src-tauri/src/proxy.rs:68
 - `sam`: py server/metamate_proxy/policy.py:73; rs src-tauri/src/proxy.rs:72; used src-tauri/src/sam.rs:108
@@ -708,46 +713,46 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.unavailable`: rs src-tauri/src/auth.rs:144,147,213,335; ts src/settings/account.ts:75
 - `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:170
 - `mate.explain_question`: rs src-tauri/src/explain.rs:304
-- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:143
-- `robot.cant_look`: rs src-tauri/src/screen.rs:377, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:30
+- `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:146
+- `robot.cant_look`: rs src-tauri/src/screen.rs:377, src-tauri/src/teacher/lesson.rs:95; ts src/ipc/answer-stream.ts:29
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
-- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:486,612,613; ts src/ipc/answer-stream.ts:35
-- `robot.click_stop`: rs src-tauri/src/voice.rs:581; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:28, src/mate-logic.ts:94,115
-- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:369,377,585,591, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:45
-- `robot.done`: rs src-tauri/src/teacher/presentation.rs:77; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:41
-- `robot.guest_limit`: rs src-tauri/src/signin.rs:63
-- `robot.look_consent`: rs src-tauri/src/screen.rs:545
+- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:486,612,613; ts src/ipc/answer-stream.ts:40
+- `robot.click_stop`: rs src-tauri/src/voice.rs:585; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:96,117
+- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:369,377,585,591, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:51
+- `robot.done`: rs src-tauri/src/teacher/presentation.rs:77; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:46
+- `robot.guest_limit`: rs src-tauri/src/signin.rs:63; ts src/ipc/answer-stream.ts:38
+- `robot.look_consent`: rs src-tauri/src/screen.rs:545; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:129
 - `robot.looking`: rs src-tauri/src/voice.rs:64
-- `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1231; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
-- `robot.no_microphone`: rs src-tauri/src/voice.rs:618,634,754,1249; ts src/ipc/answer-stream.ts:24
-- `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1250; ts src/ipc/answer-stream.ts:25
-- `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:83; ts src/ipc/answer-stream.ts:47
-- `robot.press_failed`: rs src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:48
-- `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:82; ts src/ipc/answer-stream.ts:46
-- `robot.private_window`: rs src-tauri/src/screen.rs:368
-- `robot.protected_window`: rs src-tauri/src/screen.rs:371; ts src/ipc/answer-stream.ts:31
-- `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:325,326; ts src/i18n/index.ts:61, src/ipc/answer-stream.ts:37
-- `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/ipc/answer-stream.ts:38
-- `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/ipc/answer-stream.ts:39
-- `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/ipc/answer-stream.ts:40
-- `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:185, src-tauri/src/voice.rs:1229
-- `robot.sign_in_first`: rs src-tauri/src/signin.rs:65
-- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:466,547; ts src/ipc/answer-stream.ts:49
+- `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1235; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
+- `robot.no_microphone`: rs src-tauri/src/voice.rs:622,638,758,1269; ts src/ipc/answer-stream.ts:24
+- `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1270; ts src/ipc/answer-stream.ts:25
+- `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:83; ts src/ipc/answer-stream.ts:53
+- `robot.press_failed`: rs src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:54
+- `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:82; ts src/ipc/answer-stream.ts:52
+- `robot.private_window`: rs src-tauri/src/screen.rs:368; ts src/ipc/answer-stream.ts:32
+- `robot.protected_window`: rs src-tauri/src/screen.rs:371; ts src/ipc/answer-stream.ts:30
+- `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:325,326; ts src/i18n/index.ts:61, src/ipc/answer-stream.ts:42
+- `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/ipc/answer-stream.ts:43
+- `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/ipc/answer-stream.ts:44
+- `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/ipc/answer-stream.ts:45
+- `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:185, src-tauri/src/voice.rs:1233; ts src/ipc/answer-stream.ts:36
+- `robot.sign_in_first`: rs src-tauri/src/signin.rs:65; ts src/ipc/answer-stream.ts:37
+- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:466,547; ts src/ipc/answer-stream.ts:55
 - `robot.thinking`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_2`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_3`: rs src-tauri/src/voice.rs:63
-- `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:433,438
-- `robot.too_many_turns`: rs src-tauri/src/teacher/presentation.rs:79; ts src/i18n/index.ts:66, src/ipc/answer-stream.ts:42
-- `robot.window_closed`: rs src-tauri/src/pointing.rs:346; ts src/ipc/answer-stream.ts:33
-- `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:80; ts src/i18n/index.ts:67, src/ipc/answer-stream.ts:43
-- `robot.wrong_place`: rs src-tauri/src/teacher/presentation.rs:69; ts src/i18n/index.ts:60, src/ipc/answer-stream.ts:36
+- `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:433,438; ts src/ipc/answer-stream.ts:49
+- `robot.too_many_turns`: rs src-tauri/src/teacher/presentation.rs:79; ts src/i18n/index.ts:66, src/ipc/answer-stream.ts:47
+- `robot.window_closed`: rs src-tauri/src/pointing.rs:346; ts src/ipc/answer-stream.ts:31
+- `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:80; ts src/i18n/index.ts:67, src/ipc/answer-stream.ts:48
+- `robot.wrong_place`: rs src-tauri/src/teacher/presentation.rs:69; ts src/i18n/index.ts:60, src/ipc/answer-stream.ts:41
 - `settings.key_capsLock`: rs src-tauri/src/settings.rs:125; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
 - `settings.key_f10`: rs src-tauri/src/settings.rs:128; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
 - `settings.key_f9`: rs src-tauri/src/settings.rs:127; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
 - `settings.key_insert`: rs src-tauri/src/settings.rs:126; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:124; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
 - `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:123; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
-- `signin.guest_none`: rs src-tauri/src/signin.rs:164; ts src/signin.ts:91
+- `signin.guest_none`: rs src-tauri/src/signin.rs:181; ts src/signin.ts:91
 - `tray.chat`: rs src-tauri/src/lib.rs:248; ts src/mate-menu.ts:5
 - `tray.hide_hour`: rs src-tauri/src/lib.rs:314,367; ts src/mate-menu.ts:9
 - `tray.open_home`: rs src-tauri/src/lib.rs:247
@@ -766,16 +771,18 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `mate.*` (4 keys): src/mate-menu.ts, src/mate.ts
 - `model.*` (4 keys): src/mate.ts
 - `onboarding.*` (7 keys): src/onboarding.ts
-- `robot.*` (4 keys): src/i18n/index.ts, src/ipc/answer-stream.ts, src/onboarding.ts
+- `robot.*` (2 keys): src/i18n/index.ts, src/onboarding.ts
 - `settings.*` (37 keys): src/settings.ts, src/settings/choices-view.ts, src/settings/ptt-key.ts, src/settings/voice-speed-view.ts
 - `signin.*` (6 keys): src/signin.ts
 - `tray.*` (2 keys): src/settings/choices-view.ts
-- no literal use (12 keys); prefixes: `card.*`, `robot.*`, `settings.*`, `tray.*`
+- no literal use (14 keys); prefixes: `card.*`, `robot.*`, `settings.*`, `tray.*`
 - `card.window_title`: no literal use
 - `robot.calm_mode`: no literal use
 - `robot.found_it`: no literal use
 - `robot.fun_mode`: no literal use
+- `robot.listening`: no literal use
 - `robot.login_page`: no literal use
+- `robot.other_monitor`: no literal use
 - `robot.password_covered`: no literal use
 - `robot.security_prompt`: no literal use
 - `robot.wake`: no literal use
@@ -790,11 +797,11 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 244 | 30 |
+| crates/mm-core | 246 | 31 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 173 | 20 |
-| src | 229 | 26 |
-| tools | 260 | 16 |
+| src | 230 | 26 |
+| tools | 265 | 17 |
 | server | 86 | 4 |
 | tts | 27 | 2 |

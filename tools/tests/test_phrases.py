@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -53,6 +54,28 @@ class PhraseTests(unittest.TestCase):
             self.assertEqual(manifest[lang]['robot.a']['ms'], 100)
             self.assertFalse((self.base / lang / 'robot.step.wav').exists())
         self.assertEqual(phrases.check(self.root), [])
+
+    def test_bundle_resource_map_preserves_phrase_layout(self):
+        root = Path(__file__).resolve().parents[2]
+        config_dir = root / 'src-tauri'
+        config = json.loads((config_dir / 'tauri.conf.json').read_text(encoding='utf-8'))
+        with tempfile.TemporaryDirectory() as directory:
+            resource_dir = Path(directory)
+            for source, destination in config['bundle']['resources'].items():
+                source = config_dir / source
+                destination = resource_dir / destination
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                if source.is_dir():
+                    shutil.copytree(source, destination)
+                else:
+                    shutil.copyfile(source, destination)
+            base = resource_dir / 'phrases'
+            self.assertTrue((base / 'NOTICE.md').is_file())
+            manifest = json.loads((base / 'manifest.json').read_text(encoding='utf-8'))
+            for lang in ('en', 'ru'):
+                self.assertTrue(manifest[lang])
+                for entry in manifest[lang].values():
+                    self.assertTrue((base / entry['file']).is_file(), entry['file'])
 
     def test_unchanged_skipped_changed_and_missing_rebuilt_force_rebuilds(self):
         self.build()

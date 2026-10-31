@@ -160,7 +160,7 @@ This produces a clean, web-ready 90-second video file with synchronized audio an
 #### Task 1: The Push-to-Talk Greeting & Orientation (2 min)
 *Goal: Familiarize the tester with holding Right Ctrl and seeing Mate listen in real time.*
 * **What to say (EN)**: *"Hold down the Right Control key at the bottom right of your keyboard, say 'Hello Mate, where is the Recycle Bin?', and release the key."*  
-  **Exact words (RU)**: *«Зажмите клавишу Правый Ctrl в правом нижнем углу клавиатуры, скажите вслух: „Привет, Мейт, где корзина?“, и отпустите клавишу».*
+  **Exact words (RU)**: *«Нажмите и держите правую клавишу Ctrl (внизу справа на клавиатуре), скажите вслух: „Привет, Мейт, где корзина?“, и отпустите клавишу».*
 * **What to film**: Close-up of the tester’s right hand on Right Ctrl, cutting to Mate waking up, streaming speech live into the speech bubble, flying across the screen, and settling the flashlight beam on the icon.
 
 #### Task 2: Urgent Scam Check — Deceptive Pop-up (3 min)
@@ -181,14 +181,14 @@ This produces a clean, web-ready 90-second video file with synchronized audio an
 *Goal: Showcase Teacher Mode where Mate guides with flashlight beam and the user clicks every step.*
 * **Setup**: Open Windows Settings.
 * **What to say (EN)**: *"Let's make Windows text easier to read. Hold Right Ctrl and say: 'Mate, how do I make the text bigger?' Mate will shine a light where to click—you move the mouse and click it yourself."*  
-  **Exact words (RU)**: *«Давайте сделаем текст в системе крупнее и удобнее для чтения. Зажмите Правый Ctrl и скажите: „Мейт, как сделать текст крупнее?“. Мейт подсветит нужную кнопку лучом, а вы сами наведите мышку и нажмите её».*
+  **Exact words (RU)**: *«Давайте сделаем буквы на экране крупнее и удобнее для чтения. Нажмите и держите правую клавишу Ctrl (внизу справа на клавиатуре) и скажите: „Мейт, как сделать текст крупнее?“. Мейт подсветит нужную кнопку лучом, а вы сами наведите мышку и нажмите её».*
 * **What to film**: Split/over-the-shoulder view: Mate beams on *Accessibility*, tester moves the mouse and clicks. Mate confirms the step and moves on. Mate advances to the *Text size* slider, tester adjusts it, and feels the joy of doing it independently.
 
 #### Task 5: The Keepsake Lesson Card & Print (2 min)
 *Goal: Complete lesson flow, show gouache keepsake card popup, and print prompt.*
 * **Setup**: Teacher lesson finishes; `card.html` opens automatically.
 * **What to say (EN)**: *"Look, Mate prepared a printed keepsake card of the steps you just mastered so you never forget them! Click the blue 'Print' button on the card."*  
-  **Exact words (RU)**: *«Посмотрите, Мейт подготовил памятную карточку с шагами, которые вы только что выполнили, чтобы они всегда были под рукой! Нажмите синюю кнопку „Печать“ на карточке».*
+  **Exact words (RU)**: *«Посмотрите, Мейт подготовил карточку с шагами, которые вы только что выполнили, чтобы они всегда были под рукой! Нажмите синюю кнопку „Печать“ на карточке».*
 * **What to film**: Tester's smile seeing the card illustration and simple numbered steps; mouse click on *Print* opening Windows print preview; camera pans to physical printer or the saved file notification in `Pictures\MetaMate`.
 
 ---
@@ -200,7 +200,7 @@ This produces a clean, web-ready 90-second video file with synchronized audio an
    **RU**: Что за компьютером чаще всего вызывает у вас затруднения или тревогу? Когда выскакивает пугающее окно или вы заходите в тупик, что обычно делаете?
 2. **Empowerment vs. Remote Control**  
    **EN**: Did you prefer Mate shining a flashlight so you could click yourself, compared to someone taking over your screen or explaining over the phone? Was Mate's flashlight beam and keepsake card clearer? Why?  
-   **RU**: Вам понравилось, что Мейт светит фонариком, а вы нажимаете сами, по сравнению с тем, когда кто-то перехватывает управление экраном или объясняет по телефону? Луч Мейта и памятка понятнее? Почему?
+   **RU**: Вам больше понравилось, что Мейт светит фонариком, а вы нажимаете сами, чем если бы кто-то перехватил управление экраном или объяснял по телефону? Луч фонарика Мейта и карточка с шагами понятнее? Почему?
 3. **Safety & Peace of Mind**  
    **EN**: When that scary virus warning popped up, did Mate's answer and flashlight beam help you feel safe and in control?  
    **RU**: Когда выскочило пугающее окно с вирусом, помогли ли ответ Мейта и его луч почувствовать себя спокойнее и увереннее?
@@ -257,12 +257,12 @@ I hereby grant permission to the MetaMate project team to record my voice, compu
 
 I understand and agree that:
 1. **Public Use**: Brief excerpts of audio, video, and screen footage (approx. 15–45 seconds) may be published publicly in the Meta Global AI Developer Hackathon submission video, in the open-source code repository, and on public social media channels (including X / Twitter).
-2. **Privacy**: No sensitive personal data, passwords, or banking credentials were captured. Background windows were excluded or redacted.
+2. **Privacy**: No sensitive personal data, passwords, or banking credentials will be recorded. Background windows will be hidden or redacted.
 3. **Preferences (Please check applicable)**:
    - [ ] You may show my face and voice.
    - [ ] Use my voice and screen recording only (do not show my face).
    - [ ] You may credit my first name: ___________________ / [ ] Keep my identity anonymous.
-4. **Voluntary**: I may withdraw consent anytime before final submission (November 3, 2026) by contacting the team, whereupon my footage will be deleted.
+4. **Voluntary**: I may withdraw consent anytime before final submission (November 3, 2026) by contacting the team (by email or messenger), whereupon my footage will be deleted.
 
 **Tester Signature**: _____________________________  
 **Date**: ______________________
@@ -277,12 +277,12 @@ I understand and agree that:
 
 Я подтверждаю и соглашаюсь со следующим:
 1. **Публичное использование**: Короткие фрагменты видео, голоса и записи экрана (примерно 15–45 секунд) могут быть опубликованы в демонстрационном видеоролике для хакатона Meta Global AI Developer Hackathon, на странице открытого репозитория проекта и в социальных сетях (включая X / Twitter).
-2. **Конфиденциальность**: Личные конфиденциальные данные, пароли и банковская информация не записывались. Фоновые окна скрыты или закрашены.
+2. **Конфиденциальность**: Личные данные, пароли и данные банковских карт не будут записываться. Посторонние окна будут скрыты или закрашены.
 3. **Пожелания участника (отметьте нужное)**:
    - [ ] Разрешаю показывать лицо и использовать голос.
    - [ ] Использовать только запись экрана и голос (не показывать лицо).
    - [ ] Можно указать моё имя: ___________________ / [ ] Сохранить анонимность.
-4. **Добровольность**: Я могу отозвать своё согласие в любой момент до финальной сдачи проекта (3 ноября 2026 г.), после чего видеозаписи с моим участием будут удалены.
+4. **Добровольность**: Я могу отозвать своё согласие в любой момент до финальной сдачи проекта (3 ноября 2026 г.), сообщив об этом (по почте или в мессенджере), после чего видеозаписи с моим участием будут удалены.
 
 **Подпись участника**: _____________________________  
 **Дата**: ______________________

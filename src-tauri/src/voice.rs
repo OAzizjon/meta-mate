@@ -366,7 +366,11 @@ async fn run(
     silencer: ptt::Silencer,
 ) {
     let phrases: Phrases = Arc::default();
-    tauri::async_runtime::spawn(cache_phrases(proxy.clone(), phrases.clone()));
+    let resource_dir = app
+        .path()
+        .resolve("phrases", tauri::path::BaseDirectory::Resource)
+        .ok();
+    tauri::async_runtime::spawn(cache_phrases(proxy.clone(), phrases.clone(), resource_dir));
     let stream = app.state::<AnswerStream>();
     let mut current: Option<Session> = None;
     let lessons: Lessons = Arc::default();
@@ -1237,9 +1241,25 @@ pub(crate) fn voice_of(locale: &str) -> &'static str {
 }
 
 /// Synthesizes the cached phrase in both voices once, at startup.
-async fn cache_phrases(proxy: Proxy, phrases: Phrases) {
+async fn cache_phrases(proxy: Proxy, phrases: Phrases, resource_dir: Option<std::path::PathBuf>) {
     let built = phrases.clone();
-    if let Err(error) = tokio::task::spawn_blocking(move || load_built_phrases(&built)).await {
+    if let Err(error) = tokio::task::spawn_blocking(move || {
+        let resource_dir = resource_dir.filter(|dir| dir.join("manifest.json").is_file());
+        #[cfg(debug_assertions)]
+        let source_dir =
+            Some(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/phrases"));
+        #[cfg(not(debug_assertions))]
+        let source_dir: Option<std::path::PathBuf> = None;
+        if let Some(base) = mm_core::phrases::directory(
+            resource_dir.as_deref(),
+            source_dir.as_deref(),
+            cfg!(debug_assertions),
+        ) {
+            load_built_phrases(&built, base);
+        }
+    })
+    .await
+    {
         eprintln!("voice: built phrases: {error}");
     }
     // Wait phrases the build does not have yet: synthesized once through the proxy.
@@ -1275,10 +1295,8 @@ async fn cache_phrases(proxy: Proxy, phrases: Phrases) {
     }
 }
 
-/// The phrases `mm phrases build` made (assets/phrases/manifest.json). Development builds
-/// read them from the source tree; the installer bundles them with Day 6.
-fn load_built_phrases(phrases: &Phrases) {
-    let base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../assets/phrases");
+/// The phrases `mm phrases build` made, relative to the caller's manifest directory.
+fn load_built_phrases(phrases: &Phrases, base: &std::path::Path) {
     let Ok(raw) = std::fs::read_to_string(base.join("manifest.json")) else {
         return;
     };

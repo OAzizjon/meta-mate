@@ -67,7 +67,7 @@ pub(crate) fn refusal_line(app: &AppHandle) -> &'static str {
 }
 
 /// Signed out: a guest token for this device, then every count goes to the windows (and an
-/// empty hour opens this window). Failing quietly keeps the plain sign-in.
+/// empty hour opens this window). Until the proxy answers, the plain sign-in stays.
 pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
     if !required() || signed_in(app) {
         return;
@@ -75,19 +75,36 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
     let app = app.clone();
     let proxy = proxy.clone();
     tauri::async_runtime::spawn(async move {
-        // Without a trial (an older proxy, no data folder) the plain sign-in remains.
-        let token = match device_id(&app) {
-            Some(device) => proxy.guest_token(&device).await.map_err(|e| e.to_string()),
-            None => Err("no device id".to_owned()),
-        };
-        match token {
-            Ok(token) => proxy.set_guest(Some(token)),
-            Err(error) => {
-                eprintln!("signin: guest trial: {error}");
+        // Without a trial (an older proxy, no data folder) the plain sign-in remains. A proxy
+        // waking from a cold start or a lost connection is asked again, so the trial still
+        // appears in the open sign-in window once it answers.
+        let mut opened = false;
+        let mut delay = std::time::Duration::from_secs(5);
+        let token = loop {
+            let Some(device) = device_id(&app) else {
+                eprintln!("signin: guest trial: no device id");
                 open_later(&app);
                 return;
+            };
+            match proxy.guest_token(&device).await {
+                Ok(token) => break token,
+                Err(error) => eprintln!("signin: guest trial: {error}"),
             }
+            if !opened {
+                open_later(&app);
+                opened = true;
+            }
+            tokio::time::sleep(delay).await;
+            delay = (delay * 3).min(std::time::Duration::from_secs(300));
+            if signed_in(&app) {
+                return;
+            }
+        };
+        // A sign-in that finished while the request was out wins over the trial.
+        if signed_in(&app) {
+            return;
         }
+        proxy.set_guest(Some(token));
         // Guest tokens live a day: a fresh one twice a day while still signed out.
         let renew = (app.clone(), proxy.clone());
         tauri::async_runtime::spawn(async move {

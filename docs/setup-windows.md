@@ -76,7 +76,7 @@ MetaMate supports Windows 10 and 11 x64 only. The evaluation path is designed to
 
 2. **Zero-configuration evaluation (no account, keys, or invite codes)**:
    - The release installer is built for our hosted proxy and includes a capped judge invite (`METAMATE_PROXY_URL` and `METAMATE_INVITE` embedded at build time per D51).
-   - A judge installs, holds **Right Ctrl**, and asks aloud—with no account, no API keys, and no invite codes required.
+   - A judge installs, clicks **Try without signing in** in the sign-in window, holds **Right Ctrl**, and asks aloud—with no account, no API keys, and no invite codes required.
    - Live speech recognition: Muse Voice Transcribe opens its WebSocket at key-down and delivers the final transcript 250–360 ms after key-up, rendering live text in Mate's speech bubble.
    - Spoken answers and beam pointing: Mate responds aloud using MMS-TTS (90–110 ms GPU synthesis per sentence on a Modal T4), flies beside the target control in any app, and shines his beam on the right button.
    - Reasoning latency: Muse Spark 1.3 produces its first token in 1.4–2.6 s at minimal reasoning effort.
