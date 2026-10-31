@@ -11,6 +11,7 @@ import {
   createAccountStore,
   isAuthProvider,
   isAuthStatus,
+  syncProviderButtons,
 } from "./account.ts";
 import type {
   AccountAction,
@@ -19,6 +20,39 @@ import type {
   AccountSubscribe,
   AuthStatus,
 } from "./account.ts";
+
+test("provider discovery hides disabled buttons and preserves Google on failure", async () => {
+  const cases: readonly [unknown, boolean, boolean][] = [
+    [["google"], false, true],
+    [["github"], true, false],
+    [["google", "github"], false, false],
+    [[], true, true],
+    [null, false, true],
+    [["unknown"], false, true],
+    ["failure", false, true],
+  ];
+  for (const [raw, googleHidden, githubHidden] of cases) {
+    const calls: string[] = [];
+    const store = createAccountStore(async (cmd) => {
+      calls.push(cmd);
+      if (raw === "failure") throw new Error("old proxy or offline");
+      return raw;
+    });
+    const google = { hidden: false };
+    const github = { hidden: false };
+    const pending = syncProviderButtons(store, [
+      { provider: "google", button: google },
+      { provider: "github", button: github },
+    ]);
+    assert.equal(google.hidden, false);
+    assert.equal(github.hidden, true);
+    await pending;
+    assert.deepEqual(calls, ["auth_providers"]);
+    assert.equal(google.hidden, googleHidden);
+    assert.equal(github.hidden, githubHidden);
+  }
+  assert.deepEqual(await createAccountStore().loadProviders(), ["google"]);
+});
 
 test("isAuthProvider validates only supported providers", () => {
   assert.equal(isAuthProvider("google"), true);

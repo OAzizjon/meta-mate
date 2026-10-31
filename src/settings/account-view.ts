@@ -4,7 +4,7 @@
 
 import { t } from "../i18n/index.ts";
 import type { LocaleKey } from "../i18n/index.ts";
-import { accountNotice } from "./account.ts";
+import { accountNotice, syncProviderButtons } from "./account.ts";
 import type { AccountState, AccountStore, AuthProvider } from "./account.ts";
 
 export interface AccountSectionRefs {
@@ -49,6 +49,10 @@ export function buildAccountSection(accountStore: AccountStore): AccountSectionR
   githubBtn.className = "btn btn-secondary settings-account-btn settings-account-btn-github";
 
   buttonsRow.append(googleBtn, githubBtn);
+  void syncProviderButtons(accountStore, [
+    { provider: "google", button: googleBtn },
+    { provider: "github", button: githubBtn },
+  ]);
   signedOutView.append(buttonsRow);
 
   googleBtn.addEventListener("click", () => {

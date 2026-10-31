@@ -152,6 +152,10 @@ textarea {
     border-color 140ms ease-out;
 }
 
+.btn[hidden] {
+  display: none;
+}
+
 .btn:active:not(:disabled) {
   filter: brightness(0.94);
 }

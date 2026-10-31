@@ -109,6 +109,7 @@ pub fn run() {
             presence::mate_menu_size,
             open_settings_window,
             auth::auth_status,
+            auth::auth_providers,
             auth::sign_in,
             auth::sign_out,
             signin::guest_usage,

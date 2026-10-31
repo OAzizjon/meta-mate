@@ -228,8 +228,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   AnswerStream::attach_debug:210 AnswerStream::send:217 AnswerStream::locale:256 AnswerStream::send_wav:277 AnswerStream::end_sentence:292 report_playback:299 subscribe_answer_stream:325
   inline tests (4)
 - src-tauri/src/auth.rs — Sign-in with Google or GitHub (D54): the browser does the provider's pages, the proxy holds the client secrets, and the app only ever sees a one-time login code on its own loopback port, which it …
-  AuthStatus:42 Auth:70 Auth::signed_in:106 restore:124 auth_status:137 sign_in:142 sign_out:243 watch_rejected:250
-  random_url_safe:494
+  AuthStatus:42 Auth:70 Auth::signed_in:106 restore:124 auth_providers:137 auth_status:172 sign_in:177 sign_out:278
+  watch_rejected:285 random_url_safe:529
   inline tests (7)
 - src-tauri/src/card.rs — Mate's lesson card (Muse Glimmer + Muse Image): when a lesson ends well, a keepsake of its steps that an older person can keep or print.
   MAX_STEPS:37 make:91 without_tags:276 selftest:474
@@ -258,7 +258,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   TRY_QUESTIONS:6 open:10 open_home:49 home_try:87
   inline tests (2)
 - src-tauri/src/lib.rs — MetaMate's Tauri shell: wiring only, no business logic (docs/project-structure.md).
-  run:58 show_tray_wake:265 refresh_tray_labels:384 refresh_tray_tooltip:410 locale_text:493
+  run:58 show_tray_wake:266 refresh_tray_labels:385 refresh_tray_tooltip:411 locale_text:494
   inline tests (1)
 - src-tauri/src/main.rs
 - src-tauri/src/mic.rs — Microphone capture while push-to-talk is held (docs/architecture.md section 2).
@@ -482,8 +482,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/settings/account.ts — Pure account state machine, validation, and store (WP67b).
   AUTH_PROVIDERS:4 AuthProvider:5 AUTH_CHANGED_EVENT:7 AuthStatus:9 SignInResult:15 AccountStatus:20 SignedOutState:22 SigningInState:27
   SignedInState:32 AccountState:38 AccountAction:40 INITIAL_ACCOUNT_STATE:48 isAuthProvider:53 isAuthStatus:57 accountReducer:78 AccountNotice:136
-  accountNotice:142 AccountInvoke:152 AccountSubscribe:153 AccountStore:157 createAccountStore:178
-  tests: src/settings/account.test.ts (17)
+  accountNotice:142 AccountInvoke:152 AccountSubscribe:153 AccountStore:157 createAccountStore:180 syncProviderButtons:291
+  tests: src/settings/account.test.ts (18)
 - src/settings/actions.ts — Settings controller actions and motion policy, independent of the DOM and Tauri.
   settingsReduceMotion:5 createSettingsActions:10
   tests: src/settings/actions.test.ts (10)
@@ -581,9 +581,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Provider:38 Client:56 Identity:62 b64url:69 challenge_of:77 valid_verifier:82 valid_app_state:86 valid_challenge:90
   valid_port:94 sign_session:98 read_session:106 prune_hours:131 sign_guest:137 guest_left:142 google_identity:151 github_identity:160
   Flows:176
-  tests: server/tests/test_auth.py (12)
+  tests: server/tests/test_auth.py (13)
 - server/metamate_proxy/auth_routes.py — Sign-in (D54): `/auth/{provider}/start` and `/callback` run the provider's OAuth flow in the browser, then `/auth/token` trades the app's one-time login code for a session token.
-  auth_page:23 register:29 auth_start:37 auth_callback:85 auth_guest:101 auth_token:129
+  auth_page:23 register:29 auth_providers:37 auth_start:42 auth_callback:90 auth_guest:106 auth_token:134
 - server/metamate_proxy/common.py — What the proxy's routes share: the per-app state, the invite check, error answers that never carry the key, and a body reader that never buffers past its limit.
   State:23 today:36 invite_of:40 error:55 scrub_key:59 scrub:71 upstream_error:77 read_body:89
   json_body:108
@@ -620,11 +620,12 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 
 Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name")`, command constants, menu items).
 
-- `auth_status` src-tauri/src/auth.rs:137 <- src/settings/account.ts:226
+- `auth_providers` src-tauri/src/auth.rs:137 <- src/settings/account.ts:213
+- `auth_status` src-tauri/src/auth.rs:172 <- src/settings/account.ts:239
 - `chat_clear` src-tauri/src/chat.rs:299 <- src/chat.ts:160
 - `chat_send` src-tauri/src/chat.rs:269 <- src/chat.ts:145
 - `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:184
-- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:375, src/signin.ts:99
+- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:375, src/signin.ts:100
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:25
 - `load_settings` src-tauri/src/settings.rs:255 <- src/highlight.ts:514, src/home.ts:158, src/i18n/settings.ts:20, src/settings/model.ts:243
@@ -632,15 +633,15 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:392, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
-- `open_settings_window` src-tauri/src/lib.rs:456 <- src/home.ts:27, src/mate-menu.ts:7
+- `open_settings_window` src-tauri/src/lib.rs:457 <- src/home.ts:27, src/mate-menu.ts:7
 - `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:262
 - `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:410, src/mate-menu.ts:11
 - `report_playback` src-tauri/src/answer_stream.rs:299 <- src/ipc/answer-stream.ts:281
 - `save_settings` src-tauri/src/settings.rs:262 <- src/settings/model.ts:258
-- `sign_in` src-tauri/src/auth.rs:142 <- src/settings/account.ts:241
-- `sign_out` src-tauri/src/auth.rs:243 <- src/settings/account.ts:262
+- `sign_in` src-tauri/src/auth.rs:177 <- src/settings/account.ts:254
+- `sign_out` src-tauri/src/auth.rs:278 <- src/settings/account.ts:275
 - `subscribe_answer_stream` src-tauri/src/answer_stream.rs:325 <- src/ipc/answer-stream.ts:291
-- `try_as_guest` src-tauri/src/signin.rs:214 <- src/signin.ts:96
+- `try_as_guest` src-tauri/src/signin.rs:214 <- src/signin.ts:97
 
 ### Tauri Channels
 
@@ -664,11 +665,11 @@ File names declared as Rust string constants (read or written by the app).
 
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
-- `auth-changed`: rs emit src-tauri/src/auth.rs:235,307; ts listen src/mate.ts:371, src/settings.ts:154, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
+- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:371, src/settings.ts:154, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:416; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
 - `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:391; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:370, src/signin.ts:101; const src-tauri/src/signin.rs:18
+- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:370, src/signin.ts:102; const src-tauri/src/signin.rs:18
 - `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:447; ts listen src/highlight.ts:523, src/mate.ts:348; const src-tauri/src/highlight.rs:15
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:380
 - `lesson-card`: rs emit src-tauri/src/card.rs:466; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
@@ -682,10 +683,11 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 
 Server route decorators <- Rust string literals (URLs, `format!` templates) that end in the route.
 
-- POST /auth/guest server/metamate_proxy/auth_routes.py:100 <- src-tauri/src/proxy.rs:361
-- POST /auth/token server/metamate_proxy/auth_routes.py:128 <- src-tauri/src/proxy.rs:391
-- GET /auth/{provider}/callback server/metamate_proxy/auth_routes.py:84 <- no Rust caller
-- GET /auth/{provider}/start server/metamate_proxy/auth_routes.py:36 <- src-tauri/src/auth.rs:331
+- POST /auth/guest server/metamate_proxy/auth_routes.py:105 <- src-tauri/src/proxy.rs:361
+- GET /auth/providers server/metamate_proxy/auth_routes.py:36 <- src-tauri/src/auth.rs:154
+- POST /auth/token server/metamate_proxy/auth_routes.py:133 <- src-tauri/src/proxy.rs:391
+- GET /auth/{provider}/callback server/metamate_proxy/auth_routes.py:89 <- no Rust caller
+- GET /auth/{provider}/start server/metamate_proxy/auth_routes.py:41 <- src-tauri/src/auth.rs:366
 - GET /healthz server/metamate_proxy/app.py:134 <- no Rust caller
 - WS /v1/asr server/metamate_proxy/asr_route.py:32 <- src-tauri/src/proxy.rs:559,560
 - POST /v1/glimmer server/metamate_proxy/media_routes.py:111 <- src-tauri/src/proxy.rs:533
@@ -708,11 +710,11 @@ The header names the kind of a proxy call: server `CallKind` value (py) and the 
 
 Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed individually; TS-only keys are grouped by prefix. Literal template prefixes count as use.
 
-- `auth.browser_done`: rs src-tauri/src/auth.rs:338
-- `auth.browser_failed`: rs src-tauri/src/auth.rs:339
-- `auth.cancelled`: rs src-tauri/src/auth.rs:181,224,295,394; ts src/settings/account.ts:75
-- `auth.failed`: rs src-tauri/src/auth.rs:180,190,221,325,326,328,329,352,356,369,390; ts src/settings/account.ts:75,250,253
-- `auth.unavailable`: rs src-tauri/src/auth.rs:144,147,213,335; ts src/settings/account.ts:75
+- `auth.browser_done`: rs src-tauri/src/auth.rs:373
+- `auth.browser_failed`: rs src-tauri/src/auth.rs:374
+- `auth.cancelled`: rs src-tauri/src/auth.rs:216,259,330,429; ts src/settings/account.ts:75
+- `auth.failed`: rs src-tauri/src/auth.rs:215,225,256,360,361,363,364,387,391,404,425; ts src/settings/account.ts:75,263,266
+- `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account.ts:75
 - `chat.title`: rs src-tauri/src/chat.rs:216; ts src/chat.ts:170
 - `mate.explain_question`: rs src-tauri/src/explain.rs:304
 - `robot.cant_find`: rs src-tauri/src/chat.rs:112, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:370, src-tauri/src/teacher/lesson.rs:320, src-tauri/src/teacher/presentation.rs:75; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:152
@@ -754,18 +756,18 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_insert`: rs src-tauri/src/settings.rs:126; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:124; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
 - `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:123; ts src/settings/choices-view.ts:20, src/settings/ptt-key.ts:6
-- `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:91
-- `tray.chat`: rs src-tauri/src/lib.rs:248; ts src/mate-menu.ts:5
-- `tray.hide_hour`: rs src-tauri/src/lib.rs:314,367; ts src/mate-menu.ts:9
-- `tray.open_home`: rs src-tauri/src/lib.rs:247
-- `tray.quit`: rs src-tauri/src/lib.rs:307,369
-- `tray.settings`: rs src-tauri/src/lib.rs:300,366,476; ts src/home.ts:394, src/mate-menu.ts:7, src/settings.ts:324,326
-- `tray.tooltip`: rs src-tauri/src/lib.rs:405
+- `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:92
+- `tray.chat`: rs src-tauri/src/lib.rs:249; ts src/mate-menu.ts:5
+- `tray.hide_hour`: rs src-tauri/src/lib.rs:315,368; ts src/mate-menu.ts:9
+- `tray.open_home`: rs src-tauri/src/lib.rs:248
+- `tray.quit`: rs src-tauri/src/lib.rs:308,370
+- `tray.settings`: rs src-tauri/src/lib.rs:301,367,477; ts src/home.ts:394, src/mate-menu.ts:7, src/settings.ts:324,326
+- `tray.tooltip`: rs src-tauri/src/lib.rs:406
 - `tray.try_bigger`: rs src-tauri/src/home.rs:6,74; ts src/home.ts:33,41
 - `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:32,40
 - `tray.try_search`: rs src-tauri/src/home.rs:6; ts src/home.ts:31,39
-- `tray.try_title`: rs src-tauri/src/lib.rs:331,393
-- `tray.wake`: rs src-tauri/src/lib.rs:321,368
+- `tray.try_title`: rs src-tauri/src/lib.rs:332,394
+- `tray.wake`: rs src-tauri/src/lib.rs:322,369
 - `auth.*` (10 keys): src/settings/account-view.ts, src/settings/account.ts, src/signin.ts
 - `card.*` (10 keys): src/card.ts
 - `chat.*` (12 keys): src/chat.ts
@@ -803,7 +805,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 177 | 20 |
-| src | 244 | 28 |
+| src | 245 | 28 |
 | tools | 265 | 17 |
-| server | 86 | 4 |
+| server | 87 | 4 |
 | tts | 27 | 2 |

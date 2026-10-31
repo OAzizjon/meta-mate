@@ -33,6 +33,11 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
     def redirect_uri(provider: str) -> str:
         return f'{settings.public_url}/auth/{provider}/callback'
 
+    @app.get('/auth/providers')
+    async def auth_providers() -> dict:
+        return {'providers': [provider for provider in auth.PROVIDERS
+                              if settings.oauth.get(provider) is not None and settings.session_secret]}
+
     @app.get('/auth/{provider}/start')
     async def auth_start(request: Request, provider: str, port: int = 0, state: str = '',
                          challenge: str = '') -> Response:

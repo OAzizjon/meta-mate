@@ -155,6 +155,8 @@ export type AccountSubscribe = (
 ) => Promise<() => void>;
 
 export interface AccountStore {
+  /** Enabled proxy providers, with Google as the fallback for older proxies. */
+  loadProviders(): Promise<readonly AuthProvider[]>;
   /** Current account state snapshot. */
   getState(): AccountState;
   /** Whether the store is backed by Tauri invoke (false outside Tauri). */
@@ -206,6 +208,17 @@ export function createAccountStore(
   }
 
   return {
+    async loadProviders(): Promise<readonly AuthProvider[]> {
+      try {
+        const raw = await invokeFn?.("auth_providers");
+        if (Array.isArray(raw) && raw.every(isAuthProvider)) {
+          return raw;
+        }
+      } catch {
+        // Older proxies or an unavailable connection: Google only.
+      }
+      return ["google"];
+    },
     getState(): AccountState {
       return { ...state };
     },
@@ -272,4 +285,18 @@ export function createAccountStore(
       return { ...state };
     },
   };
+}
+
+/** Apply discovery to either sign-in view; hide GitHub before the request completes. */
+export async function syncProviderButtons(
+  store: AccountStore,
+  buttons: readonly { provider: AuthProvider; button: Pick<HTMLElement, "hidden"> }[],
+): Promise<void> {
+  for (const { provider, button } of buttons) {
+    button.hidden = provider !== "google";
+  }
+  const providers = await store.loadProviders();
+  for (const { provider, button } of buttons) {
+    button.hidden = !providers.includes(provider);
+  }
 }

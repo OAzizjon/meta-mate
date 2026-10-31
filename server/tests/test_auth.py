@@ -124,6 +124,25 @@ class PureTests(unittest.TestCase):
 
 
 class FlowTests(unittest.TestCase):
+    def test_providers_lists_only_enabled_sign_ins(self):
+        cases = [
+            ({}, ['google', 'github']),
+            ({'GITHUB_CLIENT_SECRET': ''}, ['google']),
+            ({'GOOGLE_CLIENT_ID': ''}, ['github']),
+            ({'GOOGLE_CLIENT_SECRET': '', 'GITHUB_CLIENT_ID': ''}, []),
+            ({'PROXY_SESSION_SECRET': ''}, []),
+        ]
+        for overrides, expected in cases:
+            with self.subTest(overrides=tuple(overrides)):
+                fake = FakeProviders()
+                with client_for(fake, dict(AUTH_ENV, **overrides)) as client:
+                    response = client.get('/auth/providers')
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.json(), {'providers': expected})
+                    for provider in set(auth.PROVIDERS) - set(expected):
+                        self.assertEqual(client.get(f'/auth/{provider}/start').status_code, 503)
+                self.assertEqual(fake.requests, [])
+
     def test_a_stolen_provider_code_cannot_be_replayed_through_another_flow(self):
         fake = FakeProviders()
         client = client_for(fake)

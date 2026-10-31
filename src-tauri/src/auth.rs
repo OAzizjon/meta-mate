@@ -134,6 +134,41 @@ pub fn restore(app: &AppHandle, proxy: &Proxy) {
 }
 
 #[tauri::command]
+pub async fn auth_providers(app: AppHandle) -> Vec<String> {
+    // Older proxies have no discovery route: keep Google available on any failure.
+    let fallback = || vec!["google".to_owned()];
+    let Some(proxy) = app.try_state::<Proxy>() else {
+        return fallback();
+    };
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+    else {
+        return fallback();
+    };
+    #[derive(Deserialize)]
+    struct Providers {
+        providers: Vec<String>,
+    }
+    let Ok(response) = client
+        .get(format!("{}/auth/providers", proxy.base()))
+        .send()
+        .await
+        .and_then(reqwest::Response::error_for_status)
+    else {
+        return fallback();
+    };
+    match response.json::<Providers>().await {
+        Ok(answer) => answer
+            .providers
+            .into_iter()
+            .filter(|provider| PROVIDERS.contains(&provider.as_str()))
+            .collect(),
+        Err(_) => fallback(),
+    }
+}
+
+#[tauri::command]
 pub fn auth_status(auth: State<'_, Auth>) -> AuthStatus {
     auth.status()
 }

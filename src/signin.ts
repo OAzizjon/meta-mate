@@ -6,7 +6,7 @@ import { followSettingsLocale } from "./i18n/settings.ts";
 import type { LocaleKey } from "./i18n/index.ts";
 import { guestUsageOf } from "./mate-menu.ts";
 import { mountRobot } from "./robot/index.ts";
-import { AUTH_CHANGED_EVENT, accountNotice, createAccountStore } from "./settings/account.ts";
+import { AUTH_CHANGED_EVENT, accountNotice, createAccountStore, syncProviderButtons } from "./settings/account.ts";
 import type {
   AccountInvoke,
   AccountState,
@@ -68,6 +68,7 @@ function mount(root: HTMLElement): void {
     buttons.append(button);
     return { provider, key, button };
   });
+  void syncProviderButtons(store, providerButtons);
 
   const browser = el("p", "signin-browser", t("signin.browser"));
 
