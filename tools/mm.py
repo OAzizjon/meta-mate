@@ -10,7 +10,7 @@
     mm check --changed [--base REF] [--dry-run]
                                    the same affected test plan; docs select md-links,typos
     mm release [--allow-dirty] [--dry-run]
-                                   check and build the Windows NSIS installer; print size and SHA-256
+                                   check and build one Windows NSIS installer; print hash and build identity
     mm uia [--delay S] [--depth N] [--save NAME]
                                    UI Automation tree of the foreground window; --save writes
                                    fixtures/uia/NAME.json and NAME.png (record only the Demo user's windows)
@@ -59,6 +59,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import mm_changed
 
@@ -457,7 +458,8 @@ def cmd_release(args):
         for cmd in [metadata, *builds]:
             print(subprocess.list2cmdline(cmd))
         print(f'Verify a new or updated <Cargo target directory>/{target}/release/bundle/nsis/*.exe;'
-              ' print installer path, size in bytes and SHA-256.')
+              ' require exactly one; print installer path, size in bytes and SHA-256,'
+              ' then commit (+dirty if allowed), proxy host and app version.')
         return 0
 
     # D51: a release talks to the proxy and demo invite it is built with; without them
@@ -476,6 +478,13 @@ def cmd_release(args):
     if not proxy.startswith('https://') or not os.environ.get('METAMATE_INVITE', '').strip():
         print('Release refused: set METAMATE_PROXY_URL (https://...) and METAMATE_INVITE for the build.')
         return 1
+    try:
+        proxy_host = urlsplit(proxy).hostname
+        if not proxy_host:
+            raise ValueError('missing host')
+    except ValueError:
+        print('Release refused: METAMATE_PROXY_URL must have a valid host.')
+        return 1
     if cmd_check(argparse.Namespace(full=False, only=None)) != 0:
         print('Release refused: mm check failed.')
         return 1
@@ -483,6 +492,7 @@ def cmd_release(args):
     if code != 0 or (out and not args.allow_dirty):
         print('Release refused: cannot read git status or tree is dirty (use --allow-dirty).')
         return 1
+    dirty = bool(out)
     code, out = run(metadata, cwd=ROOT)
     try:
         if code != 0:
@@ -506,10 +516,26 @@ def cmd_release(args):
         if not installers:
             print(f'Release failed: produced NSIS installer missing in {bundle}.')
             return 1
-        for installer in installers:
-            with installer.open('rb') as stream:
-                digest = hashlib.file_digest(stream, 'sha256').hexdigest()
-            print(f'Installer: {installer}\nSize: {installer.stat().st_size} bytes\nSHA-256: {digest}')
+        if len(installers) > 1:
+            print('Release failed: multiple NSIS installers changed: '
+                  + ', '.join(p.name for p in installers))
+            return 1
+        code, commit = run(['git', 'rev-parse', '--short', 'HEAD'], cwd=ROOT)
+        if code != 0 or not commit:
+            print('Release failed: cannot read git commit.')
+            return 1
+        try:
+            version = json.loads((ROOT / 'src-tauri/tauri.conf.json').read_text(encoding='utf-8'))['version']
+            if not isinstance(version, str) or not version.strip():
+                raise ValueError('missing version')
+        except (OSError, ValueError, KeyError, TypeError):
+            print('Release failed: cannot read app version from src-tauri/tauri.conf.json.')
+            return 1
+        installer = installers[0]
+        with installer.open('rb') as stream:
+            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        print(f'Installer: {installer}\nSize: {installer.stat().st_size} bytes\nSHA-256: {digest}')
+        print(f'Commit: {commit}{"+dirty" if dirty else ""}\nProxy host: {proxy_host}\nVersion: {version}')
     except OSError:
         print('Release failed: cannot read produced NSIS installer.')
         return 1

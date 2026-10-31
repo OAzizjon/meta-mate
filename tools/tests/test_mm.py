@@ -358,6 +358,9 @@ class ReleaseTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
+        self.config = self.root / 'src-tauri/tauri.conf.json'
+        self.config.parent.mkdir()
+        self.config.write_text(json.dumps({'version': '2.3.4'}), encoding='utf-8')
         self.target_dir = self.root / 'custom target'
         self.installer = (self.target_dir / 'x86_64-pc-windows-msvc/release/bundle/nsis'
                           / 'MetaMate_0.1.0_x64-setup.exe')
@@ -377,12 +380,16 @@ class ReleaseTests(unittest.TestCase):
                 else:
                     self.check = result
         self.git = (0, '')
+        self.commit = (0, 'abc1234')
         self.build_code = 0
         self.produce = True
 
     def command(self, cmd, **kwargs):
         self.assertEqual(kwargs['cwd'], self.root)
         if cmd[0] == 'git':
+            if cmd[1] == 'rev-parse':
+                self.assertEqual(cmd, ['git', 'rev-parse', '--short', 'HEAD'])
+                return self.commit
             return self.git
         if cmd[0] == 'cargo':
             return 0, json.dumps({'target_directory': str(self.target_dir)})
@@ -452,6 +459,72 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn('Size: 3 bytes', self.output.getvalue())
         self.assertIn('SHA-256: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
                       self.output.getvalue())
+        self.assertEqual(self.output.getvalue().splitlines()[-6:], [
+            f'Installer: {self.installer}', 'Size: 3 bytes',
+            'SHA-256: ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+            'Commit: abc1234', 'Proxy host: proxy.example', 'Version: 2.3.4'])
+
+    def test_proxy_report_contains_only_hostname(self):
+        proxy = 'https://user:dummy-password@proxy.example:8443/private?invite=dummy-query#dummy-fragment'
+        with patch.dict(mm.os.environ, {'METAMATE_PROXY_URL': proxy}):
+            self.assertEqual(mm.cmd_release(self.args), 0)
+        self.assertIn('Proxy host: proxy.example\n', self.output.getvalue())
+        for value in (proxy, 'user', 'dummy-password', '8443', '/private', 'dummy-query',
+                      'dummy-fragment', 'demo-code-123'):
+            self.assertNotIn(value, self.output.getvalue())
+
+    def test_clean_tree_with_override_does_not_report_dirty(self):
+        self.args.allow_dirty = True
+        self.assertEqual(mm.cmd_release(self.args), 0)
+        self.assertIn('Commit: abc1234\n', self.output.getvalue())
+        self.assertNotIn('+dirty', self.output.getvalue())
+
+    def test_multiple_changed_installers_refused_without_hashing(self):
+        other = self.installer.with_name('other-setup.exe')
+        def build(cmd, **kwargs):
+            result = self.command(cmd, **kwargs)
+            if 'tauri' in cmd:
+                other.write_bytes(b'other installer')
+            return result
+        self.run.side_effect = build
+        with patch.object(mm.hashlib, 'file_digest') as digest:
+            self.assertEqual(mm.cmd_release(self.args), 1)
+        digest.assert_not_called()
+        for name in (self.installer.name, other.name):
+            self.assertIn(name, self.output.getvalue())
+        self.assertNotIn('SHA-256:', self.output.getvalue())
+
+    def test_unchanged_other_installer_is_ignored(self):
+        self.installer.parent.mkdir(parents=True)
+        self.installer.with_name('old-setup.exe').write_bytes(b'old installer')
+        self.assertEqual(mm.cmd_release(self.args), 0)
+        self.assertEqual(self.output.getvalue().count('SHA-256:'), 1)
+
+    def test_missing_or_failed_commit_is_refused(self):
+        for result in ((127, 'git failed'), (0, '')):
+            with self.subTest(result=result):
+                self.commit = result
+                self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertIn('Release failed: cannot read git commit.', self.output.getvalue())
+        self.assertNotIn('SHA-256:', self.output.getvalue())
+
+    def test_missing_or_invalid_version_is_refused(self):
+        for contents in (None, '{broken', '[]', '{}', '{"version": null}', '{"version": ""}'):
+            with self.subTest(contents=contents):
+                if contents is None:
+                    self.config.unlink()
+                else:
+                    self.config.write_text(contents, encoding='utf-8')
+                self.assertEqual(mm.cmd_release(self.args), 1)
+        self.assertIn('Release failed: cannot read app version', self.output.getvalue())
+        self.assertNotIn('SHA-256:', self.output.getvalue())
+
+    def test_invalid_proxy_host_is_refused_without_echoing_url(self):
+        for proxy in ('https:///private?invite=dummy-query', 'https://[invalid/private?invite=dummy-query'):
+            with self.subTest(proxy=proxy), patch.dict(mm.os.environ, {'METAMATE_PROXY_URL': proxy}):
+                self.assertEqual(mm.cmd_release(self.args), 1)
+                self.assertNotIn(proxy, self.output.getvalue())
+        self.run.assert_not_called()
 
     def test_failed_check_stops_before_commands_even_with_allow_dirty(self):
         self.check.return_value = 1
@@ -465,6 +538,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(self.run.call_count, 1)
         self.args.allow_dirty = True
         self.assertEqual(mm.cmd_release(self.args), 0)
+        self.assertIn('Commit: abc1234+dirty\n', self.output.getvalue())
 
     def test_failed_git_status_refused_even_with_override(self):
         self.git = (127, '')

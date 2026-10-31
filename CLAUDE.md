@@ -18,7 +18,7 @@ The build started at the kickoff on 2026-10-26, 22:00 Tashkent (D38); submission
 |---|---|
 | `mm doctor` | build tools and versions (Rust, MSVC, WebView2, Node, ffmpeg, uv, typos, ...) |
 | `mm status` | git, deadline countdown, today's plan, agent queue |
-| `mm release [--dry-run] [--allow-dirty]` | build the NSIS installer and print its path, size and SHA-256 |
+| `mm release [--dry-run] [--allow-dirty]` | require one changed NSIS installer; print its path, size, SHA-256, commit (+dirty when applicable), proxy host and app version |
 | `mm plan [today\|N]` | today's (or day N's) plan |
 | `mm check [--full] [--only CHECKS] [--changed] [--base REF] [--dry-run]` | fast checks: secrets, env names, Markdown links, typos; Rust/TS once they exist |
 | `mm test [--changed] [--base REF] [--dry-run]` | unit tests (tools, then cargo/npm); `--changed`: only the packages the changed files can affect (reverse dependency closure) |

@@ -523,10 +523,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:110 first_line:125 agent_mode_reason:129 say:141 cmd_doctor:178 plan_sections:244 cmd_plan:267 cmd_status:294
-  cmd_check:342 cmd_test:366 cmd_agent:409 cmd_tool:434 cmd_release:440 cmd_uia:521 cmd_art:555 cmd_sounds:603
-  cmd_phrases:645 cmd_agents:658 wanted_key_names:671 parse_env:679 cmd_keys:734 build_parser:813 cmd_probe:866 main:882
-  tests: tools/tests/test_mm.py (50)
+  run:111 first_line:126 agent_mode_reason:130 say:142 cmd_doctor:179 plan_sections:245 cmd_plan:268 cmd_status:295
+  cmd_check:343 cmd_test:367 cmd_agent:410 cmd_tool:435 cmd_release:441 cmd_uia:547 cmd_art:581 cmd_sounds:629
+  cmd_phrases:671 cmd_agents:684 wanted_key_names:697 parse_env:705 cmd_keys:760 build_parser:839 cmd_probe:892 main:908
+  tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
   tests: tools/tests/test_mm_changed.py (14)
@@ -821,6 +821,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 61 | 11 |
 | src-tauri | 179 | 20 |
 | src | 249 | 28 |
-| tools | 291 | 19 |
+| tools | 298 | 19 |
 | server | 94 | 4 |
 | tts | 27 | 2 |
