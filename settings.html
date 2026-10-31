@@ -1,10 +1,11 @@
 <!doctype html>
 <!-- Settings window (WP24): src/settings.ts and its sections in src/settings/. The Home
      window's look from src/theme.css: the same palette, type scale, cards, buttons and focus
-     rings. A warm header with Mate's bulb, then one card per setting; every choice is a whole
-     card to click, the chosen one tinted and rimmed in gold; on/off settings are switches.
-     Short choices sit two to a row when there is room. Sized for the 560x720 window, works
-     from 360px wide. -->
+     rings. A warm header with Mate's bulb, then one card per setting. Short choices are
+     segments on one row that wraps when the window is narrow; only the model choice, whose
+     options each have a description, keeps a whole card per option. The chosen option is
+     tinted and rimmed in gold; on/off settings are switches in plain rows. Sized for the
+     560x720 window, works from 360px wide. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -25,7 +26,7 @@
       #settings-app {
         width: min(100%, 640px);
         margin: 0 auto;
-        padding: 20px clamp(14px, 4vw, 24px) 32px;
+        padding: 16px clamp(14px, 4vw, 24px) 24px;
       }
 
       /* The title and the saved note beside Mate's bulb, in the Home window's warm header. */
@@ -33,8 +34,8 @@
         display: flex;
         align-items: center;
         gap: 16px;
-        margin-bottom: 20px;
-        padding: 18px clamp(14px, 4vw, 22px);
+        margin-bottom: 12px;
+        padding: 14px clamp(14px, 4vw, 22px);
         background: var(--hero-bg);
         border: 1px solid var(--hero-border);
         border-radius: var(--radius-lg);
@@ -66,14 +67,14 @@
       .settings-form {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 10px;
       }
 
       /* Each setting is a card like the Home window's. */
       .settings-group {
         min-width: 0;
         margin: 0;
-        padding: 18px clamp(14px, 4vw, 20px) 20px;
+        padding: 12px clamp(14px, 4vw, 20px) 14px;
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius-lg);
@@ -97,7 +98,7 @@
         float: left;
         width: 100%;
         padding: 0;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
       }
 
       .settings-legend + * {
@@ -110,18 +111,10 @@
         gap: 10px;
       }
 
-      /* Short names (talk keys, sounds, sizes) two to a row when there is room. */
-      .settings-options-grid,
-      .settings-size-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
-        gap: 10px;
-      }
-
-      /* Each choice is a whole card to click, at least as tall as a button. */
+      /* Each choice is a whole option to click: a choice with a description (the model) is a
+         card at least as tall as a button, a short one a pill (below) in the same colours. */
       .settings-radio-option,
-      .settings-checkbox-option,
-      .settings-size-option {
+      .settings-segment {
         display: flex;
         align-items: flex-start;
         gap: 12px;
@@ -136,30 +129,47 @@
           border-color 140ms ease-out;
       }
 
+      /* Short choices side by side on one row, sharing its width; they wrap on a narrow window. */
+      .settings-segments {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      /* A pill to click, at least 44px tall for an unsteady hand. Its radio stays in the page
+         for the keyboard and screen readers, see-through over the whole pill; the tint and the
+         gold rim show the choice. */
+      .settings-segment {
+        position: relative;
+        flex: 1 1 auto;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 6px 14px;
+        border-radius: 999px;
+        text-align: center;
+      }
+
       .settings-radio-option:hover,
-      .settings-checkbox-option:hover,
-      .settings-size-option:hover {
+      .settings-segment:hover {
         background: var(--surface-hover);
         border-color: var(--border-strong);
       }
 
       .settings-radio-option.is-selected,
-      .settings-checkbox-option.is-selected,
-      .settings-size-option.is-selected {
+      .settings-segment.is-selected {
         background: var(--accent-soft);
         border-color: var(--accent-line);
         box-shadow: inset 0 0 0 1px var(--accent-line);
       }
 
       .settings-radio-option.is-selected:hover,
-      .settings-checkbox-option.is-selected:hover,
-      .settings-size-option.is-selected:hover {
+      .settings-segment.is-selected:hover {
         background: var(--accent-soft-hover);
       }
 
       /* Level with the first line of the title. */
-      .settings-radio-option input[type="radio"],
-      .settings-size-option input[type="radio"] {
+      .settings-radio-option input[type="radio"] {
         flex: none;
         width: 22px;
         height: 22px;
@@ -168,16 +178,50 @@
         cursor: pointer;
       }
 
-      .settings-size-option,
+      .settings-segment input[type="radio"] {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+
+      .settings-segment .option-title {
+        line-height: 1.3;
+      }
+
+      /* The chosen segment's description, one line under the row (src/settings/controls.ts
+         hides the others). No display here: it would show a hidden one. */
+      .settings-segment-hints {
+        margin-top: 8px;
+        font-size: var(--text-sm);
+        line-height: 1.45;
+        color: var(--text-muted);
+      }
+
+      /* An on/off setting: a plain row, its words first, the switch at the end, as in Windows
+         Settings; the switch itself shows on or off. */
       .settings-checkbox-option {
+        display: flex;
         align-items: center;
+        gap: 12px;
+        min-height: 48px;
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: background-color 140ms ease-out;
       }
 
-      .settings-size-option input[type="radio"] {
-        margin-top: 0;
+      .settings-checkbox-option + .settings-checkbox-option {
+        border-top: 1px solid var(--border);
       }
 
-      /* An on/off setting: its words first, the switch at the end, as in Windows Settings. */
+      .settings-checkbox-option:hover {
+        background: var(--surface-hover);
+      }
+
       .settings-checkbox-option .switch {
         order: 1;
       }
@@ -286,7 +330,6 @@
       .settings-toggles {
         display: flex;
         flex-direction: column;
-        gap: 10px;
       }
 
       .settings-account-title {
@@ -348,23 +391,25 @@
          inside it; Windows contrast themes keep it. */
       .settings-radio-option:has(input:focus-visible),
       .settings-checkbox-option:has(input:focus-visible),
-      .settings-size-option:has(input:focus-visible) {
+      .settings-segment:has(input:focus-visible) {
         outline: 3px solid var(--focus);
         outline-offset: 2px;
       }
 
       .settings-radio-option input:focus-visible,
       .settings-checkbox-option input:focus-visible,
-      .settings-size-option input:focus-visible {
+      .settings-segment input:focus-visible {
         outline: none;
       }
 
       @media (max-width: 400px) {
-        .settings-radio-option,
-        .settings-checkbox-option,
-        .settings-size-option {
+        .settings-radio-option {
           padding-inline: 12px;
           gap: 10px;
+        }
+
+        .settings-segment {
+          padding-inline: 10px;
         }
 
         .settings-header {
@@ -392,10 +437,23 @@
           border-color: ButtonText;
         }
 
-        .settings-radio-option.is-selected,
-        .settings-checkbox-option.is-selected,
-        .settings-size-option.is-selected {
+        .settings-radio-option.is-selected {
           border-color: Highlight;
+        }
+
+        /* A segment shows no radio: the chosen one is filled with the system highlight, and
+           its keyboard ring keeps a system colour. */
+        .settings-segment.is-selected,
+        .settings-segment.is-selected:hover {
+          forced-color-adjust: none;
+          border-color: Highlight;
+          background: Highlight;
+          color: HighlightText;
+          box-shadow: none;
+        }
+
+        .settings-segment:has(input:focus-visible) {
+          outline-color: CanvasText;
         }
       }
     </style>

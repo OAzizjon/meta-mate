@@ -1,6 +1,8 @@
 // The Settings window's choices (src/settings.ts): how Mate thinks, how to talk to him, the
 // sound mode and his size as radio groups, and the two on/off toggles. Each builder gets what
-// to do with a new value; src/settings.ts saves it and writes the localized text.
+// to do with a new value; src/settings.ts saves it and writes the localized text. Only the
+// model choice, whose options each have a line of description, keeps the cards; the short
+// choices are segments on one row.
 
 import type { LocaleKey } from "../i18n/index.ts";
 import { buildCheckbox, buildRadioGroup } from "./controls.ts";
@@ -17,8 +19,7 @@ export function buildPttKeyGroup(onSelect: (key: PttKey) => void): RadioGroupRef
       value: key,
       labelKey: `settings.key_${key}` as LocaleKey,
     })),
-    "settings-options settings-options-grid",
-    "settings-radio-option",
+    "segments",
     onSelect,
   );
 }
@@ -51,8 +52,7 @@ export function buildModelGroup(
         hintKey: "settings.model_thorough_hint",
       },
     ],
-    "settings-options",
-    "settings-radio-option",
+    "cards",
     onSelect,
   );
 }
@@ -75,8 +75,7 @@ export function buildPttGroup(onSelect: (ptt: PttMode) => void): RadioGroupRefs<
         hintKey: "settings.ptt_toggle_hint",
       },
     ],
-    "settings-options",
-    "settings-radio-option",
+    "segments",
     onSelect,
   );
 }
@@ -97,8 +96,7 @@ export function buildSoundGroup(onSelect: (sound: SoundMode) => void): RadioGrou
         labelKey: "tray.sounds_fun",
       },
     ],
-    "settings-options settings-options-grid",
-    "settings-radio-option",
+    "segments",
     onSelect,
   );
 }
@@ -115,8 +113,7 @@ export function buildSizeGroup(
       value: size,
       labelKey: SIZE_LABELS[size],
     })),
-    "settings-size-grid",
-    "settings-size-option",
+    "segments",
     onSelect,
   );
 }
@@ -163,8 +160,7 @@ export function buildLanguageGroup(onSelect: (language: Language) => void): Radi
       { id: "settings-language-en", value: "en", labelKey: "settings.language_en" },
       { id: "settings-language-ru", value: "ru", labelKey: "settings.language_ru" },
     ],
-    "settings-options",
-    "settings-radio-option",
+    "segments",
     onSelect,
   );
 }

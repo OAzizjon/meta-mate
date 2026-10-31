@@ -7,6 +7,7 @@
 //! 12 answers an hour (counted by the proxy); the count shows in Mate's window and here.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::time::Duration;
 
 use mm_core::constants::APP_NAME;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -22,7 +23,34 @@ const WINDOW: &str = "signin";
 static OPENING: AtomicBool = AtomicBool::new(false);
 /// Each start of the trial outdates the tasks of the one before (a sign-out after a sign-in
 /// starts it again): they stop at their next wake instead of running twice.
-static GUEST_RUN: AtomicU64 = AtomicU64::new(0);
+static GUEST_RUN: Generation = Generation::new();
+
+struct Generation(AtomicU64);
+
+#[derive(Clone, Copy)]
+struct RunId(u64);
+
+impl Generation {
+    const fn new() -> Self {
+        Self(AtomicU64::new(0))
+    }
+
+    fn start(&self) -> RunId {
+        RunId(self.0.fetch_add(1, Ordering::AcqRel) + 1)
+    }
+
+    fn is_current(&self, run: RunId) -> bool {
+        self.0.load(Ordering::Acquire) == run.0
+    }
+}
+
+fn next_delay(delay: Duration) -> Duration {
+    (delay * 3).min(Duration::from_secs(300))
+}
+
+fn should_set_guest(signed_in: bool, stale: impl FnOnce() -> bool) -> bool {
+    !signed_in && !stale()
+}
 
 /// Release builds always; development builds only with `MM_REQUIRE_SIGN_IN=1`.
 pub(crate) fn required() -> bool {
@@ -77,14 +105,14 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
     }
     let app = app.clone();
     let proxy = proxy.clone();
-    let run = GUEST_RUN.fetch_add(1, Ordering::AcqRel) + 1;
-    let stale = move || GUEST_RUN.load(Ordering::Acquire) != run;
+    let run = GUEST_RUN.start();
+    let stale = move || !GUEST_RUN.is_current(run);
     tauri::async_runtime::spawn(async move {
         // Without a trial (an older proxy, no data folder) the plain sign-in remains. A proxy
         // waking from a cold start or a lost connection is asked again, so the trial still
         // appears in the open sign-in window once it answers.
         let mut opened = false;
-        let mut delay = std::time::Duration::from_secs(5);
+        let mut delay = Duration::from_secs(5);
         let token = loop {
             let Some(device) = device_id(&app) else {
                 eprintln!("signin: guest trial: no device id");
@@ -100,13 +128,13 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
                 opened = true;
             }
             tokio::time::sleep(delay).await;
-            delay = (delay * 3).min(std::time::Duration::from_secs(300));
+            delay = next_delay(delay);
             if signed_in(&app) || stale() {
                 return;
             }
         };
         // A sign-in that finished while the request was out wins over the trial.
-        if signed_in(&app) || stale() {
+        if !should_set_guest(signed_in(&app), stale) {
             return;
         }
         proxy.set_guest(Some(token));
@@ -122,8 +150,7 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
                 if let Some(device) = device_id(&app)
                     && let Ok(token) = proxy.guest_token(&device).await
                     // A sign-in or a newer start while the request was out wins.
-                    && !signed_in(&app)
-                    && !stale()
+                    && should_set_guest(signed_in(&app), stale)
                 {
                     proxy.set_guest(Some(token));
                 }
@@ -251,6 +278,37 @@ pub(crate) fn close(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn guest_retry_delay_triples_up_to_five_minutes() {
+        let mut delay = Duration::from_secs(5);
+        for seconds in [5, 15, 45, 135, 300, 300] {
+            assert_eq!(delay, Duration::from_secs(seconds));
+            delay = next_delay(delay);
+        }
+    }
+
+    #[test]
+    fn newer_guest_start_outdates_the_previous_run() {
+        let generation = Generation::new();
+        let older = generation.start();
+        assert!(generation.is_current(older));
+        let newer = generation.start();
+        assert!(!generation.is_current(older));
+        assert!(generation.is_current(newer));
+    }
+
+    #[test]
+    fn guest_token_is_set_only_when_signed_out_and_current() {
+        for (signed_in, stale, expected) in [
+            (false, false, true),
+            (false, true, false),
+            (true, false, false),
+            (true, true, false),
+        ] {
+            assert_eq!(should_set_guest(signed_in, || stale), expected);
+        }
+    }
 
     #[cfg(debug_assertions)]
     #[test]

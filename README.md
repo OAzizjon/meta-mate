@@ -79,7 +79,7 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 
 **Do I need an account?** No. You can try MetaMate right away with 12 messages an hour as a guest (the count shows under Mate); sign in with Google for your own daily allowance.
 
-**What leaves my PC?** Only during a question: a screenshot of the window you are using, with password fields painted black first, and your words. Nothing is captured or sent between questions.
+**What leaves my PC?** Your words, and a screenshot only when the question needs the screen: where something is, how to do something, whether a window is safe, or a question about a button, a link or the screen. Then only the window you are using is captured, with password fields painted black first; if that cannot be guaranteed, nothing is sent. Small talk and general questions send no screenshot, and nothing is captured or sent between questions (D65).
 
 **Does Mate click for me?** Only when you ask. Mate lights up the button and guides you step by step; say "do it for me" and he asks "Shall I press it?" before each click and presses only after you say yes. He never presses payment, purchase, delete, money transfer or password buttons.
 

@@ -1,6 +1,7 @@
 // Run with `npm test` (Node's own test runner; Node 24 strips the types).
 // Unit tests for the Home window's logic (src/home.ts, WP89a): the "Try it" runner, the
-// Settings button and the "Show this window when MetaMate starts" checkbox's settings.
+// Settings button, the "Show this window when MetaMate starts" checkbox's settings, and the
+// talk card and footer as built on a minimal fake document.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
@@ -14,12 +15,14 @@ import {
   OPEN_SETTINGS_COMMAND,
   createHomeTryRunner,
   isHomeTryKey,
+  mountHome,
   openSettingsWindow,
+  setHomeI18n,
   startHomeSettings,
   tryStatusKey,
 } from "./home.ts";
 import type { HomeInvoke } from "./home.ts";
-import { DEFAULT_SETTINGS } from "./settings/model.ts";
+import { DEFAULT_SETTINGS, PTT_KEYS } from "./settings/model.ts";
 import type { Settings } from "./settings/model.ts";
 
 // The locale files read directly: src/i18n imports them as JSON modules, which Node's test
@@ -291,4 +294,215 @@ test("outside Tauri the checkbox works in memory", async () => {
   assert.equal(home.get().showHomeAtStart, false);
   assert.deepEqual(changes.map((settings) => settings.showHomeAtStart), [true, false]);
   home.destroy();
+});
+
+test("the Home intro and the line under the talk steps stay short in both languages", () => {
+  for (const [code, strings] of Object.entries(LOCALES)) {
+    assert.ok(strings["home.intro"].length <= 110, `${code}: home.intro`);
+    for (const key of PTT_KEYS) {
+      const line = `${strings[`home.where_${key}`]} ${strings["home.talk_click"]}`;
+      assert.ok(line.length <= 100, `${code}: ${key}: ${line}`);
+    }
+  }
+});
+
+class FakeClassList {
+  readonly tokens = new Set<string>();
+
+  add(...tokens: string[]): void {
+    for (const token of tokens) this.tokens.add(token);
+  }
+
+  remove(...tokens: string[]): void {
+    for (const token of tokens) this.tokens.delete(token);
+  }
+
+  contains(token: string): boolean {
+    return this.tokens.has(token);
+  }
+
+  toggle(token: string, force?: boolean): boolean {
+    const next = force ?? !this.tokens.has(token);
+    if (next) this.tokens.add(token);
+    else this.tokens.delete(token);
+    return next;
+  }
+}
+
+/** Just enough of an element for `mountHome`: text nodes are plain strings. */
+class FakeElement {
+  readonly tagName: string;
+  readonly classList = new FakeClassList();
+  readonly attributes = new Map<string, string>();
+  readonly listeners = new Map<string, Array<() => void>>();
+  childNodes: Array<FakeElement | string> = [];
+  id = "";
+  type = "";
+  htmlFor = "";
+  checked = false;
+  disabled = false;
+
+  constructor(tagName: string) {
+    this.tagName = tagName;
+  }
+
+  get className(): string {
+    return [...this.classList.tokens].join(" ");
+  }
+
+  set className(value: string) {
+    this.classList.tokens.clear();
+    this.classList.add(...value.split(/\s+/).filter(Boolean));
+  }
+
+  get children(): FakeElement[] {
+    return this.childNodes.filter((node): node is FakeElement => node instanceof FakeElement);
+  }
+
+  get textContent(): string {
+    return this.childNodes.map((node) => (typeof node === "string" ? node : node.textContent)).join("");
+  }
+
+  set textContent(value: string) {
+    this.childNodes = [value];
+  }
+
+  append(...nodes: Array<FakeElement | string>): void {
+    this.childNodes.push(...nodes);
+  }
+
+  replaceChildren(...nodes: Array<FakeElement | string>): void {
+    this.childNodes = [...nodes];
+  }
+
+  setAttribute(name: string, value: string): void {
+    this.attributes.set(name, value);
+  }
+
+  addEventListener(type: string, listener: () => void): void {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
+
+  removeEventListener(type: string, listener: () => void): void {
+    this.listeners.set(type, (this.listeners.get(type) ?? []).filter((other) => other !== listener));
+  }
+
+  dispatch(type: string): void {
+    for (const listener of this.listeners.get(type) ?? []) listener();
+  }
+}
+
+function descendants(node: FakeElement): FakeElement[] {
+  return node.children.flatMap((child) => [child, ...descendants(child)]);
+}
+
+function byClass(root: FakeElement, className: string): FakeElement {
+  const found = descendants(root).find((node) => node.classList.contains(className));
+  assert.ok(found, className);
+  return found;
+}
+
+/** Mounts the Home page on a fake document with English text and the given saved settings. */
+async function mountFakeHome(saved: Settings): Promise<{
+  readonly container: FakeElement;
+  readonly calls: string[];
+  readonly unmount: () => void;
+}> {
+  const globals = globalThis as { document?: unknown; window?: unknown };
+  globals.document = {
+    documentElement: new FakeElement("html"),
+    createElement: (tag: string) => new FakeElement(tag),
+  };
+  // No `matchMedia`: the OS motion setting is left out.
+  globals.window = { addEventListener() {}, removeEventListener() {} };
+  setHomeI18n((key) => LOCALES.en[key] ?? key, () => "en");
+
+  const calls: string[] = [];
+  const container = new FakeElement("main");
+  const home = mountHome(container as unknown as HTMLElement, {
+    invoke: async (cmd) => {
+      calls.push(cmd);
+      return cmd === "load_settings" ? { ...saved } : null;
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  return {
+    container,
+    calls,
+    unmount(): void {
+      home.destroy();
+      delete globals.document;
+      delete globals.window;
+    },
+  };
+}
+
+test("the talk card keeps the keycap and both steps, then one line on where the key is and clicking", async () => {
+  const { container, unmount } = await mountFakeHome({ ...SAVED, pttKey: "f9" });
+  try {
+    const talk = byClass(container, "home-talk");
+    assert.deepEqual(
+      talk.children.map((node) => node.className),
+      ["home-section-title", "home-talk-row", "home-talk-more"],
+    );
+    const [keycap, steps] = byClass(talk, "home-talk-row").children;
+    assert.equal(keycap.tagName, "kbd");
+    assert.equal(keycap.textContent, "F9");
+    assert.equal(steps.children.length, 2);
+    assert.equal(
+      byClass(talk, "home-talk-more").textContent,
+      `${LOCALES.en["home.where_f9"]} ${LOCALES.en["home.talk_click"]}`,
+    );
+  } finally {
+    unmount();
+  }
+});
+
+test("the footer: a start-up switch line, Write to Mate and Settings side by side, then a quiet Quit", async () => {
+  const { container, calls, unmount } = await mountFakeHome(SAVED);
+  try {
+    const footer = container.children[1];
+    assert.equal(footer.tagName, "footer");
+    assert.deepEqual(
+      footer.children.map((node) => node.className),
+      ["home-start-option", "home-actions", "home-quit"],
+    );
+    const [startOption, actions, quit] = footer.children;
+
+    // The switch line, enabled once the settings are in.
+    const [startInput] = startOption.children;
+    assert.equal(startOption.htmlFor, startInput.id);
+    assert.equal(startInput.type, "checkbox");
+    assert.equal(startInput.checked, SAVED.showHomeAtStart);
+    assert.equal(startInput.disabled, false);
+
+    // One primary and one secondary button; no Close button (the window's own close works).
+    assert.deepEqual(actions.children.map((node) => node.id), ["home-chat-btn", "home-settings-btn"]);
+    assert.ok(actions.children[0].classList.contains("btn-primary"));
+    assert.ok(actions.children[1].classList.contains("btn-secondary"));
+    assert.ok(!descendants(container).some((node) => node.id === "home-close-btn"));
+
+    // Quit: still a button with its words, but not a big box.
+    assert.equal(quit.tagName, "button");
+    assert.equal(quit.type, "button");
+    assert.equal(quit.id, "home-quit-btn");
+    assert.equal(quit.textContent, LOCALES.en["home.quit"]);
+    assert.ok(!quit.classList.contains("btn"));
+
+    // Keyboard order: the switch, Write to Mate, Settings, Quit.
+    assert.deepEqual(
+      descendants(footer)
+        .filter((node) => node.tagName === "input" || node.tagName === "button")
+        .map((node) => node.id),
+      ["home-show-at-start", "home-chat-btn", "home-settings-btn", "home-quit-btn"],
+    );
+
+    for (const button of [...actions.children, quit]) {
+      button.dispatch("click");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.deepEqual(calls, ["load_settings", "open_chat", "open_settings_window", "quit_app"]);
+  } finally {
+    unmount();
+  }
 });

@@ -152,6 +152,11 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - Mate's recorded phrases are included in the installer.
 - The guest trial now appears even if the server is still waking up at first launch.
 - The browser no longer says sign-in succeeded before the app does.
+- Every window uses the light, warm theme; MetaMate no longer switches to dark mode with Windows.
+- Mate's beam is warm light that fades toward the button and keeps the text beneath it readable.
+- The target ring glows in Mate's bright yellow, and the step number is larger.
+- Mate's right-click menu stays open instead of closing as soon as it appears.
+- Questions like "help me save money" no longer start a lesson or take a screenshot.
 
 ## Prepared before the kickoff (2026-10-24 .. the morning of 2026-10-26)
 

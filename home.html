@@ -3,9 +3,10 @@
      warm header card; under the greeting, how to talk to him, with a big keycap for the talk
      key; three "Try it" questions; what Mate never does; where the keepsake cards are saved.
      Sized for the 720x640 window: the greeting, the keycap and the questions show without
-     scrolling, the rest scrolls above a footer that keeps the start-up switch, Chat, Settings,
-     Close and Quit in view. Works from 360px wide. The shared look (palette, type, buttons,
-     focus rings, dark mode, contrast themes, reduced motion) is src/theme.css. -->
+     scrolling, the rest scrolls above a short footer that keeps the start-up switch, Write to
+     Mate, Settings and a quiet Quit in view (the window's own close button closes it). Works
+     from 360px wide. The shared look (palette, type, buttons, focus rings, dark mode, contrast
+     themes, reduced motion) is src/theme.css. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -175,14 +176,11 @@
         font-weight: 700;
       }
 
-      .home-talk-where {
+      /* Where the key is and the click alternative, on one short line. */
+      .home-talk-more {
         margin: 12px 0 0;
         font-size: var(--text-sm);
         color: var(--text-muted);
-      }
-
-      .home-talk-where + .home-talk-where {
-        margin-top: 2px;
       }
 
       .home-section-head {
@@ -370,26 +368,25 @@
         mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.5h8.4A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z'/%3E%3C/svg%3E") center / contain no-repeat;
       }
 
+      /* Three short tiers: the start-up switch, the two buttons, Quit. */
       .home-footer {
         flex: none;
         display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 8px 12px;
-        padding: 10px var(--pad-x) 14px;
+        flex-direction: column;
+        gap: 6px;
+        padding: 6px var(--pad-x) 4px;
         background: var(--surface);
         border-top: 1px solid var(--border);
         box-shadow: 0 -6px 18px rgb(31 42 68 / 0.05);
       }
 
-      /* The start-up switch on its own line; the whole line is its label. */
+      /* The start-up switch as a small line; the whole line is its label. */
       .home-start-option {
-        flex: 1 1 100%;
         min-width: 0;
         display: flex;
         align-items: center;
-        gap: 12px;
-        min-height: 44px;
+        gap: 10px;
+        min-height: 40px;
         font-size: var(--text-sm);
         line-height: 1.35;
         cursor: pointer;
@@ -407,8 +404,8 @@
         min-width: 0;
       }
 
+      /* Write to Mate and Settings side by side, sharing the row; stacked only when too narrow. */
       .home-actions {
-        flex: 1 1 100%;
         display: flex;
         flex-wrap: wrap;
         min-width: 0;
@@ -416,12 +413,34 @@
       }
 
       .home-actions .btn {
-        flex: 0 1 auto;
+        flex: 1 1 140px;
       }
 
-      /* Quit follows navigation in keyboard order, with space before it. */
-      #home-quit-btn {
-        margin-left: auto;
+      /* Quit: a quiet text button under the others, last in keyboard order, but still a plain
+         underlined word that is easy to find, at least 40px tall. */
+      .home-quit {
+        align-self: center;
+        min-height: 40px;
+        max-width: 100%;
+        padding: 6px 14px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--text-muted);
+        font: 600 var(--text-sm) / 1.25 var(--font);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+      }
+
+      .home-quit:hover:not(:disabled) {
+        background: var(--surface-hover);
+        color: var(--text);
+      }
+
+      .home-quit:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
       }
 
       /* A short window: a smaller Mate (M fits) and tighter gaps keep the questions in view. */
@@ -441,7 +460,7 @@
         }
       }
 
-      /* A narrow window: Mate above the greeting, the buttons share the rows. */
+      /* A narrow window: Mate above the greeting, tighter buttons keep sharing their row. */
       @media (max-width: 600px) {
         .home-hero {
           grid-template-columns: minmax(0, 1fr);
@@ -465,11 +484,7 @@
         }
 
         .home-actions .btn {
-          flex: 1 1 auto;
-        }
-
-        #home-quit-btn {
-          margin-left: 0;
+          padding-inline: 12px;
         }
       }
 

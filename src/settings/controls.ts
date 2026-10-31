@@ -12,10 +12,17 @@ export interface RadioSpec<V extends string> {
   readonly hintKey?: LocaleKey;
 }
 
+/**
+ * `cards`: each choice a whole card, its hint inside it. `segments`: short choices side by
+ * side on one row that wraps; a hint goes on one line under the row, shown for the chosen one.
+ */
+export type RadioLayout = "cards" | "segments";
+
 export interface RadioGroupRefs<V extends string> {
   readonly fieldset: HTMLFieldSetElement;
   readonly legend: HTMLLegendElement;
   readonly legendKey: LocaleKey;
+  readonly layout: RadioLayout;
   readonly items: ReadonlyArray<{
     readonly value: V;
     readonly wrapper: HTMLLabelElement;
@@ -32,10 +39,10 @@ export function buildRadioGroup<V extends string>(
   name: string,
   legendKey: LocaleKey,
   specs: readonly RadioSpec<V>[],
-  optionsClassName: string,
-  optionClassName: string,
+  layout: RadioLayout,
   onSelect: (value: V) => void,
 ): RadioGroupRefs<V> {
+  const segmented = layout === "segments";
   const fieldset = document.createElement("fieldset");
   fieldset.className = "settings-group";
 
@@ -44,12 +51,20 @@ export function buildRadioGroup<V extends string>(
   fieldset.append(legend);
 
   const list = document.createElement("div");
-  list.className = optionsClassName;
+  list.className = segmented ? "settings-segments" : "settings-options";
   fieldset.append(list);
+
+  // Under the row, so every segment stays one short name.
+  let hints: HTMLDivElement | undefined;
+  if (segmented && specs.some((spec) => spec.hintKey)) {
+    hints = document.createElement("div");
+    hints.className = "settings-segment-hints";
+    fieldset.append(hints);
+  }
 
   const items = specs.map((spec) => {
     const wrapper = document.createElement("label");
-    wrapper.className = optionClassName;
+    wrapper.className = segmented ? "settings-segment" : "settings-radio-option";
     wrapper.htmlFor = spec.id;
 
     const input = document.createElement("input");
@@ -70,12 +85,15 @@ export function buildRadioGroup<V extends string>(
       hintEl = document.createElement("span");
       hintEl.className = "option-hint";
       hintEl.id = `${spec.id}-hint`;
+      // A hidden hint still describes its radio: it is referenced directly.
       input.setAttribute("aria-describedby", hintEl.id);
-      textWrap.append(hintEl);
+      (hints ?? textWrap).append(hintEl);
     }
 
     input.addEventListener("change", () => {
       if (input.checked) {
+        // The mark and the hint follow the click at once, not after the save.
+        syncRadioSelection(group, spec.value);
         onSelect(spec.value);
       }
     });
@@ -95,10 +113,11 @@ export function buildRadioGroup<V extends string>(
     };
   });
 
-  return { fieldset, legend, legendKey, items };
+  const group: RadioGroupRefs<V> = { fieldset, legend, legendKey, layout, items };
+  return group;
 }
 
-/** Checks the `selected` radio and marks its whole option. */
+/** Checks the `selected` radio and marks its whole option; segments show only its hint. */
 export function syncRadioSelection<V extends string>(
   group: RadioGroupRefs<V>,
   selected: V,
@@ -107,6 +126,9 @@ export function syncRadioSelection<V extends string>(
     const checked = item.value === selected;
     item.input.checked = checked;
     item.wrapper.classList.toggle("is-selected", checked);
+    if (item.hintEl && group.layout === "segments") {
+      item.hintEl.hidden = !checked;
+    }
   }
 }
 

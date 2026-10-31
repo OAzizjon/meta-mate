@@ -123,22 +123,6 @@ export async function openSettingsWindow(invoke: HomeInvoke | null): Promise<boo
   }
 }
 
-/** Closes the Home window via the Tauri API, or `window.close()` outside Tauri. */
-export async function closeHome(): Promise<void> {
-  if (typeof window !== "undefined" && "__TAURI_INTERNALS__" in window) {
-    try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().close();
-      return;
-    } catch {
-      // Fall back to window.close()
-    }
-  }
-  if (typeof window !== "undefined" && typeof window.close === "function") {
-    window.close();
-  }
-}
-
 export interface HomeSettings {
   /** The current settings snapshot. */
   get(): Settings;
@@ -225,7 +209,6 @@ export interface MountHomeOptions {
   readonly subscribe?: SettingsSubscribe | null;
   /** Mounts Mate into the header (src/home-page.ts passes src/robot; tests pass none). */
   readonly mountMate?: ((container: HTMLElement) => HomeMate) | null;
-  readonly close?: () => void | Promise<void>;
 }
 
 export interface HomeController {
@@ -265,12 +248,12 @@ function section(id: string, className: string, title: string, intro?: string): 
 }
 
 /**
- * Mounts the Home page inside `container`: the content scrolls, the checkbox and the
- * Settings, Close and Quit buttons stay in view at the bottom (home.html).
+ * Mounts the Home page inside `container`: the content scrolls, the checkbox, the Write to
+ * Mate and Settings buttons and Quit stay in view at the bottom (home.html). The window's own
+ * close button closes it.
  */
 export function mountHome(container: HTMLElement, options: MountHomeOptions = {}): HomeController {
   const invoke = options.invoke ?? null;
-  const close = options.close ?? closeHome;
   const runner = createHomeTryRunner(invoke);
   let destroyed = false;
   let statusTimer: ReturnType<typeof setTimeout> | undefined;
@@ -304,9 +287,12 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
     el("li", "home-talk-step", keyedDefault("home.talk_release")),
   );
   talkRow.append(keycap, talkSteps);
-  const talkWhere = el("p", "home-talk-where", t("home.where_rightCtrl"));
-  const talkClick = el("p", "home-talk-where", t("home.talk_click"));
-  talk.append(talkTitle, talkRow, talkClick, talkWhere);
+  // One short line: where the key is, then the click alternative.
+  const talkWhere = el("span", "home-talk-where", t("home.where_rightCtrl"));
+  const talkClick = el("span", "home-talk-click", t("home.talk_click"));
+  const talkMore = el("p", "home-talk-more");
+  talkMore.append(talkWhere, " ", talkClick);
+  talk.append(talkTitle, talkRow, talkMore);
 
   heroText.append(title, intro, talk);
   hero.append(mateBox, heroText);
@@ -383,7 +369,8 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
 
   content.append(hero, trySection, neverSection, cardsSection);
 
-  // Footer: the checkbox, Settings and Close, kept in view.
+  // Footer, kept in view: the checkbox as a small line, Write to Mate and Settings side by
+  // side, Quit as a quiet text button under them.
   const footer = el("footer", "home-footer");
   const startOption = el("label", "home-start-option");
   startOption.htmlFor = "home-show-at-start";
@@ -414,13 +401,8 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
       }
     });
   });
-  const closeBtn = el("button", "btn btn-secondary", t("home.close"));
-  closeBtn.type = "button";
-  closeBtn.id = "home-close-btn";
-  closeBtn.addEventListener("click", () => {
-    void close();
-  });
-  const quitBtn = el("button", "btn btn-quiet", t("home.quit"));
+  actions.append(chatBtn, settingsBtn);
+  const quitBtn = el("button", "home-quit", t("home.quit"));
   quitBtn.type = "button";
   quitBtn.id = "home-quit-btn";
   quitBtn.disabled = !invoke;
@@ -429,8 +411,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
       console.error("[home] could not quit:", error);
     });
   });
-  actions.append(chatBtn, settingsBtn, closeBtn, quitBtn);
-  footer.append(startOption, actions);
+  footer.append(startOption, actions, quitBtn);
 
   container.replaceChildren(content, footer);
 
