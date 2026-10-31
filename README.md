@@ -56,7 +56,7 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 ## Privacy and safety
 
 - **Never steals focus:** Overlay windows use `WS_EX_NOACTIVATE` and `SWP_NOACTIVATE`, never taking focus away from the user's active application.
-- **Target window only:** Captures exclusively the foreground window and its owned popups, only during an active request. Background windows and occluded gaps are painted black.
+- **Target window only:** Captures exclusively the foreground window and its owned popups when a question needs the screen (where something is, how to do something, whether a window is safe, or a question about a button, a link or the screen). Background windows and occluded gaps are painted black.
 - **Automatic password redaction:** UI Automation identifies password fields (`IsPassword`, password-like labels, and reveal toggle siblings). They are painted solid black before transmission; if redaction cannot be guaranteed, Mate fails closed.
 - **Teacher, not an autonomous agent:** The human performs each action; Mate never clicks Pay, Delete, money transfer, or password buttons. Gated "Do it for me" assistance requires spoken voice confirmation and strictly enforces an action blocklist.
 - **Safe advice:** The scam check evaluates the active window and never advises clicking suspicious links, calling phone numbers, or sending payments.
