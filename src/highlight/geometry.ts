@@ -77,8 +77,8 @@ export const BEAM_HALF_WIDTH = 6;
 /** Maximum allowed `total` in a step badge (`1 <= number <= total <= 20`). */
 export const MAX_STEP_TOTAL = 20;
 /** Default step badge box for viewport clamping (CSS px). */
-export const BADGE_WIDTH = 48;
-export const BADGE_HEIGHT = 22;
+export const BADGE_WIDTH = 64;
+export const BADGE_HEIGHT = 30;
 /** Vertical gap between the step badge and the top of the ring (CSS px). */
 export const BADGE_GAP = 4;
 /** Minimum distance from the step badge to the viewport edges (CSS px). */

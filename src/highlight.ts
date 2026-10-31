@@ -167,15 +167,27 @@ export function mountHighlight(
   mask.append(svgEl("rect", { width: "100%", height: "100%", fill: "white" }));
   const hole = svgEl("rect", { fill: "black", rx: RING_RADIUS, filter: "url(#spotlight-soft)" });
   mask.append(hole);
-  defs.append(blur, mask);
+  // The beam is light, not paint: faint at Mate, brightest where it lands, soft at the edges.
+  const beamLight = svgEl("linearGradient", { id: "beam-light", gradientUnits: "userSpaceOnUse" });
+  beamLight.append(
+    svgEl("stop", { offset: 0, "stop-color": "#ffcd3c", "stop-opacity": 0.1 }),
+    svgEl("stop", { offset: 0.6, "stop-color": "#ffd75a", "stop-opacity": 0.3 }),
+    svgEl("stop", { offset: 1, "stop-color": "#ffe27d", "stop-opacity": 0.48 }),
+  );
+  const beamSoft = svgEl("filter", {
+    id: "beam-soft", x: "-20%", y: "-20%", width: "140%", height: "140%",
+  });
+  beamSoft.append(svgEl("feGaussianBlur", { stdDeviation: 2 }));
+  defs.append(blur, mask, beamLight, beamSoft);
   const dim = svgEl("rect", {
-    width: "100%", height: "100%", fill: "black", "fill-opacity": 0.35,
+    class: "highlight-dim",
+    width: "100%", height: "100%", fill: "#141a2c", "fill-opacity": 0.4,
     mask: "url(#spotlight-hole)", display: "none",
   });
   const beam = svgEl("polygon", {
     class: "highlight-beam",
-    fill: BEAM_COLOR,
-    "fill-opacity": 0.38,
+    fill: "url(#beam-light)",
+    filter: "url(#beam-soft)",
     display: "none",
   });
   const ringGroup = svgEl("g", { class: "highlight-ring" });
@@ -183,10 +195,9 @@ export function mountHighlight(
     class: "highlight-ring-glow",
     rx: RING_RADIUS,
     ry: RING_RADIUS,
-    fill: BEAM_COLOR,
-    "fill-opacity": 0.14,
-    stroke: "#ffe08a",
-    "stroke-width": 10,
+    fill: "none",
+    stroke: "#ffe58a",
+    "stroke-width": 12,
     "stroke-opacity": 0.45,
   });
   const ringStroke = svgEl("rect", {
@@ -194,8 +205,8 @@ export function mountHighlight(
     rx: RING_RADIUS,
     ry: RING_RADIUS,
     fill: "none",
-    stroke: "#ffd23f",
-    "stroke-width": 3,
+    stroke: "#ffcd3c",
+    "stroke-width": 4,
   });
   ringGroup.append(ringGlow, ringStroke);
   const missGroup = svgEl("g", { class: "highlight-miss" });
@@ -388,7 +399,16 @@ export function mountHighlight(
     const polygon = msg.beamFrom
       ? computeBeamPolygon(msg.beamFrom, msg.rect, BEAM_HALF_WIDTH)
       : null;
-    if (polygon) {
+    if (polygon && msg.beamFrom) {
+      // The gradient runs from Mate's flashlight to the middle of the target.
+      setAttr(beamLight, "x1", num(msg.beamFrom.x));
+      setAttr(beamLight, "y1", num(msg.beamFrom.y));
+      // A zero-length gradient has no direction: keep it at least a pixel long.
+      const centerX = (msg.rect.left + msg.rect.right) / 2;
+      const centerY = (msg.rect.top + msg.rect.bottom) / 2;
+      const short = Math.hypot(centerX - msg.beamFrom.x, centerY - msg.beamFrom.y) < 1;
+      setAttr(beamLight, "x2", num(short ? msg.beamFrom.x + 1 : centerX));
+      setAttr(beamLight, "y2", num(centerY));
       setAttr(beam, "points", formatPolygonPoints(polygon));
       setAttr(beam, "display", null);
     } else {

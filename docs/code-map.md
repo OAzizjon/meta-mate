@@ -10,7 +10,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### crates/mm-core
 
 - crates/mm-core/src/api/intent.rs — Intent routing as pure data, with an offline fallback.
-  Intent:6 intent_request:22 parse_intent:37 parse_yes_no:101 parse_yes_no_for_locale:106 asks_do_it:242 guess_intent:609
+  Intent:6 intent_request:22 parse_intent:37 parse_yes_no:101 parse_yes_no_for_locale:106 asks_do_it:242 guess_intent:589
   tests: crates/mm-core/tests/intent.rs (15)
 - crates/mm-core/src/api/mod.rs — The Meta Model API (Responses API) as pure data: building requests and reading responses, no networking here (the proxy client lives elsewhere).
   intent:4 request:6 response:7 sam:8 sse:9
@@ -622,10 +622,10 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_clear` src-tauri/src/chat.rs:299 <- src/chat.ts:160
 - `chat_send` src-tauri/src/chat.rs:269 <- src/chat.ts:145
 - `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:184
-- `guest_usage` src-tauri/src/signin.rs:176 <- src/mate.ts:370, src/signin.ts:99
+- `guest_usage` src-tauri/src/signin.rs:176 <- src/mate.ts:375, src/signin.ts:99
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:25
-- `load_settings` src-tauri/src/settings.rs:255 <- src/highlight.ts:494, src/home.ts:174, src/i18n/settings.ts:20, src/settings/model.ts:243
+- `load_settings` src-tauri/src/settings.rs:255 <- src/highlight.ts:514, src/home.ts:174, src/i18n/settings.ts:20, src/settings/model.ts:243
 - `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:289
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_chat` src-tauri/src/chat.rs:236 <- src/home.ts:405, src/mate-menu.ts:5
@@ -662,19 +662,19 @@ File names declared as Rust string constants (read or written by the app).
 
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
-- `auth-changed`: rs emit src-tauri/src/auth.rs:235,307; ts listen src/mate.ts:366, src/settings.ts:154, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
+- `auth-changed`: rs emit src-tauri/src/auth.rs:235,307; ts listen src/mate.ts:371, src/settings.ts:154, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:416; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
-- `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:386; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:140; ts listen src/mate.ts:365, src/signin.ts:101; const src-tauri/src/signin.rs:17
-- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:447; ts listen src/highlight.ts:503, src/mate.ts:343; const src-tauri/src/highlight.rs:15
-- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:375
+- `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:391; const src-tauri/src/explain.rs:39
+- `guest-usage`: rs emit src-tauri/src/signin.rs:140; ts listen src/mate.ts:370, src/signin.ts:101; const src-tauri/src/signin.rs:17
+- `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:447; ts listen src/highlight.ts:523, src/mate.ts:348; const src-tauri/src/highlight.rs:15
+- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:380
 - `lesson-card`: rs emit src-tauri/src/card.rs:466; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
 - `lesson-interrupt`: rs emit src-tauri/src/voice.rs:531; ts listen src/mate.ts:214; const src/mate.ts:34
-- `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:349
-- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:348
-- `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:350
-- `settings-changed`: rs emit src-tauri/src/settings.rs:283,314; ts listen src/highlight.ts:499, src/home-page.ts:19, src/i18n/settings.ts:16, src/mate.ts:52, src/settings.ts:142; const src-tauri/src/settings.rs:24, src/settings/model.ts:27
+- `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:354
+- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:353
+- `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:355
+- `settings-changed`: rs emit src-tauri/src/settings.rs:283,314; ts listen src/highlight.ts:519, src/home-page.ts:19, src/i18n/settings.ts:16, src/mate.ts:52, src/settings.ts:142; const src-tauri/src/settings.rs:24, src/settings/model.ts:27
 
 ### Proxy routes
 

@@ -293,6 +293,7 @@ if (container) {
   const motionQuery =
     typeof window.matchMedia === "function" ? window.matchMedia(REDUCED_MOTION_QUERY) : null;
   let refreshTrial = (): void => {};
+  let shownLanguage: string | null = null;
   const settings = startMateSettings(
     {
       roots: [document.documentElement, container],
@@ -307,11 +308,15 @@ if (container) {
       invoke: inTauri ? tauriInvoke : null,
       subscribe: inTauri ? tauriSubscribe : null,
       onChange: (updated) => {
+        // Reapplying on every resize, the menu's own included, must not close the menu it
+        // just opened (it opened and closed at once); only a new language rebuilds its labels.
+        const languageChanged = updated.language !== shownLanguage;
+        shownLanguage = updated.language;
         setLocale(updated.language);
         document.documentElement.lang = getLocale();
         setOnboardingPttKey(updated.pttKey);
         refreshTrial();
-        menu?.close();
+        if (languageChanged) menu?.close();
       },
     },
   );

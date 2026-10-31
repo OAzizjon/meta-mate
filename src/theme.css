@@ -1,11 +1,12 @@
 /* The look shared by the normal windows (home.html, settings.html, chat.html, signin.html):
    Mate's palette (docs/robot.md: warm glass, navy ink, bulb yellow), the type scale, buttons,
    switches, the bulb badge and focus rings. Each page keeps only its own layout in its <style>.
-   Not for the transparent overlays (src/styles.css). Local fonts only. Supports dark mode,
+   Not for the transparent overlays (src/styles.css). Local fonts only. Light and warm
+   whatever the Windows theme (owner, 2026-10-31; the dark palette waits behind data-theme="dark"),
    Windows contrast themes and reduced motion. */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   --bg: #fcf9f1;
   --surface: #ffffff;
   --surface-soft: #faf6ea;
@@ -53,37 +54,36 @@
   --text-2xl: clamp(24px, 2vw + 16px, 30px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14161d;
-    --surface: #1d212c;
-    --surface-soft: #232836;
-    --surface-hover: #2b3142;
-    --border: #2e3445;
-    --border-soft: #3c4357;
-    --border-strong: #8790a6;
-    --text: #f4f1e8;
-    --text-muted: #c3c8d4;
-    --accent: #ffd23f;
-    --accent-hover: #ffdc66;
-    --accent-soft: #3a321a;
-    --accent-soft-hover: #4a4020;
-    --accent-soft-border: #6b5b24;
-    --accent-line: #ffd23f;
-    --control: #ffd23f;
-    --focus: #ffd23f;
-    --glow: rgb(255 210 63 / 0.24);
-    --hero-bg: radial-gradient(130% 150% at 0% 0%, #3a3217 0%, #262734 50%, #1d212c 100%);
-    --hero-border: #4d4322;
-    --success-bg: #173d27;
-    --success-text: #b7f0c8;
-    --error: #ffa59a;
-    --error-soft: #3b2023;
-    --scrollbar: #4a5168;
-    --selection: #6b5a1f;
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.28);
-  }
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14161d;
+  --surface: #1d212c;
+  --surface-soft: #232836;
+  --surface-hover: #2b3142;
+  --border: #2e3445;
+  --border-soft: #3c4357;
+  --border-strong: #8790a6;
+  --text: #f4f1e8;
+  --text-muted: #c3c8d4;
+  --accent: #ffd23f;
+  --accent-hover: #ffdc66;
+  --accent-soft: #3a321a;
+  --accent-soft-hover: #4a4020;
+  --accent-soft-border: #6b5b24;
+  --accent-line: #ffd23f;
+  --control: #ffd23f;
+  --focus: #ffd23f;
+  --glow: rgb(255 210 63 / 0.24);
+  --hero-bg: radial-gradient(130% 150% at 0% 0%, #3a3217 0%, #262734 50%, #1d212c 100%);
+  --hero-border: #4d4322;
+  --success-bg: #173d27;
+  --success-text: #b7f0c8;
+  --error: #ffa59a;
+  --error-soft: #3b2023;
+  --scrollbar: #4a5168;
+  --selection: #6b5a1f;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.28);
 }
 
 *,

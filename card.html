@@ -13,7 +13,7 @@
     <title></title>
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: light;
         --bg: #fffdf7;
         --panel-bg: #ffffff;
         --panel-border: #d0d8e5;
@@ -37,29 +37,28 @@
         --radius: 16px;
       }
 
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #131722;
-          --panel-bg: #1c2230;
-          --panel-border: #2e384d;
-          --text: #f1f5f9;
-          --text-muted: #cbd5e1;
-          --accent: #ffd23f;
-          --accent-soft: #252f42;
-          --accent-hover: #facc15;
-          --accent-contrast: #131722;
-          --badge-bg: #422006;
-          --badge-text: #fef08a;
-          --step-bg: #22293a;
-          --step-border: #3b4760;
-          --step-num-bg: #ffd23f;
-          --step-num-text: #131722;
-          --btn-secondary-bg: #22293a;
-          --btn-secondary-border: #3b4760;
-          --btn-secondary-text: #f1f5f9;
-          --btn-secondary-hover: #2d374d;
-          --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
-        }
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #131722;
+        --panel-bg: #1c2230;
+        --panel-border: #2e384d;
+        --text: #f1f5f9;
+        --text-muted: #cbd5e1;
+        --accent: #ffd23f;
+        --accent-soft: #252f42;
+        --accent-hover: #facc15;
+        --accent-contrast: #131722;
+        --badge-bg: #422006;
+        --badge-text: #fef08a;
+        --step-bg: #22293a;
+        --step-border: #3b4760;
+        --step-num-bg: #ffd23f;
+        --step-num-text: #131722;
+        --btn-secondary-bg: #22293a;
+        --btn-secondary-border: #3b4760;
+        --btn-secondary-text: #f1f5f9;
+        --btn-secondary-hover: #2d374d;
+        --shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
       }
 
       *,

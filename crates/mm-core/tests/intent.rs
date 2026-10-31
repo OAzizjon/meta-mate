@@ -581,7 +581,6 @@ fn questions_about_the_screen_look_at_it_and_requests_for_help_are_lessons() {
         "Посмотри на экран",
         "Что это?",
         "Что означает эта кнопка?",
-        "Что на дисплее?",
         "What's on my screen?",
         "What should I click here?",
         "What is this?",
@@ -626,6 +625,13 @@ fn questions_about_the_screen_look_at_it_and_requests_for_help_are_lessons() {
         "I'm sitting here reading a book",
         "Tell me a joke about a button",
         "Расскажи анекдот про кнопку",
+        "Help me save money for my trip",
+        "Help me change my diet",
+        "Помоги мне найти силы",
+        "Is there a link between coffee and blood pressure?",
+        "My doctor wants me to wear a heart monitor",
+        "What did the press say about the election?",
+        "Расскажи анекдоты про кнопки",
     ] {
         assert_eq!(guess_intent(text), Intent::Chat, "{text}");
     }

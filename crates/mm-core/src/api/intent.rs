@@ -462,10 +462,6 @@ fn screen_word(word: &str) -> bool {
         "экран"
             | "экране"
             | "экрана"
-            | "монитор"
-            | "мониторе"
-            | "дисплей"
-            | "дисплее"
             | "окне"
             | "вкладка"
             | "вкладке"
@@ -482,86 +478,70 @@ fn screen_word(word: &str) -> bool {
             | "нажимать"
             | "кликнуть"
             | "screen"
-            | "monitor"
-            | "display"
-            | "tab"
             | "popup"
-            | "link"
             | "button"
             | "click"
-            | "press"
     )
 }
 
-/// A thing done on the computer: "помоги отправить", "help me print".
-fn computer_task(word: &str) -> bool {
+/// A thing on the computer: "помоги с почтой", "help me print this document".
+fn computer_thing(word: &str) -> bool {
     matches!(
         word,
-        "отправить"
-            | "открыть"
-            | "найти"
-            | "установить"
-            | "удалить"
-            | "сохранить"
-            | "распечатать"
-            | "напечатать"
-            | "настроить"
-            | "включить"
-            | "выключить"
-            | "подключить"
-            | "скачать"
-            | "загрузить"
-            | "войти"
-            | "зайти"
-            | "скопировать"
-            | "вставить"
-            | "увеличить"
-            | "уменьшить"
-            | "нажать"
-            | "send"
-            | "open"
-            | "find"
-            | "install"
-            | "delete"
-            | "remove"
-            | "save"
-            | "print"
-            | "set"
-            | "turn"
-            | "connect"
-            | "download"
-            | "upload"
-            | "sign"
-            | "log"
-            | "copy"
-            | "paste"
-            | "change"
-            | "click"
-            // What the task is about: "помоги с почтой", "help me with my email".
-            | "email"
+        "email"
+            | "emails"
             | "mail"
-            | "computer"
+            | "file"
+            | "files"
+            | "document"
+            | "folder"
             | "printer"
+            | "computer"
+            | "laptop"
+            | "screen"
+            | "app"
+            | "program"
+            | "browser"
+            | "website"
             | "internet"
             | "wifi"
+            | "settings"
             | "telegram"
             | "whatsapp"
+            | "zoom"
             | "почта"
             | "почту"
             | "почтой"
             | "почте"
             | "письмо"
             | "письмом"
-            | "компьютер"
-            | "компьютером"
+            | "файл"
+            | "файлы"
+            | "файлом"
+            | "документ"
+            | "папку"
+            | "папка"
             | "принтер"
             | "принтером"
+            | "компьютер"
+            | "компьютере"
+            | "компьютером"
+            | "ноутбук"
+            | "ноутбуке"
+            | "экран"
+            | "экране"
+            | "приложение"
+            | "программу"
+            | "программа"
+            | "браузер"
+            | "сайт"
             | "интернет"
             | "интернетом"
+            | "вайфай"
+            | "настройки"
             | "телеграм"
             | "телеграмом"
             | "ватсап"
-            | "вайфай"
     )
 }
 
@@ -656,19 +636,14 @@ pub fn guess_intent(question: &str) -> Intent {
         .iter()
         .any(|word| matches!(*word, "where" | "find" | "где" | "найди" | "покажи"))
         || has_phrase(&words, &["show", "me"]);
-    // "Помоги мне отправить письмо", "help me send this email": a computer task to walk
-    // through. "Помоги придумать тост", "help me write a card" stay conversation.
-    let help = words.iter().enumerate().any(|(index, word)| {
-        let after = match *word {
-            "помоги" | "помогите" => index + 1,
-            "help" if words.get(index + 1) == Some(&"me") => index + 2,
-            _ => return false,
-        };
-        words[after.min(words.len())..]
-            .iter()
-            .take(3)
-            .any(|word| computer_task(word))
-    });
+    // "Помоги мне отправить письмо", "help me send this email": a task on the computer to
+    // walk through, so it names a computer thing. "Help me save money", "помоги мне найти
+    // силы", "help me write a card" stay conversation.
+    let help = (words
+        .iter()
+        .any(|word| matches!(*word, "помоги" | "помогите"))
+        || has_phrase(&words, &["help", "me"]))
+        && words.iter().any(|word| computer_thing(word));
     let how_cue = help
         || has_phrase(&words, &["how", "do", "i"])
         || has_phrase(&words, &["how", "to"])
@@ -735,7 +710,24 @@ pub fn guess_intent(question: &str) -> Intent {
     let story = words.iter().any(|word| {
         matches!(
             *word,
-            "joke" | "story" | "poem" | "анекдот" | "историю" | "сказку" | "стих" | "стихи"
+            "joke"
+                | "jokes"
+                | "story"
+                | "stories"
+                | "poem"
+                | "poems"
+                | "анекдот"
+                | "анекдоты"
+                | "анекдота"
+                | "история"
+                | "историю"
+                | "истории"
+                | "сказка"
+                | "сказку"
+                | "сказки"
+                | "стих"
+                | "стихи"
+                | "стишок"
         )
     });
     if bare_this

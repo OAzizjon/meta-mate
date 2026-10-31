@@ -20,11 +20,9 @@
         --keycap-text: #1f2a44;
       }
 
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --keycap-bg: linear-gradient(#fbf9f3, #e4dece);
-          --keycap-border: #8790a6;
-        }
+      :root[data-theme="dark"] {
+        --keycap-bg: linear-gradient(#fbf9f3, #e4dece);
+        --keycap-border: #8790a6;
       }
 
       html,
