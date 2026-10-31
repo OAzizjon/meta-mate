@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>Security Center - Transaction Verification | Northbank Trust</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        background-color: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 8px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .nav-btn {
+        color: #64748b;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .url-input {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 5px 14px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .lock-icon {
+        color: #16a34a;
+        font-size: 13px;
+      }
+      .url-string {
+        font-family: Consolas, "Courier New", monospace;
+        color: #475569;
+      }
+      .url-domain {
+        color: #0f172a;
+        font-weight: 700;
+      }
+      .top-navbar {
+        height: 60px;
+        background-color: #0f766e;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 36px;
+        flex-shrink: 0;
+      }
+      .brand-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .user-box {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 13px;
+        color: #ccfbf1;
+      }
+      .signout-btn {
+        color: #ffffff;
+        text-decoration: none;
+        border: 1px solid #14b8a6;
+        padding: 5px 12px;
+        border-radius: 4px;
+      }
+      .app-layout {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .nav-drawer {
+        width: 220px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        padding: 20px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex-shrink: 0;
+      }
+      .drawer-item {
+        padding: 10px 14px;
+        font-size: 13px;
+        border-radius: 6px;
+        color: #334155;
+      }
+      .drawer-item.active {
+        background-color: #f0fdfa;
+        color: #0f766e;
+        font-weight: 700;
+      }
+      .main-canvas {
+        flex: 1;
+        overflow-y: auto;
+        padding: 32px 48px;
+        display: flex;
+        justify-content: center;
+      }
+      .fraud-card {
+        width: 100%;
+        max-width: 740px;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 32px 36px;
+      }
+      .card-header-alert {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 20px;
+      }
+      .shield-bubble {
+        width: 44px;
+        height: 44px;
+        background-color: #ccfbf1;
+        color: #0f766e;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        font-weight: 800;
+        flex-shrink: 0;
+      }
+      .alert-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .alert-sub {
+        font-size: 13px;
+        color: #64748b;
+      }
+      .prompt-text {
+        font-size: 14px;
+        color: #334155;
+        line-height: 1.6;
+        margin-bottom: 20px;
+      }
+      .txn-box {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 18px 24px;
+        margin-bottom: 24px;
+      }
+      .txn-grid {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        row-gap: 8px;
+        font-size: 13px;
+      }
+      .txn-label {
+        color: #64748b;
+      }
+      .txn-val {
+        color: #0f172a;
+        font-weight: 600;
+      }
+      .actions-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .confirm-btn {
+        background-color: #0f766e;
+        color: #ffffff;
+        border: none;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: center;
+      }
+      .deny-btn {
+        background-color: #ffffff;
+        color: #b91c1c;
+        border: 1px solid #f87171;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: center;
+      }
+      .security-pledge {
+        background-color: #f0fdfa;
+        border: 1px solid #99f6e4;
+        border-radius: 6px;
+        padding: 14px 18px;
+        font-size: 12px;
+        color: #115e59;
+        line-height: 1.5;
+        margin-bottom: 20px;
+      }
+      .footer-legal {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 14px;
+        font-size: 11px;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="nav-btn">&larr; &rarr; &#x21bb;</div>
+      <div class="url-input">
+        <span class="lock-icon">&#128274;</span>
+        <span class="url-string">https://<span class="url-domain">online.northbank.example</span>/account/security/fraud-check?case=FR-29401</span>
+      </div>
+    </div>
+    <div class="top-navbar">
+      <div class="brand-box">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4 10v7h3v-7H4zm6 0v7h3v-7h-3zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm10-20L2 6v2h19V6l-9-4z"/>
+        </svg>
+        Northbank Trust Online
+      </div>
+      <div class="user-box">
+        <span>Logged in: Robert Miller</span>
+        <span>Last sign-in: Today, 1:15 PM</span>
+        <a href="#logout" class="signout-btn">Sign Out</a>
+      </div>
+    </div>
+    <div class="app-layout">
+      <div class="nav-drawer">
+        <div class="drawer-item">Dashboard</div>
+        <div class="drawer-item">Checking (..4819)</div>
+        <div class="drawer-item">Savings (..9201)</div>
+        <div class="drawer-item active">Security Center (1)</div>
+        <div class="drawer-item">Statements & Tax</div>
+        <div class="drawer-item">Settings</div>
+      </div>
+      <div class="main-canvas">
+        <div class="fraud-card">
+          <div class="card-header-alert">
+            <div class="shield-bubble">&check;</div>
+            <div>
+              <h1 class="alert-title">Security Alert: Verify Recent Transaction</h1>
+              <div class="alert-sub">Case Reference #FR-29401 &bull; Automated Fraud Monitoring System</div>
+            </div>
+          </div>
+          <p class="prompt-text">
+            Our 24/7 security monitoring detected an in-person point-of-sale debit transaction that deviates from your regular spending location. Please let us know if you or an authorized user initiated this transaction.
+          </p>
+          <div class="txn-box">
+            <div class="txn-grid">
+              <span class="txn-label">Merchant:</span>
+              <span class="txn-val">Shell Oil #4182 &bull; Chicago, IL</span>
+              <span class="txn-label">Amount:</span>
+              <span class="txn-val" style="font-size: 15px; color: #0f172a;">$54.20</span>
+              <span class="txn-label">Date &amp; Time:</span>
+              <span class="txn-val">October 31, 2026 at 12:48 PM</span>
+              <span class="txn-label">Card Used:</span>
+              <span class="txn-val">Northbank Debit ending in 4819</span>
+            </div>
+          </div>
+          <div class="actions-container">
+            <button class="confirm-btn" type="button">Yes, I Authorized This Charge</button>
+            <button class="deny-btn" type="button">No, Not My Charge &ndash; Lock Card</button>
+          </div>
+          <div class="security-pledge">
+            <strong>Northbank Trust Security Policy:</strong> We will never ask you for your account password, ATM PIN, full 16-digit card number, or one-time SMS verification codes by phone, text, or email.<br />
+            If you select "No", your card will be paused instantly to prevent unauthorized use, and our fraud investigations team will assist you with a replacement card. You can also call us directly at the customer number printed on the back of your debit card.
+          </div>
+          <div class="footer-legal">
+            Northbank Trust NA. Member FDIC. Equal Housing Lender. &copy; 2026 Northbank Trust.<br />
+            Official secure portal: https://northbank.example &bull; Fraud Operations: 1-800-555-0120
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Единый Портал Гражданских Компенсаций — Перерасчёт трудового стажа</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .browser-tag {
+        font-size: 12px;
+        background: #ffffff;
+        color: #047857;
+        font-weight: 700;
+        border: 1px solid #a7f3d0;
+        padding: 3px 8px;
+        border-radius: 4px;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: Consolas, monospace;
+        color: #1e293b;
+      }
+      .portal-header {
+        height: 60px;
+        background: #ffffff;
+        border-bottom: 3px solid #0284c7;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 36px;
+        flex-shrink: 0;
+      }
+      .portal-logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .portal-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .portal-titles {
+        display: flex;
+        flex-direction: column;
+      }
+      .portal-name {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0c4a6e;
+      }
+      .portal-sub {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .header-contacts {
+        font-size: 13px;
+        color: #475569;
+      }
+      .main-grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1.3fr 0.9fr;
+        gap: 24px;
+        padding: 24px 36px;
+        align-items: start;
+        overflow: hidden;
+      }
+      .notice-panel {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .doc-badge {
+        align-self: flex-start;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 6px;
+      }
+      .doc-h1 {
+        font-size: 21px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.3;
+      }
+      .payout-card {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-left: 5px solid #0284c7;
+        border-radius: 8px;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .payout-sum {
+        font-size: 30px;
+        font-weight: 900;
+        color: #0369a1;
+      }
+      .doc-text {
+        font-size: 14px;
+        line-height: 1.6;
+        color: #334155;
+      }
+      .urgent-box {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 8px;
+        padding: 14px 16px;
+        font-size: 13px;
+        color: #9a3412;
+        line-height: 1.5;
+      }
+      .action-panel {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .action-h2 {
+        font-size: 17px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .action-hint {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.5;
+      }
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .form-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
+      }
+      .form-input {
+        padding: 9px 12px;
+        border: 1px solid #94a3b8;
+        border-radius: 6px;
+        font-size: 14px;
+        outline: none;
+      }
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .btn-submit {
+        background: #0284c7;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 700;
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        margin-top: 6px;
+      }
+      .guarantee-note {
+        font-size: 11px;
+        color: #64748b;
+        text-align: center;
+        line-height: 1.4;
+      }
+      .footer-bar {
+        height: 32px;
+        background: #e2e8f0;
+        border-top: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <span class="browser-tag">Безопасно</span>
+      <div class="browser-url">https://gos-kompensacii.reestr-online.example/pension/order-79402/payout</div>
+    </div>
+
+    <header class="portal-header">
+      <div class="portal-logo">
+        <div class="portal-icon">ГК</div>
+        <div class="portal-titles">
+          <div class="portal-name">Единый Портал Гражданских Компенсаций</div>
+          <div class="portal-sub">Межведомственный электронный реестр (официальный ресурс: gos-kompensacii.example)</div>
+        </div>
+      </div>
+      <div class="header-contacts">Горячая линия поддержки: 8 (800) 555-01-38</div>
+    </header>
+
+    <main class="main-grid">
+      <section class="notice-panel">
+        <span class="doc-badge">Электронное постановление № ПК-9041/26</span>
+        <h1 class="doc-h1">Утверждена единовременная выплата перерасчёта пенсионного стажа (1998–2018 гг.)</h1>
+
+        <div class="payout-card">
+          <div>
+            <div style="font-size: 13px; color: #475569;">Сумма начисленной доплаты:</div>
+            <div style="font-size: 12px; color: #64748b;">Федеральная надбавка за непрерывный стаж</div>
+          </div>
+          <div class="payout-sum">47 200,00 ₽</div>
+        </div>
+
+        <p class="doc-text">
+          В соответствии с ревизией лицевых счетов граждан старшего поколения произведён автоматический перерасчёт пенсионных баллов за советский и постсоветский трудовой стаж. Начисление одобрено в полном объёме.
+        </p>
+
+        <div class="urgent-box">
+          <strong>Внимание: регламентный срок выплаты истекает через 48 часов.</strong>
+          Для зачисления средств на ваш платёжный счёт необходимо пройти процедуру моментальной верификации карты получателя.
+        </div>
+      </section>
+
+      <section class="action-panel">
+        <h2 class="action-h2">Подтверждение счёта зачисления</h2>
+        <p class="action-hint">
+          Для активации выплаты 47 200 ₽ укажите реквизиты карты любого российского банка. С карты списывается проверочный платёж 240,00 ₽ (возвращается мгновенно вместе с суммой компенсации).
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Номер банковской карты</label>
+          <input class="form-input" type="text" placeholder="2200 •••• •••• ••••" value="2202 2038 9104 5519" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Срок действия (ММ/ГГ)</label>
+            <input class="form-input" type="text" placeholder="11/28" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Код безопасности (CVV/CVC)</label>
+            <input class="form-input" type="password" placeholder="•••" maxlength="3" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">ФИО владельца карты (как на карте)</label>
+          <input class="form-input" type="text" placeholder="ИВАНОВ ИВАН ИВАНОВИЧ" />
+        </div>
+
+        <button class="btn-submit">Подтвердить верификацию и получить 47 200 ₽</button>
+        <div class="guarantee-note">Шлюз защищён сквозным ГОСТ-шифрованием. Данные передаются в реестр выплат.</div>
+      </section>
+    </main>
+
+    <footer class="footer-bar">
+      2026 © Единый Портал Гражданских Компенсаций РФ. Все права защищены.
+    </footer>
+  </body>
+</html>

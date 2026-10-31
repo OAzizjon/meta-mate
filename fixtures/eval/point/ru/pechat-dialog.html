@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Печать</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html, body { margin:0; width:1280px; height:800px; overflow:hidden }
+body{font:12px Tahoma,"Segoe UI",Arial,sans-serif;color:#000;background:#c9ced6}
+body>*{position:absolute}
+svg{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.c{display:flex;align-items:center;justify-content:center}
+.wc{width:46px;height:30px;color:#222}
+.wc svg{stroke-width:1}
+.dlg{background:#f0f0f0;border:1px solid #6d7a8c;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.tt{background:linear-gradient(#dbe6f4,#c6d6ec)}
+.tbtn{border:1px solid #8a98ab;border-radius:3px;background:#e9eef5}
+.fr{border:1px solid #b5b5b5;border-radius:3px}
+.lg{background:#f0f0f0;padding:0 4px}
+.cb{display:flex;align-items:center;justify-content:space-between;padding:0 4px;border:1px solid #7a7a7a;background:#fff;white-space:nowrap}
+.btn{border:1px solid #707070;border-radius:3px;background:linear-gradient(#f6f6f6,#dedede)}
+.def{border-color:#3c7fb1;box-shadow:inset 0 0 0 1px #9bc4e6}
+.rd{display:flex;align-items:center;gap:6px}
+.rd i{width:13px;height:13px;border-radius:50%;border:1px solid #5a5a5a;background:#fff}
+.rd .on{box-shadow:inset 0 0 0 3px #fff,inset 0 0 0 7px #1f5fa8}
+.ck{display:flex;align-items:center;gap:6px}
+.ck i{width:13px;height:13px;border:1px solid #5a5a5a;background:#fff}
+.ck .on{background:#fff;box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 7px #1f5fa8}
+.ed{display:flex;align-items:center;padding:0 4px;border:1px solid #7a7a7a;background:#fff}
+.sp{border:1px solid #7a7a7a;background:#e9e9e9;font-size:7px}
+.g{color:#444}
+</style>
+</head>
+<body>
+<div style="left:0;top:0;width:1280px;height:30px;background:#dfe6ee"></div>
+<div style="left:34px;top:7px">Список лекарств.pdoc — Перо</div>
+<div class="c wc" style="left:1142px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10"/></svg></div>
+<div class="c wc" style="left:1188px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9"/></svg></div>
+<div class="c wc" style="left:1234px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10"/></svg></div>
+<div style="left:0;top:30px;width:1280px;height:88px;background:#f3f4f6;border-bottom:1px solid #b9bfc8"></div>
+<div style="left:10px;top:35px;font-size:13px;word-spacing:18px">Файл Правка Вид Вставка Формат Справка</div>
+<div style="left:300px;top:154px;width:680px;height:646px;background:#fff"></div>
+<div style="left:376px;top:224px;font:15px/1.8 'Times New Roman',serif;color:#444">Утро: давление — 1 таблетка до еды<br>Обед: витамины<br>Вечер: капли для глаз</div>
+
+<div class="dlg" style="left:300px;top:110px;width:680px;height:560px"></div>
+<div class="tt" style="left:301px;top:111px;width:678px;height:29px"></div>
+<svg style="left:310px;top:117px;color:#2c4a75" width="16" height="16" viewBox="0 0 24 24"><path d="M7 9V3h10v6M7 18H4v-7a2 2 0 012-2h12a2 2 0 012 2v7h-3"/><rect x="7" y="14" width="10" height="7"/></svg>
+<div style="left:332px;top:118px">Печать</div>
+<div id="e1" class="c tbtn" style="position:absolute; left:946px; top:112px; width:30px; height:26px"><svg width="9" height="9" viewBox="0 0 10 10"><path stroke-width="1.5" d="M0 0l10 10M10 0L0 10"/></svg></div>
+
+<div class="fr" style="left:316px;top:152px;width:648px;height:110px"></div>
+<div class="lg" style="left:326px;top:145px">Принтер</div>
+<div style="left:332px;top:176px">Имя:</div>
+<div id="e2" class="cb" style="position:absolute; left:380px; top:170px; width:420px; height:26px"><span><svg width="14" height="14" viewBox="0 0 24 24" style="vertical-align:-3px;margin-right:6px"><path d="M7 9V3h10v6M7 18H4v-7a2 2 0 012-2h12a2 2 0 012 2v7h-3"/><rect x="7" y="14" width="10" height="7"/></svg>Домашний принтер ПЕ-210</span><svg width="9" height="9" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+<div id="e3" class="c btn" style="position:absolute; left:812px; top:170px; width:136px; height:26px">Свойства</div>
+<div class="g" style="left:332px;top:208px">Состояние: &nbsp;Готов</div>
+<div class="g" style="left:332px;top:226px">Тип: &nbsp;ПЕ-210, струйный</div>
+<div class="g" style="left:332px;top:244px">Место: &nbsp;Гостиная</div>
+
+<div class="fr" style="left:316px;top:274px;width:320px;height:170px"></div>
+<div class="lg" style="left:326px;top:267px">Страницы</div>
+<div id="e4" class="rd" style="position:absolute; left:332px; top:296px; width:200px; height:20px"><i class="on"></i>Все</div>
+<div id="e5" class="rd" style="position:absolute; left:332px; top:322px; width:200px; height:20px"><i></i>Текущая страница</div>
+<div id="e6" class="rd" style="position:absolute; left:332px; top:348px; width:90px; height:20px"><i></i>Номера:</div>
+<div id="e7" class="ed" style="position:absolute; left:424px; top:346px; width:196px; height:24px"></div>
+<div class="g" style="left:332px;top:382px;width:290px;font-size:11px;line-height:1.4">Введите номера и диапазоны страниц через запятую, например: 1, 3, 5-12</div>
+
+<div class="fr" style="left:648px;top:274px;width:316px;height:170px"></div>
+<div class="lg" style="left:658px;top:267px">Копии</div>
+<div style="left:664px;top:298px">Число копий:</div>
+<div id="e8" class="ed" style="position:absolute; left:780px; top:294px; width:60px; height:24px">1</div>
+<div id="e9" class="c sp" style="position:absolute; left:840px; top:294px; width:18px; height:12px">&#9650;</div>
+<div id="e10" class="c sp" style="position:absolute; left:840px; top:306px; width:18px; height:12px">&#9660;</div>
+<div id="e11" class="ck" style="position:absolute; left:664px; top:330px; width:180px; height:20px"><i class="on"></i>Разобрать по копиям</div>
+<div style="left:700px;top:362px;width:22px;height:28px;background:#fff;border:1px solid #888;font-size:9px;padding:2px">1</div>
+<div style="left:706px;top:356px;width:22px;height:28px;background:#fff;border:1px solid #888;font-size:9px;padding:2px">2</div>
+<div style="left:712px;top:350px;width:22px;height:28px;background:#fff;border:1px solid #888;font-size:9px;padding:2px">3</div>
+<div style="left:760px;top:362px;width:22px;height:28px;background:#fff;border:1px solid #888;font-size:9px;padding:2px">1</div>
+<div style="left:766px;top:356px;width:22px;height:28px;background:#fff;border:1px solid #888;font-size:9px;padding:2px">2</div>
+<div style="left:772px;top:350px;width:22px;height:28px;background:#fff;border:1px solid #888;font-size:9px;padding:2px">3</div>
+
+<div class="fr" style="left:316px;top:456px;width:648px;height:62px"></div>
+<div class="lg" style="left:326px;top:449px">Параметры</div>
+<div id="e12" class="ck" style="position:absolute; left:332px; top:470px; width:200px; height:20px"><i></i>Чёрно-белая печать</div>
+<div id="e13" class="ck" style="position:absolute; left:332px; top:496px; width:200px; height:20px"><i></i>Двусторонняя печать</div>
+
+<div id="e14" class="c btn" style="position:absolute; left:316px; top:620px; width:200px; height:30px">Предварительный просмотр</div>
+<div id="e15" class="c btn def" style="position:absolute; left:740px; top:620px; width:110px; height:30px">Печать</div>
+<div id="e16" class="c btn" style="position:absolute; left:858px; top:620px; width:106px; height:30px">Отмена</div>
+</body>
+</html>

@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>Customer Notice: Scheduled Electrical Maintenance - CityLight &amp; Water</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .browser-bar {
+        background-color: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        padding: 8px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .nav-controls {
+        color: #64748b;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .address-field {
+        flex: 1;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 5px 14px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .ssl-badge {
+        color: #16a34a;
+        font-size: 13px;
+      }
+      .uri-text {
+        font-family: Consolas, "Courier New", monospace;
+        color: #475569;
+      }
+      .uri-host {
+        color: #0f172a;
+        font-weight: 700;
+      }
+      .utility-navbar {
+        height: 60px;
+        background-color: #0369a1;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+        flex-shrink: 0;
+      }
+      .utility-branding {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .utility-crest {
+        width: 32px;
+        height: 32px;
+        background-color: #38bdf8;
+        color: #0369a1;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 16px;
+      }
+      .utility-name {
+        font-size: 19px;
+        font-weight: 700;
+      }
+      .customer-pill {
+        font-size: 13px;
+        color: #e0f2fe;
+      }
+      .page-viewport {
+        flex: 1;
+        overflow-y: auto;
+        padding: 32px 40px;
+        display: flex;
+        justify-content: center;
+      }
+      .notice-container {
+        width: 100%;
+        max-width: 860px;
+        background-color: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        padding: 32px 40px;
+      }
+      .notice-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 18px;
+        margin-bottom: 24px;
+      }
+      .notice-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .notice-ref {
+        font-size: 13px;
+        color: #64748b;
+        margin-top: 4px;
+      }
+      .acct-tag {
+        text-align: right;
+        font-size: 13px;
+        color: #334155;
+      }
+      .acct-num {
+        font-family: Consolas, monospace;
+        font-weight: 700;
+        color: #0369a1;
+      }
+      .calendar-notice-box {
+        background-color: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-left: 5px solid #0284c7;
+        border-radius: 4px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+      }
+      .calendar-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0369a1;
+        margin-bottom: 6px;
+      }
+      .calendar-time {
+        font-size: 14px;
+        color: #0f172a;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .calendar-desc {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.5;
+      }
+      .info-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+      .section-card {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 18px 20px;
+      }
+      .section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .section-list {
+        font-size: 13px;
+        color: #334155;
+        line-height: 1.6;
+        margin: 0;
+        padding-left: 18px;
+      }
+      .reassurance-banner {
+        background-color: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 6px;
+        padding: 14px 18px;
+        font-size: 13px;
+        color: #166534;
+        line-height: 1.5;
+        margin-bottom: 20px;
+      }
+      .footer-contact {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 16px;
+        font-size: 11px;
+        color: #94a3b8;
+        line-height: 1.5;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <div class="nav-controls">&larr; &rarr; &#x21bb;</div>
+      <div class="address-field">
+        <span class="ssl-badge">&#128274;</span>
+        <span class="uri-text">https://<span class="uri-host">portal.citylight-utility.example</span>/outages/notice?id=MAINT-7712</span>
+      </div>
+    </div>
+    <div class="utility-navbar">
+      <div class="utility-branding">
+        <div class="utility-crest">&#9889;</div>
+        <div class="utility-name">CityLight &amp; Water Municipal Utility</div>
+      </div>
+      <div class="customer-pill">Service Address: 742 Evergreen Terrace &bull; Robert Miller</div>
+    </div>
+    <div class="page-viewport">
+      <div class="notice-container">
+        <div class="notice-header-row">
+          <div>
+            <h1 class="notice-title">Notice of Scheduled Electrical Grid Maintenance</h1>
+            <div class="notice-ref">Maintenance Advisory #MAINT-7712 &bull; Sector 4B Substation</div>
+          </div>
+          <div class="acct-tag">
+            Account: <span class="acct-num">CL-481-9022</span><br />
+            Status: Active / Current
+          </div>
+        </div>
+        <div class="calendar-notice-box">
+          <div class="calendar-title">Planned Service Interruption Window</div>
+          <div class="calendar-time">Thursday, November 5, 2026 from 1:00 AM to 4:30 AM (Early Morning)</div>
+          <div class="calendar-desc">
+            Crews will be replacing aging transformer equipment and installing smart grid fault-detection switches on Feeder Circuit 12. Power will be briefly disconnected during these overnight hours to ensure technician safety and improve storm reliability.
+          </div>
+        </div>
+        <div class="reassurance-banner">
+          <strong>Important Customer Notice:</strong> This is an informational maintenance advisory only. <strong>No payment, fee, or customer action is required.</strong> Your billing account is in good standing, and your utility rates and service agreement are unaffected.
+        </div>
+        <div class="info-columns">
+          <div class="section-card">
+            <div class="section-title">Household Preparations</div>
+            <ul class="section-list">
+              <li>Keep refrigerator and freezer doors closed during the outage window.</li>
+              <li>Disconnect sensitive electronics or use surge protector power strips.</li>
+              <li>Ensure mobile devices and flashlights are charged ahead of time.</li>
+            </ul>
+          </div>
+          <div class="section-card">
+            <div class="section-title">Medical Equipment Notice</div>
+            <ul class="section-list">
+              <li>If anyone in your residence uses electrically powered life-support medical equipment, please verify your backup battery systems today.</li>
+              <li>You may register for our Priority Emergency Care List by contacting 24/7 Operations at <strong>+1 555 0177</strong>.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="footer-contact">
+          CityLight &amp; Water Department &bull; Operations &amp; Grid Reliability Division &bull; 100 Civic Plaza.<br />
+          Official Customer Operations Portal: https://citylight-utility.example &bull; General Inquiries: 1-800-555-0188
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

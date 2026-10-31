@@ -66,6 +66,7 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 
 - No answer called a scam safe, and none told the person to click, call or pay from the page: every "call" in the 800 answers meant a number they already know or the one on their card.
 - 16 of the 18 false alarms are one Russian email whose mail app shows a green "verified address" badge: the prompt treats any text that claims to be verified as a red flag on purpose, because pages can talk to the model. "Be careful" answers come from pages that ask for a code, a payment or act on a countdown, which is the cautious answer we want.
+- 20 harder pages (`en-hard2`, `ru-hard2`: fake tax, bailiff, toll, pension and cloud-share notices next to real-looking legitimate ones; 400 answers): both models again called every scam a scam. Legitimate pages were called scams 0-2 % of the time in English but 34-38 % in Russian, almost all on fictional government pages: a tax or bailiff page outside the one real government portal does not match who it claims to be, which the models treat as a red flag.
 - Before this prompt (D68), an unfamiliar address alone was enough for a scam verdict: Muse Wonder called 28 % of the Russian and 9 % of the English legitimate pages scams. These are fictional pages, not a real-world rate.
 
 ## Privacy and safety

@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ГосСоцПенсия — Выписка о плановой индексации страховой пенсии</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f8fafc;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .browser-safe-label {
+        font-size: 12px;
+        background: #ecfdf5;
+        color: #065f46;
+        font-weight: 700;
+        border: 1px solid #a7f3d0;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: Consolas, monospace;
+        color: #334155;
+      }
+      .pension-header {
+        height: 60px;
+        background: #ffffff;
+        border-bottom: 2px solid #0369a1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 36px;
+        flex-shrink: 0;
+      }
+      .pension-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .pension-logo {
+        width: 36px;
+        height: 36px;
+        background: #0369a1;
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+      }
+      .pension-name {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0c4a6e;
+      }
+      .pension-sub {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .grid-layout {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1.35fr 0.85fr;
+        gap: 24px;
+        padding: 24px 36px;
+        overflow: hidden;
+      }
+      .doc-card {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .doc-type {
+        align-self: flex-start;
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 6px;
+      }
+      .doc-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .breakdown-box {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        font-size: 13px;
+      }
+      .breakdown-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .breakdown-lbl {
+        color: #64748b;
+        font-size: 12px;
+      }
+      .breakdown-val {
+        color: #0f172a;
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .pension-sum-banner {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .sum-amount {
+        font-size: 28px;
+        font-weight: 900;
+        color: #15803d;
+      }
+      .auto-credit-note {
+        background: #eff6ff;
+        border-left: 4px solid #0369a1;
+        padding: 12px 14px;
+        font-size: 13px;
+        color: #0c4a6e;
+        line-height: 1.5;
+        border-radius: 0 6px 6px 0;
+      }
+      .side-actions {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .side-head {
+        font-size: 16px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .sign-box {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 14px;
+        font-size: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        color: #334155;
+      }
+      .btn-download {
+        background: #0369a1;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        text-align: center;
+      }
+      .btn-plain {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        text-align: center;
+      }
+      .scam-prevention {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 12px;
+        color: #991b1b;
+        line-height: 1.45;
+      }
+      .footer-strip {
+        height: 34px;
+        background: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <span class="browser-safe-label">Официальный реестр</span>
+      <div class="browser-url">https://soc-pension-portal.example/statement/indexation-2026/view</div>
+    </div>
+
+    <header class="pension-header">
+      <div class="pension-brand">
+        <div class="pension-logo">СП</div>
+        <div>
+          <div class="pension-name">Единый Социально-Пенсионный Сервис</div>
+          <div class="pension-sub">Электронный кабинет застрахованного лица (СНИЛС: 114-892-014 92)</div>
+        </div>
+      </div>
+      <div style="font-size: 13px; color: #475569;">Гражданин: Васильева Татьяна Николаевна</div>
+    </header>
+
+    <main class="grid-layout">
+      <section class="doc-card">
+        <span class="doc-type">Информационная выписка № ИНД-8401/26</span>
+        <h1 class="doc-title">Сведения о плановой индексации страховой пенсии по старости</h1>
+
+        <div class="breakdown-box">
+          <div class="breakdown-item">
+            <span class="breakdown-lbl">Предыдущий размер пенсии:</span>
+            <span class="breakdown-val">21 100,00 ₽</span>
+          </div>
+          <div class="breakdown-item">
+            <span class="breakdown-lbl">Коэффициент индексации:</span>
+            <span class="breakdown-val">7,3% (+1 540,00 ₽)</span>
+          </div>
+          <div class="breakdown-item">
+            <span class="breakdown-lbl">Дата вступления в силу:</span>
+            <span class="breakdown-val">с 1 января 2026 года</span>
+          </div>
+          <div class="breakdown-item">
+            <span class="breakdown-lbl">Способ доставки:</span>
+            <span class="breakdown-val">Карта «Мир» (счёт •••• 4109)</span>
+          </div>
+        </div>
+
+        <div class="pension-sum-banner">
+          <div>
+            <div style="font-size: 13px; color: #166534;">Новый ежемесячный размер страховой выплаты:</div>
+            <div style="font-size: 12px; color: #15803d;">Начисление производится автоматически</div>
+          </div>
+          <div class="sum-amount">22 640,00 ₽</div>
+        </div>
+
+        <div class="auto-credit-note">
+          <strong>Беззаявительный порядок:</strong> Индексация пенсии рассчитана автоматически в централизованном порядке. Подача заявлений, предоставление документов или оплата каких-либо госпошлин не требуется. Выплата в новом размере поступит по установленному графику.
+        </div>
+      </section>
+
+      <aside class="side-actions">
+        <h3 class="side-head">Документы и справки</h3>
+
+        <div class="sign-box">
+          <div><strong>Электронная цифровая подпись:</strong></div>
+          <div style="font-size: 11px; color: #64748b;">Сертификат: 00E1 4092 841B 261C</div>
+          <div style="font-size: 11px; color: #64748b;">Подписано уполномоченным органом фонда</div>
+        </div>
+
+        <button class="btn-download">Скачать выписку с ЭЦП (PDF, 0 ₽)</button>
+        <div class="btn-plain">Отправить копию справки на электронную почту</div>
+        <div class="btn-plain">История начислений за прошлые периоды</div>
+
+        <div class="scam-prevention">
+          <strong>Предостережение от мошенников:</strong> Остерегайтесь звонков и сообщений от посторонних лиц, предлагающих «ускорить перерасчёт пенсии» или требующих оплатить сбор. Сотрудники пенсионного фонда никогда не запрашивают реквизиты карт и коды из SMS.
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footer-strip">
+      Единый Социально-Пенсионный Сервис Российской Федерации • 2026
+    </footer>
+  </body>
+</html>

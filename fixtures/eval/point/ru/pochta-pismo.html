@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Новое письмо — Ласточка Почта</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html, body { margin:0; width:1280px; height:800px; overflow:hidden }
+body{font:13px "Segoe UI",Tahoma,Arial,sans-serif;color:#1f2633;background:#fff}
+body>*{position:absolute}
+svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.c{display:flex;align-items:center;justify-content:center}
+.wc{width:46px;height:32px;color:#333}
+.wc svg{stroke-width:1}
+.new{background:#ff8a3d;color:#fff;border-radius:20px;gap:8px;font-size:14px;font-weight:600}
+.fo{display:flex;align-items:center;gap:10px;padding:0 12px;border-radius:6px;font-size:13px}
+.fo b{margin-left:auto;font-size:12px;color:#55627a}
+.cur{background:#e3e9f5;font-weight:600}
+.srch{display:flex;align-items:center;gap:8px;padding:0 12px;background:#eef1f6;border-radius:8px;color:#7b869a}
+.card{background:#fff;border:1px solid #dfe3ea;border-radius:10px;box-shadow:0 4px 18px rgba(30,40,60,.12)}
+.ib{border-radius:6px;color:#3a4558}
+.fl{display:flex;align-items:center;padding:0 6px;border-bottom:1px solid #e6e9ef}
+.chip{display:flex;align-items:center;gap:6px;background:#eef3fb;border-radius:12px;padding:2px 10px 2px 3px;font-size:12px}
+.av{width:20px;height:20px;border-radius:50%;background:#3d8b6e;color:#fff;font-size:10px;font-weight:600}
+.lb{color:#7b869a}
+.lk{color:#2a62c9;font-size:12px}
+.doc{padding:14px 18px;font:15px/1.6 "Segoe UI",Tahoma,Arial,sans-serif;color:#1f2633}
+.doc p{margin:0 0 10px}
+.send{background:#2a62c9;color:#fff;border-radius:8px;font-size:14px;font-weight:600}
+.bd{border:1px solid #d3d8e1;border-radius:6px;color:#3a4558}
+</style>
+</head>
+<body>
+<div style="left:0;top:0;width:1280px;height:32px;background:#eef1f6"></div>
+<svg style="left:12px;top:8px;color:#ff8a3d" width="16" height="16" viewBox="0 0 24 24"><path d="M3 12l18-8-6 16-3-6z"/></svg>
+<div style="left:36px;top:8px;font-size:12px">Новое письмо — Ласточка Почта</div>
+<div class="c wc" style="left:1142px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10"/></svg></div>
+<div class="c wc" style="left:1188px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9"/></svg></div>
+<div class="c wc" style="left:1234px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10"/></svg></div>
+
+<div style="left:0;top:32px;width:240px;height:768px;background:#f6f8fb;border-right:1px solid #e3e7ee"></div>
+<div id="e1" class="c new" style="position:absolute; left:16px; top:48px; width:208px; height:40px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Написать</div>
+<div id="e2" class="fo cur" style="position:absolute; left:8px; top:104px; width:224px; height:32px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M3 13h5l2 3h4l2-3h5M5 5h14l2 8v6H3v-6z"/></svg>Входящие<b>3</b></div>
+<div id="e3" class="fo" style="position:absolute; left:8px; top:136px; width:224px; height:32px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>Отправленные</div>
+<div id="e4" class="fo" style="position:absolute; left:8px; top:168px; width:224px; height:32px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>Черновики<b>1</b></div>
+<div id="e5" class="fo" style="position:absolute; left:8px; top:200px; width:224px; height:32px"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>Спам</div>
+<div id="e6" class="fo" style="position:absolute; left:8px; top:232px; width:224px; height:32px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>Корзина</div>
+<div style="left:20px;top:290px;width:200px;font-size:11px;line-height:1.5;color:#7b869a">Занято 1,2 ГБ из 10 ГБ</div>
+<div id="e7" class="fo lk" style="position:absolute; left:16px; top:740px; width:120px; height:24px"><svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Контакты</div>
+
+<div id="e8" class="srch" style="position:absolute; left:256px; top:40px; width:500px; height:32px"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Поиск в почте</div>
+<div class="c" style="left:1228px;top:40px;width:32px;height:32px;border-radius:50%;background:#7b5fc4;color:#fff;font-size:12px;font-weight:600">ГМ</div>
+<div style="left:1080px;top:48px;font-size:12px;color:#55627a">galina.m@lastochka.example</div>
+
+<div class="card" style="left:256px;top:84px;width:1008px;height:708px"></div>
+<div style="left:276px;top:98px;font-size:16px;font-weight:600">Новое письмо</div>
+<div id="e9" class="c ib" style="position:absolute; left:1224px; top:92px; width:32px; height:32px"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></div>
+<div class="lb" style="left:276px;top:139px">Кому</div>
+<div id="e10" class="fl" style="position:absolute; left:340px; top:132px; width:860px; height:32px"><span class="chip"><span class="c av">НС</span>Нина Соколова &lt;nina.sokolova@lastochka.example&gt;</span></div>
+<div id="e11" class="c lk" style="position:absolute; left:1208px; top:138px; width:48px; height:20px">Копия</div>
+<div class="lb" style="left:276px;top:179px">Тема</div>
+<div id="e12" class="fl" style="position:absolute; left:340px; top:172px; width:916px; height:32px">С юбилеем, дорогая Нина!</div>
+<div id="e13" class="doc" style="position:absolute; left:272px; top:216px; width:984px; height:468px">
+<p>Дорогая Нина!</p>
+<p>Поздравляю тебя с юбилеем! Желаю крепкого здоровья, бодрости и чтобы внуки радовали почаще. Помнишь, как мы в семьдесят восьмом ездили на Волгу и ты уронила в реку новую шляпу? До сих пор вспоминаю и смеюсь.</p>
+<p>Хочу отправить тебе несколько фотографий с нашей дачи — яблоки в этом году уродились на славу, а Коля наконец докрасил веранду.</p>
+<p>Обнимаю крепко, приезжай в гости, как потеплеет.</p>
+<p>Твоя Галя</p>
+</div>
+<div style="left:272px;top:692px;width:984px;height:1px;background:#e6e9ef"></div>
+<div id="e14" class="c send" style="position:absolute; left:272px; top:700px; width:120px; height:40px">Отправить</div>
+<div id="e15" class="c ib" style="position:absolute; left:404px; top:704px; width:32px; height:32px"><svg width="19" height="19" viewBox="0 0 24 24"><path d="M20 11.5l-8 8a5 5 0 01-7-7l8.5-8.5a3.3 3.3 0 014.7 4.7L9.7 17a1.7 1.7 0 01-2.4-2.4L15 7"/></svg></div>
+<div id="e16" class="c ib" style="position:absolute; left:448px; top:704px; width:40px; height:32px"><span style="font-size:11px">a</span><span style="font-size:17px">A</span><svg width="8" height="8" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+<div id="e17" class="c ib" style="position:absolute; left:492px; top:704px; width:32px; height:32px"><b style="font-size:15px">Ж</b></div>
+<div id="e18" class="c ib" style="position:absolute; left:526px; top:704px; width:32px; height:32px"><i style="font:italic 15px Georgia,serif">К</i></div>
+<div id="e19" class="c ib" style="position:absolute; left:560px; top:704px; width:32px; height:32px"><span style="font-size:15px;border-bottom:3px solid #e2453c;line-height:15px">А</span></div>
+<div id="e20" class="c ib" style="position:absolute; left:600px; top:704px; width:32px; height:32px"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg></div>
+<div id="e21" class="c ib" style="position:absolute; left:640px; top:704px; width:32px; height:32px"><svg width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14.5a5 5 0 008 0M9 9.5h.01M15 9.5h.01"/></svg></div>
+<div id="e22" class="c bd" style="position:absolute; left:1040px; top:704px; width:170px; height:32px">Сохранить черновик</div>
+<div id="e23" class="c ib" style="position:absolute; left:1220px; top:704px; width:32px; height:32px"><svg width="17" height="17" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></div>
+<div style="left:276px;top:756px;font-size:12px;color:#7b869a">Черновик сохранён в 18:05</div>
+</body>
+</html>

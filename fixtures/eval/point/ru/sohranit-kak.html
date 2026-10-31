@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Сохранить как</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html, body { margin:0; width:1280px; height:800px; overflow:hidden }
+body{font:12px Tahoma,"Segoe UI",Arial,sans-serif;color:#000;background:#c9ced6}
+body>*{position:absolute}
+svg{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.c{display:flex;align-items:center;justify-content:center}
+.wc{width:46px;height:30px;color:#222}
+.wc svg{stroke-width:1}
+.dlg{background:#f0f0f0;border:1px solid #6d7a8c;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.tt{background:linear-gradient(#dbe6f4,#c6d6ec)}
+.tbtn{border:1px solid #8a98ab;border-radius:3px;background:#e9eef5;font-size:12px}
+.cb{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 4px;border:1px solid #7a7a7a;background:#fff}
+.ib{border:1px solid transparent;border-radius:2px;color:#2c4a75}
+.pl{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;text-align:center;line-height:1.15;color:#000}
+.psel{background:#c5d9f1;border:1px solid #7da2ce}
+.list{background:#fff;border:1px solid #7a7a7a}
+.it{display:flex;align-items:center;gap:6px;padding:0 4px}
+.fd{fill:#f3d27a;stroke:#b8902e}
+.ed{display:flex;align-items:center;padding:0 4px;border:1px solid #7a7a7a;background:#fff}
+.btn{border:1px solid #707070;border-radius:3px;background:linear-gradient(#f6f6f6,#dedede)}
+.def{border-color:#3c7fb1;box-shadow:inset 0 0 0 1px #9bc4e6}
+</style>
+</head>
+<body>
+<div style="left:0;top:0;width:1280px;height:30px;background:#dfe6ee"></div>
+<div style="left:34px;top:7px">Рецепт пирога с яблоками — Перо</div>
+<div class="c wc" style="left:1142px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10"/></svg></div>
+<div class="c wc" style="left:1188px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9"/></svg></div>
+<div class="c wc" style="left:1234px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10"/></svg></div>
+<div style="left:0;top:30px;width:1280px;height:88px;background:#f3f4f6;border-bottom:1px solid #b9bfc8"></div>
+<div style="left:10px;top:35px;font-size:13px;word-spacing:18px">Файл Правка Вид Вставка Формат Справка</div>
+<div style="left:300px;top:154px;width:680px;height:646px;background:#fff"></div>
+
+<div class="dlg" style="left:240px;top:120px;width:800px;height:520px"></div>
+<div class="tt" style="left:241px;top:121px;width:798px;height:27px"></div>
+<div style="left:252px;top:127px">Сохранить как</div>
+<div id="e1" class="c tbtn" style="position:absolute; left:976px; top:122px; width:28px; height:24px">?</div>
+<div id="e2" class="c tbtn" style="position:absolute; left:1008px; top:122px; width:28px; height:24px"><svg width="9" height="9" viewBox="0 0 10 10"><path stroke-width="1.5" d="M0 0l10 10M10 0L0 10"/></svg></div>
+
+<div style="left:256px;top:166px">Папка:</div>
+<div id="e3" class="cb" style="position:absolute; left:310px; top:160px; width:440px; height:26px"><span class="it" style="padding:0"><svg width="16" height="16" viewBox="0 0 24 24"><path class="fd" d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z"/></svg>Мои документы</span><svg width="9" height="9" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+<div id="e4" class="c ib" style="position:absolute; left:760px; top:160px; width:28px; height:26px"><svg width="17" height="17" viewBox="0 0 24 24" style="color:#2a8a3a"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></div>
+<div id="e5" class="c ib" style="position:absolute; left:792px; top:160px; width:28px; height:26px"><svg width="17" height="17" viewBox="0 0 24 24"><path class="fd" d="M3 8.5A1.5 1.5 0 014.5 7H9l2 2h8.5A1.5 1.5 0 0121 10.5v8a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5z"/><path d="M12 17v-6M9.5 13.5L12 11l2.5 2.5" style="stroke:#2a8a3a"/></svg></div>
+<div id="e6" class="c ib" style="position:absolute; left:824px; top:160px; width:28px; height:26px"><svg width="17" height="17" viewBox="0 0 24 24"><path class="fd" d="M3 8.5A1.5 1.5 0 014.5 7H9l2 2h8.5A1.5 1.5 0 0121 10.5v8a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18.5z"/><path d="M19 1v6M16 4h6" style="stroke:#d0a000;stroke-width:2"/></svg></div>
+<div id="e7" class="c ib" style="position:absolute; left:856px; top:160px; width:40px; height:26px"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg><svg width="8" height="8" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+
+<div style="left:252px;top:196px;width:100px;height:324px;background:#7a96bf"></div>
+<div id="e8" class="pl" style="position:absolute; left:252px; top:198px; width:100px; height:64px"><svg width="30" height="30" viewBox="0 0 24 24" style="color:#fff"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span style="color:#fff">Недавние<br>документы</span></div>
+<div id="e9" class="pl" style="position:absolute; left:252px; top:266px; width:100px; height:64px"><svg width="30" height="30" viewBox="0 0 24 24" style="color:#fff"><rect x="2" y="4" width="20" height="13" rx="1"/><path d="M8 21h8M12 17v4"/></svg><span style="color:#fff">Рабочий стол</span></div>
+<div id="e10" class="pl psel" style="position:absolute; left:252px; top:334px; width:100px; height:64px"><svg width="30" height="30" viewBox="0 0 24 24"><path class="fd" d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z"/></svg>Мои документы</div>
+<div id="e11" class="pl" style="position:absolute; left:252px; top:402px; width:100px; height:64px"><svg width="30" height="30" viewBox="0 0 24 24" style="color:#fff"><rect x="3" y="4" width="18" height="12" rx="1"/><path d="M2 20h20"/></svg><span style="color:#fff">Компьютер</span></div>
+
+<div class="list" style="left:360px;top:196px;width:668px;height:324px"></div>
+<div id="e12" class="it" style="position:absolute; left:368px; top:204px; width:300px; height:22px"><svg width="16" height="16" viewBox="0 0 24 24"><path class="fd" d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z"/></svg>Письма</div>
+<div id="e13" class="it" style="position:absolute; left:368px; top:228px; width:300px; height:22px"><svg width="16" height="16" viewBox="0 0 24 24"><path class="fd" d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z"/></svg>Рецепты</div>
+<div id="e14" class="it" style="position:absolute; left:368px; top:252px; width:300px; height:22px"><svg width="16" height="16" viewBox="0 0 24 24"><path class="fd" d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z"/></svg>Дача 2025</div>
+<div id="e15" class="it" style="position:absolute; left:368px; top:276px; width:300px; height:22px"><svg width="16" height="16" viewBox="0 0 24 24"><path class="fd" d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z"/></svg>Фото с юбилея</div>
+<div id="e16" class="it" style="position:absolute; left:368px; top:300px; width:300px; height:22px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#3f6fb5"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 17h6"/></svg>Список покупок.pdoc</div>
+
+<div style="left:256px;top:540px">Имя файла:</div>
+<div id="e17" class="ed" style="position:absolute; left:360px; top:534px; width:500px; height:26px">Рецепт пирога с яблоками</div>
+<div id="e18" class="c btn def" style="position:absolute; left:876px; top:534px; width:150px; height:26px">Сохранить</div>
+<div style="left:256px;top:574px">Тип файла:</div>
+<div id="e19" class="cb" style="position:absolute; left:360px; top:568px; width:500px; height:26px">Документ Перо (*.pdoc)<svg width="9" height="9" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+<div id="e20" class="c btn" style="position:absolute; left:876px; top:568px; width:150px; height:26px">Отмена</div>
+</body>
+</html>

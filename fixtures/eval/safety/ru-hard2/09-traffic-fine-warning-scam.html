@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ПочтаОнлайн — ГосАвтоРеестр: постановление о штрафе с камер № 77-184920</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .mail-topbar {
+        height: 50px;
+        background: #1e3a8a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        flex-shrink: 0;
+      }
+      .mail-brand {
+        font-size: 18px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .mail-user {
+        font-size: 13px;
+        color: #bfdbfe;
+      }
+      .mail-body-layout {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+      .mail-folders {
+        width: 190px;
+        background: #ffffff;
+        border-right: 1px solid #cbd5e1;
+        padding: 16px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .folder-item {
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #334155;
+        display: flex;
+        justify-content: space-between;
+      }
+      .folder-item.active {
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-weight: 700;
+      }
+      .mail-inbox-list {
+        width: 290px;
+        background: #f8fafc;
+        border-right: 1px solid #cbd5e1;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+      }
+      .inbox-msg {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .inbox-msg.current {
+        background: #ffffff;
+        border-left: 4px solid #ef4444;
+      }
+      .msg-sender {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .msg-subject {
+        font-size: 12px;
+        font-weight: 600;
+        color: #1e40af;
+      }
+      .msg-preview {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .message-reading-pane {
+        flex: 1;
+        background: #ffffff;
+        padding: 24px 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow: hidden;
+      }
+      .email-header-box {
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .email-subject {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .email-meta {
+        font-size: 12px;
+        color: #64748b;
+        display: flex;
+        gap: 16px;
+      }
+      .fine-letter {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .fine-banner {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-left: 5px solid #ef4444;
+        border-radius: 6px;
+        padding: 12px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .fine-sum {
+        font-size: 24px;
+        font-weight: 900;
+        color: #b91c1c;
+      }
+      .fine-details {
+        font-size: 13px;
+        line-height: 1.6;
+        color: #334155;
+      }
+      .countdown-flash {
+        background: #fff7ed;
+        border: 1px solid #fdba74;
+        border-radius: 6px;
+        padding: 12px 14px;
+        font-size: 13px;
+        color: #9a3412;
+      }
+      .btn-fast-pay {
+        background: #dc2626;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 700;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 20px;
+        cursor: pointer;
+        align-self: flex-start;
+      }
+      .link-hint {
+        font-size: 11px;
+        color: #64748b;
+        font-family: Consolas, monospace;
+      }
+      .mail-footer {
+        height: 28px;
+        background: #e2e8f0;
+        border-top: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mail-topbar">
+      <div class="mail-brand">ПочтаОнлайн</div>
+      <div class="mail-user">aleksandr.smirnov@mail-client.example</div>
+    </div>
+
+    <div class="mail-body-layout">
+      <nav class="mail-folders">
+        <div class="folder-item active">Входящие <span>3</span></div>
+        <div class="folder-item">Отправленные</div>
+        <div class="folder-item">Черновики</div>
+        <div class="folder-item">Спам</div>
+        <div class="folder-item">Корзина</div>
+      </nav>
+
+      <section class="mail-inbox-list">
+        <div class="inbox-msg current">
+          <span class="msg-sender">ГосАвтоРеестр Штрафы</span>
+          <span class="msg-subject">Штраф ГосАвтоРеестра: фиксация скорости камеры № 7741</span>
+          <span class="msg-preview">Срочное уведомление о скидке 75% на оплату...</span>
+        </div>
+        <div class="inbox-msg">
+          <span class="msg-sender">ГородТеплосеть</span>
+          <span class="msg-subject">Квитанция за отопление за октябрь</span>
+          <span class="msg-preview">Счёт сформирован и доступен для оплаты...</span>
+        </div>
+        <div class="inbox-msg">
+          <span class="msg-sender">ТехноМаркет</span>
+          <span class="msg-subject">Статус заказа № 904128</span>
+          <span class="msg-preview">Ваш заказ передан курьеру службы доставки...</span>
+        </div>
+      </section>
+
+      <main class="message-reading-pane">
+        <div class="email-header-box">
+          <h1 class="email-subject">Постановление № 18810577261028904128 об административном правонарушении</h1>
+          <div class="email-meta">
+            <span>От: <strong>noreply@gosavto-reestr.fast-pay77.example</strong></span>
+            <span>Кому: aleksandr.smirnov@mail-client.example</span>
+            <span>Дата: Сегодня, 11:42</span>
+          </div>
+        </div>
+
+        <div class="fine-letter">
+          <div class="fine-banner">
+            <div>
+              <div style="font-size: 13px; color: #475569;">Штраф за превышение скорости (+24 км/ч):</div>
+              <div style="font-size: 12px; color: #64748b;">ТС: Легковой автомобиль (госномер: Х***ХХ 777)</div>
+            </div>
+            <div class="fine-sum">250,00 ₽ <span style="font-size: 14px; text-decoration: line-through; color: #64748b;">1 000 ₽</span></div>
+          </div>
+
+          <div class="fine-details">
+            Комплексом автоматической фиксации зафиксировано нарушение скоростного режима. В отношении собственника транспортного средства вынесено постановление. Место нарушения: федеральная трасса (километр не указан).
+          </div>
+
+          <div class="countdown-flash">
+            <strong>Горящее предложение: спецскидка 75% действует только 2 часа!</strong>
+            При оплате до 14:00 сумма штрафа составляет 250,00 ₽. После истечения таймера штраф составит полную сумму 1 000,00 ₽ с начислением пени за просрочку.
+          </div>
+
+          <button class="btn-fast-pay">Оплатить штраф со скидкой 75% (250 ₽)</button>
+          <div class="link-hint">Ссылка ведёт на платёжный шлюз: http://fine-oplata.example/fast-pay?uin=1881057726</div>
+        </div>
+      </main>
+    </div>
+
+    <footer class="mail-footer">
+      Почтовый сервис ПочтаОнлайн • Защита от нежелательной почты включена
+    </footer>
+  </body>
+</html>

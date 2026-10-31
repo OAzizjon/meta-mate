@@ -19,3 +19,6 @@ theyre = "theyre"
 som = "som"
 # "compre" (Spanish: buy), a forbidden word in crates/mm-core/src/privacy.rs
 compre = "compre"
+# Russian transliterations in the pointing fixtures (fixtures/eval/point/ru): "foto-albom", CSS class "fo"
+foto = "foto"
+fo = "fo"

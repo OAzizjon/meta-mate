@@ -1,0 +1,93 @@
+[
+  {
+    "file": "cloud-storage-share.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Sender email domain (sharing@cloudbox-secure-viewer.example) does not match official cloudbox.example domain",
+      "Urgency notice imposing an artificial 4-hour document expiration deadline",
+      "Demands signing in with personal email account password on an external third-party domain to view a shared PDF"
+    ],
+    "notes": "Subtle enterprise phishing email imitating a CloudBox shared tax document with urgent expiration and credential harvesting."
+  },
+  {
+    "file": "toll-authority-overdue.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Address bar domain (metrotoll-expressway-violation.example) does not match official metrotollauthority.example shown in footer",
+      "Aggressive midnight deadline threatening immediate driver's license suspension and a $150 court penalty for a minor $4.85 toll",
+      "Collects full payment card details and CVV on an unauthenticated page while omitting vehicle license plate photo verification"
+    ],
+    "notes": "Subtle municipal highway toll violation page demanding an immediate small card payment under threat of license suspension."
+  },
+  {
+    "file": "tech-support-renewal-portal.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Sender domain (billing@smartshield-account-desk.example) does not match the official smartshield.example domain",
+      "Fabricated $289.00 auto-renewal invoice for an unrequested 3-year antivirus package intended to cause panic",
+      "Explicitly instructs the customer not to contact their bank and directs them to call a phone number (+1 555 0192) for remote refund assistance"
+    ],
+    "notes": "Deceptive email receipt for a fake $289.00 security renewal pushing a refund telephone trap to initiate remote desktop access."
+  },
+  {
+    "file": "bank-card-security-migration.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Address bar URL (horizonbank.security-card-portal.example) does not match official horizonbank.example domain",
+      "Threatens same-week deactivation of debit card at ATMs unless security synchronization is completed",
+      "Requests 4-digit ATM PIN alongside full 16-digit card number, CVV2, and online banking login credentials",
+      "Includes self-declared 100% Guaranteed Safe trust badge to disarm suspicion"
+    ],
+    "notes": "Polished corporate bank security update portal requesting debit card details and ATM PIN under pretext of EMV chip compliance."
+  },
+  {
+    "file": "airline-baggage-fee-notification.html",
+    "label": "scam",
+    "lang": "en",
+    "flags": [
+      "Sender address (reservations@skyline-baggage-settlement.example) mismatches official carrier domain skylineairways.example",
+      "High-pressure 2-hour countdown deadline threatening luggage forfeiture for an upcoming morning flight",
+      "Collects full card number and CVV directly on an unauthenticated payment page instead of the airline's official booking portal"
+    ],
+    "notes": "Time-sensitive flight notice demanding a small $28.50 excess baggage settlement within 2 hours to avoid luggage cancellation."
+  },
+  {
+    "file": "bank-fraud-alert-confirmation.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Authentic bank fraud transaction confirmation inside logged-in customer portal on verified northbank.example domain, asking for a binary confirmation without collecting credentials or card data."
+  },
+  {
+    "file": "healthcare-portal-password-reset.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Authentic self-service patient portal password reset email from verified domain beaconhealth.example with 20-minute single-use token, reassuring disclaimer that no action is needed if unrequested, and no harvesting."
+  },
+  {
+    "file": "revenue-transcript-notification.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Authentic NRO online transcript advisory that strictly follows federal cybersecurity guidelines: no direct login links, no payment requests, explicit advice to navigate to revenue-office.example manually, and standard fraud warnings."
+  },
+  {
+    "file": "utility-service-scheduled-outage.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Authentic municipal electric utility maintenance notification scheduled days in advance, requiring no payment or action, with masked account number and clear emergency life-support guidance."
+  },
+  {
+    "file": "browser-update-settings.html",
+    "label": "legit",
+    "lang": "en",
+    "flags": [],
+    "notes": "Authentic internal browser settings page (nimbus://settings/help) confirming the browser is up to date, displaying official version strings and release notes links without third-party downloads or warnings."
+  }
+]

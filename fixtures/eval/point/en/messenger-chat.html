@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chirp</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html, body { margin:0; width:1280px; height:800px; overflow:hidden }
+body{font:13px "Segoe UI",Tahoma,Arial,sans-serif;color:#1d2330;background:#fff}
+body>*{position:absolute}
+svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.c{display:flex;align-items:center;justify-content:center}
+.wc{width:46px;height:32px;color:#333}
+.wc svg{stroke-width:1}
+.ib{border-radius:50%;color:#4a5466}
+.srch{display:flex;align-items:center;gap:8px;padding:0 10px;background:#eceef2;border-radius:16px;color:#7a8291}
+.it{display:flex;align-items:center;gap:12px;padding:0 14px}
+.sel{background:#dde8fb}
+.av{width:44px;height:44px;border-radius:50%;color:#fff;font-weight:600;font-size:15px;flex:none}
+.nm{font-weight:600;font-size:14px}
+.pv{display:block;font-size:12px;color:#6b7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:190px}
+.tm{font-size:11px;color:#8a909c}
+.bub{max-width:460px;padding:8px 12px;border-radius:14px;font-size:14px;line-height:1.4}
+.in{background:#f0f2f5}
+.out{background:#d5f0d2}
+.ts{font-size:10px;color:#7d8590;margin-left:8px}
+.msg{display:flex;align-items:center;padding:0 16px;border:1px solid #d8dbe1;border-radius:20px;color:#8a909c;font-size:14px}
+.go{border-radius:50%;background:#2f7de1;color:#fff}
+</style>
+</head>
+<body>
+<div style="left:0;top:0;width:1280px;height:32px;background:#f2f3f5;border-bottom:1px solid #e1e3e8"></div>
+<svg style="left:12px;top:8px;color:#2f7de1" width="16" height="16" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>
+<div style="left:36px;top:8px;font-size:12px">Chirp</div>
+<div class="c wc" style="left:1142px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10"/></svg></div>
+<div class="c wc" style="left:1188px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9"/></svg></div>
+<div class="c wc" style="left:1234px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10"/></svg></div>
+
+<div style="left:0;top:32px;width:340px;height:768px;background:#f8f9fb;border-right:1px solid #e1e3e8"></div>
+<div id="e1" class="srch" style="position:absolute; left:12px; top:44px; width:272px; height:32px"><svg width="15" height="15" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Search</div>
+<div id="e2" class="c ib" style="position:absolute; left:292px; top:44px; width:36px; height:32px"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></div>
+<div id="e3" class="it sel" style="position:absolute; left:0px; top:88px; width:340px; height:64px"><span class="c av" style="background:#e07a3f">T</span><span><span class="nm">Tom (son)</span><span class="pv">Or call me on video later, the kids want to say hi</span></span><span class="tm" style="margin-left:auto">11:08</span></div>
+<div id="e4" class="it" style="position:absolute; left:0px; top:152px; width:340px; height:64px"><span class="c av" style="background:#3f9e6a">G</span><span><span class="nm">Grandkids</span><span class="pv">Ellie: Look at my drawing!!</span></span><span class="tm" style="margin-left:auto">Yesterday</span></div>
+<div id="e5" class="it" style="position:absolute; left:0px; top:216px; width:340px; height:64px"><span class="c av" style="background:#8a5cc7">B</span><span><span class="nm">Book Club</span><span class="pv">June: Next Thursday at the library, 2 pm</span></span><span class="tm" style="margin-left:auto">Tue</span></div>
+<div id="e6" class="it" style="position:absolute; left:0px; top:280px; width:340px; height:64px"><span class="c av" style="background:#c94f6d">R</span><span><span class="nm">Rosa Whitfield</span><span class="pv">Thank you for the jam, it was lovely</span></span><span class="tm" style="margin-left:auto">Mon</span></div>
+<div id="e7" class="it" style="position:absolute; left:0px; top:344px; width:340px; height:64px"><span class="c av" style="background:#2f8fb5">M</span><span><span class="nm">Maple Street Surgery</span><span class="pv">Reminder: flu jab clinic on Saturday</span></span><span class="tm" style="margin-left:auto">28 Oct</span></div>
+<div id="e8" class="it" style="position:absolute; left:0px; top:408px; width:340px; height:64px"><span class="c av" style="background:#7b8a3a">G</span><span><span class="nm">Garden Society</span><span class="pv">Peter: Bulb swap this weekend</span></span><span class="tm" style="margin-left:auto">25 Oct</span></div>
+
+<div style="left:340px;top:32px;width:940px;height:64px;border-bottom:1px solid #e6e8ec"></div>
+<div class="c av" style="left:356px;top:42px;background:#e07a3f">T</div>
+<div class="nm" style="left:412px;top:44px">Tom (son)</div>
+<div style="left:412px;top:64px;font-size:12px;color:#3a9b52">online</div>
+<div id="e9" class="c ib" style="position:absolute; left:1124px; top:46px; width:36px; height:36px"><svg width="19" height="19" viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a1 1 0 01-1 1A16 16 0 014 5a1 1 0 011-1z"/></svg></div>
+<div id="e10" class="c ib" style="position:absolute; left:1168px; top:46px; width:36px; height:36px"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10.5l6-3.5v10l-6-3.5z"/></svg></div>
+<div id="e11" class="c ib" style="position:absolute; left:1212px; top:46px; width:36px; height:36px"><svg width="19" height="19" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg></div>
+
+<div style="left:340px;top:96px;width:940px;height:624px;background:#fbfbfc"></div>
+<div style="left:770px;top:112px;font-size:11px;color:#8a909c;background:#eef0f3;padding:2px 10px;border-radius:10px">Today</div>
+<div class="bub in" style="left:364px;top:144px">Hi Mum! Did the parcel arrive?<span class="ts">10:51</span></div>
+<div class="bub out" style="right:24px;top:196px">Yes love, this morning. The scarf is beautiful, thank you.<span class="ts">10:56</span></div>
+<div class="bub in" style="left:364px;top:270px">Glad you like it. Can you send me the photo of the garden you mentioned? The roses?<span class="ts">10:58</span></div>
+<div class="bub out" style="right:24px;top:344px">I will try! Still learning this thing.<span class="ts">11:02</span></div>
+<div class="bub in" style="left:364px;top:396px">No rush. Or call me on video later, the kids want to say hi<span class="ts">11:08</span></div>
+
+<div style="left:340px;top:720px;width:940px;height:80px;border-top:1px solid #e6e8ec;background:#fff"></div>
+<div id="e12" class="c ib" style="position:absolute; left:356px; top:742px; width:36px; height:36px"><svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14.5a5 5 0 008 0M9 9.5h.01M15 9.5h.01"/></svg></div>
+<div id="e13" class="c ib" style="position:absolute; left:396px; top:742px; width:36px; height:36px"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.8"/><path d="M21 16l-5-5-10 9"/></svg></div>
+<div id="e14" class="msg" style="position:absolute; left:440px; top:740px; width:720px; height:40px">Type a message</div>
+<div id="e15" class="c ib" style="position:absolute; left:1170px; top:742px; width:36px; height:36px"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg></div>
+<div id="e16" class="c go" style="position:absolute; left:1216px; top:740px; width:40px; height:40px"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+</body>
+</html>

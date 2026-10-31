@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Фонд Социальной Заботы — Выплата субсидии на санаторное оздоровление</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .browser-notice {
+        font-size: 11px;
+        background: #ecfdf5;
+        color: #047857;
+        font-weight: 700;
+        border: 1px solid #a7f3d0;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: Consolas, monospace;
+        color: #1e293b;
+      }
+      .soc-header {
+        height: 60px;
+        background: #ffffff;
+        border-bottom: 3px solid #059669;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 36px;
+        flex-shrink: 0;
+      }
+      .soc-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .soc-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: #059669;
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .soc-name {
+        font-size: 18px;
+        font-weight: 800;
+        color: #065f46;
+      }
+      .soc-sub {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .content-wrap {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1.3fr 0.9fr;
+        gap: 24px;
+        padding: 24px 36px;
+        overflow: hidden;
+      }
+      .claim-info {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .badge-status {
+        align-self: flex-start;
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 6px;
+      }
+      .claim-h1 {
+        font-size: 21px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.3;
+      }
+      .subsidy-card {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-left: 5px solid #16a34a;
+        border-radius: 8px;
+        padding: 16px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .subsidy-val {
+        font-size: 28px;
+        font-weight: 900;
+        color: #15803d;
+      }
+      .desc-text {
+        font-size: 13px;
+        line-height: 1.6;
+        color: #334155;
+      }
+      .urgency-alert {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 8px;
+        padding: 14px;
+        font-size: 13px;
+        color: #c2410c;
+        line-height: 1.5;
+      }
+      .card-form {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .card-h2 {
+        font-size: 17px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .card-subtext {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.45;
+      }
+      .grp {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .grp-lbl {
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
+      }
+      .grp-inp {
+        padding: 9px 12px;
+        border: 1px solid #94a3b8;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .btn-pay-sub {
+        background: #059669;
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 700;
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        margin-top: 6px;
+      }
+      .fee-explanation {
+        font-size: 11px;
+        color: #64748b;
+        text-align: center;
+        line-height: 1.4;
+      }
+      .footer-strip {
+        height: 32px;
+        background: #e2e8f0;
+        border-top: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <span class="browser-notice">Единое Окно</span>
+      <div class="browser-url">https://soc-subsidii.gos-lgoty.example/pension/voucher-refund/2026</div>
+    </div>
+
+    <header class="soc-header">
+      <div class="soc-brand">
+        <div class="soc-icon">ФС</div>
+        <div>
+          <div class="soc-name">Фонд Социальной Заботы и Субсидий</div>
+          <div class="soc-sub">Программа государственной компенсации оздоровления (официальный ресурс: soc-podderzhka.example)</div>
+        </div>
+      </div>
+      <div style="font-size: 13px; color: #475569;">Приказ № СО-114/2026</div>
+    </header>
+
+    <main class="content-wrap">
+      <section class="claim-info">
+        <span class="badge-status">Решение о назначении выплаты № СУБ-44910</span>
+        <h1 class="claim-h1">Одобрена денежная компенсация неиспользованной путёвки в санаторий</h1>
+
+        <div class="subsidy-card">
+          <div>
+            <div style="font-size: 13px; color: #475569;">Размер утверждённой компенсации к выплате:</div>
+            <div style="font-size: 12px; color: #15803d;">Категория: граждане предпенсионного и пенсионного возраста</div>
+          </div>
+          <div class="subsidy-val">38 500,00 ₽</div>
+        </div>
+
+        <p class="desc-text">
+          В рамках распределения неизрасходованных квот программы оздоровительного отдыха за текущий год сформирован электронный сертификат на получение прямого возмещения на личный расчётный счёт.
+        </p>
+
+        <div class="urgency-alert">
+          <strong>Внимание: срок востребования субсидии ограничен 3 календарными днями.</strong> В соответствии с положением о квотах невостребованные сертификаты закрываются с передачей лимитов в региональный фонд.
+        </div>
+      </section>
+
+      <section class="card-form">
+        <h2 class="card-h2">Оформление сертификата и зачисление средств</h2>
+        <p class="card-subtext">
+          Для регистрации электронного сертификата в едином реестре и мгновенного зачисления 38 500 ₽ оплатите регистрационную пошлину 590,00 ₽.
+        </p>
+
+        <div class="grp">
+          <label class="grp-lbl">Номер карты для зачисления 38 500 ₽</label>
+          <input class="grp-inp" type="text" placeholder="2200 •••• •••• ••••" value="2200 4401 9283 5140" />
+        </div>
+
+        <div class="grid-2">
+          <div class="grp">
+            <label class="grp-lbl">Срок действия</label>
+            <input class="grp-inp" type="text" placeholder="05/29" />
+          </div>
+          <div class="grp">
+            <label class="grp-lbl">CVV / CVC код</label>
+            <input class="grp-inp" type="password" placeholder="•••" maxlength="3" />
+          </div>
+        </div>
+
+        <div class="grp">
+          <label class="grp-lbl">ФИО владельца счёта</label>
+          <input class="grp-inp" type="text" placeholder="КУЗНЕЦОВА ЕЛЕНА ПЕТРОВНА" />
+        </div>
+
+        <button class="btn-pay-sub">Оплатить пошлину 590 ₽ и зачислить 38 500 ₽</button>
+        <div class="fee-explanation">Пошлина 590 ₽ списывается разово в пользу оператора расчётного центра.</div>
+      </section>
+    </main>
+
+    <footer class="footer-strip">
+      Фонд Социальной Заботы и Субсидий РФ • Общественный реестр льгот • 2026
+    </footer>
+  </body>
+</html>

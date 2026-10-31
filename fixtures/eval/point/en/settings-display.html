@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html, body { margin:0; width:1280px; height:800px; overflow:hidden }
+body{font:13px "Segoe UI",Tahoma,Arial,sans-serif;color:#1b1b1b;background:#f3f3f3}
+body>*{position:absolute}
+svg{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.c{display:flex;align-items:center;justify-content:center}
+.wc{width:46px;height:32px;color:#333}
+.wc svg{stroke-width:1}
+.ib{border-radius:4px}
+.find{display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#fff;border:1px solid #e0e0e0;border-bottom:1px solid #8a8a8a;border-radius:4px;color:#6b6b6b}
+.nv{display:flex;align-items:center;gap:14px;padding:0 14px;border-radius:4px;font-size:13px}
+.sel{background:#e9e9e9}
+.sel::before{content:"";position:absolute;left:0;top:9px;width:3px;height:18px;border-radius:2px;background:#0067c0}
+.card{background:#fbfbfb;border:1px solid #e5e5e5;border-radius:6px}
+.t{font-size:14px}
+.d{font-size:12px;color:#5f5f5f}
+.h{font-size:14px;font-weight:600}
+.sl{background:linear-gradient(#0067c0,#0067c0) 0 50%/70% 4px no-repeat,linear-gradient(#8a8a8a,#8a8a8a) 0 50%/100% 4px no-repeat;border-radius:2px}
+.knob{position:absolute;top:2px;width:20px;height:20px;border-radius:50%;background:#fff;border:1px solid #d0d0d0;box-shadow:inset 0 0 0 5px #fff,inset 0 0 0 10px #0067c0}
+.tg{border:1px solid #5f5f5f;border-radius:11px;background:#f6f6f6}
+.tg::after{content:"";position:absolute;left:4px;top:5px;width:10px;height:10px;border-radius:50%;background:#5f5f5f}
+.dd{display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#fff;border:1px solid #e0e0e0;border-bottom-color:#b5b5b5;border-radius:4px;font-size:12px;white-space:nowrap}
+.btn{background:#fff;border:1px solid #d6d6d6;border-radius:4px}
+.row{display:flex;align-items:center;gap:16px;padding:0 20px;background:#fbfbfb;border:1px solid #e5e5e5;border-radius:6px}
+</style>
+</head>
+<body>
+<div id="e19" class="c ib" style="position:absolute; left:8px; top:4px; width:32px; height:32px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></div>
+<div style="left:52px;top:11px;font-size:12px">Settings</div>
+<div class="c wc" style="left:1142px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10"/></svg></div>
+<div class="c wc" style="left:1188px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9"/></svg></div>
+<div class="c wc" style="left:1234px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10"/></svg></div>
+
+<div class="c" style="left:16px;top:52px;width:56px;height:56px;border-radius:50%;background:#c9b6e8;color:#4b2f7f;font-size:22px">ML</div>
+<div style="left:84px;top:62px;font-size:14px;font-weight:600">Margaret Lane</div>
+<div class="d" style="left:84px;top:84px">Local account</div>
+<div id="e1" class="find" style="position:absolute; left:16px; top:124px; width:268px; height:34px">Find a setting<svg width="14" height="14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></div>
+<div id="e2" class="nv sel" style="position:absolute; left:8px; top:172px; width:284px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#0067c0"><rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg>System</div>
+<div id="e3" class="nv" style="position:absolute; left:8px; top:208px; width:284px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#2a7de1"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></svg>Bluetooth &amp; devices</div>
+<div id="e4" class="nv" style="position:absolute; left:8px; top:244px; width:284px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#2a7de1"><path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0M12 19.5h.01"/></svg>Network &amp; internet</div>
+<div id="e5" class="nv" style="position:absolute; left:8px; top:280px; width:284px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#d16a1e"><path d="M4 20c4 0 5-2 5-4a3 3 0 016 0M14 13L21 4"/></svg>Personalisation</div>
+<div id="e6" class="nv" style="position:absolute; left:8px; top:316px; width:284px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#5a5a5a"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>Apps</div>
+<div id="e7" class="nv" style="position:absolute; left:8px; top:352px; width:284px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#2f9a5b"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/></svg>Accounts</div>
+<div id="e8" class="nv" style="position:absolute; left:8px; top:388px; width:284px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#2a7de1"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Time &amp; language</div>
+<div id="e9" class="nv" style="position:absolute; left:8px; top:424px; width:284px; height:36px"><svg width="16" height="16" viewBox="0 0 24 24" style="color:#2a7de1"><circle cx="12" cy="4.5" r="2"/><path d="M5 8l7 1.5L19 8M12 9.5V14l-3 7M12 14l3 7"/></svg>Accessibility</div>
+
+<div style="left:330px;top:48px;font-size:28px;font-weight:600"><span style="color:#6b6b6b">System</span> &nbsp;&rsaquo;&nbsp; Display</div>
+<div class="h" style="left:330px;top:104px">Brightness &amp; colour</div>
+<div class="card" style="left:330px;top:128px;width:920px;height:68px"></div>
+<svg style="left:352px;top:152px" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+<div class="t" style="left:390px;top:138px">Brightness</div>
+<div class="d" style="left:390px;top:160px">Adjust the brightness of the built-in display</div>
+<svg style="left:904px;top:154px;color:#5f5f5f" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+<div id="e10" class="sl" style="position:absolute; left:930px; top:150px; width:280px; height:24px"><span class="knob" style="left:186px"></span></div>
+
+<div class="card" style="left:330px;top:200px;width:920px;height:68px"></div>
+<svg style="left:352px;top:224px" width="20" height="20" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg>
+<div class="t" style="left:390px;top:210px">Night light</div>
+<div class="d" style="left:390px;top:232px">Use warmer colours to help block blue light</div>
+<div style="left:1148px;top:225px">Off</div>
+<div id="e11" class="tg" style="position:absolute; left:1180px; top:224px; width:44px; height:22px"></div>
+
+<div class="h" style="left:330px;top:292px">Scale &amp; layout</div>
+<div class="card" style="left:330px;top:316px;width:920px;height:68px"></div>
+<svg style="left:352px;top:340px" width="20" height="20" viewBox="0 0 24 24"><path d="M4 9V4h5M20 15v5h-5M4 4l7 7M20 20l-7-7"/></svg>
+<div class="t" style="left:390px;top:326px">Scale</div>
+<div class="d" style="left:390px;top:348px">Change the size of text, apps and other items</div>
+<div id="e12" class="dd" style="position:absolute; left:1030px; top:334px; width:200px; height:32px">100% (Recommended)<svg width="10" height="10" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+
+<div class="card" style="left:330px;top:388px;width:920px;height:112px"></div>
+<div style="left:352px;top:396px;font:600 18px Georgia,serif">A</div>
+<div class="t" style="left:390px;top:398px">Text size</div>
+<div class="d" style="left:390px;top:420px">Make text bigger across the system and apps</div>
+<div style="left:392px;top:459px;font-size:11px">A</div>
+<div id="e13" class="sl" style="position:absolute; left:412px; top:456px; width:520px; height:24px"><span class="knob" style="left:0px"></span></div>
+<div style="left:944px;top:451px;font-size:20px">A</div>
+<div style="left:976px;top:458px">100%</div>
+<div id="e14" class="c btn" style="position:absolute; left:1130px; top:452px; width:100px; height:32px">Apply</div>
+
+<div class="card" style="left:330px;top:504px;width:920px;height:68px"></div>
+<svg style="left:352px;top:528px" width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg>
+<div class="t" style="left:390px;top:514px">Display resolution</div>
+<div class="d" style="left:390px;top:536px">Adjust the resolution to fit your connected display</div>
+<div id="e15" class="dd" style="position:absolute; left:1030px; top:522px; width:200px; height:32px">1920 &times; 1080 (Recommended)<svg width="10" height="10" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+
+<div class="card" style="left:330px;top:576px;width:920px;height:68px"></div>
+<svg style="left:352px;top:600px" width="20" height="20" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="1.5"/><path d="M2 8v8"/></svg>
+<div class="t" style="left:390px;top:599px">Display orientation</div>
+<div id="e16" class="dd" style="position:absolute; left:1030px; top:594px; width:200px; height:32px">Landscape<svg width="10" height="10" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+
+<div class="h" style="left:330px;top:664px">Related settings</div>
+<div id="e17" class="row" style="position:absolute; left:330px; top:688px; width:920px; height:56px"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg><span><span class="t">Advanced display</span><br><span class="d">Display information, refresh rate</span></span><svg width="14" height="14" viewBox="0 0 24 24" style="margin-left:auto"><path d="M9 5l7 7-7 7"/></svg></div>
+<div id="e18" class="row" style="position:absolute; left:330px; top:748px; width:920px; height:48px"><svg width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/><path d="M8 10h8M8 14h5"/></svg><span class="t">Graphics</span><svg width="14" height="14" viewBox="0 0 24 24" style="margin-left:auto"><path d="M9 5l7 7-7 7"/></svg></div>
+</body>
+</html>

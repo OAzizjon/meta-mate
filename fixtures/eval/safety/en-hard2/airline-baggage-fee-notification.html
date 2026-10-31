@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>Urgent: Unpaid Baggage Hold for Booking #SK-71932 (Chicago to Denver) - Horizon Mail</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .mail-header {
+        height: 52px;
+        background-color: #0369a1;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        flex-shrink: 0;
+      }
+      .brand-title {
+        font-size: 18px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .search-input-box {
+        width: 440px;
+      }
+      .search-input-box input {
+        width: 100%;
+        padding: 7px 16px;
+        font-size: 13px;
+        border-radius: 6px;
+        border: none;
+        background-color: #38bdf8;
+        color: #0c4a6e;
+      }
+      .search-input-box input::placeholder {
+        color: #075985;
+      }
+      .user-status {
+        font-size: 13px;
+        color: #e0f2fe;
+      }
+      .app-layout {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .folders-column {
+        width: 180px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .folder-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        border-radius: 6px;
+        color: #475569;
+        display: flex;
+        justify-content: space-between;
+      }
+      .folder-btn.active {
+        background-color: #f0f9ff;
+        color: #0369a1;
+        font-weight: 700;
+      }
+      .threads-column {
+        width: 310px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+      .thread-item {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+      }
+      .thread-item.active {
+        background-color: #f8fafc;
+        border-left: 3px solid #0369a1;
+      }
+      .thread-sender {
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+      .thread-subject {
+        color: #334155;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+      }
+      .thread-time {
+        font-size: 11px;
+        color: #94a3b8;
+      }
+      .message-view {
+        flex: 1;
+        background-color: #f8fafc;
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        justify-content: center;
+      }
+      .airline-card {
+        width: 100%;
+        max-width: 680px;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 32px 36px;
+      }
+      .card-header {
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+      }
+      .headline {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 12px;
+      }
+      .meta-details {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.6;
+      }
+      .sender-tag {
+        color: #0284c7;
+        font-weight: 600;
+      }
+      .flight-banner {
+        background-color: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .flight-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0369a1;
+      }
+      .route-sub {
+        font-size: 12px;
+        color: #475569;
+        margin-top: 2px;
+      }
+      .booking-ref {
+        text-align: right;
+        font-family: Consolas, monospace;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .booking-label {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .alert-callout {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        border-left: 4px solid #ef4444;
+        border-radius: 4px;
+        padding: 14px 18px;
+        margin-bottom: 24px;
+        font-size: 13px;
+        color: #991b1b;
+        line-height: 1.5;
+      }
+      .alert-callout strong {
+        color: #7f1d1d;
+      }
+      .baggage-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-bottom: 20px;
+      }
+      .baggage-table th {
+        text-align: left;
+        background-color: #f1f5f9;
+        padding: 8px 12px;
+        color: #475569;
+        font-size: 12px;
+      }
+      .baggage-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .payment-box {
+        background-color: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 18px 22px;
+        margin-bottom: 24px;
+      }
+      .pay-btn {
+        width: 100%;
+        background-color: #0284c7;
+        color: #ffffff;
+        border: none;
+        padding: 11px;
+        font-size: 14px;
+        font-weight: 700;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 12px;
+      }
+      .footer-note {
+        margin-top: 24px;
+        padding-top: 16px;
+        border-top: 1px solid #e2e8f0;
+        font-size: 11px;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mail-header">
+      <div class="brand-title">Horizon Mail</div>
+      <div class="search-input-box">
+        <input type="text" placeholder="Search emails" />
+      </div>
+      <div class="user-status">robert.miller@example.com</div>
+    </div>
+    <div class="app-layout">
+      <div class="folders-column">
+        <div class="folder-btn active"><span>Inbox</span><span>12</span></div>
+        <div class="folder-btn"><span>Archive</span></div>
+        <div class="folder-btn"><span>Sent</span></div>
+        <div class="folder-btn"><span>Trash</span></div>
+      </div>
+      <div class="threads-column">
+        <div class="thread-item active">
+          <div class="thread-sender">SkyLine Airways Baggage Desk</div>
+          <div class="thread-subject">Urgent: Unpaid Baggage Hold for Booking #SK-71932</div>
+          <div class="thread-time">Today, 11:45 AM</div>
+        </div>
+        <div class="thread-item">
+          <div class="thread-sender">National Revenue Office</div>
+          <div class="thread-subject">Official Notice Regarding Your Online Tax Account</div>
+          <div class="thread-time">Today, 10:15 AM</div>
+        </div>
+      </div>
+      <div class="message-view">
+        <div class="airline-card">
+          <div class="card-header">
+            <h1 class="headline">Action Required: Unpaid Baggage Hold for Flight SK 418</h1>
+            <div class="meta-details">
+              From: SkyLine Reservations &lt;<span class="sender-tag">reservations@skyline-baggage-settlement.example</span>&gt;<br />
+              To: robert.miller@example.com &bull; Date: October 31, 2026 at 11:45 AM
+            </div>
+          </div>
+          <div class="flight-banner">
+            <div>
+              <div class="flight-title">SkyLine Flight 418 &bull; ORD &rarr; DEN</div>
+              <div class="route-sub">Departing Tomorrow, Nov 1, 2026 - 8:30 AM | Passenger: Robert Miller</div>
+            </div>
+            <div class="booking-ref">
+              SK-71932
+              <div class="booking-label">Reservation Code</div>
+            </div>
+          </div>
+          <div class="alert-callout">
+            <strong>CRITICAL 2-HOUR DEADLINE:</strong> Our pre-flight automated luggage audit detected that checked baggage item #SK-BAG-092 exceeds your ticket weight allowance by 4.2 kg. An excess weight settlement of $28.50 is required.<br /><br />
+            You must settle this fee within <strong>2 hours (by 1:45 PM today)</strong>. If unpaid, your checked baggage reservation will be forfeited, and your luggage will be refused acceptance at the ticket counter tomorrow morning.
+          </div>
+          <table class="baggage-table">
+            <thead>
+              <tr>
+                <th>Luggage Item</th>
+                <th>Standard Limit</th>
+                <th>Recorded Weight</th>
+                <th style="text-align: right;">Fee Due</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Standard Checked Suitcase (Tag #0821)</td>
+                <td>23.0 kg</td>
+                <td>27.2 kg (+4.2 kg)</td>
+                <td style="text-align: right; font-weight: 700; color: #b91c1c;">$28.50</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="payment-box">
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 8px;">Direct Baggage Clearance Form</div>
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 4px;">Card Number</label>
+                <input type="text" placeholder="16-digit card number" style="width: 100%; padding: 7px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;" />
+              </div>
+              <div>
+                <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 4px;">Expires</label>
+                <input type="text" placeholder="MM/YY" style="width: 100%; padding: 7px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;" />
+              </div>
+              <div>
+                <label style="font-size: 11px; color: #475569; display: block; margin-bottom: 4px;">CVV</label>
+                <input type="text" placeholder="3 digits" style="width: 100%; padding: 7px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;" />
+              </div>
+            </div>
+            <button class="pay-btn" type="button">Pay $28.50 Excess Fee & Retain Baggage Hold</button>
+          </div>
+          <div class="footer-note">
+            SkyLine Airways Corporation, O'Hare International Airport, Terminal 3, Chicago, IL.<br />
+            To manage your full flight itinerary, please visit the official SkyLine portal at https://skylineairways.example.
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

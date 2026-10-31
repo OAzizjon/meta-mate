@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Параметры</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html, body { margin:0; width:1280px; height:800px; overflow:hidden }
+body{font:13px "Segoe UI",Tahoma,Arial,sans-serif;color:#000;background:#fff}
+body>*{position:absolute}
+svg{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.c{display:flex;align-items:center;justify-content:center}
+.wc{width:46px;height:32px;color:#000}
+.wc svg{stroke-width:1}
+.nv{display:flex;align-items:center;gap:14px;padding:0 16px;font-size:14px}
+.sel{background:#e0e0e0}
+.sel::before{content:"";position:absolute;left:0;top:6px;width:4px;height:28px;background:#0078d7}
+.find{display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#fff;border:2px solid #9a9a9a;color:#6d6d6d;font-size:14px}
+.h1{font-size:28px;font-weight:300}
+.h2{font-size:20px;font-weight:600}
+.t{font-size:14px}
+.sl{background:linear-gradient(#0078d7,#0078d7) 0 50%/62% 2px no-repeat,linear-gradient(#8a8a8a,#8a8a8a) 0 50%/100% 2px no-repeat}
+.knob{position:absolute;top:2px;width:8px;height:20px;border-radius:4px;background:#0078d7}
+.tg{border:2px solid #000;border-radius:10px;background:#fff}
+.tg::after{content:"";position:absolute;left:4px;top:3px;width:10px;height:10px;border-radius:50%;background:#000}
+.lk{color:#0067b8;font-size:14px;white-space:nowrap}
+.dd{display:flex;align-items:center;justify-content:space-between;padding:0 10px;background:#fff;border:2px solid #9a9a9a;font-size:14px;white-space:nowrap}
+.btn{background:#ccc;font-size:14px}
+.pv{display:flex;align-items:center;padding:0 16px;border:1px solid #ccc;font-size:16px;color:#333}
+</style>
+</head>
+<body>
+<div style="left:0;top:0;width:1280px;height:32px;background:#fff"></div>
+<div style="left:12px;top:8px;font-size:12px">Параметры</div>
+<div class="c wc" style="left:1142px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 5h10"/></svg></div>
+<div class="c wc" style="left:1188px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9"/></svg></div>
+<div class="c wc" style="left:1234px;top:0"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10"/></svg></div>
+
+<div style="left:0;top:32px;width:320px;height:768px;background:#f2f2f2"></div>
+<div id="e1" class="nv" style="position:absolute; left:0px; top:44px; width:320px; height:40px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7M5 9.5V20h5v-6h4v6h5V9.5"/></svg>Главная</div>
+<div id="e2" class="find" style="position:absolute; left:16px; top:92px; width:288px; height:32px">Найти параметр<svg width="14" height="14" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></div>
+<div style="left:16px;top:140px;font-size:15px;font-weight:600">Система</div>
+<div id="e3" class="nv sel" style="position:absolute; left:0px; top:172px; width:320px; height:40px"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="13" rx="1"/><path d="M8 21h8M12 17v4"/></svg>Дисплей</div>
+<div id="e4" class="nv" style="position:absolute; left:0px; top:212px; width:320px; height:40px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11"/></svg>Звук</div>
+<div id="e5" class="nv" style="position:absolute; left:0px; top:252px; width:320px; height:40px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>Уведомления и действия</div>
+<div id="e6" class="nv" style="position:absolute; left:0px; top:292px; width:320px; height:40px"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M12 3v8M7 6a8 8 0 1010 0"/></svg>Питание и спящий режим</div>
+<div id="e7" class="nv" style="position:absolute; left:0px; top:332px; width:320px; height:40px"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="6" rx="1"/><rect x="3" y="13" width="18" height="6" rx="1"/></svg>Память</div>
+<div id="e8" class="nv" style="position:absolute; left:0px; top:372px; width:320px; height:40px"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>О программе</div>
+
+<div class="h1" style="left:360px;top:40px">Дисплей</div>
+<div class="h2" style="left:360px;top:98px">Яркость и цвет</div>
+<div class="t" style="left:360px;top:134px">Изменение яркости встроенного дисплея</div>
+<div id="e9" class="sl" style="position:absolute; left:360px; top:158px; width:320px; height:24px"><span class="knob" style="left:195px"></span></div>
+<div class="t" style="left:360px;top:198px">Ночной свет</div>
+<div id="e10" class="tg" style="position:absolute; left:360px; top:222px; width:44px; height:20px"></div>
+<div class="t" style="left:414px;top:222px">Откл.</div>
+<div id="e11" class="lk" style="position:absolute; left:360px; top:254px; width:180px; height:20px">Параметры ночного света</div>
+
+<div class="h2" style="left:360px;top:296px">Масштаб и разметка</div>
+<div class="t" style="left:360px;top:332px">Изменение размера текста, приложений и других элементов</div>
+<div id="e12" class="dd" style="position:absolute; left:360px; top:354px; width:280px; height:32px">100% (рекомендуется)<svg width="11" height="11" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+<div id="e13" class="lk" style="position:absolute; left:360px; top:394px; width:320px; height:20px">Дополнительные параметры масштабирования</div>
+
+<div class="h2" style="left:360px;top:430px">Размер текста</div>
+<div class="t" style="left:360px;top:466px">Перетащите ползунок, пока образец текста не станет удобно читать</div>
+<div class="pv" style="left:360px;top:490px;width:520px;height:56px">Образец текста: Съешь же ещё этих мягких булок</div>
+<div id="e14" class="sl" style="position:absolute; left:360px; top:560px; width:420px; height:24px"><span class="knob" style="left:0px"></span></div>
+<div class="t" style="left:792px;top:562px">100%</div>
+<div id="e15" class="c btn" style="position:absolute; left:360px; top:598px; width:110px; height:32px">Применить</div>
+
+<div class="t" style="left:360px;top:648px">Разрешение экрана</div>
+<div id="e16" class="dd" style="position:absolute; left:360px; top:670px; width:280px; height:32px">1920 × 1080 (рекомендуется)<svg width="11" height="11" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+<div class="t" style="left:680px;top:648px">Ориентация дисплея</div>
+<div id="e17" class="dd" style="position:absolute; left:680px; top:670px; width:280px; height:32px">Альбомная<svg width="11" height="11" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></div>
+
+<div style="left:1000px;top:100px;font-size:15px;font-weight:600">Сопутствующие параметры</div>
+<div id="e18" class="lk" style="position:absolute; left:1000px; top:132px; width:160px; height:20px">Параметры графики</div>
+<div style="left:1000px;top:180px;font-size:15px;font-weight:600">Есть вопросы?</div>
+<div id="e19" class="lk" style="position:absolute; left:1000px; top:212px; width:140px; height:20px">Получить помощь</div>
+</body>
+</html>

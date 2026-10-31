@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ГосСвязьРеестр — Обязательная идентификация абонентского номера</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .browser-alert {
+        font-size: 11px;
+        background: #fee2e2;
+        color: #991b1b;
+        font-weight: 700;
+        border: 1px solid #fca5a5;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: Consolas, monospace;
+        color: #1e293b;
+      }
+      .telecom-nav {
+        height: 60px;
+        background: #ffffff;
+        border-bottom: 3px solid #7c3aed;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 36px;
+        flex-shrink: 0;
+      }
+      .telecom-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .telecom-logo {
+        width: 36px;
+        height: 36px;
+        background: #7c3aed;
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+      }
+      .telecom-name {
+        font-size: 18px;
+        font-weight: 800;
+        color: #5b21b6;
+      }
+      .telecom-desc {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .main-grid {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1.25fr 0.95fr;
+        gap: 24px;
+        padding: 24px 36px;
+        overflow: hidden;
+      }
+      .info-box {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .status-chip {
+        align-self: flex-start;
+        background: #fff1f2;
+        color: #be123c;
+        border: 1px solid #fecdd3;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 6px;
+      }
+      .info-h1 {
+        font-size: 21px;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.3;
+      }
+      .timer-card {
+        background: #fdf2f8;
+        border: 1px solid #fbcfe8;
+        border-left: 5px solid #db2777;
+        border-radius: 8px;
+        padding: 14px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .timer-clock {
+        font-size: 26px;
+        font-weight: 900;
+        color: #be185d;
+      }
+      .text-p {
+        font-size: 13px;
+        line-height: 1.6;
+        color: #334155;
+      }
+      .warning-bar {
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-size: 13px;
+        color: #c2410c;
+        line-height: 1.5;
+      }
+      .form-panel {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .form-h2 {
+        font-size: 17px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .form-sub {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.45;
+      }
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .input-text {
+        font-size: 12px;
+        font-weight: 700;
+        color: #334155;
+      }
+      .input-field {
+        padding: 8px 12px;
+        border: 1px solid #94a3b8;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+      .split-inputs {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 10px;
+      }
+      .btn-verify {
+        background: #7c3aed;
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 700;
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        margin-top: 4px;
+      }
+      .trust-note {
+        font-size: 11px;
+        color: #64748b;
+        text-align: center;
+        line-height: 1.4;
+      }
+      .footer-strip {
+        height: 32px;
+        background: #e2e8f0;
+        border-top: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <span class="browser-alert">Идентификация</span>
+      <div class="browser-url">https://gos-svyaz-reestr.check-id.example/sim/verify-number/urgent</div>
+    </div>
+
+    <header class="telecom-nav">
+      <div class="telecom-brand">
+        <div class="telecom-logo">СР</div>
+        <div>
+          <div class="telecom-name">ГосСвязьРеестр — Единый реестр абонентов связи</div>
+          <div class="telecom-desc">Межведомственная система контроля абонентских баз (официальный ресурс: gos-svyaz.example)</div>
+        </div>
+      </div>
+      <div style="font-size: 13px; color: #475569;">Регламент проверки № 533-ФЗ</div>
+    </header>
+
+    <main class="main-grid">
+      <section class="info-box">
+        <span class="status-chip">Предписание об ограничении услуг связи</span>
+        <h1 class="info-h1">Требуется экстренное подтверждение паспортных данных абонента</h1>
+
+        <div class="timer-card">
+          <div>
+            <div style="font-size: 13px; color: #475569;">До блокировки входящих и исходящих вызовов:</div>
+            <div style="font-size: 12px; color: #831843;">Номер абонента: +7 (900) 000-52-18</div>
+          </div>
+          <div class="timer-clock">02:44:19</div>
+        </div>
+
+        <p class="text-p">
+          По результатам сверки единой базы абонентов обнаружено расхождение паспортных данных владельца SIM-карты. На основании регламента безопасности номер включён в список на принудительную деактивацию.
+        </p>
+
+        <div class="warning-bar">
+          <strong>Внимание: в случае неисполнения предписания</strong> договор обслуживания расторгается, средства на лицевом счёте (420,00 ₽) замораживаются, а номер передаётся в открытый фонд для повторной продажи.
+        </div>
+      </section>
+
+      <section class="form-panel">
+        <h2 class="form-h2">Форма дистанционной верификации</h2>
+        <p class="form-sub">
+          Заполните данные паспорта гражданина РФ и банковской карты для подтверждения платёжной регистрации.
+        </p>
+
+        <div class="split-inputs">
+          <div class="input-group">
+            <label class="input-text">Серия и номер паспорта</label>
+            <input class="input-field" type="text" placeholder="45 14 ••••••" />
+          </div>
+          <div class="input-group">
+            <label class="input-text">СНИЛС</label>
+            <input class="input-field" type="text" placeholder="112-401-924 01" />
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label class="input-text">Номер банковской карты для подтверждения личности</label>
+          <input class="input-field" type="text" placeholder="2200 0000 0000 0000" value="2200 1482 9104 3320" />
+        </div>
+
+        <div class="split-inputs">
+          <div class="input-group">
+            <label class="input-text">Срок / CVC</label>
+            <input class="input-field" type="text" placeholder="10/28 •••" />
+          </div>
+          <div class="input-group">
+            <label class="input-text">Одноразовый код из СМС</label>
+            <input class="input-field" type="text" placeholder="6 цифр" maxlength="6" />
+          </div>
+        </div>
+
+        <button class="btn-verify">Подтвердить регистрацию номера</button>
+        <div class="trust-note">Государственный защищённый шлюз. Процедура верификации занимает 2 минуты.</div>
+      </section>
+    </main>
+
+    <footer class="footer-strip">
+      ГосСвязьРеестр • Реестр абонентов операторов связи РФ • 2026
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ГосВзыскание — Банк данных исполнительных производств: ИП № 42109/26/50</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f8fafc;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .browser-sec {
+        font-size: 12px;
+        background: #ecfdf5;
+        color: #065f46;
+        font-weight: 700;
+        border: 1px solid #a7f3d0;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: Consolas, monospace;
+        color: #334155;
+      }
+      .official-nav {
+        height: 60px;
+        background: #ffffff;
+        border-bottom: 2px solid #0f766e;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 36px;
+        flex-shrink: 0;
+      }
+      .official-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .official-logo {
+        width: 36px;
+        height: 36px;
+        background: #0f766e;
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+      }
+      .official-name {
+        font-size: 18px;
+        font-weight: 800;
+        color: #134e4a;
+      }
+      .official-dep {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .grid-box {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1.35fr 0.85fr;
+        gap: 24px;
+        padding: 24px 36px;
+        overflow: hidden;
+      }
+      .view-panel {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .meta-tag {
+        align-self: flex-start;
+        background: #f1f5f9;
+        color: #334155;
+        border: 1px solid #cbd5e1;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 6px;
+      }
+      .panel-h1 {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        font-size: 13px;
+      }
+      .info-row {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      .info-label {
+        color: #64748b;
+        font-size: 12px;
+      }
+      .info-value {
+        color: #0f172a;
+        font-weight: 700;
+      }
+      .legal-note {
+        font-size: 13px;
+        line-height: 1.6;
+        color: #334155;
+      }
+      .grace-period {
+        background: #eff6ff;
+        border-left: 4px solid #0f766e;
+        padding: 12px 14px;
+        font-size: 13px;
+        color: #115e59;
+        line-height: 1.5;
+        border-radius: 0 6px 6px 0;
+      }
+      .side-panel {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .side-title {
+        font-size: 16px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .treasury-box {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 14px;
+        font-size: 12px;
+        color: #334155;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .treasury-field {
+        display: flex;
+        flex-direction: column;
+      }
+      .treasury-label {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .treasury-val {
+        font-family: Consolas, monospace;
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .actions-block {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .btn-primary {
+        background: #0f766e;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        text-align: center;
+      }
+      .btn-outline {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        text-align: center;
+      }
+      .memo-box {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 12px;
+        color: #166534;
+        line-height: 1.45;
+      }
+      .footer-zone {
+        height: 34px;
+        background: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <span class="browser-sec">Официальный реестр</span>
+      <div class="browser-url">https://sud-reestr.example/ip/case-42109-26/overview</div>
+    </div>
+
+    <header class="official-nav">
+      <div class="official-brand">
+        <div class="official-logo">ГВ</div>
+        <div>
+          <div class="official-name">ГосВзыскание — Банк данных исполнительных производств</div>
+          <div class="official-dep">Информационная система взаимодействия со службой судебных приставов</div>
+        </div>
+      </div>
+      <div style="font-size: 13px; color: #475569;">Территориальный отдел по МО № 3</div>
+    </header>
+
+    <main class="grid-box">
+      <section class="view-panel">
+        <span class="meta-tag">Исполнительное производство № 42109/26/50-ИП</span>
+        <h1 class="panel-h1">Уведомление о возбуждении производства по взысканию госпошлины</h1>
+
+        <div class="info-grid">
+          <div class="info-row">
+            <span class="info-label">Должник:</span>
+            <span class="info-value">Морозов Виктор Сергеевич</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Сумма взыскания:</span>
+            <span class="info-value">1 850,00 ₽ (госпошлина)</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Исполнительный документ:</span>
+            <span class="info-value">Судебный приказ № 2-1402/2025</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Судебный пристав:</span>
+            <span class="info-value">Орлова Е. В. • 8 (495) 555-01-92</span>
+          </div>
+        </div>
+
+        <p class="legal-note">
+          В соответствии со статьёй 30 Федерального закона «Об исполнительном производстве» должнику предоставляется 5-дневный срок для добровольного исполнения требований, указанных в исполнительном документе, исчисляемый со дня получения настоящего уведомления.
+        </p>
+
+        <div class="grace-period">
+          <strong>Срок добровольной оплаты: до 12 ноября 2026 года.</strong> В случае добровольной оплаты в указанный срок исполнительский сбор (7%, но не менее 1 000 ₽) не взимается. Если вы уже оплатили задолженность, направьте платёжное поручение приставу через кнопку «Прикрепить квитанцию».
+        </div>
+      </section>
+
+      <aside class="side-panel">
+        <h3 class="side-title">Официальные реквизиты Казначейства</h3>
+
+        <div class="treasury-box">
+          <div class="treasury-field">
+            <span class="treasury-label">Получатель:</span>
+            <span class="treasury-val">Казначейство Северного округа</span>
+          </div>
+          <div class="treasury-field">
+            <span class="treasury-label">Казначейский счёт:</span>
+            <span class="treasury-val">03100643000000014800</span>
+          </div>
+          <div class="treasury-field">
+            <span class="treasury-label">УИН для оплаты в онлайн-банке:</span>
+            <span class="treasury-val" style="color: #0f766e;">32250014210926500192</span>
+          </div>
+        </div>
+
+        <div class="actions-block">
+          <button class="btn-primary">Оплатить по УИН в онлайн-банке</button>
+          <div class="btn-outline">Скачать постановление о возбуждении (PDF с ЭЦП)</div>
+          <div class="btn-outline">Прикрепить подтверждение оплаты</div>
+          <div class="btn-outline">Подать ходатайство / обжаловать приказ</div>
+        </div>
+
+        <div class="memo-box">
+          <strong>Безопасность:</strong> Судебные приставы никогда не запрашивают номера банковских карт или секретные коды. Оплата осуществляется строго через банковские организации на единый казначейский счёт.
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footer-zone">
+      Официальный реестр принудительного исполнения • Банк данных производств • 2026
+    </footer>
+  </body>
+</html>

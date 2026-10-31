@@ -1,0 +1,92 @@
+[
+  {
+    "file": "01-pension-recalculation-scam.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Lookalike domain gos-kompensacii.reestr-online.example mismatches stated official portal gos-kompensacii.example",
+      "Unsolicited 47,200 RUB pension recalculation bonus with an arbitrary 48-hour deadline",
+      "Requires upfront 240 RUB 'verification payment' with full card number and CVV/CVC to receive the payout"
+    ],
+    "notes": "Hard (subtle): official-looking civic portal for pension recalculation demanding a 240 RUB card verification fee with CVV to unlock 47,200 RUB."
+  },
+  {
+    "file": "02-property-tax-notice-legit.html",
+    "label": "legit",
+    "lang": "ru",
+    "flags": [],
+    "notes": "Налоговое уведомление на официальном портале «Единый ГосСервис» с подробной таблицей начислений по налогу на имущество (3 650 ₽), сроком до 1 декабря, оплатой по УИН через СБП и предупреждением о неразглашении CVV."
+  },
+  {
+    "file": "03-court-bailiff-summons-scam.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Subdomain mismatch sud-vzyskanie.ispolnenie-reg.example instead of official sud-vzyskanie.example",
+      "High-pressure 24-hour threat of immediate bank account freeze and asset seizure",
+      "Direct credit card and CVV input form instead of official treasury requisites (Federal Treasury account / UIN)"
+    ],
+    "notes": "Hard (subtle): intimidating legalistic bailiff notice threatening a 24-hour account freeze for a 5,800 RUB debt with direct card + CVV harvesting."
+  },
+  {
+    "file": "04-bailiff-enforcement-legit.html",
+    "label": "legit",
+    "lang": "ru",
+    "flags": [],
+    "notes": "Официальное уведомление о возбуждении исполнительного производства на 1 850 ₽ в государственной системе «ГосВзыскание» с реквизитами Казначейства, 20-значным УИН и правом обжалования."
+  },
+  {
+    "file": "05-sim-deactivation-scam.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Third-party lookalike domain gos-svyaz-reestr.check-id.example impersonating official telecommunications registry",
+      "Urgent 3-hour phone suspension threat pressuring immediate verification",
+      "Collection of sensitive personal data (SNILS, passport), payment card details, and SMS one-time passcode"
+    ],
+    "notes": "Hard (subtle): telecom registry phishing page threatening SIM card deactivation in 3 hours and harvesting passport, SNILS, bank card, and SMS OTP."
+  },
+  {
+    "file": "06-medical-portal-sms-auth-legit.html",
+    "label": "legit",
+    "lang": "ru",
+    "flags": [],
+    "notes": "Официальная страница двухфакторного SMS-входа в электронную медкарту пациента «ЗдравСервис» с нулевой стоимостью (0 ₽) и чётким предупреждением о защите кода от третьих лиц."
+  },
+  {
+    "file": "07-sanatorium-subsidy-scam.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Phishing domain soc-subsidii.gos-lgoty.example imitating official social security service",
+      "Unsolicited 38,500 RUB sanatorium voucher refund with strict 3-day claiming window",
+      "Requirement to pay an upfront 590 RUB electronic certificate fee with full card number and CVV"
+    ],
+    "notes": "Hard (subtle): polished social subsidy landing page promising 38,500 RUB for unused sanatorium vouchers after paying a 590 RUB certificate fee with full card data."
+  },
+  {
+    "file": "08-pension-indexation-statement-legit.html",
+    "label": "legit",
+    "lang": "ru",
+    "flags": [],
+    "notes": "Официальная информационная выписка пенсионного сервиса о плановой индексации страховой пенсии на 7.3% (22 640 ₽) с разъяснением автоматического начисления без сборов и выпиской с ЭЦП."
+  },
+  {
+    "file": "09-traffic-fine-warning-scam.html",
+    "label": "scam",
+    "lang": "ru",
+    "flags": [
+      "Sender email and payment link fine-oplata.example mismatch official carrier and state portal domains",
+      "High-pressure urgency timer offering fake 75% flash discount (250 RUB) expiring in 2 hours",
+      "Omission of specific vehicle registration plate, exact violation location coordinates, and verifiable camera certificate"
+    ],
+    "notes": "Hard (subtle): webmail traffic fine notification with masked license plate, 2-hour 75% flash discount pressure (250 ₽), and an unverified external payment link."
+  },
+  {
+    "file": "10-utility-meter-check-legit.html",
+    "label": "legit",
+    "lang": "ru",
+    "flags": [],
+    "notes": "Плановое предписание городского водоканала о поверке счётчика ХВС с разъяснением порядка начислений, вызовом аккредитованного мастера, оплатой через квитанцию ЕПД и предупреждением о мошенниках."
+  }
+]

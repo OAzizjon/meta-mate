@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>National Revenue Office: Notice of Available Tax Account Transcript - Horizon Mail</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .mail-bar {
+        height: 52px;
+        background-color: #1e293b;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        flex-shrink: 0;
+      }
+      .app-heading {
+        font-size: 18px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .search-wrapper {
+        width: 440px;
+      }
+      .search-wrapper input {
+        width: 100%;
+        padding: 7px 16px;
+        font-size: 13px;
+        border-radius: 6px;
+        border: none;
+        background-color: #334155;
+        color: #f8fafc;
+      }
+      .search-wrapper input::placeholder {
+        color: #94a3b8;
+      }
+      .user-indicator {
+        font-size: 13px;
+        color: #cbd5e1;
+      }
+      .mail-framework {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .folders-sidebar {
+        width: 180px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .nav-row {
+        padding: 8px 12px;
+        font-size: 13px;
+        border-radius: 6px;
+        color: #475569;
+        display: flex;
+        justify-content: space-between;
+      }
+      .nav-row.active {
+        background-color: #f1f5f9;
+        color: #0f172a;
+        font-weight: 700;
+      }
+      .items-pane {
+        width: 310px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+      .mail-item {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+      }
+      .mail-item.active {
+        background-color: #f8fafc;
+        border-left: 3px solid #1e293b;
+      }
+      .item-sender {
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+      .item-subject {
+        color: #334155;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+      }
+      .item-date {
+        font-size: 11px;
+        color: #94a3b8;
+      }
+      .reading-viewport {
+        flex: 1;
+        background-color: #f8fafc;
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        justify-content: center;
+      }
+      .nro-document {
+        width: 100%;
+        max-width: 700px;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 32px 36px;
+      }
+      .nro-header {
+        border-bottom: 2px solid #0f172a;
+        padding-bottom: 14px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .nro-title-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .nro-emblem {
+        width: 38px;
+        height: 38px;
+        background-color: #0f172a;
+        color: #ffffff;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 14px;
+      }
+      .nro-main-name {
+        font-size: 17px;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.2px;
+      }
+      .nro-sub-name {
+        font-size: 11px;
+        color: #64748b;
+        text-transform: uppercase;
+      }
+      .form-meta {
+        font-size: 12px;
+        color: #475569;
+        text-align: right;
+      }
+      .email-details {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.6;
+        margin-bottom: 20px;
+      }
+      .sender-address {
+        color: #0f172a;
+        font-weight: 600;
+      }
+      .summary-box {
+        background-color: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        font-size: 13px;
+      }
+      .summary-grid {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        row-gap: 6px;
+      }
+      .summary-label {
+        color: #64748b;
+      }
+      .summary-val {
+        color: #0f172a;
+        font-weight: 600;
+      }
+      .body-paragraph {
+        font-size: 14px;
+        color: #334155;
+        line-height: 1.6;
+        margin-bottom: 16px;
+      }
+      .instruction-steps {
+        background-color: #f1f5f9;
+        border-radius: 6px;
+        padding: 16px 20px;
+        margin-bottom: 22px;
+        font-size: 13px;
+        color: #334155;
+        line-height: 1.6;
+      }
+      .instruction-steps ol {
+        margin: 8px 0 0 20px;
+      }
+      .instruction-steps li {
+        margin-bottom: 6px;
+      }
+      .official-disclaimer-box {
+        background-color: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-left: 4px solid #2563eb;
+        border-radius: 4px;
+        padding: 14px 18px;
+        font-size: 12px;
+        color: #1e40af;
+        line-height: 1.5;
+        margin-bottom: 20px;
+      }
+      .official-disclaimer-box strong {
+        color: #1e3a8a;
+      }
+      .nro-footer {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 16px;
+        font-size: 11px;
+        color: #94a3b8;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mail-bar">
+      <div class="app-heading">Horizon Webmail</div>
+      <div class="search-wrapper">
+        <input type="text" placeholder="Search emails and messages" />
+      </div>
+      <div class="user-indicator">robert.miller@example.com</div>
+    </div>
+    <div class="mail-framework">
+      <div class="folders-sidebar">
+        <div class="nav-row active"><span>Inbox</span><span>11</span></div>
+        <div class="nav-row"><span>Sent</span></div>
+        <div class="nav-row"><span>Drafts</span></div>
+        <div class="nav-row"><span>Archive</span></div>
+        <div class="nav-row"><span>Trash</span></div>
+      </div>
+      <div class="items-pane">
+        <div class="mail-item active">
+          <div class="item-sender">National Revenue Office</div>
+          <div class="item-subject">Official Notice Regarding Your Online Tax Account</div>
+          <div class="item-date">Today, 10:15 AM</div>
+        </div>
+        <div class="mail-item">
+          <div class="item-sender">CityLight & Water</div>
+          <div class="item-subject">Scheduled Service Maintenance Notice</div>
+          <div class="item-date">Yesterday</div>
+        </div>
+      </div>
+      <div class="reading-viewport">
+        <div class="nro-document">
+          <div class="nro-header">
+            <div class="nro-title-group">
+              <div class="nro-emblem">NRO</div>
+              <div>
+                <div class="nro-main-name">NATIONAL REVENUE OFFICE</div>
+                <div class="nro-sub-name">MINISTRY OF FINANCE &bull; CAPITAL CITY</div>
+              </div>
+            </div>
+            <div class="form-meta">
+              Notice: LTR-8910-C<br />
+              Tax Year: 2025 Form 1040
+            </div>
+          </div>
+          <div class="email-details">
+            From: National Revenue Office &lt;<span class="sender-address">notifications@revenue-office.example</span>&gt;<br />
+            To: robert.miller@example.com &bull; Date: October 31, 2026, 10:15 AM
+          </div>
+          <div class="summary-box">
+            <div class="summary-grid">
+              <span class="summary-label">Document Available:</span>
+              <span class="summary-val">2025 Federal Tax Return Transcript</span>
+              <span class="summary-label">Taxpayer ID:</span>
+              <span class="summary-val">***-**-4910</span>
+              <span class="summary-label">Processing Status:</span>
+              <span class="summary-val" style="color: #15803d;">Complete and Verified</span>
+            </div>
+          </div>
+          <p class="body-paragraph">
+            This notice is to confirm that the official federal tax return transcript you requested for the 2025 tax year has been generated and is now securely stored in your personal NRO Online Account.
+          </p>
+          <div class="instruction-steps">
+            <strong>How to Access Your Transcript Securely:</strong>
+            <ol>
+              <li>Open your web browser.</li>
+              <li>Manually type the official federal address: <strong>https://www.revenue-office.example/account</strong></li>
+              <li>Sign in using your existing verified ID.me or Login.gov taxpayer credentials.</li>
+              <li>Navigate to the "Records and Transcripts" section to view or download your PDF copy.</li>
+            </ol>
+          </div>
+          <div class="official-disclaimer-box">
+            <strong>NRO Cyber Safety Policy Notice:</strong><br />
+            The NRO does <strong>NOT</strong> include direct links to login pages, request personal or financial information, or demand payment via email, text message, wire transfer, or gift cards.<br />
+            No payment or action is required regarding this notification. This is an unmonitored automated system alert; please do not reply to this email.
+          </div>
+          <div class="nro-footer">
+            National Revenue Office &bull; 100 Civic Plaza, Capital City 20224.<br />
+            Official Federal Services: https://www.revenue-office.example &bull; Taxpayer Assistance Line: 1-800-555-0100
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

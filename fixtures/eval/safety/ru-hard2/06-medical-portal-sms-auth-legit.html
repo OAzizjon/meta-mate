@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ЗдравСервис — Подтверждение входа в электронную медицинскую карту</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: #f8fafc;
+        color: #0f172a;
+        width: 1280px;
+        height: 800px;
+        margin: 0 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .browser-bar {
+        height: 42px;
+        background: #e2e8f0;
+        border-bottom: 1px solid #cbd5e1;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .browser-safe {
+        font-size: 12px;
+        background: #ecfdf5;
+        color: #065f46;
+        font-weight: 700;
+        border: 1px solid #a7f3d0;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+      .browser-url {
+        flex: 1;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        padding: 5px 14px;
+        font-size: 13px;
+        font-family: Consolas, monospace;
+        color: #334155;
+      }
+      .health-header {
+        height: 60px;
+        background: #ffffff;
+        border-bottom: 2px solid #0284c7;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 36px;
+        flex-shrink: 0;
+      }
+      .health-brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .health-cross {
+        width: 36px;
+        height: 36px;
+        background: #0284c7;
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+      }
+      .health-name {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0369a1;
+      }
+      .health-sub {
+        font-size: 11px;
+        color: #64748b;
+      }
+      .health-support {
+        font-size: 13px;
+        color: #475569;
+      }
+      .auth-container {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 24px;
+      }
+      .auth-box {
+        width: 500px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: 12px;
+        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .auth-badge {
+        align-self: flex-start;
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 4px;
+      }
+      .auth-title {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .auth-text {
+        font-size: 14px;
+        line-height: 1.5;
+        color: #475569;
+      }
+      .sms-info-box {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 13px;
+      }
+      .sms-dest {
+        font-weight: 700;
+        color: #0f172a;
+      }
+      .otp-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .otp-input {
+        width: 100%;
+        text-align: center;
+        font-size: 26px;
+        font-family: Consolas, monospace;
+        letter-spacing: 10px;
+        padding: 10px;
+        border: 2px solid #0284c7;
+        border-radius: 8px;
+        outline: none;
+        color: #0f172a;
+      }
+      .btn-login {
+        background: #0284c7;
+        color: #ffffff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        text-align: center;
+      }
+      .resend-link {
+        font-size: 13px;
+        color: #0284c7;
+        text-align: center;
+        cursor: pointer;
+      }
+      .safety-card {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 8px;
+        padding: 12px;
+        font-size: 12px;
+        color: #166534;
+        line-height: 1.45;
+      }
+      .health-footer {
+        height: 34px;
+        background: #ffffff;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="browser-bar">
+      <span class="browser-safe">ГосПортал ОМС</span>
+      <div class="browser-url">https://zdrav-portal.example/auth/sms-verify?session=emk-84920</div>
+    </div>
+
+    <header class="health-header">
+      <div class="health-brand">
+        <div class="health-cross">+</div>
+        <div>
+          <div class="health-name">ЗдравСервис — Электронная регистратура региона</div>
+          <div class="health-sub">Единая государственная информационная система в сфере здравоохранения</div>
+        </div>
+      </div>
+      <div class="health-support">Служба доверия ОМС: 8 (800) 555-01-03</div>
+    </header>
+
+    <main class="auth-container">
+      <div class="auth-box">
+        <span class="auth-badge">Двухфакторная аутентификация</span>
+        <h1 class="auth-title">Подтверждение входа в Личный кабинет пациента</h1>
+        <p class="auth-text">
+          Для доступа к протоколам лабораторных исследований, выпискам врачей и электронным рецептам введите 6-значный одноразовый проверочный код.
+        </p>
+
+        <div class="sms-info-box">
+          <div>Код отправлен в SMS на привязанный номер:</div>
+          <div class="sms-dest">+7 (900) •••-41-89 (отправитель: ZdravService)</div>
+          <div style="font-size: 11px; color: #64748b;">Стоимость сообщения: 0,00 ₽ (включено в сервис ОМС)</div>
+        </div>
+
+        <div class="otp-wrap">
+          <input class="otp-input" type="text" maxlength="6" value="749201" />
+          <div class="resend-link">Запросить новый код повторно через 01:24</div>
+        </div>
+
+        <button class="btn-login">Войти в электронную медкарту</button>
+
+        <div class="safety-card">
+          <strong>Безопасность:</strong> Медицинские работники, регистратура и сотрудники портала никогда не звонят гражданам с просьбой назвать код из SMS. Никогда не сообщайте полученный код посторонним лицам.
+        </div>
+      </div>
+    </main>
+
+    <footer class="health-footer">
+      Единая медицинская информационно-аналитическая платформа региона • 2026
+    </footer>
+  </body>
+</html>

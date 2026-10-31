@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1.0" />
+    <title>Receipt #SS-84192: 3-Year Protection Plan Auto-Renewal - Outlook Web</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        width: 1280px;
+        height: 800px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .mail-app-bar {
+        height: 52px;
+        background-color: #1e3a8a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        flex-shrink: 0;
+      }
+      .app-title {
+        font-size: 18px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .search-box {
+        width: 440px;
+      }
+      .search-box input {
+        width: 100%;
+        padding: 7px 16px;
+        font-size: 13px;
+        border-radius: 6px;
+        border: none;
+        background-color: #3b82f6;
+        color: #ffffff;
+      }
+      .search-box input::placeholder {
+        color: #bfdbfe;
+      }
+      .user-panel {
+        font-size: 13px;
+        color: #dbeafe;
+      }
+      .main-shell {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      .folder-nav {
+        width: 180px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .folder-row {
+        padding: 8px 12px;
+        font-size: 13px;
+        border-radius: 6px;
+        color: #475569;
+        display: flex;
+        justify-content: space-between;
+      }
+      .folder-row.selected {
+        background-color: #eff6ff;
+        color: #1e3a8a;
+        font-weight: 700;
+      }
+      .inbox-pane {
+        width: 310px;
+        background-color: #ffffff;
+        border-right: 1px solid #e2e8f0;
+        overflow-y: auto;
+        flex-shrink: 0;
+      }
+      .inbox-entry {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+      }
+      .inbox-entry.selected {
+        background-color: #f8fafc;
+        border-left: 3px solid #1e3a8a;
+      }
+      .inbox-from {
+        font-weight: 600;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+      .inbox-subj {
+        color: #334155;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+      }
+      .inbox-time {
+        font-size: 11px;
+        color: #94a3b8;
+      }
+      .reading-pane {
+        flex: 1;
+        background-color: #f8fafc;
+        overflow-y: auto;
+        padding: 24px;
+        display: flex;
+        justify-content: center;
+      }
+      .invoice-card {
+        width: 100%;
+        max-width: 680px;
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        padding: 32px 36px;
+      }
+      .invoice-header {
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 16px;
+        margin-bottom: 20px;
+      }
+      .email-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 12px;
+      }
+      .header-meta {
+        font-size: 13px;
+        color: #475569;
+        line-height: 1.6;
+      }
+      .sender-highlight {
+        color: #1e3a8a;
+        font-weight: 600;
+      }
+      .brand-ribbon {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 12px 18px;
+        margin-bottom: 20px;
+      }
+      .brand-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+      .paid-badge {
+        background-color: #dcfce7;
+        color: #15803d;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 12px;
+      }
+      .invoice-summary-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-bottom: 24px;
+      }
+      .invoice-summary-table th {
+        text-align: left;
+        background-color: #f1f5f9;
+        padding: 8px 12px;
+        color: #475569;
+        font-size: 12px;
+      }
+      .invoice-summary-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+      .total-amount {
+        font-size: 16px;
+        font-weight: 800;
+        color: #0f172a;
+      }
+      .refund-callout-box {
+        background-color: #fffbeb;
+        border: 1px solid #fde68a;
+        border-left: 5px solid #d97706;
+        border-radius: 4px;
+        padding: 18px 20px;
+        margin-bottom: 24px;
+      }
+      .refund-callout-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #92400e;
+        margin-bottom: 8px;
+      }
+      .refund-callout-text {
+        font-size: 13px;
+        color: #78350f;
+        line-height: 1.5;
+        margin-bottom: 12px;
+      }
+      .phone-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background-color: #ffffff;
+        border: 1px solid #fcd34d;
+        border-radius: 6px;
+        padding: 10px 16px;
+      }
+      .phone-number {
+        font-size: 18px;
+        font-weight: 800;
+        color: #b45309;
+        font-family: Consolas, monospace;
+      }
+      .phone-hours {
+        font-size: 12px;
+        color: #92400e;
+      }
+      .footer-disclaimer {
+        font-size: 11px;
+        color: #94a3b8;
+        border-top: 1px solid #e2e8f0;
+        padding-top: 16px;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mail-app-bar">
+      <div class="app-title">Horizon Outlook Web</div>
+      <div class="search-box">
+        <input type="text" placeholder="Search mail and calendar" />
+      </div>
+      <div class="user-panel">robert.miller@example.com</div>
+    </div>
+    <div class="main-shell">
+      <div class="folder-nav">
+        <div class="folder-row selected"><span>Inbox</span><span>11</span></div>
+        <div class="folder-row"><span>Junk Email</span></div>
+        <div class="folder-row"><span>Drafts</span></div>
+        <div class="folder-row"><span>Sent Items</span></div>
+        <div class="folder-row"><span>Deleted Items</span></div>
+      </div>
+      <div class="inbox-pane">
+        <div class="inbox-entry selected">
+          <div class="inbox-from">SmartShield Accounts Desk</div>
+          <div class="inbox-subj">Receipt #SS-84192: 3-Year Protection Plan Auto-Renewal</div>
+          <div class="inbox-time">Today, 9:30 AM</div>
+        </div>
+        <div class="inbox-entry">
+          <div class="inbox-from">City Water Utility</div>
+          <div class="inbox-subj">Scheduled Infrastructure Maintenance Notice</div>
+          <div class="inbox-time">Yesterday</div>
+        </div>
+      </div>
+      <div class="reading-pane">
+        <div class="invoice-card">
+          <div class="invoice-header">
+            <h1 class="email-title">Receipt #SS-84192: 3-Year Protection Plan Auto-Renewal</h1>
+            <div class="header-meta">
+              From: SmartShield Billing &lt;<span class="sender-highlight">billing@smartshield-account-desk.example</span>&gt;<br />
+              To: robert.miller@example.com &bull; Date: October 31, 2026 at 9:30 AM
+            </div>
+          </div>
+          <div class="brand-ribbon">
+            <div class="brand-title">SmartShield Total Security Suite</div>
+            <div class="paid-badge">Auto-Renewed & Paid</div>
+          </div>
+          <p style="font-size: 13px; color: #334155; line-height: 1.5; margin-bottom: 16px;">
+            Dear Customer, your 3-year subscription for SmartShield Total Device Defense was automatically renewed for 2026&ndash;2029 under your ongoing maintenance agreement.
+          </p>
+          <table class="invoice-summary-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Term</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>SmartShield Premium Security &bull; 3 PC License</td>
+                <td>36 Months</td>
+                <td style="text-align: right;">$289.00</td>
+              </tr>
+              <tr>
+                <td>Payment Method: Auto-Debit (Linked Account)</td>
+                <td>Transaction ID: #TX-902-8812</td>
+                <td style="text-align: right;" class="total-amount">$289.00</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="refund-callout-box">
+            <div class="refund-callout-title">Did Not Authorize This Charge or Want to Cancel?</div>
+            <div class="refund-callout-text">
+              If you did not authorize this auto-debit or wish to immediately cancel and claim a 100% full refund of $289.00, please <strong>do not contact your bank or credit institution</strong>, as bank disputes may take 30 to 45 business days to resolve.<br /><br />
+              Call our dedicated 24/7 Cancellation &amp; Refund Desk immediately within 24 hours. A certified customer technician will connect to verify your claim and issue an instant refund credit back to your account:
+            </div>
+            <div class="phone-box">
+              <span class="phone-number">+1 555 0192</span>
+              <span class="phone-hours">&bull; Toll-Free Direct Refund Support (Quote Order #SS-84192)</span>
+            </div>
+          </div>
+          <div class="footer-disclaimer">
+            SmartShield Software Security LLC, 120 Technology Way, San Jose, CA.<br />
+            To review your subscription terms or download documentation, visit our official corporate portal at https://smartshield.example.
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
