@@ -11,11 +11,11 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 
 - crates/mm-core/src/api/intent.rs — Intent routing as pure data, with an offline fallback.
   Intent:6 intent_request:22 parse_intent:37 parse_yes_no:101 parse_yes_no_for_locale:106 asks_do_it:242 guess_intent:482
-  tests: crates/mm-core/tests/intent.rs (13)
+  tests: crates/mm-core/tests/intent.rs (14)
 - crates/mm-core/src/api/mod.rs — The Meta Model API (Responses API) as pure data: building requests and reading responses, no networking here (the proxy client lives elsewhere).
   intent:4 request:6 response:7 sam:8 sse:9
 - crates/mm-core/src/api/prompts.rs — The prompt texts (docs/prompts.md, D41) that the builders in api/request.rs send as `instructions`: model input, not UI text, so invariant 7 does not apply.
-  PERSONA_PROMPT:8 SCREEN_PROMPT:39 NO_SCREEN_PROMPT:48 SAFETY_PROMPT:54 EXAMPLES_PROMPT:62 SCREEN_EXAMPLE_PROMPT:75 SAFETY_CHECK_PROMPT:83 TEACHER_PROMPT:101
+  PERSONA_PROMPT:8 SCREEN_PROMPT:39 NO_SCREEN_PROMPT:48 SAFETY_PROMPT:55 EXAMPLES_PROMPT:63 SCREEN_EXAMPLE_PROMPT:76 SAFETY_CHECK_PROMPT:84 TEACHER_PROMPT:102
   inline tests (1)
 - crates/mm-core/src/api/request.rs — Building a Responses API request body (docs/prompts.md, D41).
   RedactedImage:18^ ModelChoice:27 ReasoningEffort:41 SPOKEN_MAX_OUTPUT_TOKENS:63 SCREEN_MAX_OUTPUT_TOKENS:67 ComputerSession:74 must_hide:84 ElementList:91
@@ -307,8 +307,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   voice_speed:318 load:323
   inline tests (18)
 - src-tauri/src/signin.rs — Signing in is required (owner, 2026-10-29): until the person signs in with Google or GitHub, Mate answers nothing and the sign-in window (signin.html, src/signin.ts) is open.
-  required:25 invite_for_proxy:32 guest_used_up:42 missing:50 refusal_line:61 start_guest:71 guest_usage:165 try_as_guest:176
-  open:189 open_later:220 close:234
+  required:28 invite_for_proxy:35 guest_used_up:45 missing:53 refusal_line:64 start_guest:74 guest_usage:176 try_as_guest:187
+  open:200 open_later:231 close:245
   inline tests (1)
 - src-tauri/src/teacher.rs — "How do I ...?" (docs/architecture.md section 3 B, docs/plan.md Day 5): computer use with the person as the hand.
   Words:52
@@ -341,7 +341,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   LEVEL_GAIN_TABLE:77^ levelGain:77^ LIMITER_ATTACK_SECONDS:77^ LIMITER_KNEE_DB:77^ LIMITER_RATIO:77^ LIMITER_RELEASE_SECONDS:77^ LIMITER_THRESHOLD_DB:77^ MAGIC_FADE_DURATION_SECONDS:77^
   MAGIC_FADE_START_SECONDS:77^ MAX_CUE_PAN:77^ panFromViewportX:77^ resolveEffectiveLevel:77^ RING_BUFFER_CAPACITY:77^ RING_BUFFER_SECONDS:77^ SFX_BANDPASS_HIGH_HZ:77^ SFX_BANDPASS_LOW_HZ:77^
   SOUND_CATALOG:77^ SoundBank:77^ SoundBankOptions:77^ SoundCatalogEntry:77^ SOUNDS_BASE_PATH:77^ toResumeState:77^ TTS_WORKLET_NAME:77^ TtsRingProcessor:77^
-  *:128^ AudioEngineOptions:130 AudioEngine:135 createAudioEngine:172
+  *:128^ AudioEngineOptions:130 AudioEngine:135 createAudioEngine:173
 - src/audio/mixer.ts — Master Web Audio graph: speech, sfx (300 Hz-3.2 kHz bandpass), cues, and ambience buses with ducking and brickwall limiter.
   SFX_BANDPASS_LOW_HZ:5 SFX_BANDPASS_HIGH_HZ:6 BUTTERWORTH_Q:7 DUCK_AMB_DB:9 DUCK_SFX_DB:10 DUCK_AMB_GAIN:11 DUCK_SFX_GAIN:12 DUCK_ATTACK_SECONDS:15
   DUCK_RELEASE_SECONDS:16 DUCK_ATTACK_TIME_CONSTANT:17 DUCK_RELEASE_TIME_CONSTANT:18 MAX_CUE_PAN:20 LIMITER_THRESHOLD_DB:22 LIMITER_KNEE_DB:23 LIMITER_RATIO:24 LIMITER_ATTACK_SECONDS:25
@@ -349,7 +349,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   AudioMixer:93
 - src/audio/sentence-completions.ts — Keep sentence completion durable when worklet events precede timeline waits.
   SentenceCompletions:2
-  tests: src/audio/sentence-completions.test.ts (3)
+  tests: src/audio/sentence-completions.test.ts (4)
 - src/audio/sound-bank.ts — OGG preloader/decoder cache (/sounds/<kind>/<name>.ogg), panned cue player, SFX player, and crossfading ambience loop.
   SOUNDS_BASE_PATH:18 AMBIENCE_CROSSFADE_SECONDS:19 MAGIC_FADE_START_SECONDS:20 MAGIC_FADE_DURATION_SECONDS:21 SoundCatalogEntry:23 SOUND_CATALOG:30 FIRST_12_SOUNDS:74 buildSoundUrl:92
   isCueName:101 isAmbienceName:105 isSoundAllowedInMode:109 SoundBankOptions:125 SoundBank:131
@@ -442,8 +442,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/player/index.ts — The timeline player's public face: `createTimelinePlayer` wires `<lang>` to the app's locale (src/i18n).
   TimelinePlayer:8^ CreateTimelinePlayerOptions:11 createTimelinePlayer:14
 - src/player/timeline-player.ts — Plays an answer's MateScript timeline (docs/matescript.md, "Timeline") on Mate and the audio engine.
-  PlayerRobot:17 PlayerAudio:18 TimelinePlayerOptions:20 TimelinePlayer:60
-  tests: src/player/timeline-player.test.ts (8)
+  PlayerRobot:18 PlayerAudio:19 TimelinePlayerOptions:21 TimelinePlayer:61
+  tests: src/player/timeline-player.test.ts (12)
 - src/robot/beam.ts — The flashlight beam in CSS pixels: a light cone from the lens to the target, plus a soft glow and a contour on the target (docs/robot.md "pointing").
   BeamController:9 createBeamController:21
 - src/robot/flight.ts — Moves Mate's box across the page with Web Animations: he tilts toward where he is going and arrives with a small bounce (docs/robot.md "flying").
@@ -622,7 +622,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_clear` src-tauri/src/chat.rs:299 <- src/chat.ts:160
 - `chat_send` src-tauri/src/chat.rs:269 <- src/chat.ts:145
 - `chat_subscribe` src-tauri/src/chat.rs:250 <- src/chat.ts:184
-- `guest_usage` src-tauri/src/signin.rs:165 <- src/mate.ts:370, src/signin.ts:99
+- `guest_usage` src-tauri/src/signin.rs:176 <- src/mate.ts:370, src/signin.ts:99
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:25
 - `load_settings` src-tauri/src/settings.rs:255 <- src/highlight.ts:494, src/home.ts:174, src/i18n/settings.ts:20, src/settings/model.ts:243
@@ -638,7 +638,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `sign_in` src-tauri/src/auth.rs:142 <- src/settings/account.ts:241
 - `sign_out` src-tauri/src/auth.rs:243 <- src/settings/account.ts:262
 - `subscribe_answer_stream` src-tauri/src/answer_stream.rs:325 <- src/ipc/answer-stream.ts:291
-- `try_as_guest` src-tauri/src/signin.rs:176 <- src/signin.ts:96
+- `try_as_guest` src-tauri/src/signin.rs:187 <- src/signin.ts:96
 
 ### Tauri Channels
 
@@ -666,7 +666,7 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `card-ready`: ts emit src/card-page.ts:29; rs listen src-tauri/src/card.rs:416; const src-tauri/src/card.rs:35, src/card.ts:34
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
 - `explain-offer`: rs emit src-tauri/src/explain.rs:249; ts listen src/mate.ts:386; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:129; ts listen src/mate.ts:365, src/signin.ts:101; const src-tauri/src/signin.rs:17
+- `guest-usage`: rs emit src-tauri/src/signin.rs:140; ts listen src/mate.ts:365, src/signin.ts:101; const src-tauri/src/signin.rs:17
 - `highlight`: rs emit src-tauri/src/highlight.rs:157,163,266, src-tauri/src/pointing.rs:447; ts listen src/highlight.ts:503, src/mate.ts:343; const src-tauri/src/highlight.rs:15
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:375
 - `lesson-card`: rs emit src-tauri/src/card.rs:466; ts listen src/card-page.ts:25; const src-tauri/src/card.rs:34, src/card.ts:32
@@ -720,7 +720,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.click_stop`: rs src-tauri/src/voice.rs:585; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:96,117
 - `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:369,377,585,591, src-tauri/src/teacher/presentation.rs:81; ts src/ipc/answer-stream.ts:51
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:77; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:46
-- `robot.guest_limit`: rs src-tauri/src/signin.rs:63; ts src/ipc/answer-stream.ts:38
+- `robot.guest_limit`: rs src-tauri/src/signin.rs:66; ts src/ipc/answer-stream.ts:38
 - `robot.look_consent`: rs src-tauri/src/screen.rs:545; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:129
 - `robot.looking`: rs src-tauri/src/voice.rs:64
 - `robot.network_error`: rs src-tauri/src/chat.rs:290, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1235; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
@@ -736,7 +736,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/ipc/answer-stream.ts:44
 - `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/ipc/answer-stream.ts:45
 - `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:185, src-tauri/src/voice.rs:1233; ts src/ipc/answer-stream.ts:36
-- `robot.sign_in_first`: rs src-tauri/src/signin.rs:65; ts src/ipc/answer-stream.ts:37
+- `robot.sign_in_first`: rs src-tauri/src/signin.rs:68; ts src/ipc/answer-stream.ts:37
 - `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:466,547; ts src/ipc/answer-stream.ts:55
 - `robot.thinking`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_2`: rs src-tauri/src/voice.rs:63
@@ -752,7 +752,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_insert`: rs src-tauri/src/settings.rs:126; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:124; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
 - `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:123; ts src/settings/choices-view.ts:18, src/settings/ptt-key.ts:6
-- `signin.guest_none`: rs src-tauri/src/signin.rs:181; ts src/signin.ts:91
+- `signin.guest_none`: rs src-tauri/src/signin.rs:192; ts src/signin.ts:91
 - `tray.chat`: rs src-tauri/src/lib.rs:248; ts src/mate-menu.ts:5
 - `tray.hide_hour`: rs src-tauri/src/lib.rs:314,367; ts src/mate-menu.ts:9
 - `tray.open_home`: rs src-tauri/src/lib.rs:247
@@ -797,11 +797,11 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 246 | 31 |
+| crates/mm-core | 247 | 31 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 60 | 10 |
 | src-tauri | 173 | 20 |
-| src | 230 | 26 |
+| src | 235 | 26 |
 | tools | 265 | 17 |
 | server | 86 | 4 |
 | tts | 27 | 2 |

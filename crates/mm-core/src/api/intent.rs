@@ -539,7 +539,13 @@ pub fn guess_intent(question: &str) -> Intent {
     {
         return Intent::Where;
     }
+    // "Помоги мне отправить письмо", "help me send this email": a task to walk through.
+    let help = words
+        .iter()
+        .any(|word| matches!(*word, "помоги" | "помогите"))
+        || has_phrase(&words, &["help", "me"]);
     if imperative
+        || help
         || has_phrase(&words, &["how", "do", "i"])
         || has_phrase(&words, &["how", "to"])
         || has_phrase(&words, &["what", "can", "i", "do", "here"])
@@ -576,6 +582,37 @@ pub fn guess_intent(question: &str) -> Intent {
         })
     {
         return Intent::How;
+    }
+    // A question about what is in front of the person needs the screen even without
+    // "where": "что у меня на экране?", "что мне здесь нажать?", "what should I click here?".
+    // Without the screen the model can only say it does not see it.
+    if words.iter().any(|word| {
+        matches!(
+            *word,
+            "экран"
+                | "экране"
+                | "экрана"
+                | "окно"
+                | "окне"
+                | "окна"
+                | "здесь"
+                | "тут"
+                | "видишь"
+                | "посмотри"
+                | "посмотрите"
+                | "нажать"
+                | "нажимать"
+                | "screen"
+                | "window"
+                | "here"
+                | "click"
+                | "press"
+        )
+    }) || has_phrase(&words, &["what", "is", "this"])
+        || has_phrase(&words, &["whats", "this"])
+        || has_phrase(&words, &["что", "это"])
+    {
+        return Intent::Where;
     }
     Intent::Chat
 }

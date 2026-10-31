@@ -6,7 +6,7 @@
 //! The guest trial (owner, 2026-10-29): without signing in, a device gets a guest token and
 //! 12 answers an hour (counted by the proxy); the count shows in Mate's window and here.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use mm_core::constants::APP_NAME;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -20,6 +20,9 @@ const WINDOW: &str = "signin";
 
 /// One open at a time: a burst of key presses queues one window, not one each.
 static OPENING: AtomicBool = AtomicBool::new(false);
+/// Each start of the trial outdates the tasks of the one before (a sign-out after a sign-in
+/// starts it again): they stop at their next wake instead of running twice.
+static GUEST_RUN: AtomicU64 = AtomicU64::new(0);
 
 /// Release builds always; development builds only with `MM_REQUIRE_SIGN_IN=1`.
 pub(crate) fn required() -> bool {
@@ -74,6 +77,8 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
     }
     let app = app.clone();
     let proxy = proxy.clone();
+    let run = GUEST_RUN.fetch_add(1, Ordering::AcqRel) + 1;
+    let stale = move || GUEST_RUN.load(Ordering::Acquire) != run;
     tauri::async_runtime::spawn(async move {
         // Without a trial (an older proxy, no data folder) the plain sign-in remains. A proxy
         // waking from a cold start or a lost connection is asked again, so the trial still
@@ -96,12 +101,12 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
             }
             tokio::time::sleep(delay).await;
             delay = (delay * 3).min(std::time::Duration::from_secs(300));
-            if signed_in(&app) {
+            if signed_in(&app) || stale() {
                 return;
             }
         };
         // A sign-in that finished while the request was out wins over the trial.
-        if signed_in(&app) {
+        if signed_in(&app) || stale() {
             return;
         }
         proxy.set_guest(Some(token));
@@ -111,11 +116,14 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
             let (app, proxy) = renew;
             loop {
                 tokio::time::sleep(std::time::Duration::from_secs(12 * 3600)).await;
-                if signed_in(&app) || !proxy.has_guest() {
+                if signed_in(&app) || !proxy.has_guest() || stale() {
                     break;
                 }
                 if let Some(device) = device_id(&app)
                     && let Ok(token) = proxy.guest_token(&device).await
+                    // A sign-in or a newer start while the request was out wins.
+                    && !signed_in(&app)
+                    && !stale()
                 {
                     proxy.set_guest(Some(token));
                 }
@@ -124,6 +132,9 @@ pub(crate) fn start_guest(app: &AppHandle, proxy: &Proxy) {
         let mut usage = proxy.watch_guest_usage();
         let mut was_left = None;
         loop {
+            if signed_in(&app) || stale() {
+                break;
+            }
             let current = *usage.borrow_and_update();
             if let Some(current) = current {
                 let _ = app.emit(USAGE_EVENT, current);

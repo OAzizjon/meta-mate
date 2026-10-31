@@ -71,7 +71,7 @@
   "tray.tooltip": "Удерживайте {key} и спросите меня",
   "robot.checking_safety": "Сейчас внимательно проверю. Смотрю только на это окно.",
   "robot.thinking_harder": "Дайте подумать получше.",
-  "auth.browser_done": "Вход выполнен. Закройте эту вкладку и вернитесь в MetaMate.",
+  "auth.browser_done": "MetaMate завершает вход. Закройте эту вкладку.",
   "auth.browser_failed": "Войти не получилось. Закройте эту вкладку и попробуйте ещё раз в MetaMate.",
   "settings.robot_size": "Размер робота",
   "settings.size_s": "Маленький",

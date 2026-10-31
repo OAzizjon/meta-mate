@@ -71,7 +71,7 @@
   "tray.tooltip": "Hold {key} and ask me",
   "robot.checking_safety": "Let me check this carefully. I'm looking only at this window.",
   "robot.thinking_harder": "Let me think about this a bit harder.",
-  "auth.browser_done": "You are signed in. You can close this tab and go back to MetaMate.",
+  "auth.browser_done": "MetaMate is finishing your sign-in. Close this tab.",
   "auth.browser_failed": "Signing in did not work. Close this tab and try again from MetaMate.",
   "settings.robot_size": "Robot size",
   "settings.size_s": "Small",

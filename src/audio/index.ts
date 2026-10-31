@@ -145,7 +145,8 @@ export interface AudioEngine {
   pushPcm(chunk: PcmChunk): void;
   interrupt(generationId: number): void;
   cancel(generationId: number): void;
-  waitForSentenceEnd(generationId: number, sentenceId: number): Promise<void>;
+  /** Resolves with whether the completed sentence had PCM samples. */
+  waitForSentenceEnd(generationId: number, sentenceId: number): Promise<boolean>;
   playCue(name: CueName, opts?: CueOptions): PlaybackHandle;
   // Pass the answer generation when scheduling effects before its first PCM chunk.
   playSfx(sound: Sound | string, generationId?: number): PlaybackHandle;
@@ -174,7 +175,7 @@ export async function createAudioEngine(
 ): Promise<AudioEngine> {
   const ctx = await initAudioContext();
   const idleClock = new AudioIdleController(ctx);
-  const speech = new Map<string, { generation: number; lease: PlaybackLease }>();
+  const speech = new Map<string, { generation: number; lease: PlaybackLease; hadSamples: boolean }>();
   const releaseSpeech = (through: number): void => {
     for (const [key, entry] of speech) {
       if (entry.generation > through) continue;
@@ -232,9 +233,11 @@ export async function createAudioEngine(
         options.onVoiceLevel?.(msg.rms);
       } else if (msg.type === "sentence-end") {
         const key = `${msg.generationId}:${msg.sentenceId}`;
+        // Interrupts release the entry before the worklet reports its end; no fallback then.
+        const hadSamples = speech.get(key)?.hadSamples ?? true;
         speech.get(key)?.lease.release();
         speech.delete(key);
-        sentenceCompletions.complete(msg.generationId, msg.sentenceId);
+        sentenceCompletions.complete(msg.generationId, msg.sentenceId, hadSamples);
       }
       for (const listener of workletListeners) {
         listener(msg);
@@ -283,7 +286,7 @@ export async function createAudioEngine(
       const key = `${chunk.generationId}:${chunk.sentenceId}`;
       let entry = speech.get(key);
       if (!entry) {
-        entry = { generation: chunk.generationId, lease: idleClock.begin() };
+        entry = { generation: chunk.generationId, lease: idleClock.begin(), hadSamples: false };
         speech.set(key, entry);
       }
       const pending = entry;
@@ -301,6 +304,7 @@ export async function createAudioEngine(
           pcm,
         };
         workletNode!.port.postMessage(msg, [pcm]);
+        pending.hadSamples ||= chunk.samples.length > 0;
       }).catch(() => {
         if (speech.get(key) === pending) speech.delete(key);
         pending.lease.release();
@@ -344,7 +348,7 @@ export async function createAudioEngine(
     waitForSentenceEnd(
       generationId: number,
       sentenceId: number,
-    ): Promise<void> {
+    ): Promise<boolean> {
       return sentenceCompletions.wait(generationId, sentenceId);
     },
     playCue(name: CueName, opts?: CueOptions): PlaybackHandle {

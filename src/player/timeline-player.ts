@@ -5,6 +5,7 @@
 // engine's end of that sentence. Spoken and shown text never goes to the log.
 
 import type { AudioEngine } from "../audio/index.ts";
+import { bubbleReadMs } from "../bubble-timing.ts";
 import type { LocaleCode, TeacherLineKey } from "../i18n/index.ts";
 import type { Bound, Point, Say, TimelineItem } from "../ipc/timeline.ts";
 import type { CssRect, RobotController } from "../robot/index.ts";
@@ -32,7 +33,7 @@ export interface TimelinePlayerOptions {
     generation: number,
     step: { readonly number: number; readonly total: number } | null,
   ) => CssRect | null | Promise<CssRect | null>;
-  /** Shows a `<show>` bubble; null hides it. */
+  /** Shows a `<show>` bubble or silent sentence; null hides it. */
   readonly showBubble: (text: string | null) => void;
   /** A teacher line for the caller to speak; the timeline goes on once its promise settles. */
   readonly onLine: (line: TeacherLineKey) => void | Promise<void>;
@@ -199,7 +200,13 @@ export class TimelinePlayer {
       if (run.abort.signal.aborted) return;
     }
     this.options.robot.setState(pointing ? "pointing" : "speaking");
-    await untilAborted(run.abort.signal, this.options.audio.waitForSentenceEnd(run.generation, say.id));
+    let hadSamples = true;
+    await untilAborted(run.abort.signal, this.options.audio.waitForSentenceEnd(run.generation, say.id)
+      .then((played) => { hadSamples = played; }));
+    if (run.abort.signal.aborted || hadSamples || say.id === 0) return;
+    this.options.showBubble(say.text);
+    run.shown = true;
+    await untilAborted(run.abort.signal, this.sleep(bubbleReadMs(say.text), run.abort.signal));
   }
 
   /** Starts one bound action; true when the beam now shines on a target. */

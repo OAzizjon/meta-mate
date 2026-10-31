@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SentenceCompletions } from "./sentence-completions.ts";
 
-async function resolvesImmediately(promise: Promise<void>) {
+async function resolvesImmediately(promise: Promise<boolean>) {
   let resolved = false;
   void promise.then(() => { resolved = true; });
   await Promise.resolve();
@@ -11,9 +11,19 @@ async function resolvesImmediately(promise: Promise<void>) {
 
 test("completion before a wait is remembered, including repeated waits", async () => {
   const completions = new SentenceCompletions();
-  completions.complete(1, 7);
+  completions.complete(1, 7, true);
   await resolvesImmediately(completions.wait(1, 7));
   await resolvesImmediately(completions.wait(1, 7));
+});
+
+test("waiters receive the sample result, even when completion arrives first", async () => {
+  const completions = new SentenceCompletions();
+  const silent = completions.wait(1, 1);
+  completions.complete(1, 1, false);
+  completions.complete(1, 2, true);
+  assert.equal(await silent, false);
+  assert.equal(await completions.wait(1, 1), false);
+  assert.equal(await completions.wait(1, 2), true);
 });
 
 test("completion releases all existing waiters and leaves other sentences pending", async () => {
@@ -22,7 +32,7 @@ test("completion releases all existing waiters and leaves other sentences pendin
   const second = completions.wait(1, 1);
   let otherResolved = false;
   void completions.wait(1, 2).then(() => { otherResolved = true; });
-  completions.complete(1, 1);
+  completions.complete(1, 1, true);
   await resolvesImmediately(first);
   await resolvesImmediately(second);
   assert.equal(otherResolved, false);

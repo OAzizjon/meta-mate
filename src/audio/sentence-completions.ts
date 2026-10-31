@@ -1,16 +1,16 @@
 // Keep sentence completion durable when worklet events precede timeline waits.
 export class SentenceCompletions {
-  private readonly completed = new Set<string>();
-  private readonly waiters = new Map<string, Set<() => void>>();
+  private readonly completed = new Map<string, boolean>();
+  private readonly waiters = new Map<string, Set<(hadSamples: boolean) => void>>();
   private canceledThrough = -1;
   private disposed = false;
 
-  wait(generationId: number, sentenceId: number): Promise<void> {
+  wait(generationId: number, sentenceId: number): Promise<boolean> {
     const key = `${generationId}:${sentenceId}`;
     if (this.disposed || generationId <= this.canceledThrough || this.completed.has(key)) {
-      return Promise.resolve();
+      return Promise.resolve(this.completed.get(key) ?? false);
     }
-    return new Promise<void>((resolve) => {
+    return new Promise<boolean>((resolve) => {
       let set = this.waiters.get(key);
       if (!set) {
         set = new Set();
@@ -20,10 +20,10 @@ export class SentenceCompletions {
     });
   }
 
-  complete(generationId: number, sentenceId: number): void {
+  complete(generationId: number, sentenceId: number, hadSamples: boolean): void {
     const key = `${generationId}:${sentenceId}`;
-    this.completed.add(key);
-    this.resolve(key);
+    this.completed.set(key, hadSamples);
+    this.resolve(key, hadSamples);
   }
 
   cancel(generationId: number): void {
@@ -31,7 +31,7 @@ export class SentenceCompletions {
     for (const key of this.waiters.keys()) {
       if (Number(key.split(":", 1)[0]) <= this.canceledThrough) this.resolve(key);
     }
-    for (const key of this.completed) {
+    for (const key of this.completed.keys()) {
       if (Number(key.split(":", 1)[0]) <= this.canceledThrough) this.completed.delete(key);
     }
   }
@@ -42,9 +42,9 @@ export class SentenceCompletions {
     this.completed.clear();
   }
 
-  private resolve(key: string): void {
+  private resolve(key: string, hadSamples = false): void {
     const waiters = this.waiters.get(key);
     this.waiters.delete(key);
-    if (waiters) for (const resolve of waiters) resolve();
+    if (waiters) for (const resolve of waiters) resolve(hadSamples);
   }
 }

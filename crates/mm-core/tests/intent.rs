@@ -527,3 +527,36 @@ fn delegation_requires_explicit_phrases_with_word_boundaries() {
         assert!(!asks_do_it(text), "{text}");
     }
 }
+
+#[test]
+fn questions_about_the_screen_look_at_it_and_requests_for_help_are_lessons() {
+    for text in [
+        "Что у меня на экране?",
+        "Что это за окно?",
+        "Что мне здесь нажать?",
+        "Что ты видишь?",
+        "Посмотри на экран",
+        "Что это?",
+        "What's on my screen?",
+        "What should I click here?",
+        "What is this?",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Where, "{text}");
+    }
+    for text in [
+        "Помоги мне отправить письмо",
+        "Помогите, пожалуйста",
+        "Help me send this email",
+    ] {
+        assert_eq!(guess_intent(text), Intent::How, "{text}");
+    }
+    // Conversation stays conversation.
+    for text in [
+        "Как дела?",
+        "Расскажи анекдот",
+        "Хочу оформить развод, это сложно?",
+        "Tell me a joke",
+    ] {
+        assert_eq!(guess_intent(text), Intent::Chat, "{text}");
+    }
+}

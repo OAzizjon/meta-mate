@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import { parseTimelineItem } from "../ipc/timeline.ts";
 import { TimelinePlayer } from "./timeline-player.ts";
+import { bubbleReadMs } from "../bubble-timing.ts";
 
 const SNAPSHOT = new URL(
   "../../crates/mm-core/tests/snapshots/timeline_wire__wire_format.snap",
@@ -36,7 +37,7 @@ function settle() {
 
 function setup() {
   const log: string[] = [];
-  const sentences = new Map<string, () => void>();
+  const sentences = new Map<string, (hadSamples: boolean) => void>();
   const sounds = new Map<string, () => void>();
   const sleeps: (() => void)[] = [];
   const robot = {
@@ -51,13 +52,13 @@ function setup() {
       for (const [key, resolve] of sentences) {
         if (Number(key.split(":")[0]) <= generation) {
           sentences.delete(key);
-          resolve();
+          resolve(false);
         }
       }
     },
     waitForSentenceEnd(generation: number, id: number) {
       log.push(`sentence ${generation}:${id}`);
-      return new Promise<void>((resolve) => sentences.set(`${generation}:${id}`, resolve));
+      return new Promise<boolean>((resolve) => sentences.set(`${generation}:${id}`, resolve));
     },
     // Every sound, bound or solo, plays until the test ends it.
     playSfx(sound: { name: string }, generation: number) {
@@ -97,7 +98,13 @@ function setup() {
     robot,
     /** The calls since the last `take()`. */
     take: () => log.splice(0),
-    endSentence: (generation: number, id: number) => finish(sentences, `${generation}:${id}`),
+    endSentence: (generation: number, id: number, hadSamples = true) => {
+      const key = `${generation}:${id}`;
+      const resolve = sentences.get(key);
+      assert.ok(resolve, `nothing waits for ${key}`);
+      sentences.delete(key);
+      resolve(hadSamples);
+    },
     endSound: (name: string) => finish(sounds, name),
     endSleep: () => {
       const resolve = sleeps.shift();
@@ -110,6 +117,71 @@ function setup() {
 function pushAll(player: TimelinePlayer, generation: number, lines: string[]) {
   for (const item of items(...lines)) player.push(generation, item);
 }
+
+test("silent sentences replace the bubble after each sentence's reading time", async () => {
+  const h = setup();
+  const texts = ["Click the button.", "Then read the message."];
+  pushAll(h.player, 1, [
+    ...texts.map((text, index) => JSON.stringify({
+      kind: "say", value: { id: index + 1, text, bound: [] },
+    })),
+    '{"kind":"end"}',
+  ]);
+  await settle();
+  assert.deepEqual(h.take(), ["state speaking", "sentence 1:1"]);
+  for (let index = 0; index < texts.length; index++) {
+    h.endSentence(1, index + 1, false);
+    await settle();
+    assert.deepEqual(h.take(), [`bubble ${texts[index]}`, `sleep ${bubbleReadMs(texts[index])}`]);
+    h.endSleep();
+    await settle();
+    assert.deepEqual(h.take(), index === 0 ? ["state speaking", "sentence 1:2"] : ["done 1"]);
+  }
+});
+
+test("a sentence with audio adds no bubble or reading delay", async () => {
+  const h = setup();
+  pushAll(h.player, 1, [
+    '{"kind":"say","value":{"id":1,"text":"Click it.","bound":[]}}',
+    '{"kind":"end"}',
+  ]);
+  await settle();
+  h.take();
+  h.endSentence(1, 1, true);
+  await settle();
+  assert.deepEqual(h.take(), ["done 1"]);
+});
+
+test("an aborted sentence shows no fallback when its wait resolves empty", async () => {
+  const h = setup();
+  pushAll(h.player, 1, [
+    '{"kind":"say","value":{"id":1,"text":"Click it.","bound":[]}}',
+    '{"kind":"end"}',
+  ]);
+  await settle();
+  h.take();
+  h.endSentence(1, 1, false);
+  h.player.cancel(1);
+  await settle();
+  assert.deepEqual(h.take(), ["audio.cancel 1"]);
+});
+
+test("cancelling a silent sentence clears its bubble and aborts the reading delay", async () => {
+  const h = setup();
+  pushAll(h.player, 1, [
+    '{"kind":"say","value":{"id":1,"text":"Click it.","bound":[]}}',
+    '{"kind":"end"}',
+  ]);
+  await settle();
+  h.take();
+  h.endSentence(1, 1, false);
+  await settle();
+  assert.deepEqual(h.take(), ["bubble Click it.", `sleep ${bubbleReadMs("Click it.")}`]);
+  h.player.cancel(1);
+  h.endSleep();
+  await settle();
+  assert.deepEqual(h.take(), ["audio.cancel 1", "bubble null"]);
+});
 
 test("the snapshot timeline drives the robot and the audio in order", async () => {
   const h = setup();
