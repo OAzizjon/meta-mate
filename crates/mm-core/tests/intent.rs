@@ -585,6 +585,9 @@ fn questions_about_the_screen_look_at_it_and_requests_for_help_are_lessons() {
         "What should I click here?",
         "What is this?",
         "What does this button do?",
+        "What should I press here?",
+        "What is this link?",
+        "What's on my monitor?",
         "What button should I choose?",
         "Look at this error",
     ] {

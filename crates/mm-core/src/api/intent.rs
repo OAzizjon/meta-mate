@@ -734,6 +734,15 @@ pub fn guess_intent(question: &str) -> Intent {
         || (!story && words.iter().any(|word| screen_word(word)))
         || has_phrase(&words, &["что", "это", "за", "окно"])
         || has_phrase(&words, &["this", "window"])
+        // "What should I press here?", "what is this link?", "what's on my monitor?": the
+        // plain words are too common alone, these phrasings are about the screen.
+        || has_phrase(&words, &["press", "here"])
+        || has_phrase(&words, &["i", "press"])
+        || (words.len() <= 4 && words.starts_with(&["what", "is", "this"]))
+        || (words.len() <= 3 && words.starts_with(&["whats", "this"]))
+        || ["monitor", "display"].iter().any(|thing| {
+            has_phrase(&words, &["on", "my", thing]) || has_phrase(&words, &["on", "the", thing])
+        })
         || has_phrase(&words, &["pop", "up"])
         || has_phrase(&words, &["look", "at", "this"])
         || has_phrase(&words, &["посмотри", "на", "это"])
