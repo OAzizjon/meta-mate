@@ -11,7 +11,7 @@ Windows 10/11 x64.
 1. **Download** the release installer — no API keys or invite codes needed.
 2. **SmartScreen:** click **More info**, then **Run anyway** (not code-signed yet).
 3. **Start:** **Try without signing in** (12 messages/hour, count shown under Mate) or **Sign in with Google** for your own daily allowance.
-4. **Ask:** Press **Win+I**, click Mate once and ask *"How do I make the text bigger?"* (click him again, or just pause, when you are done). Or hold **Right Ctrl** while you speak; pressing any other key cancels. No Right Ctrl? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
+4. **Ask:** Press **Win+I**, click Mate once and ask *"How do I make the text bigger?"* Or ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only what your own request names; a page cannot ask him to open something. Click him again, or just pause, when you are done. Or hold **Right Ctrl** while you speak; pressing any other key cancels. No Right Ctrl? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
 5. **Or type:** Right-click the tray icon (or Mate) → **Chat with Mate**. Mate still points on screen.
 
 ## Links
@@ -37,7 +37,13 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 Also inside:
 
 - **Home window:** An accessible starting hub (`home.html`) featuring an animated Right Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
-- **Chat window:** Type a question instead of speaking (`chat.html`): the answer appears as text after a "Mate is thinking..." bubble, and Mate still points on screen.
+- **Chat window:** Type a question instead of speaking (`chat.html`): Mate's answers appear in comic-style speech balloons tinted by his mood, button names look like key chips, and steps appear as lists. Mate still points on screen.
+- **Look with permission:** In Chrome, when Mate asks if he may look at the window, click him to answer yes.
+- **He knows your name:** on the first Home visit Mate asks what to call you, with an optional line about yourself; both reach his answers as data, never as instructions.
+- **"What can you do?"** gets a short spoken tour with three example questions on screen, and the **Guide** on Home (button or "?") shows everything one card at a time.
+- **My lessons:** every lesson card on Home, newest first; each saved card is a captioned comic page (picture, title, numbered steps, date), so the PNG makes sense on its own.
+- **A living bulb:** Mate floats, squashes and leans on springs and lands with a wobble, but never while his beam is on a target; a step done right gets a "CLICK!" burst.
+- **Landing page:** On a wide screen, the site (`site/`) reads as a horizontal comic; on a small screen, its panels stack vertically.
 - **Spotlight:** While Mate points, the rest of the screen dims around a soft opening on the target, so the button stands out even in a small video call window (`src/highlight.ts`; Settings: "Dim the rest of the screen while I point").
 - **Warmer, warmer:** During a lesson step, the ring and Mate's glow brighten as the mouse nears the right button and hold steady once it is on it, guiding the hand before the click (`src-tauri/src/pointing.rs`).
 - **A trail, not a scolding:** After a click in the wrong place during a lesson, a dotted line of light runs from that spot to the ring while Mate says "Almost"; no red, no cross (`src-tauri/src/teacher/lesson.rs`).
