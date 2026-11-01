@@ -743,7 +743,12 @@ fn look_once(
         None => window::foreground_target(own),
     };
     let target = target_now().ok_or(LookFailure::NoWindow)?;
-    let consent = consent
+    // `consent` is a yes given just now (the recursive call below); a yes remembered for this
+    // window (D74) also skips the question, but not the checks that belong to a fresh answer:
+    // a question asked from Chat, Home or the tray has their window in front, not the target
+    // (Gemini regression review #1546).
+    let granted_now = consent;
+    let consent = granted_now
         || LOOK_CONSENT
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -764,7 +769,7 @@ fn look_once(
     // A flat first walk may only be Chromium still building its tree: walk the same window
     // again before asking (nothing is copied in between).
     let mut rewalks = 0;
-    while !consent
+    while !granted_now
         && let Some(delay) = flat_rewalk(target.requires_consent, snapshot.flat(), rewalks)
     {
         std::thread::sleep(delay);
@@ -802,7 +807,8 @@ fn look_once(
     if !wanted() {
         return Err(LookFailure::Cancelled);
     }
-    if consent && !window::foreground_target(own).is_some_and(|front| front.window == target.window)
+    if granted_now
+        && !window::foreground_target(own).is_some_and(|front| front.window == target.window)
     {
         return Err(LookFailure::Changed);
     }

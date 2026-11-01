@@ -329,7 +329,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   inline tests (3)
 - src-tauri/src/screen.rs — "Where's the button?" (docs/plan.md Day 4), the part between the platform and the model: one look at the target window turned into what the model may see and point at, and its answer turned back into …
   MAX_EDGE:21 MAX_LISTED:23 Look:26 LookError:54 Look::resolve_live:188 Look::scan:228 Look::parser_settings:282 Look::resolve:296
-  LookFailure:333 LookFailure::line:367 take_look_at:508 consent_clicked:576 confirm_look:584 confirm_question:602 probe:968
+  LookFailure:333 LookFailure::line:367 take_look_at:508 consent_clicked:576 confirm_look:584 confirm_question:602 probe:974
   inline tests (30)
 - src-tauri/src/selftest.rs — Spike S1 without a person at the desk: run with `--s1-selftest`.
   spawn:41 spawn_control:151
