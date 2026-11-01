@@ -10,7 +10,7 @@ import type { PttKey } from "./settings/model.ts";
 import { pttKeycapLabel, withPttKey } from "./settings/ptt-key.ts";
 import { bubbleReadMs } from "./bubble-timing.ts";
 
-let pttKey: PttKey = "rightCtrl";
+let pttKey: PttKey = "ctrl";
 let refreshKey: (() => void) | null = null;
 export function setOnboardingPttKey(key: PttKey): void {
   pttKey = key;

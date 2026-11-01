@@ -11,7 +11,7 @@ Windows 10/11 x64.
 1. **Download** the release installer — no API keys or invite codes needed.
 2. **SmartScreen:** click **More info**, then **Run anyway** (not code-signed yet).
 3. **Start:** **Try without signing in** (12 messages/hour, count shown under Mate) or **Sign in with Google** for your own daily allowance.
-4. **Ask:** Press **Win+I**, click Mate once and ask *"How do I make the text bigger?"* Or ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only apps or sites named in your own request, never names that appear only on a page or in a screenshot. Click him again, or just pause, when you are done. Or hold **Right Ctrl** while you speak; pressing any other key cancels. No Right Ctrl? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
+4. **Ask:** Press **Win+I**, click Mate once and ask *"How do I make the text bigger?"* Or ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only apps or sites named in your own request, never names that appear only on a page or in a screenshot. Click him again, or just pause, when you are done. Or hold **Ctrl** (either one) alone while you speak; pressing any other key cancels. Prefer another key? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
 5. **Or type:** Right-click the tray icon (or Mate) → **Chat with Mate**. Mate still points on screen.
 
 ## Links
@@ -27,7 +27,7 @@ Windows 10/11 x64.
 
 ## What Mate does
 
-MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Click Mate or hold **Right Ctrl** (or another talk key chosen in Settings) and ask in English or Russian; Mate answers aloud with a live transcript in his bubble. The core:
+MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Click Mate or hold **Ctrl** (or another talk key chosen in Settings) and ask in English or Russian; Mate answers aloud with a live transcript in his bubble. The core:
 
 - **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it. With the accessibility element list he named the right control in all 610 measured answers (below); where it cannot read the window, he says he can't find it rather than guess.
 - **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and if the person clicks away from the beam twice on Quick, Muse Wonder 1.0 automatically plans the next step.
@@ -41,7 +41,7 @@ Also inside:
 - **A trail, not a scolding:** After a click in the wrong place during a lesson, a dotted line of light runs from that spot to the ring while Mate says "Almost"; no red, no cross (`src-tauri/src/teacher/lesson.rs`).
 - **X-ray look:** While Mate thinks, faint outlines sweep top to bottom over the elements he is reading, and every field painted over for privacy shows as a dark tile with a lock, so you can see what he is reading and which fields were painted over for privacy (`src-tauri/src/highlight.rs`, `src/highlight.ts`).
 - **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name; password fields, sign-in codes, tabs and window titles, and any name with an e-mail or web address or a run of four digits are skipped.
-- **Home window:** An accessible starting hub (`home.html`) featuring an animated Right Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
+- **Home window:** An accessible starting hub (`home.html`) featuring an animated Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
 - **Chat window:** Type a question instead of speaking (`chat.html`): Mate's answers appear in comic-style speech balloons tinted by his mood, button names look like key chips, and steps appear as lists. Mate still points on screen.
 - **Look with permission:** In Chrome, when Mate asks if he may look at the window, click him to answer yes.
 - **He knows your name:** on the first Home visit Mate asks what to call you, with an optional line about yourself; both reach his answers as data, never as instructions.
@@ -55,7 +55,7 @@ Also inside:
 |---|---|---|
 | **Muse Spark 1.3** | Spoken answers, pointing beam, step-by-step lessons, and "Is this safe?" scam check | First token in 1.4–2.6 s at reasoning effort `minimal` (D41, D45) |
 | **Muse Wonder 1.0** | Thorough answers; on Quick, a lesson's next step after two clicks away from the beam | High-reasoning model for complex guidance and fallback escalation (D56) |
-| **Muse Voice Transcribe** | Realtime push-to-talk speech recognition (Right Ctrl) | Final transcript 250–360 ms after key-up (socket opens at key-down) (D44, D45) |
+| **Muse Voice Transcribe** | Realtime push-to-talk speech recognition (Ctrl) | Final transcript 250–360 ms after key-up (socket opens at key-down) (D44, D45) |
 | **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal GPU) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
 | **Muse Glimmer 30B** | Keepsake lesson card text: rewrites lesson steps in simple words (Meta open weights on Modal GPU) | Q4_K_M ~15 tokens/s on a Modal L4 / A10G GPU (D53, D57) |
 | **Muse Image** | Keepsake lesson card illustration (soft gouache art with Mate, without text; printable) | Generates custom scene illustration for completed lessons (D55) |
@@ -104,7 +104,7 @@ Also inside:
 MetaMate is built in **Rust + Tauri v2** with a TypeScript WebView (SVG character animations, multi-monitor highlight overlays, and Web Audio API engine).
 
 ```text
-Voice:  Right Ctrl (WH_KEYBOARD_LL) → Muse Voice Transcribe (WSS) → Muse Spark 1.3 / Muse Wonder 1.0 → MateScript → MMS-TTS (Modal GPU)
+Voice:  Ctrl (WH_KEYBOARD_LL) → Muse Voice Transcribe (WSS) → Muse Spark 1.3 / Muse Wonder 1.0 → MateScript → MMS-TTS (Modal GPU)
 Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + computer use → SAM 3.1 fallback → Beam & flight
 ```
 
@@ -119,7 +119,7 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 
 **Does Mate click for me?** Only when you ask. Mate lights up the button and guides you step by step; say "do it for me" and he asks "Shall I press it?" before each click and presses only after you say yes. He never presses payment, purchase, delete, money transfer or password buttons.
 
-**No Right Ctrl on my laptop?** Pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings, or simply click Mate to start and stop talking. You can also type in the chat window.
+**Will Ctrl get in the way of my shortcuts?** Mate listens only after Ctrl is held alone for 300 ms, and any other key pressed with it (Ctrl+C, Ctrl+V) cancels quietly. You can also pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings, or simply click Mate to start and stop talking. You can also type in the chat window.
 
 **Which Meta models?** Muse Voice Transcribe hears you while you talk, Muse Spark 1.3 answers and finds the button, Muse Wonder 1.0 plans a lesson's next step after two clicks away from the beam, SAM 3.1 outlines controls in apps without an accessibility tree, MMS-TTS (Meta open weights) speaks, and Muse Glimmer 30B with Muse Image make the keepsake lesson card.
 
@@ -159,7 +159,7 @@ npm run build
 cargo run -p metamate --features custom-protocol
 ```
 
-Hold **Right Ctrl** (or your talk key from Settings) and speak. You can also test speech headless:
+Hold **Ctrl** (or your talk key from Settings) and speak. You can also test speech headless:
 
 ```powershell
 cargo run -p metamate --features custom-protocol -- --ask "Where is the text size slider?"

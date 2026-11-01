@@ -20,7 +20,7 @@ function setLocale(locale: string): void {
   current = locale;
 }
 function t(key: string): string {
-  return (LOCALES[current]?.[key] ?? key).replaceAll("{name}", "Mate").replaceAll("{key}", LOCALES[current]["settings.key_rightCtrl"]);
+  return (LOCALES[current]?.[key] ?? key).replaceAll("{name}", "Mate").replaceAll("{key}", LOCALES[current]["settings.keycap_ctrl"]);
 }
 import {
   ONBOARDING_EXAMPLE_COUNT,
@@ -88,7 +88,7 @@ test("the greeting and keycap follow live key changes without restarting example
   assert.equal(caps.at(-1), "F10");
   assert.equal(shown.length, count);
   controller.stop();
-  setOnboardingPttKey("rightCtrl");
+  setOnboardingPttKey("ctrl");
 });
 
 interface ScheduledTask {

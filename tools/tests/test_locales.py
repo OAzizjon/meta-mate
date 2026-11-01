@@ -49,7 +49,7 @@ class LocaleTests(unittest.TestCase):
                 # Hardware keys, language names and Mate's name retain their native spelling.
                 if key not in {'settings.language_en', 'chat.from_mate', 'settings.key_capsLock', 'settings.key_insert',
                                'settings.key_f9', 'settings.key_f10',
-                               'settings.keycap_rightCtrl', 'settings.keycap_rightAlt',
+                               'settings.keycap_ctrl', 'settings.keycap_rightAlt',
                                'settings.keycap_capsLock', 'settings.keycap_insert',
                                'settings.keycap_f9', 'settings.keycap_f10'}:
                     self.assertIsNotNone(CYRILLIC.search(russian[key]))

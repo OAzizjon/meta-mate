@@ -335,11 +335,11 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   const talk = el("div", "home-talk");
   talk.setAttribute("role", "group");
   talk.setAttribute("aria-labelledby", "home-talk-title");
-  const keyedDefault = (key: LocaleKey): string => withPttKey(t(key), "rightCtrl", t);
+  const keyedDefault = (key: LocaleKey): string => withPttKey(t(key), "ctrl", t);
   const talkTitle = el("h2", "home-section-title", keyedDefault("home.talk_title"));
   talkTitle.id = "home-talk-title";
   const talkRow = el("div", "home-talk-row");
-  const keycap = el("kbd", "home-keycap", pttKeycapLabel("rightCtrl", t));
+  const keycap = el("kbd", "home-keycap", pttKeycapLabel("ctrl", t));
   const talkSteps = el("ol", "home-talk-steps");
   talkSteps.append(
     el("li", "home-talk-step", keyedDefault("home.talk_hold")),
@@ -347,7 +347,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   );
   talkRow.append(keycap, talkSteps);
   // One short line: where the key is, then the click alternative.
-  const talkWhere = el("span", "home-talk-where", t("home.where_rightCtrl"));
+  const talkWhere = el("span", "home-talk-where", t("home.where_ctrl"));
   const talkClick = el("span", "home-talk-click", t("home.talk_click"));
   const talkMore = el("p", "home-talk-more");
   talkMore.append(talkWhere, " ", talkClick);

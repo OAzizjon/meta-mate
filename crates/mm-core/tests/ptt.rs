@@ -1,4 +1,7 @@
-use mm_core::ptt::{Key, Mode, Ptt, PttEvent, PttInput, PttSettings, StopReason};
+use mm_core::ptt::{
+    CTRL_HOLD_MS, EITHER_CTRL, Key, LEFT_CTRL, Mode, Ptt, PttEvent, PttInput, PttSettings,
+    RIGHT_CTRL, StopReason, is_talk_key,
+};
 use proptest::prelude::*;
 
 fn down(key: Key, now_ms: u64) -> PttInput {
@@ -310,7 +313,11 @@ proptest! {
         let mut active = None;
         let mut last_generation = 0;
         for (kind, now_ms, code, flag, duration) in inputs {
-            let key = if flag { Key::Talk } else { Key::Other(code) };
+            let key = match (flag, code % 3) {
+                (false, _) => Key::Other(code),
+                (true, 0) => Key::Talk,
+                (true, side) => Key::TalkSide(side),
+            };
             let input = match kind {
                 0 => down(key, now_ms),
                 1 => up(key, now_ms),
@@ -366,4 +373,174 @@ fn configured_virtual_keys_classify_before_chord_detection() {
         assert!(!suppress_lock_key(0x14, talk_key, true));
         assert!(!suppress_lock_key(0x41, talk_key, false));
     }
+}
+
+const LEFT: Key = Key::TalkSide(LEFT_CTRL);
+const RIGHT: Key = Key::TalkSide(RIGHT_CTRL);
+const C: Key = Key::Other(0x43);
+
+/// Either Ctrl as the driver configures it.
+fn ctrl_timeline(mode: Mode, rows: Vec<(PttInput, Vec<PttEvent>)>) {
+    let settings = PttSettings {
+        mode,
+        ..PttSettings::default()
+    };
+    let mut ptt = Ptt::new(settings.for_talk_key(EITHER_CTRL));
+    for (input, expected) in rows {
+        assert_eq!(ptt.input(input), expected, "input: {input:?}");
+    }
+}
+
+#[test]
+fn either_ctrl_has_two_sides_and_a_longer_hold_while_other_keys_are_unchanged() {
+    assert_eq!(Key::from_virtual_key(LEFT_CTRL, EITHER_CTRL), LEFT);
+    assert_eq!(Key::from_virtual_key(RIGHT_CTRL, EITHER_CTRL), RIGHT);
+    assert_eq!(Key::from_virtual_key(0x43, EITHER_CTRL), C);
+    assert_eq!(Key::from_virtual_key(0xA0, EITHER_CTRL), Key::Other(0xA0));
+    assert!(is_talk_key(LEFT_CTRL, EITHER_CTRL));
+    assert!(is_talk_key(RIGHT_CTRL, EITHER_CTRL));
+    assert!(!is_talk_key(0x43, EITHER_CTRL));
+    assert_eq!(
+        PttSettings::default().for_talk_key(EITHER_CTRL).hold_ms,
+        CTRL_HOLD_MS
+    );
+    for talk_key in [0xA5, 0x14, 0x2D, 0x78, 0x79] {
+        assert_eq!(Key::from_virtual_key(talk_key, talk_key), Key::Talk);
+        assert_eq!(
+            Key::from_virtual_key(LEFT_CTRL, talk_key),
+            Key::Other(LEFT_CTRL)
+        );
+        assert!(!is_talk_key(RIGHT_CTRL, talk_key));
+        assert_eq!(
+            PttSettings::default().for_talk_key(talk_key),
+            PttSettings::default()
+        );
+    }
+}
+
+#[test]
+fn either_ctrl_held_alone_for_300_ms_starts() {
+    ctrl_timeline(
+        Mode::Hold,
+        vec![
+            (down(LEFT, 0), vec![]),
+            (tick(299), vec![]),
+            (tick(300), vec![start(1)]),
+            (up(LEFT, 400), vec![stop(1, StopReason::Released)]),
+            (down(RIGHT, 500), vec![]),
+            (poll(true, 799), vec![]),
+            (poll(true, 800), vec![start(2)]),
+            (up(RIGHT, 900), vec![stop(2, StopReason::Released)]),
+            // A tap shorter than the hold starts nothing.
+            (down(LEFT, 1_000), vec![]),
+            (up(LEFT, 1_299), vec![]),
+            (tick(2_000), vec![]),
+        ],
+    );
+}
+
+#[test]
+fn ctrl_shortcuts_within_the_hold_start_nothing() {
+    for chord_at in [1, 150, 299] {
+        ctrl_timeline(
+            Mode::Hold,
+            vec![
+                (down(LEFT, 0), vec![]),
+                (down(C, chord_at), vec![]),
+                (up(C, chord_at + 50), vec![]),
+                (tick(1_000), vec![]),
+                (up(LEFT, 1_001), vec![]),
+            ],
+        );
+    }
+    // A key already held when Ctrl goes down (Shift, then Ctrl) blocks too.
+    ctrl_timeline(
+        Mode::Hold,
+        vec![
+            (down(Key::Other(0xA0), 0), vec![]),
+            (down(LEFT, 10), vec![]),
+            (up(Key::Other(0xA0), 20), vec![]),
+            (tick(1_000), vec![]),
+        ],
+    );
+}
+
+#[test]
+fn another_key_after_the_ctrl_start_cancels_and_the_next_press_works() {
+    ctrl_timeline(
+        Mode::Hold,
+        vec![
+            (down(LEFT, 0), vec![]),
+            (tick(300), vec![start(1)]),
+            (down(C, 350), vec![PttEvent::Cancel { generation: 1 }]),
+            (up(C, 360), vec![]),
+            (tick(1_000), vec![]),
+            (up(LEFT, 1_001), vec![]),
+            (down(LEFT, 1_100), vec![]),
+            (tick(1_400), vec![start(2)]),
+        ],
+    );
+}
+
+#[test]
+fn both_ctrls_are_one_key_released_when_both_are_up() {
+    ctrl_timeline(
+        Mode::Hold,
+        vec![
+            // Left down, right down, left up, right up.
+            (down(LEFT, 0), vec![]),
+            (down(RIGHT, 100), vec![]),
+            (tick(300), vec![start(1)]),
+            (up(LEFT, 400), vec![]),
+            (down(RIGHT, 430), vec![]),
+            (up(RIGHT, 500), vec![stop(1, StopReason::Released)]),
+            // Right down, left down, right up before the hold ends, left up.
+            (down(RIGHT, 600), vec![]),
+            (down(LEFT, 650), vec![]),
+            (up(RIGHT, 700), vec![]),
+            (tick(899), vec![]),
+            (tick(900), vec![start(2)]),
+            (up(LEFT, 1_000), vec![stop(2, StopReason::Released)]),
+        ],
+    );
+}
+
+#[test]
+fn the_release_poll_ends_ctrl_and_forgets_a_side_whose_key_up_was_lost() {
+    ctrl_timeline(
+        Mode::Hold,
+        vec![
+            (down(LEFT, 0), vec![]),
+            (tick(300), vec![start(1)]),
+            // Left Ctrl's key-up never arrives; Right Ctrl goes down and up.
+            (down(RIGHT, 400), vec![]),
+            (up(RIGHT, 500), vec![]),
+            (poll(false, 533), vec![stop(1, StopReason::Watchdog)]),
+            (down(RIGHT, 600), vec![]),
+            (tick(900), vec![start(2)]),
+            (up(RIGHT, 950), vec![stop(2, StopReason::Released)]),
+        ],
+    );
+}
+
+#[test]
+fn a_lone_ctrl_tap_toggles_and_a_shortcut_does_not() {
+    ctrl_timeline(
+        Mode::Toggle,
+        vec![
+            (down(LEFT, 0), vec![]),
+            (up(LEFT, 100), vec![start(1)]),
+            (down(RIGHT, 200), vec![]),
+            (up(RIGHT, 300), vec![stop(1, StopReason::Toggled)]),
+            (down(LEFT, 400), vec![]),
+            (down(C, 450), vec![]),
+            (up(C, 460), vec![]),
+            (up(LEFT, 500), vec![]),
+            // Both sides in one tap toggle once, at the last release.
+            (down(LEFT, 600), vec![]),
+            (down(RIGHT, 610), vec![]),
+            (up(LEFT, 620), vec![]),
+            (up(RIGHT, 630), vec![start(2)]),
+        ],
+    );
 }

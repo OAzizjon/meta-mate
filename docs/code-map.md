@@ -97,9 +97,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: crates/mm-core/tests/privacy.rs (9)
   inline tests (7)
 - crates/mm-core/src/ptt.rs — Pure push-to-talk transitions (D16/D17).
-  STALE_KEY_MS:8 Key:11 Key::from_virtual_key:18 suppress_lock_key:28 Mode:33 PttSettings:39 PttInput:56 StopReason:78
-  PttEvent:87 Ptt:96 Ptt::new:108 Ptt::key_pressed:117 Ptt::input:121
-  tests: crates/mm-core/tests/ptt.rs (13)
+  STALE_KEY_MS:8 EITHER_CTRL:12 LEFT_CTRL:13 RIGHT_CTRL:14 CTRL_HOLD_MS:17 Key:20 Key::from_virtual_key:30 is_talk_key:42
+  suppress_lock_key:47 Mode:52 PttSettings:58 PttSettings::for_talk_key:76 PttInput:89 StopReason:111 PttEvent:120 Ptt:129
+  Ptt::new:143 Ptt::key_pressed:152 Ptt::input:156
+  tests: crates/mm-core/tests/ptt.rs (20)
 - crates/mm-core/src/redaction.rs — The redaction step (invariant 3, convention 4, D37): the only producer of [`RedactedImage`].
   painted_areas:14 overlaps_any:39 same_areas:48 point_in_any:61 RedactedImage:68 RedactedImage::data_url:78 Field:97 RedactionInput:105
   RedactionError:126 Redacted:156 redact:162
@@ -307,13 +308,13 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Proxy::watch_guest_usage:317 Proxy::watch_rejected:327 Proxy::guest_token:358 Proxy::redeem_login:388 Proxy::respond:405 Proxy::speak:465 Proxy::+3:489
   inline tests (2)
 - src-tauri/src/ptt.rs — The push-to-talk driver (spike S2): one thread feeds the keyboard hook's events to `mm_core::ptt::Ptt` and wakes every 33 ms while a press or recording is pending.
-  click:45 set_ptt_key:53 set_ptt_mode:63 KeyTapGuard:76 subscribe_keys:122 PttDriver:131^ Silencer:131^ probe_if_requested:131^
-  spawn:131^
+  click:47 set_ptt_key:55 set_ptt_mode:65 KeyTapGuard:78 subscribe_keys:124 PttDriver:133^ Silencer:133^ probe_if_requested:133^
+  spawn:133^
 - src-tauri/src/ptt/driver.rs — The running driver.
-  PttDriver:4 PttDriver::silencer:12 Silencer:19 Silencer::silence:23 spawn:40 spawn_timed:48 probe_if_requested:200
+  PttDriver:4 PttDriver::silencer:12 Silencer:19 Silencer::silence:23 spawn:40 spawn_timed:48 probe_if_requested:201
 - src-tauri/src/ptt/feed.rs — Hook events and wake-ups as `PttInput`s on one clock, and whether a session is on (between Start and Stop or Cancel).
-  Feed:5 Feed::new:23 Feed::set_key:49 Feed::driver_key:62 Feed::key_in_mode:71 Feed::silence:94 Feed::needs_poll:113 Feed::wake_interval:119
-  Feed::key:134 Feed::tick:169 Feed::poll:174 Feed::click:266 Feed::ms:306
+  Feed:5 Feed::new:23 Feed::is_talk:53 Feed::set_key:57 Feed::driver_key:70 Feed::key_in_mode:79 Feed::silence:103 Feed::needs_poll:122
+  Feed::wake_interval:128 Feed::key:143 Feed::tick:179 Feed::poll:184 Feed::click:276 Feed::+1:316
 - src-tauri/src/ptt/tests.rs
 - src-tauri/src/s3.rs — Spike S3 without a person at the desk: `--s3-selftest` opens our own fixture page (`s3.html`, a login-like form) without taking focus, walks its UI Automation tree from Rust and checks what the …
   spawn:35
@@ -561,15 +562,15 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   RadioSpec:7 RadioLayout:19 RadioGroupRefs:21 buildRadioGroup:38 syncRadioSelection:125 CheckboxRefs:139 buildCheckbox:146
   tests: src/settings/controls.test.ts (4)
 - src/settings/model.ts — Pure settings model, validation, and in-memory store (WP24).
-  MODEL_CHOICES:4 ModelChoice:5 PTT_MODES:7 PttMode:8 PTT_KEYS:10 PttKey:11 isPttKey:13 SOUND_MODES:17
-  SoundMode:18 ROBOT_SIZES:20 RobotSize:21 MIN_VOICE_SPEED:23 MAX_VOICE_SPEED:24 VOICE_SPEED_STEP:25 DEFAULT_VOICE_SPEED:26 SETTINGS_CHANGED_EVENT:27
-  Language:29 THEMES:31 Theme:32 isTheme:34 Profile:38 PROFILE_NAME_MAX:44 PROFILE_ABOUT_MAX:45 Settings:47
-  SETTINGS_KEYS:64 DEFAULT_SETTINGS:81 defaultSettings:99 isModelChoice:103 isPttMode:107 isSoundMode:111 isRobotSize:115 isValidVoiceSpeed:119
-  snapVoiceSpeed:133 parseSettings:166 updateSettings:219 formatVoiceSpeed:226 VoiceSpeedPace:232 voiceSpeedPace:235 SettingsInvoke:243 SettingsSubscribe:249
-  SettingsStore:253 createSettingsStore:270 subscribeSettingsChanged:317
+  MODEL_CHOICES:4 ModelChoice:5 PTT_MODES:7 PttMode:8 PTT_KEYS:11 PttKey:12 isPttKey:14 SOUND_MODES:18
+  SoundMode:19 ROBOT_SIZES:21 RobotSize:22 MIN_VOICE_SPEED:24 MAX_VOICE_SPEED:25 VOICE_SPEED_STEP:26 DEFAULT_VOICE_SPEED:27 SETTINGS_CHANGED_EVENT:28
+  Language:30 THEMES:32 Theme:33 isTheme:35 Profile:39 PROFILE_NAME_MAX:45 PROFILE_ABOUT_MAX:46 Settings:48
+  SETTINGS_KEYS:65 DEFAULT_SETTINGS:82 defaultSettings:100 isModelChoice:104 isPttMode:108 isSoundMode:112 isRobotSize:116 isValidVoiceSpeed:120
+  snapVoiceSpeed:134 parseSettings:167 updateSettings:220 formatVoiceSpeed:227 VoiceSpeedPace:233 voiceSpeedPace:236 SettingsInvoke:244 SettingsSubscribe:250
+  SettingsStore:254 createSettingsStore:271 subscribeSettingsChanged:318
   tests: src/settings/model.test.ts (17)
 - src/settings/ptt-key.ts — Pure localized key rendering shared by Home and onboarding.
-  pttKeyLabel:5 pttKeycapLabel:9 withPttKey:13
+  pttKeyLabel:6 pttKeycapLabel:10 withPttKey:14
   tests: src/settings/ptt-key.test.ts (1)
 - src/settings/theme.ts — Shared by the page language subscription, Settings, and Mate's settings binding.
   ThemeTarget:5 applyTheme:9 followWindowSettings:16
@@ -718,7 +719,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:536, src/signin.ts:104
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:30
-- `load_settings` src-tauri/src/settings.rs:279 <- src/highlight.ts:637, src/home.ts:168, src/settings/model.ts:283, src/settings/theme.ts:31
+- `load_settings` src-tauri/src/settings.rs:279 <- src/highlight.ts:637, src/home.ts:168, src/settings/model.ts:284, src/settings/theme.ts:31
 - `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:425
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_answer_target` src-tauri/src/opening.rs:16 <- src/mate.ts:367
@@ -728,7 +729,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:265
 - `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:468, src/mate-menu.ts:11
 - `report_playback` src-tauri/src/answer_stream.rs:340 <- src/ipc/answer-stream.ts:284
-- `save_settings` src-tauri/src/settings.rs:286 <- src/settings/model.ts:297
+- `save_settings` src-tauri/src/settings.rs:286 <- src/settings/model.ts:298
 - `sign_in` src-tauri/src/auth.rs:177 <- src/settings/account.ts:254
 - `sign_out` src-tauri/src/auth.rs:278 <- src/settings/account.ts:275
 - `subscribe_answer_stream` src-tauri/src/answer_stream.rs:366 <- src/ipc/answer-stream.ts:294
@@ -770,7 +771,7 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:511
 - `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:516
 - `safety-check`: rs emit src-tauri/src/voice.rs:906; ts listen src/mate.ts:347; const src-tauri/src/voice.rs:69, src/safety-stamp.ts:9
-- `settings-changed`: rs emit src-tauri/src/settings.rs:307,343; ts listen src/highlight.ts:642, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:56, src/settings.ts:144; const src-tauri/src/settings.rs:25, src/settings/model.ts:27
+- `settings-changed`: rs emit src-tauri/src/settings.rs:307,343; ts listen src/highlight.ts:642, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:56, src/settings.ts:144; const src-tauri/src/settings.rs:25, src/settings/model.ts:28
 
 ### Proxy routes
 
@@ -860,12 +861,12 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:83; ts src/i18n/index.ts:67, src/ipc/answer-stream.ts:51
 - `robot.wrong_keys`: rs src-tauri/src/teacher/presentation.rs:70; ts src/ipc/answer-stream.ts:42
 - `robot.wrong_place`: rs src-tauri/src/teacher/presentation.rs:69; ts src/i18n/index.ts:60, src/ipc/answer-stream.ts:41
-- `settings.key_capsLock`: rs src-tauri/src/settings.rs:139; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
-- `settings.key_f10`: rs src-tauri/src/settings.rs:142; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
-- `settings.key_f9`: rs src-tauri/src/settings.rs:141; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
-- `settings.key_insert`: rs src-tauri/src/settings.rs:140; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
-- `settings.key_rightAlt`: rs src-tauri/src/settings.rs:138; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
-- `settings.key_rightCtrl`: rs src-tauri/src/settings.rs:137; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:6
+- `settings.key_capsLock`: rs src-tauri/src/settings.rs:139; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
+- `settings.key_f10`: rs src-tauri/src/settings.rs:142; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
+- `settings.key_f9`: rs src-tauri/src/settings.rs:141; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
+- `settings.key_insert`: rs src-tauri/src/settings.rs:140; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
+- `settings.key_rightAlt`: rs src-tauri/src/settings.rs:138; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
+- `settings.keycap_ctrl`: rs src-tauri/src/settings.rs:137; ts src/settings/ptt-key.ts:11
 - `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:96
 - `tray.chat`: rs src-tauri/src/lib.rs:281; ts src/mate-menu.ts:5
 - `tray.hide_hour`: rs src-tauri/src/lib.rs:347,400; ts src/mate-menu.ts:9
@@ -913,10 +914,10 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 287 | 36 |
+| crates/mm-core | 294 | 36 |
 | crates/mm-platform | 46 | 7 |
 | crates/mm-win32 | 62 | 11 |
-| src-tauri | 198 | 20 |
+| src-tauri | 200 | 20 |
 | src | 327 | 32 |
 | tools | 390 | 23 |
 | server | 94 | 4 |

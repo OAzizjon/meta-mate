@@ -1,27 +1,46 @@
 //! Pure push-to-talk transitions (D16/D17). The caller owns the hook, polling,
 //! microphone and cues; only Start permits opening the microphone.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// A key "held" longer than this before the talk key went down no longer makes a chord:
 /// its key-up was most likely lost while Windows dropped a slow hook.
 pub const STALE_KEY_MS: u64 = 2_000;
 
+/// The talk key "either Ctrl" (D74): `VK_CONTROL`, which `GetAsyncKeyState` reads as down
+/// while either side is. A low-level hook reports the sides, `LEFT_CTRL` and `RIGHT_CTRL`.
+pub const EITHER_CTRL: u32 = 0x11;
+pub const LEFT_CTRL: u32 = 0xA2;
+pub const RIGHT_CTRL: u32 = 0xA3;
+/// Left Ctrl starts everyday shortcuts (Ctrl+C, Ctrl+V, Ctrl+Z): either Ctrl must be held
+/// alone this long before listening starts.
+pub const CTRL_HOLD_MS: u64 = 300;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
     Talk,
+    /// One of the keys that together make the talk key (either Ctrl), by virtual key:
+    /// the talk key is down while any of them is.
+    TalkSide(u32),
     Other(u32),
 }
 
 impl Key {
     /// Classify the configured virtual key before chord detection.
     pub fn from_virtual_key(vk: u32, talk_key: u32) -> Self {
-        if vk == talk_key {
+        if talk_key == EITHER_CTRL && matches!(vk, EITHER_CTRL | LEFT_CTRL | RIGHT_CTRL) {
+            Self::TalkSide(vk)
+        } else if vk == talk_key {
             Self::Talk
         } else {
             Self::Other(vk)
         }
     }
+}
+
+/// Whether `vk` is the configured talk key or one of its sides.
+pub fn is_talk_key(vk: u32, talk_key: u32) -> bool {
+    !matches!(Key::from_virtual_key(vk, talk_key), Key::Other(_))
 }
 
 /// A lock key used for talking must not change the keyboard's lock state.
@@ -48,6 +67,20 @@ impl Default for PttSettings {
             mode: Mode::Hold,
             hold_ms: 250,
             max_ms: 60_000,
+        }
+    }
+}
+
+impl PttSettings {
+    /// Either Ctrl holds at least `CTRL_HOLD_MS` before listening; other keys keep theirs.
+    pub fn for_talk_key(self, talk_key: u32) -> Self {
+        if talk_key == EITHER_CTRL {
+            Self {
+                hold_ms: self.hold_ms.max(CTRL_HOLD_MS),
+                ..self
+            }
+        } else {
+            self
         }
     }
 }
@@ -100,6 +133,8 @@ pub struct Ptt {
     blocked: bool,
     /// Other keys held now, with when they went down.
     other_keys: BTreeMap<u32, u64>,
+    /// The sides of the talk key held now (either Ctrl).
+    talk_sides: BTreeSet<u32>,
     started_at: Option<u64>,
     generation: u64,
 }
@@ -119,6 +154,7 @@ impl Ptt {
     }
 
     pub fn input(&mut self, input: PttInput) -> Vec<PttEvent> {
+        let input = self.merge_sides(input);
         let mut out = Vec::new();
         match input {
             PttInput::KeyDown { injected: true, .. } | PttInput::KeyUp { injected: true, .. } => {
@@ -220,6 +256,50 @@ impl Ptt {
             self.start(&mut out);
         }
         out
+    }
+
+    /// The sides of either Ctrl make one talk key: down with the first side, up with the
+    /// last. A side released while another is held only advances time; a release poll
+    /// (both up) forgets sides whose key-up was lost.
+    fn merge_sides(&mut self, input: PttInput) -> PttInput {
+        match input {
+            PttInput::KeyDown {
+                key: Key::TalkSide(side),
+                injected: false,
+                now_ms,
+            } => {
+                self.talk_sides.insert(side);
+                PttInput::KeyDown {
+                    key: Key::Talk,
+                    injected: false,
+                    now_ms,
+                }
+            }
+            PttInput::KeyUp {
+                key: Key::TalkSide(side),
+                injected: false,
+                now_ms,
+            } => {
+                self.talk_sides.remove(&side);
+                if self.talk_sides.is_empty() {
+                    PttInput::KeyUp {
+                        key: Key::Talk,
+                        injected: false,
+                        now_ms,
+                    }
+                } else {
+                    PttInput::Tick { now_ms }
+                }
+            }
+            PttInput::Poll {
+                ptt_key_down: false,
+                ..
+            } => {
+                self.talk_sides.clear();
+                input
+            }
+            _ => input,
+        }
     }
 
     fn start(&mut self, out: &mut Vec<PttEvent>) {

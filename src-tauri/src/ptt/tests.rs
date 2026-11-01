@@ -485,6 +485,53 @@ fn idle_wait_preserves_pending_release_and_click_deadlines() {
     assert_eq!(feed.wake_interval(at(t0, 60_100)), WAKE);
 }
 
+const LEFT_CTRL: u32 = mm_core::ptt::LEFT_CTRL;
+
+#[test]
+fn either_ctrl_waits_300_ms_alone_and_ends_when_both_sides_are_up() {
+    let t0 = Instant::now();
+    let mut feed = Feed::new(PttSettings::default(), t0);
+    feed.set_key(EITHER_CTRL);
+    assert!(feed.is_talk(LEFT_CTRL) && feed.is_talk(RIGHT_CTRL));
+    assert!(!feed.is_talk(A));
+    assert_eq!(feed.key(key(LEFT_CTRL, true, t0)), nothing());
+    assert_eq!(feed.tick(at(t0, 299)), nothing());
+    assert_eq!(feed.tick(at(t0, 300)), start(1));
+    assert_eq!(feed.key(key(RIGHT_CTRL, true, at(t0, 350))), nothing());
+    assert_eq!(feed.pressed_at, Some(t0));
+    assert_eq!(feed.key(key(LEFT_CTRL, false, at(t0, 400))), nothing());
+    assert!(feed.active());
+    assert_eq!(
+        feed.key(key(RIGHT_CTRL, false, at(t0, 450))),
+        stop(1, StopReason::Released)
+    );
+    // Ctrl+C within the hold starts nothing; the release poll ends the press.
+    feed.key(key(LEFT_CTRL, true, at(t0, 500)));
+    assert_eq!(feed.key(key(A, true, at(t0, 550))), nothing());
+    assert_eq!(feed.tick(at(t0, 1_000)), nothing());
+    assert_eq!(feed.poll(false, at(t0, 1_033)), nothing());
+    assert!(!feed.needs_poll());
+}
+
+#[test]
+fn either_ctrl_toggles_on_a_lone_tap_under_400_ms() {
+    let t0 = Instant::now();
+    let mut feed = toggle(t0);
+    feed.set_key(EITHER_CTRL);
+    feed.key(key(LEFT_CTRL, true, t0));
+    assert_eq!(feed.key(key(LEFT_CTRL, false, at(t0, 399))), start(1));
+    feed.key(key(RIGHT_CTRL, true, at(t0, 500)));
+    assert_eq!(
+        feed.key(key(RIGHT_CTRL, false, at(t0, 600))),
+        stop(1, StopReason::Toggled)
+    );
+    // Ctrl+V is no tap.
+    feed.key(key(LEFT_CTRL, true, at(t0, 700)));
+    feed.key(key(A, true, at(t0, 750)));
+    assert_eq!(feed.key(key(LEFT_CTRL, false, at(t0, 800))), nothing());
+    assert!(!feed.active());
+}
+
 #[test]
 fn released_toggle_uses_idle_wait_without_delaying_its_deadline() {
     let t0 = Instant::now();

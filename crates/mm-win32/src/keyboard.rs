@@ -27,7 +27,7 @@ use windows::core::PCWSTR;
 
 /// Right Ctrl's virtual-key code as a low-level hook reports it (`VK_RCONTROL`, 0xA3).
 pub const RIGHT_CTRL: u32 = VK_RCONTROL.0 as u32;
-static PTT_KEY: AtomicU32 = AtomicU32::new(RIGHT_CTRL);
+static PTT_KEY: AtomicU32 = AtomicU32::new(mm_core::ptt::EITHER_CTRL);
 
 pub fn set_ptt_key(vk: u32) {
     PTT_KEY.store(vk, Ordering::Relaxed);

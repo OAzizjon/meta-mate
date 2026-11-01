@@ -2,8 +2,9 @@
 import type { LocaleKey } from "../i18n/index.ts";
 import type { PttKey } from "./model.ts";
 
+/** The key's name inside a sentence: either Ctrl is plain "Ctrl"; only its Settings choice says which side. */
 export function pttKeyLabel(key: PttKey, translate: (key: LocaleKey) => string): string {
-  return translate(`settings.key_${key}` as LocaleKey);
+  return key === "ctrl" ? pttKeycapLabel(key, translate) : translate(`settings.key_${key}` as LocaleKey);
 }
 
 export function pttKeycapLabel(key: PttKey, translate: (key: LocaleKey) => string): string {

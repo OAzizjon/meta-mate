@@ -15,7 +15,9 @@ use std::sync::{Arc, Mutex, Weak};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use mm_core::ptt::{Key, Mode, Ptt, PttEvent, PttInput, PttSettings, StopReason};
+use mm_core::ptt::{
+    EITHER_CTRL, Key, Mode, Ptt, PttEvent, PttInput, PttSettings, StopReason, is_talk_key,
+};
 use mm_win32::keyboard::{self, HookError, KeyEvent, KeyboardHook, RIGHT_CTRL};
 
 /// The active wait between two wake-ups: the Tick and the ~30 Hz watchdog.
@@ -31,7 +33,7 @@ const REINSTALL_EVERY: Duration = Duration::from_secs(5);
 // Published only by a running driver; subscribers never keep the driver alive.
 static KEY_TAP: Mutex<Weak<KeyTap>> = Mutex::new(Weak::new());
 static TOGGLE_MODE: AtomicBool = AtomicBool::new(false);
-static PTT_KEY: AtomicU32 = AtomicU32::new(RIGHT_CTRL);
+static PTT_KEY: AtomicU32 = AtomicU32::new(EITHER_CTRL);
 static CLICKS: Mutex<Option<Sender<DriverInput>>> = Mutex::new(None);
 
 enum DriverInput {

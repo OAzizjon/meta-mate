@@ -7,7 +7,8 @@ export type ModelChoice = (typeof MODEL_CHOICES)[number];
 export const PTT_MODES = ["hold", "toggle"] as const;
 export type PttMode = (typeof PTT_MODES)[number];
 
-export const PTT_KEYS = ["rightCtrl", "rightAlt", "capsLock", "insert", "f9", "f10"] as const;
+// "ctrl" is either Ctrl (D74); a saved "rightCtrl" is unknown now and parses as the default.
+export const PTT_KEYS = ["ctrl", "rightAlt", "capsLock", "insert", "f9", "f10"] as const;
 export type PttKey = (typeof PTT_KEYS)[number];
 
 export function isPttKey(value: unknown): value is PttKey {
@@ -85,7 +86,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   theme: "light",
   model: "quick",
   ptt: "hold",
-  pttKey: "rightCtrl",
+  pttKey: "ctrl",
   sound: "calm",
   voiceSpeed: DEFAULT_VOICE_SPEED,
   robotSize: "M",

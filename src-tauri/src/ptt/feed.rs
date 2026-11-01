@@ -26,7 +26,7 @@ impl Feed {
             suppress_key: false,
             vk: RIGHT_CTRL,
             pressed_at: None,
-            ptt: Ptt::new(Self::core_settings(settings)),
+            ptt: Ptt::new(Self::core_settings(settings, RIGHT_CTRL)),
             settings,
             started,
             active: false,
@@ -37,13 +37,21 @@ impl Feed {
         }
     }
 
-    fn core_settings(mut settings: PttSettings) -> PttSettings {
+    /// Toggle taps keep `TAP_MS` for every key; a hold waits longer for either Ctrl.
+    fn core_settings(mut settings: PttSettings, vk: u32) -> PttSettings {
         if settings.mode == Mode::Toggle {
             settings.mode = Mode::Hold;
             settings.hold_ms = 0;
             settings.max_ms = u64::MAX;
+            settings
+        } else {
+            settings.for_talk_key(vk)
         }
-        settings
+    }
+
+    /// The talk key, or a side of it (either Ctrl).
+    pub(super) fn is_talk(&self, vk: u32) -> bool {
+        is_talk_key(vk, self.vk)
     }
 
     pub(super) fn set_key(&mut self, vk: u32) -> Vec<PttEvent> {
@@ -53,7 +61,7 @@ impl Feed {
         let mut out = Vec::new();
         self.end(StopReason::Cancelled, &mut out);
         self.vk = vk;
-        self.ptt = Ptt::new(Self::core_settings(self.settings));
+        self.ptt = Ptt::new(Self::core_settings(self.settings, vk));
         self.gesture = None;
         self.pressed_at = None;
         out
@@ -70,7 +78,7 @@ impl Feed {
 
     pub(super) fn key_in_mode(&mut self, event: KeyEvent, mode: Mode) -> Vec<PttEvent> {
         let mut out = Vec::new();
-        if event.vk == self.vk
+        if self.is_talk(event.vk)
             && event.down
             && !event.injected
             && !self.click_active
@@ -85,6 +93,7 @@ impl Feed {
                 .ptt
                 .input(PttInput::SettingsChanged(Self::core_settings(
                     self.settings,
+                    self.vk,
                 )));
         }
         out.extend(self.key(event));
@@ -132,7 +141,8 @@ impl Feed {
     }
 
     pub(super) fn key(&mut self, event: KeyEvent) -> Vec<PttEvent> {
-        if event.vk == self.vk && !event.injected {
+        let talk = self.is_talk(event.vk);
+        if talk && !event.injected {
             if self.click_active && event.down {
                 let mut out = Vec::new();
                 self.end(StopReason::Toggled, &mut out);
@@ -146,7 +156,7 @@ impl Feed {
                 return Vec::new();
             }
         }
-        if event.vk == self.vk && event.down && !event.injected && !self.ptt.key_pressed() {
+        if talk && event.down && !event.injected && !self.ptt.key_pressed() {
             self.pressed_at = Some(event.at);
         }
         let key = Key::from_virtual_key(event.vk, self.vk);
@@ -271,7 +281,7 @@ impl Feed {
         self.end(StopReason::Toggled, &mut out);
         self.gesture = None;
         // Reset a pending hold too; its release/repeats must not reopen the mic.
-        self.ptt = Ptt::new(Self::core_settings(self.settings));
+        self.ptt = Ptt::new(Self::core_settings(self.settings, self.vk));
         self.suppress_key = key_pending;
         if !was_active && !key_pending {
             self.pressed_at = None;

@@ -12,8 +12,9 @@ test("both locales render every chosen key in guidance without leftover placehol
       const label = pttKeyLabel(key, translate);
       assert.ok(label);
       assert.equal(pttKeycapLabel(key, translate), {
-        rightCtrl: "Ctrl", rightAlt: "Alt", capsLock: "Caps Lock", insert: "Insert", f9: "F9", f10: "F10",
+        ctrl: "Ctrl", rightAlt: "Alt", capsLock: "Caps Lock", insert: "Insert", f9: "F9", f10: "F10",
       }[key]);
+      if (key === "ctrl") assert.equal(label, "Ctrl");
       assert.ok(strings[`home.where_${key}`].includes(pttKeycapLabel(key, translate)));
       for (const text of ["robot.first_launch", "tray.tooltip", "home.talk_hold"]) {
         const rendered = withPttKey(strings[text], key, translate);

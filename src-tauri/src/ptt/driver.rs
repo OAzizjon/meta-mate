@@ -117,7 +117,7 @@ fn run(
         match inputs.recv_timeout(feed.wake_interval(Instant::now())) {
             Ok(DriverInput::Key(event)) => {
                 tap.send(event);
-                if event.vk == feed.vk {
+                if feed.is_talk(event.vk) {
                     last_ctrl = event.at;
                 }
                 let events = feed.driver_key(event);
@@ -154,13 +154,14 @@ fn run(
             }
             idle_polled = now;
         }
+        // Either Ctrl's `vk` is VK_CONTROL: down while either side is, up when both are.
         let down = keyboard::key_down(feed.vk);
         if feed.needs_poll() {
             // An event queued meanwhile goes first; the next wake polls again.
             match inputs.try_recv() {
                 Ok(DriverInput::Key(event)) => {
                     tap.send(event);
-                    if event.vk == feed.vk {
+                    if feed.is_talk(event.vk) {
                         last_ctrl = event.at;
                     }
                     let events = feed.driver_key(event);

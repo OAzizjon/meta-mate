@@ -112,7 +112,7 @@ pub enum Ptt {
 #[serde(rename_all = "camelCase")]
 pub enum PttKey {
     #[default]
-    RightCtrl,
+    Ctrl, // Either Ctrl (D74); the retired "rightCtrl" is unknown, so it loads as this.
     RightAlt,
     CapsLock,
     Insert,
@@ -123,7 +123,7 @@ pub enum PttKey {
 impl PttKey {
     pub fn virtual_key(self) -> u32 {
         match self {
-            Self::RightCtrl => 0xA3,
+            Self::Ctrl => mm_core::ptt::EITHER_CTRL,
             Self::RightAlt => 0xA5,
             Self::CapsLock => 0x14,
             Self::Insert => 0x2D,
@@ -134,7 +134,7 @@ impl PttKey {
 
     pub fn locale_key(self) -> &'static str {
         match self {
-            Self::RightCtrl => "settings.key_rightCtrl",
+            Self::Ctrl => "settings.keycap_ctrl", // Plain "Ctrl" in the tray tooltip.
             Self::RightAlt => "settings.key_rightAlt",
             Self::CapsLock => "settings.key_capsLock",
             Self::Insert => "settings.key_insert",
@@ -214,7 +214,7 @@ impl Default for Settings {
             theme: Theme::Light,
             model: Model::Quick,
             ptt: Ptt::Hold,
-            ptt_key: PttKey::RightCtrl,
+            ptt_key: PttKey::Ctrl,
             sound: Sound::Calm,
             voice_speed: DEFAULT_VOICE_SPEED,
             robot_size: RobotSize::M,
@@ -412,7 +412,7 @@ mod tests {
             theme: Theme::Light,
             model: Model::Thorough,
             ptt: Ptt::Toggle,
-            ptt_key: PttKey::RightCtrl,
+            ptt_key: PttKey::Ctrl,
             sound: Sound::Fun,
             voice_speed: 1.15,
             robot_size: RobotSize::XL,
@@ -490,7 +490,7 @@ mod tests {
                 "theme": "light",
                 "model": "quick",
                 "ptt": "hold",
-                "pttKey": "rightCtrl",
+                "pttKey": "ctrl",
                 "sound": "calm",
                 "voiceSpeed": 1.0,
                 "robotSize": "M",
@@ -512,7 +512,7 @@ mod tests {
         let expected = r#"{
             "profile": {"name": "Demo", "about": "Learning the app"}, "profileAsked": true,
             "language": "auto", "theme": "light", "model": "quick",
-            "ptt": "hold", "pttKey": "rightCtrl", "sound": "calm",
+            "ptt": "hold", "pttKey": "ctrl", "sound": "calm",
             "voiceSpeed": 1.0, "robotSize": "M", "reduceMotion": false,
             "spotlight": true, "startWithWindows": false,
             "showHomeAtStart": true
@@ -545,7 +545,7 @@ mod tests {
     #[test]
     fn talk_keys_parse_and_old_or_unknown_keys_keep_other_preferences() {
         for (key, vk) in [
-            (PttKey::RightCtrl, 0xA3),
+            (PttKey::Ctrl, 0x11),
             (PttKey::RightAlt, 0xA5),
             (PttKey::CapsLock, 0x14),
             (PttKey::Insert, 0x2D),
@@ -561,12 +561,12 @@ mod tests {
         }
         for text in [
             r#"{"sound":"fun"}"#,
-            r#"{"sound":"fun","pttKey":"future"}"#,
+            r#"{"sound":"fun","pttKey":"rightCtrl"}"#,
             r#"{"sound":"fun","pttKey":null}"#,
             r#"{"sound":"fun","pttKey":4}"#,
         ] {
             let settings = parse(text);
-            assert_eq!(settings.ptt_key, PttKey::RightCtrl);
+            assert_eq!(settings.ptt_key, PttKey::Ctrl);
             assert_eq!(settings.sound, Sound::Fun);
         }
     }
