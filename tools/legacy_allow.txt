@@ -16,3 +16,5 @@ tools/mm_probe.py:newurl
 tools/mm_shot.py:fmt
 tools/tests/test_mm_shot.py:kw
 tts/serve_dev.py:fmt
+# redaction writes pixels in place through this (invariant 3); kept on purpose
+crates/mm-platform/src/captured_image.rs:pixels_mut

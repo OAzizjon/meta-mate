@@ -160,7 +160,10 @@ def rust_findings(root):
                 name = match.group(1) or match.group(2)
                 kind = 'fn' if match.group(1) else 'struct'
                 defs.append((path, lineno, name, kind))
-    corpus = {path: text for path, text in _iter_text_files(root)}
+    # Docs mention names without using them (docs/code-map.md lists every pub item),
+    # so only code counts as a use.
+    corpus = {path: text for path, text in _iter_text_files(root)
+              if not path.endswith(('.md', '.txt'))}
     for path, lineno, name, kind in defs:
         if _used_elsewhere(name, corpus, path, lineno):
             continue

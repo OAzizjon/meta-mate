@@ -615,8 +615,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Fixture:21 load_fixture:40 unsafe_reason:71 FrameMap:93 element_list:140 Hit:156 hit_test:162 describe:178
   tests: tools/tests/test_mm_fixture.py (12)
 - tools/mm_legacy.py — mm legacy [--only SECTIONS] [--limit N] [--json] [--strict]
-  is_env_file:80 rust_findings:152 ts_findings:202 py_findings:259 locale_findings:289 marker_findings:314 docs_findings:331 external_findings:422
-  load_allowlist:440 is_allowlisted:453 collect:465 render:492 main:515
+  is_env_file:80 rust_findings:152 ts_findings:205 py_findings:262 locale_findings:292 marker_findings:317 docs_findings:334 external_findings:425
+  load_allowlist:443 is_allowlisted:456 collect:468 render:495 main:518
   tests: tools/tests/test_mm_legacy.py (33)
 - tools/mm_locales.py — mm_locales: safe edits to the locale files, for the lead and for agents.
   parse_patch:59 insert_key:107 cmd_merge:197 cmd_add:271 build_parser:301 main:319
