@@ -1,0 +1,35 @@
+{
+  "load_settings": {
+    "theme": "light",
+    "language": "en",
+    "profileAsked": true,
+    "profile": {
+      "name": "Anna",
+      "about": ""
+    }
+  },
+  "events": [
+    {
+      "event": "safety-check",
+      "payload": {
+        "kind": "payment",
+        "detail": "A payment button was detected in the active window."
+      },
+      "at_ms": 50
+    }
+  ],
+  "stream": [
+    {
+      "at_ms": 300,
+      "message": {
+        "type": "item",
+        "generation": 0,
+        "item": {
+          "type": "say",
+          "text": "This looks like a payment. I will not press the button myself — only you can confirm it.",
+          "mood": "sad"
+        }
+      }
+    }
+  ]
+}

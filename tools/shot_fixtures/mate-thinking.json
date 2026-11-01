@@ -1,0 +1,22 @@
+{
+  "load_settings": {
+    "theme": "light",
+    "language": "en",
+    "profileAsked": true,
+    "profile": {
+      "name": "Anna",
+      "about": ""
+    }
+  },
+  "events": [],
+  "stream": [
+    {
+      "at_ms": 50,
+      "message": {
+        "type": "state",
+        "generation": 0,
+        "state": "thinking"
+      }
+    }
+  ]
+}

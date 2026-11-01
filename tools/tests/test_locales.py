@@ -51,7 +51,8 @@ class LocaleTests(unittest.TestCase):
                                'settings.key_f9', 'settings.key_f10',
                                'settings.keycap_ctrl', 'settings.keycap_rightAlt',
                                'settings.keycap_capsLock', 'settings.keycap_insert',
-                               'settings.keycap_f9', 'settings.keycap_f10'}:
+                               'settings.keycap_f9', 'settings.keycap_f10',
+                               'hints.key_fn', 'hints.key_f8'}:
                     self.assertIsNotNone(CYRILLIC.search(russian[key]))
 
 

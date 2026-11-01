@@ -40,13 +40,16 @@
                                    code, tests, churn, hygiene and agent numbers, with deltas
     mm difflint [PATCH|-]          leftovers in a patch's added lines: debug prints, unwraps, conflict
                                    markers, UI strings outside the locales, secrets (default: git diff)
+    mm legacy [--only SECTIONS] [--limit N] [--json] [--strict]
+                                   legacy / dead-code candidates: allow attributes, unreferenced
+                                   pub items, unused exports and locale keys, markers, dead doc paths
     mm contracts [--verbose]       Rust <-> TypeScript contracts: commands registered and called with
                                    the right argument names, events emitted and listened, locale keys
     mm locales merge PATCH [--dry-run] [--theirs] [--locales-only]
                                    the locale keys a patch adds, merged key by key (no end-of-file
                                    git conflicts), then the rest of the patch via git apply
     mm locales add KEY EN RU       add one key to locales/en.json and locales/ru.json, both at once
-    mm agent check [--only CHECKS]|test|locales add KEY EN RU|where|cite|map|stats|difflint|contracts|shot
+    mm agent check [--only CHECKS]|test|locales add KEY EN RU|where|cite|map|stats|difflint|legacy|contracts|shot
                                    the restricted set for sandboxed agents: offline, no secrets, no GUI
                                    (agent locales is add-only: it writes nothing outside locales/)
 
@@ -205,6 +208,9 @@ def cmd_doctor(args):
         ('gh', ['gh', '--version']),
         ('cargo-insta', ['cargo', 'insta', '--version']),
         ('jq', ['jq', '--version']),
+        ('ruff (Python lint)', ['ruff', '--version']),
+        ('vulture (Python dead code)', ['vulture', '--version']),
+        ('cargo-machete (unused deps)', ['cargo', 'machete', '--version']),
         ('modal (TTS deploy)', ['modal', '--version']),
     ]
     failed = False
@@ -432,8 +438,8 @@ def cmd_agent(args):
 # --- code tools: where, cite, map, stats (tools/mm_*.py) -----------------------
 
 TOOL_MODULES = {'where': 'mm_where', 'cite': 'mm_cite', 'map': 'mm_map', 'stats': 'mm_stats',
-                'difflint': 'mm_difflint', 'contracts': 'mm_contracts', 'shot': 'mm_shot',
-                'locales': 'mm_locales'}
+                'difflint': 'mm_difflint', 'legacy': 'mm_legacy', 'contracts': 'mm_contracts',
+                'shot': 'mm_shot', 'locales': 'mm_locales'}
 
 
 def _run_tool(name, rest):
@@ -895,6 +901,7 @@ def build_parser():
                        ('map', 'regenerate docs/code-map.md'),
                        ('stats', 'code, tests, churn and agent numbers'),
                        ('difflint', "leftovers in a patch's added lines"),
+                       ('legacy', 'legacy / dead-code candidates across the tree'),
                        ('contracts', 'Rust <-> TypeScript contracts: commands, arguments, events, keys'),
                        ('shot', 'render WebView pages to PNG without Tauri (mock IPC, headless Edge)'),
                        ('locales', 'merge locale keys from a patch / add one key')):

@@ -49,7 +49,7 @@ class MockJsTests(unittest.TestCase):
 
     def test_overrides_do_not_mutate_the_fixture(self):
         fixture = {'load_settings': {'theme': 'light', 'language': 'en'}}
-        commands, _ = mm_shot.mock_context(fixture, 'dark', 'ru')
+        commands, _, _ = mm_shot.mock_context(fixture, 'dark', 'ru')
         self.assertEqual(fixture['load_settings'], {'theme': 'light', 'language': 'en'})
         self.assertEqual(commands['load_settings']['theme'], 'dark')
 
@@ -75,6 +75,130 @@ class InjectMockTests(unittest.TestCase):
         self.assertLess(out.index(mm_shot.MOCK_ROUTE), out.index('<body>'))
         bare = mm_shot.inject_mock('just text', 'mate', 'light', 'en')
         self.assertTrue(bare.startswith('<script src='))
+
+
+class MateStateTests(unittest.TestCase):
+    def test_state_fixtures_load_with_expected_shapes(self):
+        consent = mm_shot.load_fixture(mm_shot.FIXTURES, 'mate', state='consent')
+        self.assertEqual(consent['stream'], [
+            {'at_ms': 50, 'message': {'type': 'line', 'generation': 0,
+                                      'key': 'robot.look_consent'}}])
+        thinking = mm_shot.load_fixture(mm_shot.FIXTURES, 'mate', state='thinking')
+        self.assertEqual(thinking['stream'][0]['message'],
+                         {'type': 'state', 'generation': 0, 'state': 'thinking'})
+        answer = mm_shot.load_fixture(mm_shot.FIXTURES, 'mate', state='answer')
+        item = answer['stream'][0]['message']['item']
+        self.assertEqual((item['type'], item['mood']), ('say', 'calm'))
+        self.assertTrue(item['text'])
+        warning = mm_shot.load_fixture(mm_shot.FIXTURES, 'mate', state='warning')
+        self.assertEqual(warning['events'][0]['event'], 'safety-check')
+        self.assertEqual(warning['stream'][0]['message']['item']['mood'], 'sad')
+
+    def test_state_mode_presets_the_onboarding_flag(self):
+        js = mm_shot.render_mock_js({}, [], 'mate', onboarded=True)
+        self.assertIn('var presetOnboarded = true;', js)
+        self.assertIn("localStorage.setItem('metamate.onboarded', '1')", js)
+        self.assertIn('var presetOnboarded = false;',
+                      mm_shot.render_mock_js({}, [], 'mate'))
+
+    def test_state_name_rules(self):
+        for good in ('consent', 'thinking', 'answer', 'a-b-1'):
+            self.assertIsNotNone(mm_shot.STATE_NAME.fullmatch(good))
+        for bad in ('', 'Consent', 'two words', '../home', 'a.b', 'ru_RU', 'x' * 33):
+            self.assertIsNone(mm_shot.STATE_NAME.fullmatch(bad))
+
+    def test_missing_state_fixture_is_an_error_but_plain_fixture_defaults(self):
+        with tempfile.TemporaryDirectory() as folder:
+            fixtures = Path(folder)
+            with self.assertRaises(ValueError):
+                mm_shot.load_fixture(fixtures, 'mate', state='nope')
+            self.assertEqual(mm_shot.load_fixture(fixtures, 'mate'), {})
+            (fixtures / 'mate-ok.json').write_text('{"stream": []}', encoding='utf-8')
+            self.assertEqual(mm_shot.load_fixture(fixtures, 'mate', state='ok'),
+                             {'stream': []})
+
+    def test_bad_state_name_is_rejected_by_loader_and_inject(self):
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaises(ValueError):
+                mm_shot.load_fixture(Path(folder), 'mate', state='../x')
+        with self.assertRaises(ValueError):
+            mm_shot.inject_mock('<html><head></head></html>', 'mate', 'light', 'en',
+                                state='Bad')
+
+
+class MateStreamMockTests(unittest.TestCase):
+    def test_stream_is_embedded_with_replay_wiring(self):
+        stream = [{'at_ms': 50, 'message': {'type': 'state', 'generation': 0,
+                                            'state': 'thinking'}}]
+        js = mm_shot.render_mock_js({}, [], 'mate', stream)
+        self.assertIn('var stream = [{"at_ms": 50, "message": {"type": "state", '
+                      '"generation": 0, "state": "thinking"}}];', js)
+        self.assertIn('replayStream(streamId);', js)
+        self.assertIn('runCallback(id, message);', js)
+
+    def test_stream_stays_out_of_commands_and_renders_verbatim(self):
+        fixture = {'load_settings': {'theme': 'light'},
+                   'events': [{'event': 'safety-check', 'payload': {'x': 1}}],
+                   'stream': [{'at_ms': 0, 'message': {'type': 'cancel',
+                                                       'generation': 0}}]}
+        commands, events, stream = mm_shot.mock_context(fixture, 'dark', 'en')
+        self.assertEqual(stream, [{'at_ms': 0, 'message': {'type': 'cancel',
+                                                           'generation': 0}}])
+        self.assertNotIn('stream', commands)
+        self.assertEqual(len(events), 1)
+        self.assertEqual(commands['load_settings']['theme'], 'dark')
+        js = mm_shot.render_mock_js(commands, events, 'mate', stream)
+        self.assertIn('var stream = [{"at_ms": 0, "message": {"type": "cancel", '
+                      '"generation": 0}}];', js)
+
+    def test_render_mock_js_accepts_omitted_stream(self):
+        self.assertIn('var stream = [];',
+                      mm_shot.render_mock_js({}, [], 'mate'))
+
+
+@unittest.skipUnless(shutil.which('node'), 'Node is needed to execute the mock')
+class MateStreamNodeTests(unittest.TestCase):
+    def node(self, source):
+        proc = subprocess.run([shutil.which('node'), '--input-type=module'],
+                              input=source, capture_output=True, text=True, encoding='utf-8',
+                              cwd=mm_shot.ROOT, timeout=30)
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+
+    def test_stream_reaches_any_channel_invoke_as_raw_messages(self):
+        stream = [
+            {'at_ms': 0, 'message': {'type': 'state', 'generation': 0, 'state': 'thinking'}},
+            {'at_ms': 10, 'message': {'type': 'line', 'generation': 0,
+                                      'key': 'robot.look_consent'}},
+            {'at_ms': 20, 'message': {'type': 'item', 'generation': 0,
+                                      'item': {'type': 'say', 'text': 'hi', 'mood': 'calm'}}},
+        ]
+        js = mm_shot.render_mock_js({}, [], 'mate', stream)
+        self.node('''
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+let load;
+const timers = [];
+const context = { console, setTimeout: (fn, ms) => timers.push(fn),
+  document: { documentElement: { setAttribute() {}, style: {} } },
+  window: { addEventListener: (name, fn) => { load = fn; } } };
+vm.runInNewContext(''' + json.dumps(js) + ''', context);
+const ipc = context.window.__TAURI_INTERNALS__;
+const received = [];
+const callback = ipc.transformCallback(value => received.push(value));
+// The command name does not matter: any invoke carrying a Channel opens the
+// stream and receives each scripted message as the raw AnswerMsg — the page's
+// parser (src/ipc/answer-stream.ts) validates `type`/`generation` directly.
+await ipc.invoke('mate_subscribe', {channel: `__CHANNEL__:${callback}`});
+// Opened before 'load': at_ms 0 is due at once, 10/20 still wait for their time.
+assert.ok(received.length >= 1 && received.length < 3);
+load();
+while (timers.length) timers.shift()();
+assert.deepEqual(received.map(message => message.type), ['state', 'line', 'item']);
+assert.equal(received[0].state, 'thinking');
+assert.equal(received[1].key, 'robot.look_consent');
+assert.equal(received[2].item.mood, 'calm');
+assert.equal(await ipc.invoke('mate_subscribe'), null);
+''')
 
 
 class StalenessTests(unittest.TestCase):
@@ -232,6 +356,36 @@ class ServerTests(unittest.TestCase):
             self.assertGreater(int(response.headers['Content-Length']), len(before))
         self.assertEqual(page.read_bytes(), before)
 
+    def test_mate_state_reaches_the_mock_script(self):
+        (self.dist / 'mate.html').write_text(
+            '<!doctype html><html><head><title>mate</title></head><body>ok</body></html>',
+            encoding='utf-8')
+        (self.fixtures / 'mate-consent.json').write_text(json.dumps(
+            {'stream': [{'at_ms': 0, 'message': {'type': 'line', 'generation': 0,
+                                                 'key': 'robot.look_consent'}}]}),
+            encoding='utf-8')
+        status, _, body = self.get(
+            '/mate.html?__mm_theme=light&__mm_lang=en&__mm_state=consent')
+        self.assertEqual(status, 200)
+        self.assertIn(f'{mm_shot.MOCK_ROUTE}?page=mate&theme=light&lang=en&state=consent',
+                      body.decode('utf-8'))
+        status, _, body = self.get('/__mm_mock.js?page=mate&state=consent&theme=light&lang=en')
+        mock = body.decode('utf-8')
+        self.assertEqual(status, 200)
+        self.assertIn('var stream = [{"at_ms": 0, "message": {"type": "line", '
+                      '"generation": 0, "key": "robot.look_consent"}}];', mock)
+        self.assertIn('var presetOnboarded = true;', mock)
+        self.assertIn('"profileAsked": true', mock)
+
+    def test_bad_state_value_is_rejected_on_page_and_mock(self):
+        for path in ('/home.html?__mm_state=Evil',
+                     '/__mm_mock.js?page=mate&state=Evil&lang=en'):
+            with self.subTest(path=path):
+                with self.assertRaises(urllib.error.HTTPError) as ctx:
+                    self.get(path)
+                self.assertEqual(ctx.exception.code, 400)
+                ctx.exception.close()
+
     def test_query_values_cannot_inject_html_or_script(self):
         for path in ('/home.html?__mm_theme=%22%3E%3Cscript%3E',
                      '/__mm_mock.js?page=../home', '/__mm_mock.js?lang=xx'):
@@ -272,8 +426,8 @@ for (const page of ['home', 'card', 'chat']) {
 ''')
 
     def test_v2_callbacks_events_channel_metadata_and_replay(self):
-        commands, events = mm_shot.mock_context(mm_shot.load_fixture(mm_shot.FIXTURES, 'card'),
-                                               'dark', 'ru')
+        commands, events, _ = mm_shot.mock_context(
+            mm_shot.load_fixture(mm_shot.FIXTURES, 'card'), 'dark', 'ru')
         commands['chat_subscribe'] = [{'role': 'mate', 'text': 'hello', 'timestamp': 0,
                                        'mood': 'happy'}]
         js = mm_shot.render_mock_js(commands, events, 'card')
@@ -417,11 +571,77 @@ class ProcessTests(unittest.TestCase):
                 self.assertFalse(out.exists())
                 self.assertEqual(run.call_args.args[0][0], 'edge.exe')
 
+    def test_state_and_size_reach_the_shot_and_name_the_png(self):
+        png = b'\x89PNG\r\n\x1a\n' + b'\0\0\0\rIHDR' + struct.pack('>II', 400, 400)
+        with tempfile.TemporaryDirectory() as folder:
+            captured = []
+
+            def fake_run(cmd):
+                captured.append(cmd)
+                shot = next(arg for arg in cmd if arg.startswith('--screenshot='))
+                Path(shot.split('=', 1)[1]).write_bytes(png)
+                return Mock(returncode=0)
+
+            with patch.object(mm_shot, 'run_edge', side_effect=fake_run):
+                reason = mm_shot.shoot_page('edge.exe', 'http://127.0.0.1:9',
+                                            'mate', 'light', 'en', 1500,
+                                            Path(folder), folder,
+                                            size=(400, 400), state='consent')
+            self.assertIsNone(reason)
+            self.assertIn('--window-size=400,400', captured[0])
+            self.assertIn('__mm_state=consent', captured[0][-1])
+            self.assertTrue((Path(folder) / 'mate-consent-light-en.png').is_file())
+            bad = mm_shot.shoot_page('edge.exe', 'http://127.0.0.1:9', 'mate',
+                                     'light', 'en', 1500, Path(folder), folder,
+                                     size=(0, 400))
+            self.assertIsNotNone(bad)
+
+    def test_missing_state_fixture_fails_before_edge_or_server(self):
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.object(mm_shot, 'find_edge', return_value='edge.exe'), \
+                patch.object(mm_shot, 'dist_stale', return_value=False), \
+                patch.object(mm_shot, 'DIST', Path(folder)), \
+                patch.object(mm_shot, 'FIXTURES', Path(folder) / 'fixtures'), \
+                patch.object(mm_shot, 'start_server') as server, \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            (Path(folder) / 'mate.html').write_text('page', encoding='utf-8')
+            self.assertEqual(mm_shot.main(['mate', '--state', 'nope']), 1)
+        server.assert_not_called()
+        self.assertIn('mate-nope.json not found', output.getvalue())
+
+    def test_main_passes_state_and_size_through(self):
+        server = Mock(server_address=('127.0.0.1', 1234))
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.object(mm_shot, 'find_edge', return_value='edge.exe'), \
+                patch.object(mm_shot, 'dist_stale', return_value=False), \
+                patch.object(mm_shot, 'DIST', Path(folder)), \
+                patch.object(mm_shot, 'FIXTURES', Path(folder) / 'fixtures'), \
+                patch.object(mm_shot, 'SHOTS', Path(folder) / 'shots'), \
+                patch.object(mm_shot, 'start_server', return_value=server), \
+                patch.object(mm_shot, 'shoot_page', return_value=None) as shoot, \
+                contextlib.redirect_stdout(io.StringIO()):
+            (Path(folder) / 'mate.html').write_text('page', encoding='utf-8')
+            fixtures = Path(folder) / 'fixtures'
+            fixtures.mkdir()
+            (fixtures / 'mate-consent.json').write_text('{}', encoding='utf-8')
+            self.assertEqual(
+                mm_shot.main(['mate', '--state', 'consent', '--size', '400x400']), 0)
+        self.assertEqual(shoot.call_args.kwargs['state'], 'consent')
+        self.assertEqual(shoot.call_args.kwargs['size'], (400, 400))
+
+    def test_state_rejects_any_page_selection_but_mate(self):
+        for argv in (['home', '--state', 'consent'], ['--state', 'consent']):
+            with self.subTest(argv=argv):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit) as ctx:
+                        mm_shot.main(argv)
+                self.assertEqual(ctx.exception.code, 2)
+
     def test_server_and_profile_cleaned_up_on_screenshot_failure(self):
         server = Mock(server_address=('127.0.0.1', 1234))
         profiles = []
 
-        def fail(*args):
+        def fail(*args, **kwargs):
             profiles.append(Path(args[-1]))
             self.assertTrue(profiles[-1].is_dir())
             raise OSError('capture failed')
@@ -469,6 +689,18 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(args.pages, ['home', 'chat'])
         self.assertEqual((args.theme, args.lang, args.wait_ms, args.build),
                          ('dark', 'both', 2500, True))
+
+    def test_state_and_size_arguments(self):
+        args = mm_shot.build_parser().parse_args(
+            ['mate', '--state', 'consent', '--size', '400x400'])
+        self.assertEqual((args.state, args.size), ('consent', (400, 400)))
+        parser = mm_shot.build_parser()
+        for argv in (['mate', '--state', 'Bad'], ['mate', '--state', 'a.b'],
+                     ['mate', '--size', '400'], ['mate', '--size', 'big'],
+                     ['mate', '--size', '10x10'], ['mate', '--size', '400x99999']):
+            with self.assertRaises(SystemExit) as ctx:
+                parser.parse_args(argv)
+            self.assertEqual(ctx.exception.code, 2)
 
     def test_bad_page_flag_or_value_is_usage_error(self):
         parser = mm_shot.build_parser()

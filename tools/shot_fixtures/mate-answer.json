@@ -1,0 +1,26 @@
+{
+  "load_settings": {
+    "theme": "light",
+    "language": "en",
+    "profileAsked": true,
+    "profile": {
+      "name": "Anna",
+      "about": ""
+    }
+  },
+  "events": [],
+  "stream": [
+    {
+      "at_ms": 50,
+      "message": {
+        "type": "item",
+        "generation": 0,
+        "item": {
+          "type": "say",
+          "text": "Your photo is attached to the message. Press Send when you are ready.",
+          "mood": "calm"
+        }
+      }
+    }
+  ]
+}

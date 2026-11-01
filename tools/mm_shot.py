@@ -1,9 +1,19 @@
 """mm shot: render MetaMate's WebView windows to PNG without Tauri.
 
     mm shot [PAGE ...] [--theme light|dark|both] [--lang en|ru|both]
-            [--build] [--wait-ms N]
+            [--build] [--wait-ms N] [--state NAME] [--size WxH]
 
 Pages (default: all): home card chat settings mate highlight signin.
+
+--state NAME (mate only) shoots mate.html from
+tools/shot_fixtures/mate-NAME.json: the fixture's "events" are dispatched to
+listeners after load at their at_ms (Rust events such as safety-check) and
+its "stream" messages (AnswerMsg JSON per src/ipc/answer-stream.ts: `type`
+plus `generation`) are replayed raw onto the Tauri Channel that opens the
+Mate answer stream. State shots also preset the 'metamate.onboarded'
+localStorage flag so the first-run bubble stays away. --size WxH overrides the
+window table; mate states are usually shot at --size 400x400 so the bubble
+is not cut (the real window is 220x220 at the screen's edge).
 
 Serves dist/ on 127.0.0.1 with a mock of Tauri's IPC: window.__TAURI_INTERNALS__
 answers invoke() from tools/shot_fixtures/<page>.json ({command: result}; unknown
@@ -65,6 +75,7 @@ MOCK_TEMPLATE = """// Mock of Tauri's window.__TAURI_INTERNALS__ for `mm shot` (
 
   var commands = /*__MM_COMMANDS__*/;
   var events = /*__MM_EVENTS__*/;
+  var stream = /*__MM_STREAM__*/;
   var label = /*__MM_LABEL__*/;
 
   // The settings payload is what the real app serves; apply its theme and
@@ -77,6 +88,18 @@ MOCK_TEMPLATE = """// Mock of Tauri's window.__TAURI_INTERNALS__ for `mm shot` (
     }
     if (settings.language) {
       document.documentElement.setAttribute('lang', settings.language);
+    }
+  }
+
+  // A Mate state shot must not start the first-run onboarding: src/onboarding.ts
+  // claims the first run through localStorage (ONBOARDING_STORAGE_KEY), so set the
+  // flag here — this file is the first script in <head>, before the page's own.
+  var presetOnboarded = /*__MM_ONBOARDED__*/;
+  if (presetOnboarded) {
+    try {
+      window.localStorage.setItem('metamate.onboarded', '1');
+    } catch (error) {
+      console.error('[mm shot mock] could not preset the onboarding flag:', error);
     }
   }
 
@@ -119,6 +142,33 @@ MOCK_TEMPLATE = """// Mock of Tauri's window.__TAURI_INTERNALS__ for `mm shot` (
     return id;
   }
 
+  // Mate answer-stream replay: every fixture stream message is delivered to the
+  // subscribing channel's callback as the raw AnswerMsg. src/ipc/answer-stream.ts
+  // validates `type`/`generation` (serde tagging on `type`), and so does the real
+  // Tauri v2 Channel: its onmessage receives the message itself, not an envelope.
+  // at_ms is relative to load; a channel that subscribes late gets what it
+  // missed at once, in order.
+  // Anchored when the mock runs, so a channel opened before 'load' still waits
+  // for each message's at_ms; 'load' re-anchors it like the scripted events.
+  var streamStart = Date.now();
+  var replayed = {};
+
+  function replayStream(id) {
+    var now = Date.now() - streamStart;
+    for (var i = 0; i < stream.length; i += 1) {
+      var entry = stream[i];
+      if (!entry || typeof entry.message === 'undefined') continue;
+      var at = entry.at_ms || 0;
+      if (at <= now) {
+        runCallback(id, entry.message);
+      } else {
+        setTimeout((function (message) {
+          return function () { runCallback(id, message); };
+        })(entry.message), at - now);
+      }
+    }
+  }
+
   var internals = {
     invoke: function (cmd, args) {
       args = args || {};
@@ -141,6 +191,20 @@ MOCK_TEMPLATE = """// Mock of Tauri's window.__TAURI_INTERNALS__ for `mm shot` (
         // Tauri v2 Channel callbacks receive ordered {message, index} envelopes.
         runCallback(id, { message: commands.chat_subscribe || [], index: 0 });
         return Promise.resolve();
+      }
+      // Any other invoke carrying a Tauri Channel opens a stream (Mate's
+      // answer stream); replay the fixture's stream messages on it. Fixture
+      // command results still take precedence below, so both can combine.
+      if (args.channel) {
+        var streamChannel = args.channel;
+        var streamId = typeof streamChannel === 'string'
+          ? Number(streamChannel.split(':')[1]) : streamChannel.id;
+        // One replay per channel id: a page that re-subscribes must not get
+        // every scripted message twice.
+        if (isFinite(streamId) && !replayed[streamId]) {
+          replayed[streamId] = true;
+          replayStream(streamId);
+        }
       }
       if (Object.prototype.hasOwnProperty.call(commands, cmd)) {
         return Promise.resolve(commands[cmd]);
@@ -168,6 +232,7 @@ MOCK_TEMPLATE = """// Mock of Tauri's window.__TAURI_INTERNALS__ for `mm shot` (
   // Replay the fixture's scripted events after load; a listener registered later
   // still receives every event whose at_ms has not passed.
   window.addEventListener('load', function () {
+    streamStart = Date.now();
     events.forEach(function (item) {
       if (item && typeof item.event === 'string') {
         setTimeout(function () { dispatch(item.event, item.payload); }, item.at_ms || 0);
@@ -178,6 +243,9 @@ MOCK_TEMPLATE = """// Mock of Tauri's window.__TAURI_INTERNALS__ for `mm shot` (
 """
 
 SAFE_NAME = re.compile(r'[A-Za-z0-9_-]{1,40}')
+# Mate state names become the mate-NAME.json fixture stem; the cap keeps the
+# combined stem inside SAFE_NAME's 40 characters. No dots, so no traversal.
+STATE_NAME = re.compile(r'[a-z0-9-]{1,32}')
 STATIC_SUFFIXES = {'.html', '.js', '.css', '.png', '.svg', '.jpg', '.jpeg', '.webp',
                    '.avif', '.ico', '.woff', '.woff2', '.ttf', '.otf', '.ogg', '.wav',
                    '.mp3', '.mp4', '.webm'}
@@ -190,6 +258,18 @@ def expand(value, choices):
 def last_line(text):
     lines = [line for line in text.strip().splitlines() if line.strip()]
     return lines[-1] if lines else ''
+
+
+def display_path(path, root=ROOT):
+    """`path` relative to `root` when it lies inside it, absolute otherwise.
+
+    Tests patch SHOTS or DIST to temp folders outside ROOT, where
+    Path.relative_to() would raise ValueError.
+    """
+    try:
+        return path.relative_to(root)
+    except ValueError:
+        return path
 
 
 # --- build staleness ---------------------------------------------------------
@@ -236,13 +316,23 @@ def build_dist(root=ROOT):
 
 # --- fixtures and the mock ----------------------------------------------------
 
-def load_fixture(fixtures, page):
-    if not SAFE_NAME.fullmatch(page):
+def load_fixture(fixtures, page, state=None):
+    """Load <page>.json, or mate-NAME.json when a Mate state is given.
+
+    A missing plain fixture falls back to {} (the mock serves nulls); a
+    missing state fixture is an error, since the state is the point of the shot.
+    """
+    if state is not None and not STATE_NAME.fullmatch(state):
+        raise ValueError('bad state name (want [a-z0-9-]+)')
+    name = f'{page}-{state}' if state else page
+    if not SAFE_NAME.fullmatch(name):
         raise ValueError('bad fixture page')
-    path = (fixtures / f'{page}.json').resolve()
+    path = (fixtures / f'{name}.json').resolve()
     if not path.is_relative_to(fixtures.resolve()):
         raise ValueError('fixture is outside the fixtures directory')
     if not path.is_file():
+        if state is not None:
+            raise ValueError(f'{name}.json not found in {fixtures}')
         return {}
     data = json.loads(path.read_text(encoding='utf-8-sig'))
     if not isinstance(data, dict):
@@ -251,11 +341,18 @@ def load_fixture(fixtures, page):
 
 
 def mock_context(fixture, theme, lang):
-    """Split a fixture into (commands, events) and apply the --theme/--lang overrides."""
-    commands = {k: v for k, v in fixture.items() if k != 'events'}
+    """Split a fixture into (commands, events, stream) with --theme/--lang overrides."""
+    commands = {k: v for k, v in fixture.items() if k not in ('events', 'stream')}
     events = fixture.get('events')
     if not isinstance(events, list):
         events = []
+    # "stream" replays Mate answer-stream messages onto the page's Tauri
+    # Channel as raw AnswerMsg JSON ({type: state|line|item|cancel, ...},
+    # always with generation) per src/ipc/answer-stream.ts; parseAnswerMsg
+    # drops anything else, so fixtures must use the wire shape.
+    stream = fixture.get('stream')
+    if not isinstance(stream, list):
+        stream = []
     settings = commands.get('load_settings')
     if not isinstance(settings, dict):
         settings = {}
@@ -265,7 +362,7 @@ def mock_context(fixture, theme, lang):
     settings['theme'] = theme
     settings['language'] = lang
     commands['load_settings'] = settings
-    return commands, events
+    return commands, events, stream
 
 
 def _embedded(obj):
@@ -274,15 +371,18 @@ def _embedded(obj):
     return json.dumps(obj, ensure_ascii=False).replace('</', '<\\/')
 
 
-def render_mock_js(commands, events, label):
+def render_mock_js(commands, events, label, stream=None, onboarded=False):
     if not SAFE_NAME.fullmatch(label):
         raise ValueError('bad label')
-    values = {'COMMANDS': commands, 'EVENTS': events, 'LABEL': label}
-    return re.sub(r'/\*__MM_(COMMANDS|EVENTS|LABEL)__\*/',
+    if stream is None:
+        stream = []
+    values = {'COMMANDS': commands, 'EVENTS': events, 'LABEL': label, 'STREAM': stream,
+              'ONBOARDED': bool(onboarded)}
+    return re.sub(r'/\*__MM_(COMMANDS|EVENTS|LABEL|STREAM|ONBOARDED)__\*/',
                   lambda match: _embedded(values[match[1]]), MOCK_TEMPLATE)
 
 
-def inject_mock(html, page, theme, lang):
+def inject_mock(html, page, theme, lang, state=None):
     """Insert the mock script tag at the start of <head> in the served copy only."""
     if MOCK_ROUTE in html:
         return html   # never injected twice
@@ -290,7 +390,12 @@ def inject_mock(html, page, theme, lang):
         raise ValueError('bad page name')
     if theme not in THEMES or lang not in LANGS:
         raise ValueError('bad theme or language')
-    tag = f'<script src="{MOCK_ROUTE}?page={page}&theme={theme}&lang={lang}"></script>'
+    if state is not None and not STATE_NAME.fullmatch(state):
+        raise ValueError('bad state name')
+    src = f'{MOCK_ROUTE}?page={page}&theme={theme}&lang={lang}'
+    if state:
+        src += f'&state={state}'
+    tag = f'<script src="{src}"></script>'
     match = re.search(r'<head[^>]*>', html, re.I)
     if match:
         return html[:match.end()] + tag + html[match.end():]
@@ -372,11 +477,15 @@ def make_handler(dist, fixtures):
             query = parse_qs(parsed.query)
             theme = (query.get('__mm_theme') or ['light'])[0]
             lang = (query.get('__mm_lang') or ['en'])[0]
+            state = (query.get('__mm_state') or [None])[0]
             if theme not in THEMES or lang not in LANGS:
                 self.send_error(400)
                 return
+            if state is not None and not STATE_NAME.fullmatch(state):
+                self.send_error(400)
+                return
             body = inject_mock(target.read_text(encoding='utf-8'), target.stem,
-                               theme, lang).encode('utf-8')
+                               theme, lang, state).encode('utf-8')
             self._send(body, 'text/html; charset=utf-8')
 
         def _mock(self, parsed):
@@ -384,17 +493,22 @@ def make_handler(dist, fixtures):
             page = (query.get('page') or ['main'])[0]
             theme = (query.get('theme') or ['light'])[0]
             lang = (query.get('lang') or ['en'])[0]
+            state = (query.get('state') or [None])[0]
             if not SAFE_NAME.fullmatch(page) or theme not in THEMES or lang not in LANGS:
                 self.send_error(400)
                 return
+            if state is not None and not STATE_NAME.fullmatch(state):
+                self.send_error(400)
+                return
             try:
-                fixture = load_fixture(fixtures, page)
+                fixture = load_fixture(fixtures, page, state)
             except (OSError, ValueError):
                 self.send_error(500, 'Invalid fixture')
                 return
-            commands, events = mock_context(fixture, theme, lang)
-            self._send(render_mock_js(commands, events, page).encode('utf-8'),
-                       'application/javascript; charset=utf-8')
+            commands, events, stream = mock_context(fixture, theme, lang)
+            body = render_mock_js(commands, events, page, stream,
+                                  onboarded=state is not None)
+            self._send(body.encode('utf-8'), 'application/javascript; charset=utf-8')
 
     return Handler
 
@@ -489,15 +603,21 @@ def run_edge(cmd):
             kernel.CloseHandle(job)
 
 
-def shoot_page(edge, base, page, theme, lang, wait_ms, out_dir, profile):
+def shoot_page(edge, base, page, theme, lang, wait_ms, out_dir, profile,
+               size=None, state=None):
     """Screenshot one page; returns a failure reason or None."""
-    width, height = PAGES[page]
-    if theme not in THEMES or lang not in LANGS or not isinstance(wait_ms, int) or wait_ms < 0:
+    width, height = size if size is not None else PAGES[page]
+    if (theme not in THEMES or lang not in LANGS or not isinstance(wait_ms, int)
+            or wait_ms < 0 or not isinstance(width, int) or not isinstance(height, int)
+            or width <= 0 or height <= 0):
         return f'{page}: invalid screenshot options'
-    out = out_dir / f'{page}-{theme}-{lang}.png'
+    stem = f'{page}-{state}' if state else page
+    out = out_dir / f'{stem}-{theme}-{lang}.png'
     # A previous successful capture must not hide a failed capture on this run.
     out.unlink(missing_ok=True)
     url = f'{base}/{page}.html?__mm_theme={theme}&__mm_lang={lang}'
+    if state:
+        url += f'&__mm_state={state}'
     cmd = [str(edge), '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
            '--disable-extensions', '--disable-background-networking', '--disable-component-update',
            f'--user-data-dir={profile}', '--force-device-scale-factor=1',
@@ -530,6 +650,20 @@ def build_parser():
             raise argparse.ArgumentTypeError('unknown page: ' + value)
         return value
 
+    def state_name(value):
+        if not STATE_NAME.fullmatch(value):
+            raise argparse.ArgumentTypeError('bad state name (want [a-z0-9-]+): ' + value)
+        return value
+
+    def size_value(value):
+        match = re.fullmatch(r'([0-9]+)[xX]([0-9]+)', value)
+        if not match:
+            raise argparse.ArgumentTypeError('bad size (want WxH, e.g. 400x400): ' + value)
+        width, height = int(match[1]), int(match[2])
+        if not 16 <= width <= 7680 or not 16 <= height <= 7680:
+            raise argparse.ArgumentTypeError('size out of range (16..7680): ' + value)
+        return (width, height)
+
     parser = argparse.ArgumentParser(prog='mm shot', description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('pages', nargs='*', type=page_name, metavar='PAGE',
@@ -539,6 +673,10 @@ def build_parser():
     parser.add_argument('--build', action='store_true', help='run npm run build even if dist/ is fresh')
     parser.add_argument('--wait-ms', type=int, default=1500,
                         help='virtual time budget for fonts/animations (default: 1500)')
+    parser.add_argument('--state', type=state_name, metavar='NAME', default=None,
+                        help='shoot mate.html from tools/shot_fixtures/mate-NAME.json')
+    parser.add_argument('--size', type=size_value, metavar='WxH', default=None,
+                        help='override the window size, e.g. --size 400x400')
     return parser
 
 
@@ -547,6 +685,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.wait_ms < 0:
         parser.error('--wait-ms must be >= 0')
+    if args.state and args.pages != ['mate']:
+        parser.error("--state works only as 'mm shot mate --state NAME'")
     pages = args.pages or list(PAGES)
     themes = expand(args.theme, THEMES)
     langs = expand(args.lang, LANGS)
@@ -565,7 +705,7 @@ def main(argv=None):
             print(f'mm shot: {why}')
             return 1
     if not any(DIST.rglob('*.html')):
-        print(f'mm shot: {DIST.relative_to(ROOT)} has no pages to serve.')
+        print(f'mm shot: {display_path(DIST)} has no pages to serve.')
         return 1
     missing = [page for page in pages if not (DIST / f'{page}.html').is_file()]
     if missing:
@@ -574,7 +714,7 @@ def main(argv=None):
 
     for page in pages:
         try:
-            load_fixture(FIXTURES, page)
+            load_fixture(FIXTURES, page, args.state)
         except (OSError, ValueError) as error:
             print(f'mm shot: fixture {error}')
             return 1
@@ -590,14 +730,16 @@ def main(argv=None):
             for page in pages:
                 for theme in themes:
                     for lang in langs:
-                        name = f'{page}-{theme}-{lang}'
+                        stem = f'{page}-{args.state}' if args.state else page
+                        name = f'{stem}-{theme}-{lang}'
                         error = shoot_page(edge, base, page, theme, lang,
-                                           args.wait_ms, SHOTS, profile)
+                                           args.wait_ms, SHOTS, profile,
+                                           size=args.size, state=args.state)
                         if error:
                             failures += 1
                             print(f'FAIL  {error}')
                         else:
-                            print(f'OK    {(SHOTS / (name + ".png")).relative_to(ROOT)}')
+                            print(f'OK    {display_path(SHOTS / (name + ".png"))}')
     except OSError as error:
         print(f'mm shot: {error}')
         return 1

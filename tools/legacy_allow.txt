@@ -1,0 +1,18 @@
+# Allowlist for `mm legacy`: silence known false positives, one entry per line.
+# Format: 'path:name' (path glob + name glob, split at the last ':') or a bare
+# path glob; fnmatch-style globs, forward slashes, '#' starts a comment.
+# Examples of what belongs here:
+#   Tauri commands only invoked from the WebView via invoke():
+#     src-tauri/src/lib.rs:my_command
+#   Structs only (de)serialized by serde, never named in code:
+#     crates/mm-core/src/config.rs:InternalShape
+#   Web entry points referenced from an html file the scan misses:
+#     src/entry.ts
+#   Test helpers used only across test files:
+#     tools/tests/test_helpers.py:make_tmp_tree
+# vulture: parameters required by a callback signature
+tools/mm_probe.py:fp
+tools/mm_probe.py:newurl
+tools/mm_shot.py:fmt
+tools/tests/test_mm_shot.py:kw
+tts/serve_dev.py:fmt

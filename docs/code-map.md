@@ -69,7 +69,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   AppId::spec:19 AppId::words:122 OpenTarget:153 OpenTarget::parse:162 OpenTarget::named_in:204 OpenTarget::host:252
   tests: crates/mm-core/tests/open.rs (9)
 - crates/mm-core/src/matescript/parser.rs — Incremental, Unicode-safe MateScript parser for a single answer.
-  Parser:16 Parser::new:34 Parser::push:54 Parser::finish:66 Parser::needs_point_refusal:84
+  Parser:16 Parser::new:32 Parser::push:50 Parser::finish:62
 - crates/mm-core/src/matescript/sentence.rs
   Sentence:3 Sentence::boundary:12 Sentence::push:59 Sentence::take:81
   inline tests (2)
@@ -83,8 +83,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   SOUNDS:4 MOODS:48 AMBIENCE:57 closest:60
 - crates/mm-core/src/mic.rs — Pure microphone downmixing, streaming resampling and Muse realtime framing.
   OUTPUT_RATE:3 FRAME_SAMPLES:4 FRAME_BYTES:5 MicError:8 Framer:29 Framer::new:41 Framer::push:63 Framer::finish:106
-  level:118 normalize_utterance:136 StreamGain:160 StreamGain::apply:166
-  tests: crates/mm-core/tests/mic.rs (14)
+  level:118 StreamGain:139 StreamGain::apply:145
+  tests: crates/mm-core/tests/mic.rs (10)
 - crates/mm-core/src/phrases.rs — Directory choice for cached speech, independent of filesystem and Tauri APIs.
   directory:7
   inline tests (2)
@@ -409,9 +409,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/card-page.ts — The lesson card window's entry (card.html): the locale lookup, then the page itself.
 - src/card.ts — Lesson card window controller (WP62): Muse Image recap for older users.
   *:13^ setCardI18n:19 CardWordsBy:25 LessonCard:28 LESSON_CARD_EVENT:37 CARD_READY_EVENT:39 parseLessonCard:47 creditsKey:89
-  getPlaceholderCard:97 resolveCardImageUrl:114 printCard:144 closeCard:151 escapeHtml:171 PLACEHOLDER_MATE_SVG:181 CaptionedCardSaver:214 sendCaptionedCardOnce:224
-  CardController:268 MountCardOptions:275 mountLessonCard:285
-  tests: src/card.test.ts (25)
+  getPlaceholderCard:97 resolveCardImageUrl:114 printCard:144 closeCard:151 PLACEHOLDER_MATE_SVG:171 CaptionedCardSaver:204 sendCaptionedCardOnce:214 CardController:258
+  MountCardOptions:265 mountLessonCard:275
+  tests: src/card.test.ts (24)
 - src/chat.ts — Chat is a normal, deliberately opened window.
   startThinking:75· stopThinking:84· render:91· localize:209· start:221·
 - src/chat/history.ts — Chat history rendering policy, independent of the DOM and Tauri.
@@ -430,21 +430,15 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   DebugStore:400 renderGenerationHtml:479 renderDebugViewHtml:590
   tests: src/debug/view.test.ts (18)
 - src/highlight.ts — Highlight overlay window (docs/architecture.md section 2, WP5): listens for the `"highlight"` Tauri event from `src-tauri/src/highlight.rs`, validates the payload strictly, and draws the glowing …
-  BADGE_GAP:50^ BADGE_HEIGHT:50^ BADGE_WIDTH:50^ BEAM_COLOR:50^ BEAM_HALF_WIDTH:50^ CLEAR_FADE_MS:50^ LOCK_MIN_SIDE:50^ MAX_SCAN_RECTS:50^
-  MAX_STEP_TOTAL:50^ RING_PAD:50^ RING_RADIUS:50^ SCAN_FADE_MS:50^ SCAN_LIFETIME_MS:50^ SCAN_SWEEP_MS:50^ VIEWPORT_MARGIN:50^ badgePosition:50^
-  beamPolygon:50^ computeBadgePosition:50^ computeBeamPolygon:50^ formatPolygonPoints:50^ formatStepBadge:50^ inflateRect:50^ isValidPoint:50^ isValidRect:50^
-  isValidStep:50^ lockCenter:50^ missPath:50^ nearestRectEdge:50^ parseHighlightMsg:50^ ringRect:50^ scanDelay:50^ BURST_EVENT:50^
-  BURST_FADE_MS:50^ BURST_HOLD_MS:50^ BURST_INNER_RADIUS:50^ BURST_MARGIN:50^ BURST_OUTER_RADIUS:50^ BURST_POP_MS:50^ BURST_SPIKES:50^ BURST_WORDS_EN:50^
-  BURST_WORDS_RU:50^ burstTiltAngle:50^ clampBurstCenter:50^ computeBurstGeometry:50^ computeBurstPolygon:50^ nextBurstWord:50^ HighlightController:120 mountHighlight:179
+  HighlightController:56 mountHighlight:115
 - src/highlight/geometry.ts — Pure geometry and wire validation for the click-through highlight window (docs/architecture.md section 2, WP5): parses `HighlightMsg` payloads from Rust, inflates the target ring, builds the …
   CssSize:11 HighlightStep:17 HighlightTargetMsg:22 HighlightClearMsg:30 HighlightWarmthMsg:35 HighlightMissMsg:41 HighlightScanMsg:48 HighlightBurstMsg:55
   HighlightMsg:60 RectEdgeSide:68 RectEdge:70 RING_PAD:77 RING_RADIUS:79 BEAM_COLOR:81 BEAM_HALF_WIDTH:83 MAX_STEP_TOTAL:85
   BADGE_WIDTH:87 BADGE_HEIGHT:88 BADGE_GAP:90 VIEWPORT_MARGIN:92 CLEAR_FADE_MS:94 MAX_SCAN_RECTS:96 SCAN_SWEEP_MS:98 SCAN_LIFETIME_MS:100
   SCAN_FADE_MS:102 LOCK_MIN_SIDE:104 BURST_EVENT:106 BURST_OUTER_RADIUS:108 BURST_INNER_RADIUS:110 BURST_SPIKES:112 BURST_MARGIN:114 BURST_POP_MS:116
-  BURST_HOLD_MS:118 BURST_FADE_MS:120 BURST_MAX_COVER_MS:122 BURST_WORDS_EN:123 BURST_WORDS_RU:124 BURST_LOCALE_KEYS:125 BurstGeometry:131 clamp:145
-  num:150 isValidPoint:155 isValidRect:160 isValidStep:165 parseHighlightMsg:174 shouldDim:245 ringRect:325 inflateRect:334
-  nearestRectEdge:340 computeBeamPolygon:398 beamPolygon:435 missPath:438 scanDelay:454 lockCenter:464 formatPolygonPoints:472 formatStepBadge:479
-  computeBadgePosition:487 badgePosition:515 nextBurstWord:518 burstTiltAngle:525 clampBurstCenter:532 computeBurstPolygon:555 computeBurstGeometry:582
+  BURST_HOLD_MS:118 BURST_FADE_MS:120 BURST_WORDS_EN:121 BURST_WORDS_RU:122 BurstGeometry:124 clamp:138 num:143 parseHighlightMsg:152
+  shouldDim:223 ringRect:303 nearestRectEdge:316 computeBeamPolygon:374 missPath:412 scanDelay:428 lockCenter:438 formatPolygonPoints:446
+  formatStepBadge:453 computeBadgePosition:461 nextBurstWord:491 burstTiltAngle:498 clampBurstCenter:505 computeBurstPolygon:528 computeBurstGeometry:555
   tests: src/highlight/geometry.test.ts (19)
 - src/hints/keyboard.ts — The consent hint's picture (src/hints/view.ts): a mini laptop keyboard, 200 x 90 user units, with Fn (bottom-left corner) and F8 (top row) lit in Mate's yellow.
   KEYBOARD_VIEW_W:8 KEYBOARD_VIEW_H:9 buildKeyboard:30
@@ -476,9 +470,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/home/profile.ts — Home's "What should I call you?" panel (owner request, 2026-11-01): on the first open (`profileAsked` false) Mate asks for the person's name and, if they like, a few words about them; Save or Skip …
   shouldAskProfile:17 greetingText:22 ProfilePanel:28 ProfilePanelActions:35 createProfilePanel:42
 - src/i18n/index.ts — Localization loader, language resolution, and typed translation helpers (invariant 7).
-  interpolate:7^ TemplateVars:7^ LocaleCode:9 LocaleKey:10 APP_NAME:17 ROBOT_NAME:18 TeacherLineKey:23 StepVars:33
-  I18nInitOptions:39 resolveLocale:115 initI18n:136 getLocale:154 setLocale:158 getRobotName:163 getAppName:167 resetMissingKeyWarnings:172
-  t:193 tLine:218
+  interpolate:7^ TemplateVars:7^ LocaleCode:9 LocaleKey:10 APP_NAME:17 ROBOT_NAME:18 TeacherLineKey:23 I18nInitOptions:33
+  resolveLocale:98 initI18n:119 getLocale:137 setLocale:141 getAppName:146 t:167
 - src/i18n/interpolate.ts — Pure {placeholder} interpolation with a default {name} fallback.
   TemplateVars:3 interpolate:14
   tests: src/i18n/interpolate.test.ts (3)
@@ -599,9 +592,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:119 first_line:134 agent_mode_reason:138 say:150 cmd_doctor:187 plan_sections:253 cmd_plan:276 cmd_status:303
-  cmd_check:351 cmd_test:375 cmd_agent:418 cmd_tool:450 cmd_release:456 cmd_uia:562 cmd_art:596 cmd_sounds:644
-  cmd_phrases:686 cmd_agents:699 wanted_key_names:712 parse_env:720 cmd_keys:775 build_parser:854 cmd_probe:909 main:925
+  run:122 first_line:137 agent_mode_reason:141 say:153 cmd_doctor:190 plan_sections:259 cmd_plan:282 cmd_status:309
+  cmd_check:357 cmd_test:381 cmd_agent:424 cmd_tool:456 cmd_release:462 cmd_uia:568 cmd_art:602 cmd_sounds:650
+  cmd_phrases:692 cmd_agents:705 wanted_key_names:718 parse_env:726 cmd_keys:781 build_parser:860 cmd_probe:916 main:932
   tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
@@ -621,6 +614,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_fixture.py — Pure fixture loading and geometry for recorded UIA probes.
   Fixture:21 load_fixture:40 unsafe_reason:71 FrameMap:93 element_list:140 Hit:156 hit_test:162 describe:178
   tests: tools/tests/test_mm_fixture.py (12)
+- tools/mm_legacy.py — mm legacy [--only SECTIONS] [--limit N] [--json] [--strict]
+  is_env_file:80 rust_findings:152 ts_findings:202 py_findings:259 locale_findings:289 marker_findings:314 docs_findings:331 external_findings:422
+  load_allowlist:440 is_allowlisted:453 collect:465 render:492 main:515
+  tests: tools/tests/test_mm_legacy.py (33)
 - tools/mm_locales.py — mm_locales: safe edits to the locale files, for the lead and for agents.
   parse_patch:59 insert_key:107 cmd_merge:197 cmd_add:271 build_parser:301 main:319
   tests: tools/tests/test_mm_locales.py (28)
@@ -645,9 +642,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   cmd_safety:208 run_batch:223 add_parser:306
   tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
-  expand:246 last_line:250 display_path:255 source_files:269 dist_stale:280 npm_cmd:287 build_dist:291 load_fixture:311
-  mock_context:335 render_mock_js:366 inject_mock:377 make_handler:402 start_server:508 find_edge:517 png_size:528 run_edge:536
-  shoot_page:598 build_parser:639 main:675
+  expand:254 last_line:258 display_path:263 source_files:277 dist_stale:288 npm_cmd:295 build_dist:299 load_fixture:319
+  mock_context:343 render_mock_js:374 inject_mock:385 make_handler:410 start_server:516 find_edge:525 png_size:536 run_edge:544
+  shoot_page:606 build_parser:647 main:683
   tests: tools/tests/test_mm_shot.py (50)
 - tools/mm_stats.py — mm stats [--save] [--json] [--since DAYS]
   area:34 crate:39 source_files:46 read:61 run:68 code_summary:78 parse_scc:90 collect_code:104
@@ -724,7 +721,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 
 - `auth_providers` src-tauri/src/auth.rs:137 <- src/settings/account.ts:213
 - `auth_status` src-tauri/src/auth.rs:172 <- src/settings/account.ts:239
-- `card_save_captioned` src-tauri/src/card.rs:528 <- src/card-keepsake.ts:8, src/card.ts:256
+- `card_save_captioned` src-tauri/src/card.rs:528 <- src/card-keepsake.ts:8, src/card.ts:246
 - `card_show` src-tauri/src/card.rs:502 <- src/home/lessons.ts:8
 - `cards_list` src-tauri/src/card.rs:492 <- src/home/lessons.ts:6
 - `cards_open_folder` src-tauri/src/card.rs:541 <- src/home/lessons.ts:10
@@ -734,7 +731,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:577, src/signin.ts:104
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:87 <- src/home.ts:30
-- `load_settings` src-tauri/src/settings.rs:279 <- src/highlight.ts:637, src/home.ts:168, src/settings/model.ts:284, src/settings/theme.ts:31
+- `load_settings` src-tauri/src/settings.rs:279 <- src/highlight.ts:573, src/home.ts:168, src/settings/model.ts:284, src/settings/theme.ts:31
 - `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:454
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
 - `open_answer_target` src-tauri/src/opening.rs:137 <- src/mate.ts:385
@@ -777,8 +774,8 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
 - `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:594; const src-tauri/src/explain.rs:39
 - `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:572, src/signin.ts:106; const src-tauri/src/signin.rs:18
-- `highlight`: rs emit src-tauri/src/highlight.rs:160,166,302, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:646, src/mate.ts:547; const src-tauri/src/highlight.rs:15
-- `highlight-burst`: rs emit src-tauri/src/highlight.rs:228; ts listen src/highlight.ts:651; const src-tauri/src/highlight.rs:16, src/highlight/geometry.ts:106
+- `highlight`: rs emit src-tauri/src/highlight.rs:160,166,302, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:582, src/mate.ts:547; const src-tauri/src/highlight.rs:15
+- `highlight-burst`: rs emit src-tauri/src/highlight.rs:228; ts listen src/highlight.ts:587; const src-tauri/src/highlight.rs:16, src/highlight/geometry.ts:106
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:582
 - `lesson-card`: rs emit src-tauri/src/card.rs:470; ts listen src/card-page.ts:26; const src-tauri/src/card.rs:37, src/card.ts:37
 - `lesson-interrupt`: rs emit src-tauri/src/voice.rs:527; ts listen src/mate.ts:336; const src/mate.ts:40
@@ -786,7 +783,7 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:552
 - `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:557
 - `safety-check`: rs emit src-tauri/src/voice.rs:913; ts listen src/mate.ts:364; const src-tauri/src/voice.rs:69, src/safety-stamp.ts:9
-- `settings-changed`: rs emit src-tauri/src/settings.rs:307,343; ts listen src/highlight.ts:642, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:58, src/settings.ts:144; const src-tauri/src/settings.rs:25, src/settings/model.ts:28
+- `settings-changed`: rs emit src-tauri/src/settings.rs:307,343; ts listen src/highlight.ts:578, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:58, src/settings.ts:144; const src-tauri/src/settings.rs:25, src/settings/model.ts:28
 
 ### Proxy routes
 
@@ -845,18 +842,18 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `open.failed`: rs src-tauri/src/opening.rs:77,164; ts src/mate.ts:387
 - `open.not_installed`: rs src-tauri/src/voice.rs:953
 - `open.remote_warning`: rs src-tauri/src/opening.rs:25
-- `robot.cant_find`: rs src-tauri/src/chat.rs:128, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:372, src-tauri/src/teacher/lesson.rs:338, src-tauri/src/teacher/presentation.rs:78; ts src/audio/types.ts:185, src/i18n/index.ts:62, src/ipc/answer-stream.ts:26, src/mate-logic.ts:243
+- `robot.cant_find`: rs src-tauri/src/chat.rs:128, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:372, src-tauri/src/teacher/lesson.rs:338, src-tauri/src/teacher/presentation.rs:78; ts src/audio/types.ts:185, src/ipc/answer-stream.ts:26, src/mate-logic.ts:243
 - `robot.cant_look`: rs src-tauri/src/screen.rs:379, src-tauri/src/teacher/lesson.rs:102; ts src/ipc/answer-stream.ts:29
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:66
 - `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:504,632,633; ts src/ipc/answer-stream.ts:40
 - `robot.click_stop`: rs src-tauri/src/voice.rs:581; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:27, src/mate-logic.ts:186,210
 - `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:387,395,605,611, src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:54
-- `robot.done`: rs src-tauri/src/teacher/presentation.rs:80; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:49
+- `robot.done`: rs src-tauri/src/teacher/presentation.rs:80; ts src/ipc/answer-stream.ts:49
 - `robot.double_click`: rs src-tauri/src/teacher/presentation.rs:71; ts src/ipc/answer-stream.ts:43
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/ipc/answer-stream.ts:38
 - `robot.look_consent`: rs src-tauri/src/screen.rs:595; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:220,225
 - `robot.looking`: rs src-tauri/src/voice.rs:64
-- `robot.network_error`: rs src-tauri/src/chat.rs:329, src-tauri/src/teacher/presentation.rs:81, src-tauri/src/voice.rs:1255; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
+- `robot.network_error`: rs src-tauri/src/chat.rs:329, src-tauri/src/teacher/presentation.rs:81, src-tauri/src/voice.rs:1255; ts src/ipc/answer-stream.ts:23
 - `robot.no_microphone`: rs src-tauri/src/voice.rs:618,634,755,1289; ts src/ipc/answer-stream.ts:24
 - `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1290; ts src/ipc/answer-stream.ts:25
 - `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:86; ts src/ipc/answer-stream.ts:56
@@ -864,7 +861,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:85; ts src/ipc/answer-stream.ts:55
 - `robot.private_window`: rs src-tauri/src/screen.rs:370; ts src/ipc/answer-stream.ts:32
 - `robot.protected_window`: rs src-tauri/src/screen.rs:373; ts src/ipc/answer-stream.ts:30
-- `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:328,329; ts src/i18n/index.ts:61, src/ipc/answer-stream.ts:45
+- `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:328,329; ts src/ipc/answer-stream.ts:45
 - `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/ipc/answer-stream.ts:46
 - `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/ipc/answer-stream.ts:47
 - `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/ipc/answer-stream.ts:48
@@ -876,11 +873,11 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.thinking_2`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_3`: rs src-tauri/src/voice.rs:63
 - `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:451,456; ts src/ipc/answer-stream.ts:52
-- `robot.too_many_turns`: rs src-tauri/src/teacher/presentation.rs:82; ts src/i18n/index.ts:66, src/ipc/answer-stream.ts:50
+- `robot.too_many_turns`: rs src-tauri/src/teacher/presentation.rs:82; ts src/ipc/answer-stream.ts:50
 - `robot.window_closed`: rs src-tauri/src/pointing.rs:346; ts src/ipc/answer-stream.ts:31
-- `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:83; ts src/i18n/index.ts:67, src/ipc/answer-stream.ts:51
+- `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:83; ts src/ipc/answer-stream.ts:51
 - `robot.wrong_keys`: rs src-tauri/src/teacher/presentation.rs:70; ts src/ipc/answer-stream.ts:42
-- `robot.wrong_place`: rs src-tauri/src/teacher/presentation.rs:69; ts src/i18n/index.ts:60, src/ipc/answer-stream.ts:41
+- `robot.wrong_place`: rs src-tauri/src/teacher/presentation.rs:69; ts src/ipc/answer-stream.ts:41
 - `settings.key_capsLock`: rs src-tauri/src/settings.rs:139; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.key_f10`: rs src-tauri/src/settings.rs:142; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.key_f9`: rs src-tauri/src/settings.rs:141; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
@@ -902,32 +899,27 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.*` (10 keys): src/settings/account-view.ts, src/settings/account.ts, src/signin.ts
 - `card.*` (11 keys): src/card.ts
 - `chat.*` (16 keys): src/chat.ts
-- `highlight.*` (3 keys): src/highlight.ts, src/highlight/geometry.ts
+- `highlight.*` (3 keys): src/highlight.ts
 - `hints.*` (7 keys): src/hints/logic.ts, src/hints/view.ts
 - `home.*` (81 keys): src/home.ts, src/home/guide.ts, src/home/lessons-view.ts, src/home/profile.ts, src/mate-menu.ts, src/mate.ts
 - `mate.*` (6 keys): src/mate-menu.ts, src/mate.ts, src/safety-stamp.ts
 - `model.*` (4 keys): src/mate.ts
 - `onboarding.*` (7 keys): src/onboarding.ts
 - `open.*` (1 keys): src/mate.ts
-- `robot.*` (2 keys): src/i18n/index.ts, src/onboarding.ts
+- `robot.*` (1 keys): src/onboarding.ts
 - `settings.*` (41 keys): src/home.ts, src/settings.ts, src/settings/choices-view.ts, src/settings/ptt-key.ts, src/settings/voice-speed-view.ts
 - `signin.*` (6 keys): src/signin.ts
 - `tray.*` (2 keys): src/settings/choices-view.ts
-- no literal use (14 keys); prefixes: `card.*`, `robot.*`, `settings.*`, `tray.*`
+- no literal use (9 keys); prefixes: `card.*`, `robot.*`
 - `card.window_title`: no literal use
 - `robot.calm_mode`: no literal use
 - `robot.found_it`: no literal use
 - `robot.fun_mode`: no literal use
 - `robot.listening`: no literal use
 - `robot.login_page`: no literal use
-- `robot.other_monitor`: no literal use
 - `robot.password_covered`: no literal use
 - `robot.security_prompt`: no literal use
 - `robot.wake`: no literal use
-- `settings.sound_volume`: no literal use
-- `tray.about`: no literal use
-- `tray.hide_robot`: no literal use
-- `tray.show_robot`: no literal use
 
 ## Tests
 
@@ -935,11 +927,11 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 304 | 37 |
+| crates/mm-core | 300 | 37 |
 | crates/mm-platform | 46 | 7 |
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 203 | 20 |
-| src | 335 | 33 |
-| tools | 391 | 23 |
+| src | 334 | 33 |
+| tools | 424 | 24 |
 | server | 94 | 4 |
 | tts | 27 | 2 |
