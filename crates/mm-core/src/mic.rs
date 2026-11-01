@@ -129,3 +129,62 @@ pub fn level(frame: &[u8]) -> f32 {
         (squares / count as f64).sqrt() as f32
     }
 }
+
+/// Normalize a complete PCM16LE utterance to about -3 dBFS peak, with at most
+/// +20 dB gain. Leave near-silence (RMS below -70 dBFS) unchanged. The live
+/// level callback must use the original frames, before this offline adjustment.
+pub fn normalize_utterance(pcm: &mut [u8]) {
+    if level(pcm) < 0.000_316_228 {
+        return;
+    }
+    let peak = pcm
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|bytes| f64::from(i16::from_le_bytes(*bytes)).abs() / 32_768.0)
+        .fold(0.0_f64, f64::max);
+    let gain = (0.707_945_784 / peak).min(10.0);
+    for bytes in pcm.as_chunks_mut::<2>().0 {
+        let sample = f64::from(i16::from_le_bytes(*bytes)) / 32_768.0;
+        let scaled = (sample * gain).clamp(-0.99, 0.99);
+        *bytes = ((scaled * 32_768.0).round() as i16).to_le_bytes();
+    }
+}
+
+/// The utterance gain while the audio streams (speech recognition gets each frame as it is
+/// captured, so the words can show while the person speaks): the gain follows the loudest
+/// speech frame so far, `-3 dBFS / peak`, between 1 (never quieter) and +20 dB. It only goes
+/// down as louder speech arrives, so there is no pumping; frames below the noise floor never
+/// raise it, so silence before the first word is not boosted.
+#[derive(Clone, Debug, Default)]
+pub struct StreamGain {
+    peak: f64,
+}
+
+impl StreamGain {
+    /// Scales one PCM16LE frame in place.
+    pub fn apply(&mut self, pcm: &mut [u8]) {
+        if level(pcm) >= 0.000_316_228 {
+            let frame_peak = pcm
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|bytes| f64::from(i16::from_le_bytes(*bytes)).abs() / 32_768.0)
+                .fold(0.0_f64, f64::max);
+            self.peak = self.peak.max(frame_peak);
+        }
+        let gain = if self.peak > 0.0 {
+            (0.707_945_784 / self.peak).clamp(1.0, 10.0)
+        } else {
+            1.0
+        };
+        if gain == 1.0 {
+            return;
+        }
+        for bytes in pcm.as_chunks_mut::<2>().0 {
+            let sample = f64::from(i16::from_le_bytes(*bytes)) / 32_768.0;
+            let scaled = (sample * gain).clamp(-0.99, 0.99);
+            *bytes = ((scaled * 32_768.0).round() as i16).to_le_bytes();
+        }
+    }
+}

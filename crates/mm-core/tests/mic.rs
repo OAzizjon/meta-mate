@@ -163,3 +163,98 @@ proptest! {
         prop_assert_eq!(actual, expected);
     }
 }
+
+fn normalized_sine(amplitude: f32) -> (Vec<u8>, Vec<u8>) {
+    let samples: Vec<_> = sine(OUTPUT_RATE, 1, 1)
+        .into_iter()
+        .map(|sample| sample * amplitude / 0.8)
+        .collect();
+    let mut framer = Framer::new(OUTPUT_RATE, 1).unwrap();
+    let frames = framer.push(&samples);
+    let original = complete(&mut framer, frames).concat();
+    let mut normalized = original.clone();
+    mm_core::mic::normalize_utterance(&mut normalized);
+    (original, normalized)
+}
+
+fn peak(pcm: &[u8]) -> f32 {
+    decode(pcm)
+        .into_iter()
+        .map(|sample| f32::from(sample).abs() / 32_768.0)
+        .fold(0.0, f32::max)
+}
+
+#[test]
+fn quiet_sine_reaches_target_or_gain_cap() {
+    let (original, normalized) = normalized_sine(0.1);
+    assert_eq!(original.len(), normalized.len());
+    assert!((peak(&normalized) - 0.707_946).abs() < 0.0001);
+    assert!((level(&normalized) / level(&original) - 7.08).abs() < 0.01);
+    let (original, normalized) = normalized_sine(0.01);
+    assert!((level(&normalized) / level(&original) - 10.0).abs() < 0.01);
+    assert!(peak(&normalized) < 0.101);
+}
+
+#[test]
+fn loud_sine_is_attenuated_without_clipping() {
+    let (_, normalized) = normalized_sine(0.95);
+    assert!((peak(&normalized) - 0.707_946).abs() < 0.0001);
+    assert!(peak(&normalized) <= 0.99);
+}
+
+#[test]
+fn silence_and_near_silence_are_unchanged() {
+    let near_silence = 1_i16.to_le_bytes().repeat(FRAME_SAMPLES);
+    for mut normalized in [vec![], vec![0; FRAME_BYTES], near_silence] {
+        let before = normalized.clone();
+        mm_core::mic::normalize_utterance(&mut normalized);
+        assert_eq!(normalized, before);
+    }
+}
+
+#[test]
+fn single_spike_uses_whole_utterance_peak_and_rms() {
+    let mut pcm = vec![0; OUTPUT_RATE as usize * 2];
+    pcm[..2].copy_from_slice(&i16::MIN.to_le_bytes());
+    mm_core::mic::normalize_utterance(&mut pcm);
+    assert!((peak(&pcm) - 0.707_946).abs() < 0.0001);
+    assert!(pcm[2..].iter().all(|&byte| byte == 0));
+    assert!(decode(&pcm)[0] < 0);
+}
+#[test]
+fn stream_gain_lifts_quiet_speech_frame_by_frame_and_never_pumps() {
+    use mm_core::mic::StreamGain;
+    let frame = |amplitude: f64| -> Vec<u8> {
+        (0..1920)
+            .flat_map(|i| {
+                let v = (amplitude * (i as f64 * 0.05).sin() * 32_767.0) as i16;
+                v.to_le_bytes()
+            })
+            .collect()
+    };
+    let peak = |pcm: &[u8]| {
+        pcm.chunks(2)
+            .map(|b| i16::from_le_bytes([b[0], b[1]]).unsigned_abs())
+            .max()
+            .unwrap_or(0)
+    };
+    let mut gain = StreamGain::default();
+    // Silence first: untouched.
+    let mut silent = vec![0u8; 3840];
+    gain.apply(&mut silent);
+    assert!(silent.iter().all(|&b| b == 0));
+    // Quiet speech (-30 dBFS) is lifted by the full +20 dB.
+    let mut quiet = frame(0.03);
+    let before = peak(&quiet);
+    gain.apply(&mut quiet);
+    assert!(peak(&quiet) >= before * 9, "{} -> {}", before, peak(&quiet));
+    // Louder speech lowers the gain, never clips.
+    let mut loud = frame(0.5);
+    gain.apply(&mut loud);
+    assert!(peak(&loud) <= (0.99 * 32_768.0) as u16);
+    // After a loud frame, a quiet one is not boosted back up (no pumping).
+    let mut quiet_again = frame(0.03);
+    let before = peak(&quiet_again);
+    gain.apply(&mut quiet_again);
+    assert!(peak(&quiet_again) < before * 3);
+}

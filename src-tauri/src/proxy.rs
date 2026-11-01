@@ -548,8 +548,9 @@ impl Proxy {
     }
 
     /// One push-to-talk transcription. Call it at key-down: connecting takes ~1.9 s (D44),
-    /// so the 80 ms PCM16 24 kHz frames sent meanwhile wait in `frames`; closing `frames`
-    /// (key-up) ends the stream, and the final transcript follows.
+    /// so the 80 ms PCM16 24 kHz frames sent meanwhile wait in `frames`, each lifted by
+    /// `StreamGain` for quiet microphones; closing `frames` (key-up) ends the stream, and
+    /// the final transcript follows.
     pub async fn transcribe(
         &self,
         mut frames: mpsc::Receiver<Vec<u8>>,
@@ -593,7 +594,12 @@ impl Proxy {
 
         let mut ended_at = None;
         let send = async {
-            while let Some(frame) = frames.recv().await {
+            // A quiet laptop microphone is lifted frame by frame (StreamGain), so the
+            // audio still streams while the person speaks; the live meter and the
+            // silence detector keep the raw frames (mic.rs).
+            let mut gain = mm_core::mic::StreamGain::default();
+            while let Some(mut frame) = frames.recv().await {
+                gain.apply(&mut frame);
                 send_within(&mut sink, Message::Binary(frame.into())).await?;
             }
             send_within(&mut sink, Message::Text(ASR_END_STREAM.into())).await?;

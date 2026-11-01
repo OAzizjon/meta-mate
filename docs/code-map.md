@@ -80,8 +80,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   SOUNDS:4 MOODS:48 AMBIENCE:57 closest:60
 - crates/mm-core/src/mic.rs — Pure microphone downmixing, streaming resampling and Muse realtime framing.
   OUTPUT_RATE:3 FRAME_SAMPLES:4 FRAME_BYTES:5 MicError:8 Framer:29 Framer::new:41 Framer::push:63 Framer::finish:106
-  level:118
-  tests: crates/mm-core/tests/mic.rs (9)
+  level:118 normalize_utterance:136 StreamGain:160 StreamGain::apply:166
+  tests: crates/mm-core/tests/mic.rs (14)
 - crates/mm-core/src/phrases.rs — Directory choice for cached speech, independent of filesystem and Tauri APIs.
   directory:7
   inline tests (2)
@@ -141,7 +141,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   inline tests (2)
 - crates/mm-core/src/vad.rs — RMS-only end-of-speech detection.
   SilenceEnd:9 SilenceDetector:17 SilenceDetector::new:29 SilenceDetector::input:35
-  inline tests (4)
+  inline tests (6)
 - crates/mm-core/src/wav.rs — In-memory RIFF/WAVE audio for recordings, proxy speech and canned phrases.
   Wav:3 WavError:20 read:147 pcm16_samples:177 write_pcm16:187
   tests: crates/mm-core/tests/wav.rs (8)
@@ -626,10 +626,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   cmd_safety:208 run_batch:223 add_parser:306
   tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
-  expand:186 last_line:190 source_files:197 dist_stale:208 npm_cmd:215 build_dist:219 load_fixture:239 mock_context:253
-  render_mock_js:277 inject_mock:285 make_handler:305 start_server:402 find_edge:411 png_size:422 run_edge:430 shoot_page:492
-  build_parser:527 main:545
-  tests: tools/tests/test_mm_shot.py (34)
+  expand:233 last_line:237 source_files:244 dist_stale:255 npm_cmd:262 build_dist:266 load_fixture:286 mock_context:310
+  render_mock_js:341 inject_mock:351 make_handler:376 start_server:481 find_edge:490 png_size:501 run_edge:509 shoot_page:571
+  build_parser:612 main:648
+  tests: tools/tests/test_mm_shot.py (49)
 - tools/mm_stats.py — mm stats [--save] [--json] [--since DAYS]
   area:34 crate:39 source_files:46 read:61 run:68 code_summary:78 parse_scc:90 collect_code:104
   mask_code:128 count_tests:153 production_rust:168 is_test:191 related_test:197 parse_numstat:215 churn_summary:239 locale_stats:270
@@ -779,7 +779,7 @@ Server route decorators <- Rust string literals (URLs, `format!` templates) that
 - GET /auth/{provider}/callback server/metamate_proxy/auth_routes.py:89 <- no Rust caller
 - GET /auth/{provider}/start server/metamate_proxy/auth_routes.py:41 <- src-tauri/src/auth.rs:366
 - GET /healthz server/metamate_proxy/app.py:134 <- no Rust caller
-- WS /v1/asr server/metamate_proxy/asr_route.py:32 <- src-tauri/src/proxy.rs:559,560
+- WS /v1/asr server/metamate_proxy/asr_route.py:32 <- src-tauri/src/proxy.rs:560,561
 - POST /v1/glimmer server/metamate_proxy/media_routes.py:113 <- src-tauri/src/proxy.rs:533
 - POST /v1/image server/metamate_proxy/media_routes.py:69 <- src-tauri/src/proxy.rs:493
 - POST /v1/responses server/metamate_proxy/responses_route.py:62 <- src-tauri/src/proxy.rs:414
@@ -910,11 +910,11 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 280 | 36 |
+| crates/mm-core | 287 | 36 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
 | src-tauri | 198 | 20 |
 | src | 327 | 32 |
-| tools | 375 | 23 |
+| tools | 390 | 23 |
 | server | 94 | 4 |
 | tts | 27 | 2 |

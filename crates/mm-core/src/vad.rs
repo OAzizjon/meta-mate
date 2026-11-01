@@ -56,8 +56,8 @@ impl SilenceDetector {
             // start does not teach the detector that the speaker is background.
             self.floor = self.floor.min(0.03);
         }
-        let enter = (self.floor * 3.0 + 0.008).max(0.018);
-        let leave = (self.floor * 1.8 + 0.004).max(0.010);
+        let enter = (self.floor * 3.0).max(0.003);
+        let leave = (self.floor * 1.8).max(0.0015);
         let was_speaking = self.speaking;
         self.speaking = rms >= if was_speaking { leave } else { enter };
         if was_speaking {
@@ -82,6 +82,37 @@ impl SilenceDetector {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quiet_speaker_survives_pause_and_soft_continuation() {
+        for speech in [0.006, 0.04] {
+            let mut detector = SilenceDetector::new();
+            let mut now = 0;
+            // Quiet laptop floor, a quiet or louder opening phrase, a pause,
+            // then speech below the old 0.010 exit minimum for over 1.2 s.
+            for (frames, rms) in [(4, 0.0005), (10, speech), (10, 0.0005), (25, 0.004)] {
+                for _ in 0..frames {
+                    assert_eq!(detector.input(rms, now), None);
+                    now += 80;
+                }
+            }
+            for _ in 0..15 {
+                assert_eq!(detector.input(0.0005, now), None);
+                now += 80;
+            }
+            assert_eq!(detector.input(0.0005, now), Some(SilenceEnd::Silence));
+        }
+    }
+
+    #[test]
+    fn quiet_background_alone_does_not_start_speech() {
+        let mut detector = SilenceDetector::new();
+        for now in (0..5_000).step_by(80) {
+            assert_eq!(detector.input(0.0005, now), None);
+        }
+        assert!(!detector.speaking);
+        assert_eq!(detector.speech_ms, 0);
+    }
 
     #[test]
     fn synthetic_sequences() {
