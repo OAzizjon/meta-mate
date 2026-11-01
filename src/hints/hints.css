@@ -1,0 +1,450 @@
+/* Mate's hints (src/hints/view.ts) in his 220 px window: comic cards and pills, bold words of
+   16 px and more on a solid fill inside an ink outline (the readability rules at the top of
+   src/theme.css), Mate's yellow for the keys to press. Nothing here takes a click or focus.
+   Every base style is the picture's still frame: the keyframes only press, nudge and pulse,
+   and styles.css stops them for reduced motion, a hidden page and sleep. */
+#mate-hint {
+  --hint-paper: #fffcf3;
+  --hint-ink: #1f2a44;
+  --hint-text: #1f2a44;
+  --hint-shadow: #1f2a44;
+  --hint-yellow: #ffcd3c;
+  --hint-on-yellow: #1f2a44;
+  --hint-deck: #f6f1e2;
+  --hint-key: #ffffff;
+  --hint-key-line: #8a8371;
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  color: var(--hint-text);
+  font: 800 18px/1.15 "Segoe UI", system-ui, sans-serif;
+  pointer-events: none;
+}
+
+#mate-hint[hidden] {
+  display: none;
+}
+
+/* The beam's target is inside the window: nothing may cover it. */
+#mate-hint.is-covering {
+  visibility: hidden;
+}
+
+.hint-card,
+.hint-pill {
+  box-sizing: border-box;
+  border: 2.5px solid var(--hint-ink);
+  background: var(--hint-paper);
+  box-shadow: 3px 3px 0 var(--hint-shadow);
+  animation: hint-pop 260ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+.hint-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: 16px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+/* A key to press: yellow with a thick bottom edge, so pressing reads as going down. */
+.hint-cap {
+  min-width: 34px;
+  box-sizing: border-box;
+  padding: 1px 8px 0;
+  border: 2px solid var(--hint-ink);
+  border-bottom-width: 5px;
+  border-radius: 8px;
+  background: var(--hint-yellow);
+  color: var(--hint-on-yellow);
+  font: 800 18px/1.2 "Segoe UI", system-ui, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.hint-line,
+.hint-plus path {
+  fill: none;
+  stroke: var(--hint-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --- Consent: "Fn + F8", where they are on a laptop, and "or click me". The picture and the
+   bubble's text take turns (src/hints/logic.ts consentPhase). While the question is up Mate
+   steps into the bottom-right corner at the S size (64 x 59, src/robot/types.ts ROBOT_SIZE_PX):
+   any larger and the card or "or click me" would cover his face. */
+html[data-hint="consent"] #mate {
+  place-items: end;
+}
+
+html[data-hint="consent"] .mate-svg {
+  width: 64px;
+  height: 59px;
+}
+
+html[data-hint="consent"] #mate-bubble {
+  transition: opacity 200ms ease-out;
+}
+
+/* Still in the accessibility tree, so the question is read out once as it arrives. */
+html[data-hint-phase="picture"] #mate-bubble {
+  opacity: 0;
+}
+
+/* The trial's pill comes back with the text. */
+html[data-hint-phase="picture"] #mate-trial {
+  visibility: hidden;
+}
+
+/* The bubble's tail points at Mate in his corner. */
+html[data-hint="consent"] #mate-bubble[data-shape="thought"]::after {
+  left: calc(76% - 14px);
+}
+
+html[data-hint="consent"] #mate-bubble[data-shape="speech"]::before {
+  left: calc(76% - 9px);
+}
+
+html[data-hint="consent"] #mate-bubble[data-shape="speech"]::after {
+  left: calc(76% - 7px);
+}
+
+html[data-hint="consent"] #mate-bubble[data-shape="shout"]::after {
+  left: calc(76% - 9px);
+}
+
+.hint-card {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px 5px;
+  border-radius: 14px;
+}
+
+.hint-keys {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hint-plus {
+  width: 16px;
+  height: 16px;
+}
+
+.hint-cap-fn {
+  animation: hint-press-fn 2.4s ease-in-out infinite;
+}
+
+.hint-cap-f8 {
+  animation: hint-press-f8 2.4s ease-in-out infinite;
+}
+
+.hint-caption {
+  margin: 0;
+  font: 700 16px/1.15 "Segoe UI", system-ui, sans-serif;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.hint-kb {
+  display: block;
+  width: 160px;
+  height: auto;
+}
+
+.hint-kb-body {
+  fill: var(--hint-deck);
+  stroke: var(--hint-ink);
+  stroke-width: 2.4;
+}
+
+.hint-kb-key,
+.hint-kb-pad {
+  fill: var(--hint-key);
+  stroke: var(--hint-key-line);
+  stroke-width: 1;
+}
+
+.hint-kb-edge {
+  fill: var(--hint-ink);
+}
+
+.hint-kb-top {
+  fill: var(--hint-yellow);
+  stroke: var(--hint-ink);
+  stroke-width: 1.4;
+}
+
+.hint-kb-label {
+  fill: var(--hint-on-yellow);
+  font: 800 8px "Segoe UI", system-ui, sans-serif;
+}
+
+/* Fn goes down first, then F8; both are held, then let go together. */
+.hint-kb-fn .hint-kb-cap {
+  animation: hint-kb-press-fn 2.4s ease-in-out infinite;
+}
+
+.hint-kb-f8 .hint-kb-cap {
+  animation: hint-kb-press-f8 2.4s ease-in-out infinite;
+}
+
+/* Bottom-left, its arrow at Mate in his corner: two lines at most in both languages. */
+.hint-click-consent {
+  position: absolute;
+  left: 4px;
+  bottom: 6px;
+  max-width: 158px;
+  gap: 3px;
+  padding: 3px 8px;
+  font-size: 16px;
+}
+
+.hint-arrow {
+  flex: none;
+  width: 20px;
+  height: 15px;
+  animation: hint-nudge 0.9s ease-in-out infinite;
+}
+
+/* --- Talk: the talk key and "Hold & talk" above Mate, a ring around him, "or click me" under it. */
+.hint-talk {
+  position: absolute;
+  top: 8px;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 8px;
+}
+
+.hint-cap-talk {
+  animation: hint-press-hold 3s ease-in-out infinite;
+}
+
+.hint-ring {
+  position: absolute;
+  box-sizing: border-box;
+  border: 4px solid var(--hint-yellow);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px var(--hint-ink),
+    inset 0 0 0 2px var(--hint-ink);
+  animation: hint-ring 1.6s ease-out infinite;
+}
+
+.hint-click-talk {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+/* --- Drag: a hand moving along a curved arrow, once ever. */
+.hint-drag {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  translate: -50% 0;
+  max-width: calc(100% - 16px);
+  padding-left: 4px;
+  text-align: left;
+}
+
+.hint-hand {
+  flex: none;
+  width: 44px;
+  height: 37px;
+}
+
+.hint-hand-fill {
+  fill: var(--hint-yellow);
+  stroke: var(--hint-ink);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.hint-hand-move {
+  animation: hint-hand 1.8s ease-in-out infinite;
+}
+
+@keyframes hint-pop {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes hint-press-fn {
+  0%,
+  12%,
+  88%,
+  100% {
+    translate: 0 0;
+  }
+  18%,
+  80% {
+    translate: 0 3px;
+  }
+}
+
+@keyframes hint-press-f8 {
+  0%,
+  38%,
+  88%,
+  100% {
+    translate: 0 0;
+  }
+  44%,
+  80% {
+    translate: 0 3px;
+  }
+}
+
+@keyframes hint-kb-press-fn {
+  0%,
+  12%,
+  88%,
+  100% {
+    transform: translateY(0);
+  }
+  18%,
+  80% {
+    transform: translateY(1.6px);
+  }
+}
+
+@keyframes hint-kb-press-f8 {
+  0%,
+  38%,
+  88%,
+  100% {
+    transform: translateY(0);
+  }
+  44%,
+  80% {
+    transform: translateY(1.6px);
+  }
+}
+
+@keyframes hint-press-hold {
+  0%,
+  15%,
+  90%,
+  100% {
+    translate: 0 0;
+  }
+  22%,
+  82% {
+    translate: 0 3px;
+  }
+}
+
+@keyframes hint-nudge {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 4px 0;
+  }
+}
+
+@keyframes hint-ring {
+  0% {
+    opacity: 1;
+    scale: 0.94;
+  }
+  70% {
+    opacity: 0.2;
+    scale: 1.1;
+  }
+  100% {
+    opacity: 0;
+    scale: 1.1;
+  }
+}
+
+@keyframes hint-hand {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(7px, 3px);
+  }
+}
+
+/* Dark: the bubble's dark paper and soft ink; the yellow keys keep their navy words. */
+:root[data-theme="dark"] #mate-hint {
+  --hint-paper: #1d212c;
+  --hint-ink: #aab2c5;
+  --hint-text: #f4f1e8;
+  --hint-shadow: rgba(0, 0, 0, 0.6);
+  --hint-deck: #232836;
+  --hint-key: #2b3142;
+  --hint-key-line: #5d6680;
+}
+
+/* Contrast themes: system colours only; the keys to press take the highlight. */
+@media (forced-colors: active) {
+  #mate-hint .hint-card,
+  #mate-hint .hint-pill {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+  }
+
+  #mate-hint .hint-cap {
+    border-color: CanvasText;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  #mate-hint .hint-kb-body,
+  #mate-hint .hint-kb-key,
+  #mate-hint .hint-kb-pad,
+  #mate-hint .hint-hand-fill {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+
+  #mate-hint .hint-kb-top,
+  #mate-hint .hint-kb-edge {
+    fill: Highlight;
+    stroke: CanvasText;
+  }
+
+  #mate-hint .hint-kb-label {
+    fill: HighlightText;
+  }
+
+  #mate-hint .hint-line,
+  #mate-hint .hint-plus path {
+    stroke: CanvasText;
+  }
+
+  #mate-hint .hint-ring {
+    border-color: Highlight;
+    box-shadow: none;
+  }
+}

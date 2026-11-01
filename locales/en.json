@@ -57,7 +57,7 @@
   "robot.screen_changed": "Something new opened. Let me look.",
   "robot.cant_find": "I can't see that here. Let's open the right window first.",
   "robot.private_window": "I cannot safely inspect this window.",
-  "robot.look_consent": "This window may contain private content I cannot check. Click me to let me look at this window, or press Esc to cancel.",
+  "robot.look_consent": "This window may contain private content I cannot check. Press Fn + F8 together (or click me) to let me look at this window. Esc cancels.",
   "robot.password_covered": "I covered your password before looking.",
   "robot.login_page": "A password may be visible here. Hide it, then I'll look.",
   "robot.do_it_for_me": "Should I press this button for you? Say yes or no.",
@@ -277,5 +277,12 @@
   "card.operation_failed": "I couldn't open or save that card. Please try again.",
   "highlight.burst_click": "CLICK!",
   "highlight.burst_nice": "NICE!",
-  "highlight.burst_done": "DONE!"
+  "highlight.burst_done": "DONE!",
+  "hints.key_fn": "Fn",
+  "hints.key_f8": "F8",
+  "hints.f8_alone": "F8 alone works on a desktop keyboard",
+  "hints.click_me": "or click me",
+  "hints.talk_hold": "Hold & talk",
+  "hints.talk_press": "Press & talk",
+  "hints.drag": "Drag me anywhere"
 }

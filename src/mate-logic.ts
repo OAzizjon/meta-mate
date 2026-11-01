@@ -4,6 +4,7 @@ import { BUBBLE_LINGER_MS, bubbleReadMs } from "./bubble-timing.ts";
 import { AnswerGenerations, HeldPresentation } from "./ipc/answer-generation.ts";
 import { guestUsageOf } from "./mate-menu.ts";
 import { nextStamp } from "./safety-stamp.ts";
+import type { HintKind } from "./hints/logic.ts";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream.ts";
 import type { TimelineItem } from "./ipc/timeline.ts";
 import type { LocaleKey } from "./i18n/index.ts";
@@ -16,6 +17,9 @@ export const CANT_FIND_HOLD_MS = 3000;
 export const LOOK_CONSENT_MS = 30_000;
 
 export type BubbleShape = "thought" | "speech" | "shout";
+
+/** The bubble's text has a hint picture (src/hints/logic.ts): today only the look-consent question. */
+export type BubbleHint = Extract<HintKind, "consent">;
 
 /** Comic balloon shape from Mate's state, the answer's mood and any safety stamp. */
 export function bubbleShape(
@@ -39,8 +43,11 @@ export interface Bubble {
   setModel(model: AnswerModel | null): void;
   /** Comic balloon shape; optional so text-only test doubles stay small. */
   setShape?(shape: BubbleShape): void;
-  /** Null hides the bubble; a duration schedules its removal. */
-  show(text: string | null, ms?: number): void;
+  /**
+   * Null hides the bubble; a duration schedules its removal. `hint` names the picture that
+   * goes with this text (src/hints/view.ts); any other show, the timed removal included, ends it.
+   */
+  show(text: string | null, ms?: number, hint?: BubbleHint): void;
   /** Keep the remaining reading time, and at least this many ms from now. */
   hideAfter(ms: number): void;
 }
@@ -214,7 +221,9 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
         present("bubble", () => {
           showingHeard = false;
           const text = t(msg.key);
-          bubble.show(text, msg.key === "robot.look_consent" ? LOOK_CONSENT_MS : bubbleReadMs(text));
+          // The consent question brings its picture: where Fn and F8 are, or a click on Mate.
+          if (msg.key === "robot.look_consent") bubble.show(text, LOOK_CONSENT_MS, "consent");
+          else bubble.show(text, bubbleReadMs(text));
         });
         return;
     }
@@ -270,7 +279,8 @@ export function awakeBubble(bubble: Bubble, isSleeping: () => boolean): Bubble {
   return {
     setModel: (model) => { if (!isSleeping()) bubble.setModel(model); },
     setShape: (shape) => { if (!isSleeping()) bubble.setShape?.(shape); },
-    show: (text, ms) => { if (!isSleeping()) bubble.show(text, ms); },
+    // Only the arguments given: a hint is passed on only with the consent question.
+    show: (...args) => { if (!isSleeping()) bubble.show(...args); },
     hideAfter: (ms) => { if (!isSleeping()) bubble.hideAfter(ms); },
   };
 }

@@ -394,13 +394,28 @@ test("the look-consent question stays up for the whole consent window", () => {
     h.calls.length = 0;
     h.send({ type: "line", generation: 1, key: "robot.look_consent" });
     const text = locales[locale]["robot.look_consent"];
-    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", text, LOOK_CONSENT_MS]]);
+    // With its picture (src/hints/view.ts): where Fn and F8 are, and Mate to click.
+    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", text, LOOK_CONSENT_MS, "consent"]]);
     assert.ok(LOOK_CONSENT_MS > bubbleReadMs(text));
-    // A click on Mate answers on any laptop; F8 still works but is not offered.
-    assert.ok(!text.includes("F8"), `${locale}: ${text}`);
+    // Both ways are offered (owner, 2026-11-01): Fn + F8 together, or a click on Mate.
+    assert.ok(text.includes("Fn + F8"), `${locale}: ${text}`);
     assert.ok(text.includes("Esc"), `${locale}: ${text}`);
-    assert.match(text, locale === "en" ? /Click me/ : /Нажмите на меня/);
+    assert.match(text, locale === "en" ? /click me/ : /щёлкните по мне/);
   }
+});
+
+test("only the consent question brings a hint, and the sleeping guard passes it on unchanged", () => {
+  const h = harness();
+  h.send({ type: "line", generation: 1, key: "robot.network_error" });
+  h.router.showBubble("Answer text.");
+  assert.ok(h.calls.filter(([kind]) => kind === "bubble").every((call) => !call.includes("consent")));
+  let sleeping = false;
+  const live = awakeBubble(h.bubble, () => sleeping);
+  h.calls.length = 0;
+  live.show("question", LOOK_CONSENT_MS, "consent");
+  sleeping = true;
+  live.show("hidden", LOOK_CONSENT_MS, "consent");
+  assert.deepEqual(h.calls, [["bubble", "question", LOOK_CONSENT_MS, "consent"]]);
 });
 
 test("look consent hides once its generation starts thinking or returns idle", () => {

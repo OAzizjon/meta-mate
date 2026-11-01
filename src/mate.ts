@@ -1,21 +1,23 @@
 // Mate's window: mounts the robot (src/robot) idle and calm. Inside Tauri it plays live answers
 // from Rust's answer stream (src/ipc/answer-stream.ts) on him, the audio engine and a speech
 // bubble. In development only, the console gets `window.__mate` to try states, moods, the beam,
-// the safety stamp and the UI language by hand, e.g.
+// the safety stamp, the hints and the UI language by hand, e.g.
 // __mate.setState("pointing"); __mate.aimAt({ left: 20, top: 20, right: 120, bottom: 60 });
-// __mate.setStamp("scam").
+// __mate.setStamp("scam"); __mate.hint("talk").
 import { parseHighlightMsg } from "./highlight/geometry.ts";
 import { createAudioEngine } from "./audio";
 import { bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
+import { mountHints } from "./hints/view.ts";
+import type { Hints } from "./hints/view.ts";
 import { getLocale, setLocale, t } from "./i18n";
 import { hideReturnTime, mountMateMenu } from "./mate-menu";
-import { pttKeyLabel } from "./settings/ptt-key";
+import { pttKeycapLabel, pttKeyLabel } from "./settings/ptt-key";
 import { applyTheme } from "./settings/theme.ts";
 import type { LocaleCode } from "./i18n";
 import { decodePcm, pointAt, reportPlayback, subscribeAnswerStream } from "./ipc/answer-stream";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream";
 import { awakeBubble, bubbleShape, createMateAnswerRouter, createMateWindowEvents, guestTrialView, interruptLesson, signedIn } from "./mate-logic.ts";
-import type { Bubble, BubbleShape, Stamp } from "./mate-logic.ts";
+import type { Bubble, BubbleHint, BubbleShape, Stamp } from "./mate-logic.ts";
 import { SAFETY_CHECK_EVENT, STAMP_KEYS, stampClearOf } from "./safety-stamp.ts";
 import type { SafetyVerdict } from "./safety-stamp.ts";
 import type { LocaleKey } from "./i18n";
@@ -64,6 +66,7 @@ interface MateDevHook {
   aimAt(target: CssRect | null): void;
   setLocale(locale: string): void;
   setStamp(verdict: string | null): void;
+  hint(kind: string | null): void;
 }
 
 declare global {
@@ -75,6 +78,7 @@ declare global {
 function devHook(
   robot: RobotController,
   stamp: LiveStamp,
+  hints: Hints | null,
   setUiLocale: (locale: LocaleCode) => void,
 ): MateDevHook {
   return {
@@ -89,6 +93,7 @@ function devHook(
     aimAt(target) {
       robot.aimAt(target);
       stamp.avoid(target);
+      hints?.avoid(target);
     },
     setLocale(locale) {
       if (locale !== "en" && locale !== "ru") throw new TypeError(`unknown locale: ${locale}`);
@@ -100,10 +105,18 @@ function devHook(
       }
       stamp.show(verdict as SafetyVerdict | null);
     },
+    hint(kind) {
+      if (kind !== null && kind !== "talk" && kind !== "drag") throw new TypeError(`unknown hint: ${kind}`);
+      hints?.show(kind);
+    },
   };
 }
 
-function mountBubble(element: HTMLElement, isSleeping: () => boolean): Bubble {
+function mountBubble(
+  element: HTMLElement,
+  isSleeping: () => boolean,
+  onConsent: (text: string | null) => void,
+): Bubble {
   const content = document.createElement("div");
   content.className = "mate-bubble-content";
   const textElement = document.createElement("div");
@@ -149,7 +162,7 @@ function mountBubble(element: HTMLElement, isSleeping: () => boolean): Bubble {
     if (element.dataset.shape !== next) element.dataset.shape = next;
     syncDots();
   };
-  const show = (text: string | null, ms?: number): void => {
+  const show = (text: string | null, ms?: number, hint?: BubbleHint): void => {
     clearTimeout(timer);
     timer = undefined;
     currentText = text;
@@ -171,6 +184,8 @@ function mountBubble(element: HTMLElement, isSleeping: () => boolean): Bubble {
       element.classList.remove("mate-bubble-dots");
       element.hidden = true;
     }
+    // The consent picture lives exactly as long as its question (src/hints/view.ts).
+    onConsent(hint === "consent" ? text : null);
   };
   return {
     setModel,
@@ -247,11 +262,12 @@ function startLiveAnswers(
   robot: RobotController,
   bubble: Bubble,
   stamp: LiveStamp,
+  hints: Hints | null,
   settings: MateSettingsBinding,
 ): LiveAnswers {
   let uiLocale = getLocale();
   let unsubscribe: (() => void) | null = null;
-  const ready = createRouter(robot, bubble, stamp, settings);
+  const ready = createRouter(robot, bubble, stamp, hints, settings);
   // (Re)subscriptions run one at a time, in call order, once the engine is up.
   let queue: Promise<void> = Promise.resolve();
   const subscribe = (): void => {
@@ -282,6 +298,7 @@ async function createRouter(
   robot: RobotController,
   bubble: Bubble,
   stamp: LiveStamp,
+  hints: Hints | null,
   settings: MateSettingsBinding,
 ): Promise<(msg: AnswerMsg) => void> {
   const audio = await createAudioEngine({
@@ -357,6 +374,7 @@ async function createRouter(
       aimAt: (target) => router.present("aim", () => {
         robot.aimAt(target);
         stamp.avoid(target);
+        hints?.avoid(target);
       }),
     },
     audio,
@@ -370,9 +388,16 @@ async function createRouter(
     },
     showBubble: router.showBubble,
     onLine: router.onLine,
-    onDone: router.onDone,
+    onDone: (generation) => {
+      router.onDone(generation);
+      hints?.answered();
+    },
   });
-  return router.route;
+  return (msg: AnswerMsg) => {
+    // A question: the talk hint stops after three (src/hints/logic.ts).
+    if (msg.type === "state" && msg.state === "thinking") hints?.asked(msg.generation);
+    router.route(msg);
+  };
 }
 
 const container = document.getElementById("mate");
@@ -382,8 +407,12 @@ if (container) {
   let currentState: RobotState = "idle";
   let currentMood: RobotMood = "calm";
   let currentVerdict: SafetyVerdict | null = null;
+  // Mounted once the settings are (below): the bubble tells them about the consent question.
+  let hints: Hints | null = null;
   const bubble = document.getElementById("mate-bubble");
-  const mountedBubble = bubble ? mountBubble(bubble, () => sleeping) : null;
+  const mountedBubble = bubble
+    ? mountBubble(bubble, () => sleeping, (text) => hints?.consent(text))
+    : null;
   const syncBubbleShape = (): void => {
     mountedBubble?.setShape?.(bubbleShape(currentState, currentMood, currentVerdict));
   };
@@ -478,6 +507,18 @@ if (container) {
   };
   motionQuery?.addEventListener("change", onEnvironmentChange);
   window.addEventListener("resize", onEnvironmentChange);
+  // The consent picture and the talk and drag reminders (src/hints/view.ts).
+  const hintElement = document.getElementById("mate-hint");
+  hints = hintElement
+    ? mountHints({
+        element: hintElement,
+        t,
+        talkKey: () => {
+          const current = settings.get();
+          return { label: pttKeycapLabel(current.pttKey, t), hold: current.ptt === "hold" };
+        },
+      })
+    : null;
   // An answer already playing must not replace the hide explanation or sleeping state.
   const liveBubble = mountedBubble ? awakeBubble(mountedBubble, () => sleeping) : null;
   const stampElement = document.getElementById("mate-stamp");
@@ -488,7 +529,7 @@ if (container) {
       })
     : { show() {}, hideAfter() {}, avoid() {} };
   const live =
-    liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, stamp, settings) : null;
+    liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, stamp, hints, settings) : null;
   if (mountedBubble && inTauri) {
     const events = createMateWindowEvents({
       bubble: mountedBubble, robot,
@@ -558,7 +599,7 @@ if (container) {
     });
   }
   if (import.meta.env.DEV) {
-    window.__mate = devHook(robot, stamp, (locale) => {
+    window.__mate = devHook(robot, stamp, hints, (locale) => {
       if (live) live.setUiLocale(locale);
       else setLocale(locale);
     });
