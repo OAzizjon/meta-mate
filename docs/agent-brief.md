@@ -17,3 +17,5 @@
 8. Meta models by default; other providers only as development fallbacks.
 
 **Conventions.** English in code, comments, docs and commits. Win32 calls only in `crates/mm-win32`; `crates/mm-core` stays pure and testable. No new `unwrap()` in production Rust. Files stay under 800 lines. Match the surrounding code's naming, idiom and comment density. Decisions are logged in `docs/decisions.md` (new entries only).
+
+**Tools.** `mm agent cover PATH` before you change a file (which tests to run), `mm agent gate PATCH` on your own patch, `mm agent legacy` for dead code (verify every hit). The full list with who may run what: `docs/tools.md`.
