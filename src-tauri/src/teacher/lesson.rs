@@ -53,6 +53,13 @@ pub(crate) async fn teach(
 ) {
     let model = ModelChoice::from(crate::settings::model(&app));
     let stream = app.state::<AnswerStream>();
+    struct LessonChordGuard;
+    impl Drop for LessonChordGuard {
+        fn drop(&mut self) {
+            crate::ptt::set_lesson_chord(false);
+        }
+    }
+    let _lesson_chord_guard = LessonChordGuard;
     let started = Instant::now();
     let mut asked_to_focus = false;
     let now = || u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
@@ -237,6 +244,7 @@ pub(crate) async fn teach(
         let mut pointed_target: Option<PhysRect> = None;
         let existing_windows = mm_win32::window::existing_windows();
         loop {
+            crate::ptt::set_lesson_chord(teacher.active_step_has_ctrl());
             #[cfg(debug_assertions)]
             if !pending.is_empty() {
                 eprintln!("teacher: commands {pending:?}");
@@ -523,6 +531,7 @@ pub(crate) async fn teach(
                             &current.redacted.image,
                         );
                         acknowledged.clear();
+                        crate::ptt::set_lesson_chord(false);
                         continue 'turns;
                     }
                     // The lines of the same batch ("I don't press that", "All done") are
@@ -589,6 +598,7 @@ pub(crate) async fn teach(
                             offered_at = None;
                         }
                         pending = teacher.input(input);
+                        crate::ptt::set_lesson_chord(teacher.active_step_has_ctrl());
                     } else if live_offer {
                         // PTT may have discarded queued audio. Keep the old deadline as a
                         // conservative bound and require a fresh press after the repeat.
@@ -635,6 +645,7 @@ pub(crate) async fn teach(
                             _ => None,
                         };
                         pending = teacher.input(input);
+                        crate::ptt::set_lesson_chord(teacher.active_step_has_ctrl());
                         if let Some(at) = click_at {
                             let mut wrong_place = false;
                             for command in &pending {
@@ -672,6 +683,7 @@ pub(crate) async fn teach(
                 _ = tick.tick() => {
                     expire_offer(&mut teacher, &mut offered_at, now());
                     pending = teacher.input(TeacherInput::Tick { now_ms: now() });
+                    crate::ptt::set_lesson_chord(teacher.active_step_has_ctrl());
                 }
             }
         }

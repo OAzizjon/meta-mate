@@ -2,7 +2,7 @@ use crate::api::response::{Action, ParsedResponse};
 use crate::geom::{FrameTransform, PhysRect, ShotPoint};
 
 use super::confirmation::Confirmation;
-use super::step::{Step, immediate, same_chord, supported, wrong_chord};
+use super::step::{Step, immediate, same_chord, step_has_ctrl, supported, wrong_chord};
 use super::{LineKey, ModelChoice, RefusalReason, TeacherCommand, TeacherConfig, TeacherInput};
 
 #[derive(Default, PartialEq, Eq)]
@@ -61,6 +61,16 @@ impl Teacher {
                     keys: actual, injected: false, ..
                 }) if same_chord(keys, actual)
             )
+    }
+
+    /// Whether the active step is a key chord containing Ctrl.
+    pub fn active_step_has_ctrl(&self) -> bool {
+        !self.terminal
+            && self.settled_from.is_none()
+            && self
+                .steps
+                .get(self.index)
+                .is_some_and(|step| step_has_ctrl(&step.action))
     }
 
     /// Consume one event. Backward timestamps are clamped to the latest time.

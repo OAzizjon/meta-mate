@@ -59,9 +59,16 @@ pub(super) fn wrong_chord(expected: &[String], actual: &[String]) -> bool {
         || (actual.len() == 1 && !actual[0].is_empty() && !is_modifier_name(&actual[0]))
 }
 
+pub(super) fn step_has_ctrl(action: &Action) -> bool {
+    matches!(action, Action::Keypress { keys } if keys.iter().any(|k| {
+        canonical_key_name(&k.to_ascii_lowercase()) == "ctrl"
+    }))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{same_chord, wrong_chord};
+    use super::{same_chord, step_has_ctrl, wrong_chord};
+    use crate::api::response::Action;
 
     #[test]
     fn aliases_are_folded_before_sorting_and_deduplication() {
@@ -82,5 +89,26 @@ mod tests {
         assert!(!wrong_chord(&ctrl_s, &["alt".into()]));
         assert!(!wrong_chord(&ctrl_s, &["shift".into(), "s".into()]));
         assert!(!wrong_chord(&[], &["s".into()]));
+    }
+
+    #[test]
+    fn step_has_ctrl_recognizes_ctrl_chord_variants() {
+        assert!(step_has_ctrl(&Action::Keypress {
+            keys: vec!["Ctrl".into(), "S".into()]
+        }));
+        assert!(step_has_ctrl(&Action::Keypress {
+            keys: vec!["Control".into(), "Shift".into(), "Esc".into()]
+        }));
+        assert!(step_has_ctrl(&Action::Keypress {
+            keys: vec!["rctrl".into(), "c".into()]
+        }));
+        assert!(!step_has_ctrl(&Action::Keypress {
+            keys: vec!["Alt".into(), "Tab".into()]
+        }));
+        assert!(!step_has_ctrl(&Action::Click {
+            x: 0,
+            y: 0,
+            button: "left".into(),
+        }));
     }
 }

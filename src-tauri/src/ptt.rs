@@ -34,6 +34,7 @@ const REINSTALL_EVERY: Duration = Duration::from_secs(5);
 static KEY_TAP: Mutex<Weak<KeyTap>> = Mutex::new(Weak::new());
 static TOGGLE_MODE: AtomicBool = AtomicBool::new(false);
 static PTT_KEY: AtomicU32 = AtomicU32::new(EITHER_CTRL);
+static LESSON_CHORD: AtomicBool = AtomicBool::new(false);
 static CLICKS: Mutex<Option<Sender<DriverInput>>> = Mutex::new(None);
 
 enum DriverInput {
@@ -56,6 +57,16 @@ pub fn set_ptt_key(key: crate::settings::PttKey) {
     let vk = key.virtual_key();
     keyboard::set_ptt_key(vk);
     PTT_KEY.store(vk, Ordering::Relaxed);
+}
+
+/// Whether the currently configured talk key is either Ctrl.
+pub fn is_ctrl_talk_key() -> bool {
+    PTT_KEY.load(Ordering::Relaxed) == EITHER_CTRL
+}
+
+/// Suppress a fresh Ctrl press while the active lesson step requires a chord containing Ctrl.
+pub fn set_lesson_chord(active: bool) {
+    LESSON_CHORD.store(active, Ordering::Relaxed);
 }
 const TAP_MS: u64 = 400;
 const TOGGLE_MAX_MS: u64 = 30_000;

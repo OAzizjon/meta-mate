@@ -131,6 +131,7 @@ pub struct Ptt {
     now_ms: u64,
     pressed_at: Option<u64>,
     blocked: bool,
+    lesson_chord: bool,
     /// Other keys held now, with when they went down.
     other_keys: BTreeMap<u32, u64>,
     /// The sides of the talk key held now (either Ctrl).
@@ -151,6 +152,11 @@ impl Ptt {
     /// it so until a `Poll` clears it: the caller polls while this or a session is on.
     pub fn key_pressed(&self) -> bool {
         self.pressed_at.is_some()
+    }
+
+    /// Suppress a fresh Ctrl press during a lesson step whose action is a chord containing Ctrl.
+    pub fn set_lesson_chord(&mut self, active: bool) {
+        self.lesson_chord = active;
     }
 
     pub fn input(&mut self, input: PttInput) -> Vec<PttEvent> {
@@ -191,7 +197,8 @@ impl Ptt {
                     let now = self.now_ms;
                     self.other_keys
                         .retain(|_, down| now.saturating_sub(*down) < STALE_KEY_MS);
-                    self.blocked = !self.other_keys.is_empty();
+                    self.blocked = !self.other_keys.is_empty()
+                        || (self.lesson_chord && !self.talk_sides.is_empty());
                 }
             }
             PttInput::KeyDown {

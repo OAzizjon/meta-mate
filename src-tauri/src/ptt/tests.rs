@@ -581,3 +581,17 @@ fn either_ctrl_slow_shortcut_secure_desktop_and_key_switch() {
     assert_eq!(feed.key(key(LEFT_CTRL, false, at(t0, 6_400))), nothing());
     assert!(!feed.needs_poll());
 }
+
+#[test]
+fn lesson_chord_suppresses_ctrl_press_in_feed() {
+    let t0 = Instant::now();
+    let mut feed = Feed::new(PttSettings::default(), t0);
+    feed.set_key(EITHER_CTRL);
+    feed.set_lesson_chord(true);
+    assert_eq!(feed.key(key(LEFT_CTRL, true, t0)), nothing());
+    assert_eq!(feed.tick(at(t0, 300)), nothing());
+    assert_eq!(feed.key(key(LEFT_CTRL, false, at(t0, 400))), nothing());
+    feed.set_lesson_chord(false);
+    assert_eq!(feed.key(key(LEFT_CTRL, true, at(t0, 500))), nothing());
+    assert_eq!(feed.tick(at(t0, 800)), start(1));
+}

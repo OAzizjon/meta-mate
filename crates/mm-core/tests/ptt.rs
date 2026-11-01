@@ -544,3 +544,55 @@ fn a_lone_ctrl_tap_toggles_and_a_shortcut_does_not() {
         ],
     );
 }
+
+#[test]
+fn lesson_chord_suppresses_fresh_ctrl_press_while_other_keys_start() {
+    let settings = PttSettings {
+        mode: Mode::Hold,
+        ..PttSettings::default()
+    };
+    let mut ptt = Ptt::new(settings.for_talk_key(EITHER_CTRL));
+    ptt.set_lesson_chord(true);
+
+    // Left Ctrl held alone for 300 ms does not start listening while lesson chord is set.
+    assert_eq!(ptt.input(down(LEFT, 0)), vec![]);
+    assert_eq!(ptt.input(tick(300)), vec![]);
+    assert_eq!(ptt.input(tick(1_000)), vec![]);
+    assert_eq!(ptt.input(up(LEFT, 1_001)), vec![]);
+
+    // Right Ctrl also suppressed while lesson chord is set.
+    assert_eq!(ptt.input(down(RIGHT, 1_100)), vec![]);
+    assert_eq!(ptt.input(tick(1_400)), vec![]);
+    assert_eq!(ptt.input(up(RIGHT, 1_500)), vec![]);
+
+    // Toggle mode tap on Ctrl is also suppressed.
+    let mut toggle_ptt = Ptt::new(
+        PttSettings {
+            mode: Mode::Toggle,
+            ..PttSettings::default()
+        }
+        .for_talk_key(EITHER_CTRL),
+    );
+    toggle_ptt.set_lesson_chord(true);
+    assert_eq!(toggle_ptt.input(down(LEFT, 0)), vec![]);
+    assert_eq!(toggle_ptt.input(up(LEFT, 100)), vec![]);
+
+    // When lesson chord is cleared, a fresh Ctrl press starts listening normally.
+    ptt.set_lesson_chord(false);
+    assert_eq!(ptt.input(down(LEFT, 2_000)), vec![]);
+    assert_eq!(ptt.input(tick(2_300)), vec![start(1)]);
+    assert_eq!(
+        ptt.input(up(LEFT, 2_400)),
+        vec![stop(1, StopReason::Released)]
+    );
+
+    // Other talk keys (not Ctrl) are unaffected even when lesson chord is true.
+    let mut other_ptt = Ptt::new(PttSettings::default());
+    other_ptt.set_lesson_chord(true);
+    assert_eq!(other_ptt.input(down(Key::Talk, 0)), vec![]);
+    assert_eq!(other_ptt.input(tick(250)), vec![start(1)]);
+    assert_eq!(
+        other_ptt.input(up(Key::Talk, 300)),
+        vec![stop(1, StopReason::Released)]
+    );
+}

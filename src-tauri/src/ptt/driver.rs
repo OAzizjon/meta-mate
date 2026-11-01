@@ -112,6 +112,7 @@ fn run(
         .unwrap_or_else(Instant::now);
     let mut idle_polled = Instant::now();
     while !stop.load(Ordering::Relaxed) {
+        feed.set_lesson_chord(LESSON_CHORD.load(Ordering::Relaxed));
         let changed = feed.set_key(PTT_KEY.load(Ordering::Relaxed));
         emit(changed, feed.pressed_at);
         match inputs.recv_timeout(feed.wake_interval(Instant::now())) {

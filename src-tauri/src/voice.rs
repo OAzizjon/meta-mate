@@ -746,13 +746,15 @@ async fn answer(
     };
     if question.trim().is_empty() {
         let generation = live_lesson(&lessons).map_or(generation, |lesson| lesson.generation);
-        say_line(
-            &stream,
-            &phrases,
-            &stream.locale(),
-            generation,
-            "robot.no_microphone",
-        );
+        if !(pressed_at.is_some() && crate::ptt::is_ctrl_talk_key()) {
+            say_line(
+                &stream,
+                &phrases,
+                &stream.locale(),
+                generation,
+                "robot.no_microphone",
+            );
+        }
         stream.send(AnswerMsg::State {
             generation,
             state: "idle",

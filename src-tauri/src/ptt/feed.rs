@@ -67,7 +67,12 @@ impl Feed {
         out
     }
 
+    pub(super) fn set_lesson_chord(&mut self, active: bool) {
+        self.ptt.set_lesson_chord(active);
+    }
+
     pub(super) fn driver_key(&mut self, event: KeyEvent) -> Vec<PttEvent> {
+        self.set_lesson_chord(LESSON_CHORD.load(Ordering::Relaxed));
         let mode = if TOGGLE_MODE.load(Ordering::Relaxed) {
             Mode::Toggle
         } else {
@@ -177,11 +182,13 @@ impl Feed {
     }
 
     pub(super) fn tick(&mut self, now: Instant) -> Vec<PttEvent> {
+        self.set_lesson_chord(LESSON_CHORD.load(Ordering::Relaxed));
         let now_ms = self.ms(now);
         self.input(PttInput::Tick { now_ms })
     }
 
     pub(super) fn poll(&mut self, ptt_key_down: bool, now: Instant) -> Vec<PttEvent> {
+        self.set_lesson_chord(LESSON_CHORD.load(Ordering::Relaxed));
         if !ptt_key_down {
             self.suppress_key = false;
         }
