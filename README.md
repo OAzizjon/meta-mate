@@ -4,7 +4,7 @@
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
-Windows 10/11 x64.
+**Website and download: [meta-mate.stream](https://meta-mate.stream)** · Windows 10/11 x64.
 
 ## Try it in 60 seconds
 
@@ -16,7 +16,8 @@ Windows 10/11 x64.
 
 ## Links
 
-- [Download release](https://github.com/OAzizjon/meta-mate/releases/latest)
+- [Website: meta-mate.stream](https://meta-mate.stream) (the installer downloads from there)
+- [Download the installer](https://meta-mate.stream/download/MetaMate-setup.exe) ([SHA-256](https://meta-mate.stream/download/SHA256.txt))
 - Demo video: TBD before Nov 4
 - [Decisions log](docs/decisions.md)
 - [Architecture](docs/architecture.md)

@@ -39,6 +39,11 @@
   var lastWheelSign = 0;
   var lastWheelTime = 0;
   var wheelLockUntil = 0;
+  // One wheel gesture moves one panel: after a step, the gesture's inertia is ignored until the
+  // wheel pauses; a step taken while the strip still slides counts from its target panel.
+  var stepping = false;
+  var targetIndex = -1;
+  var slideEndsAt = 0;
   var lastVerticalScrollTime = 0;
 
   function isHorizontalMode() {
@@ -172,21 +177,34 @@
 
     event.preventDefault();
     var sign = dy > 0 ? 1 : -1;
-    if (now < wheelLockUntil && sign === lastWheelSign) {
-      return;
-    }
-    if (now - lastWheelTime > 180 || sign !== lastWheelSign) {
+    var sincePrevious = now - lastWheelTime;
+    lastWheelTime = now;
+    if (stepping) {
+      // The rest of the gesture that already moved a panel (trackpad inertia, a fast flick).
+      if (now < wheelLockUntil || sincePrevious < 200) {
+        return;
+      }
+      stepping = false;
       wheelAccum = 0;
     }
-    lastWheelTime = now;
+    if (sincePrevious > 200 || sign !== lastWheelSign) {
+      wheelAccum = 0;
+    }
     lastWheelSign = sign;
     wheelAccum += dy;
 
-    if (Math.abs(wheelAccum) >= 36) {
+    if (Math.abs(wheelAccum) >= 50) {
       var instant = prefersReducedMotion();
+      var base = now < slideEndsAt && targetIndex >= 0 ? targetIndex : current;
+      var next = Math.max(0, Math.min(panels.length - 1, base + sign));
       wheelAccum = 0;
-      wheelLockUntil = now + (instant ? 180 : 420);
-      scrollToPanel(current + sign, instant);
+      stepping = true;
+      wheelLockUntil = now + (instant ? 200 : 500);
+      slideEndsAt = now + (instant ? 0 : 650);
+      targetIndex = next;
+      if (next !== current) {
+        scrollToPanel(next, instant);
+      }
     }
   }
 
