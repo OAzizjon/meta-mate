@@ -615,8 +615,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Fixture:21 load_fixture:40 unsafe_reason:71 FrameMap:93 element_list:140 Hit:156 hit_test:162 describe:178
   tests: tools/tests/test_mm_fixture.py (12)
 - tools/mm_gate.py — mm gate [PATCH|-]
-  new_section:38 add:42 section_status:46 check_apply:76 difflint_section:105 invariant_rows:122 check_invariants:146 check_tests:162
-  check_sizes:193 sections_for:204 main:249
+  new_section:38 add:42 section_status:46 check_apply:76 difflint_section:105 invariant_rows:130 check_invariants:154 check_tests:170
+  check_sizes:201 sections_for:212 main:257
   tests: tools/tests/test_mm_gate.py (14)
 - tools/mm_legacy.py — mm legacy [--only SECTIONS] [--limit N] [--json] [--strict]
   is_env_file:80 rust_findings:152 ts_findings:205 py_findings:262 locale_findings:292 marker_findings:317 docs_findings:334 external_findings:425

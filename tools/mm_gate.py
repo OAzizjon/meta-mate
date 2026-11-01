@@ -119,6 +119,14 @@ _FOCUS_DPI = re.compile(r'src-tauri/src/(?:overlay|highlight|flight|mate)[\w.-]*
 _LEAD_ONLY = ('auth', 'payment', 'migration')
 
 
+def _has_word(path, keys):
+    """A key as a whole word of the path (auth.rs, intent_safety.rs, do-it/), never
+    inside another word (author.rs, repayment.rs)."""
+    flat = path.replace('-', '_')
+    return any(re.search(r'(?<![a-z0-9])' + re.escape(key.replace('-', '_')) + r'(?![a-z0-9])', flat)
+               for key in keys)
+
+
 def invariant_rows(path):
     """One touched path -> [(status, row)] for the invariants it endangers."""
     clean = path.replace('\\', '/')
@@ -128,9 +136,9 @@ def invariant_rows(path):
     rows = []
     if lower.startswith('crates/mm-win32/') or _FOCUS_DPI.fullmatch(lower):
         rows.append(('WARN', f'{clean}: invariants 1+2 (no focus steal, per-monitor DPI v2)'))
-    if any(key in lower for key in ('capture', 'screen', 'redact', 'privacy')):
+    if _has_word(lower, ('capture', 'screen', 'redact', 'redaction', 'privacy')):
         rows.append(('WARN', f'{clean}: invariant 3 (screenshots: consent flow, redaction, fail closed)'))
-    if any(key in lower for key in ('input', 'do-it', 'do_it', 'explain', 'safety')):
+    if _has_word(lower, ('input', 'do-it', 'do_it', 'explain', 'safety')):
         rows.append(('WARN', f'{clean}: invariant 4 (never auto-click payment/purchase/delete/password)'))
     if 'pointing' in lower or 'matescript' in lower:
         rows.append(('WARN', f"{clean}: invariant 5 ('I can't find it' beats pointing at a guess)"))
@@ -138,7 +146,7 @@ def invariant_rows(path):
         rows.append(('WARN', f'{clean}: invariant 7 (user-facing strings via locales/en.json + ru.json)'))
     if lower.startswith('server/'):
         rows.append(('WARN', f'{clean}: invariant 8 (Meta models by default); proxy: owner redeploy needed)'))
-    if any(key in lower for key in _LEAD_ONLY):
+    if _has_word(lower, _LEAD_ONLY):
         rows.append(('FAIL', f'{clean}: lead only, agents review only'))
     return rows
 
