@@ -159,9 +159,12 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   InputAction:11 can_borrow_click_name:17 InputInjector:26
   inline tests (2)
 - crates/mm-platform/src/lib.rs — OS services behind traits (`InputHooks`, `UiTree`, `ScreenCapture`, `Overlay`, `InputInjector`), with `MockBackend` and `ReplayBackend` so pointing logic is tested against recorded screens in …
-  CapturedImage:18^ PlatformError:19^ InputEvent:20^ InputHooks:20^ MouseButton:20^ InputAction:21^ InputInjector:21^ can_borrow_click_name:21^
-  MockBackend:22^ Overlay:23^ RobotPose:23^ RobotState:23^ RecentTargets:24^ REPLAY_TARGET:25^ ReplayBackend:25^ ScreenCapture:26^
-  TargetWindow:27^ UiElement:28^ UiSnapshot:28^ is_interactive_type:28^ same_hidden:28^ UiTree:29^
+  CapturedImage:19^ PlatformError:20^ InputEvent:21^ InputHooks:21^ MouseButton:21^ InputAction:22^ InputInjector:22^ can_borrow_click_name:22^
+  LookConsent:23^ MockBackend:24^ Overlay:25^ RobotPose:25^ RobotState:25^ RecentTargets:26^ REPLAY_TARGET:27^ ReplayBackend:27^
+  ScreenCapture:28^ TargetWindow:29^ UiElement:30^ UiSnapshot:30^ is_interactive_type:30^ same_hidden:30^ UiTree:31^
+- crates/mm-platform/src/look_consent.rs — Bounded, session-only permission to look at a particular window.
+  LookConsent:8 LookConsent::new:13 LookConsent::granted:21 LookConsent::answer:31
+  inline tests (3)
 - crates/mm-platform/src/mock.rs — In-memory backend for unit tests: fill the public fields, run the code under test, then read what it did.
   MockBackend:19 MockBackend::new:36 MockConfirmation:103
   inline tests (3)
@@ -231,8 +234,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   UiaWalker::snapshot_with_popups:162 UiaWalker::sensitive:187
   inline tests (7)
 - crates/mm-win32/src/window.rs — The window a "where is it?" question is about: the user's foreground window, its visible popups (menus and dropdowns are separate windows, Known pitfalls) and the screen region that holds them, in …
-  process_name:137 settings_foreground:159 Target:193 foreground_target:211 remembered_target:217 still_shown:259 occluders:269 region_of:373
-  lesson_followup:535 existing_windows:567
+  process_name:137 settings_foreground:159 Target:193 foreground_target:211 remembered_target:217 exists:223 still_shown:268 occluders:278
+  region_of:382 lesson_followup:544 existing_windows:576
   inline tests (22)
 - crates/mm-win32/src/winevent.rs — Window changes on an out-of-context hook thread.
   LOCATION:16 Event:43 WindowHook:55 start:72 Follow:142 follow:149
@@ -319,7 +322,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   inline tests (3)
 - src-tauri/src/screen.rs — "Where's the button?" (docs/plan.md Day 4), the part between the platform and the model: one look at the target window turned into what the model may see and point at, and its answer turned back into …
   MAX_EDGE:21 MAX_LISTED:23 Look:26 LookError:54 Look::resolve_live:188 Look::scan:228 Look::parser_settings:282 Look::resolve:296
-  LookFailure:333 LookFailure::line:367 take_look_at:505 consent_clicked:573 confirm_look:581 probe:936
+  LookFailure:333 LookFailure::line:367 take_look_at:508 consent_clicked:576 confirm_look:584 probe:948
   inline tests (29)
 - src-tauri/src/selftest.rs — Spike S1 without a person at the desk: run with `--s1-selftest`.
   spawn:41 spawn_control:151
@@ -830,7 +833,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:80; ts src/i18n/index.ts:64, src/ipc/answer-stream.ts:49
 - `robot.double_click`: rs src-tauri/src/teacher/presentation.rs:71; ts src/ipc/answer-stream.ts:43
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/ipc/answer-stream.ts:38
-- `robot.look_consent`: rs src-tauri/src/screen.rs:605; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:213,217
+- `robot.look_consent`: rs src-tauri/src/screen.rs:608; ts src/ipc/answer-stream.ts:34, src/mate-logic.ts:213,217
 - `robot.looking`: rs src-tauri/src/voice.rs:64
 - `robot.network_error`: rs src-tauri/src/chat.rs:329, src-tauri/src/teacher/presentation.rs:81, src-tauri/src/voice.rs:1238; ts src/i18n/index.ts:65, src/ipc/answer-stream.ts:23
 - `robot.no_microphone`: rs src-tauri/src/voice.rs:618,634,754,1272; ts src/ipc/answer-stream.ts:24
@@ -911,7 +914,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | Area | Tests | Files |
 |---|---:|---:|
 | crates/mm-core | 287 | 36 |
-| crates/mm-platform | 43 | 6 |
+| crates/mm-platform | 46 | 7 |
 | crates/mm-win32 | 62 | 11 |
 | src-tauri | 198 | 20 |
 | src | 327 | 32 |

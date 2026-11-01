@@ -25,7 +25,7 @@ pub const MAX_LISTED: usize = 60;
 /// One look at the target, ready for a point request.
 pub struct Look {
     pub snapshot: UiSnapshot,
-    /// One-look consent permits an unclassifiable snapshot.
+    /// Window consent permits an unclassifiable snapshot.
     pub unclassified_allowed: bool,
     /// The walk was cut and a separate sensitive-field scan vouched for the picture.
     pub cut: bool,
@@ -388,6 +388,9 @@ const HIDDEN_FRAME: std::time::Duration = std::time::Duration::from_millis(50);
 /// other's copy.
 static LOOKING: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+static LOOK_CONSENT: std::sync::Mutex<mm_platform::LookConsent> =
+    std::sync::Mutex::new(mm_platform::LookConsent::new());
+
 /// Session-only geometry, never names or values. Without stable UIA RuntimeIds,
 /// any same-type field in this window may be the password after a layout change.
 /// A field seen as a password: its window, control type and rect relative to the frame.
@@ -577,7 +580,7 @@ pub(crate) fn consent_clicked(pressed: std::time::Instant) -> bool {
 }
 
 /// Ask without taking focus. Only a fresh physical F8 in the target, or a fresh physical
-/// click on Mate while the target is in front (his window never activates), grants one look.
+/// click on Mate while the target is in front (his window never activates), grants consent.
 pub(crate) fn confirm_look(
     app: &tauri::AppHandle,
     generation: u64,
@@ -720,6 +723,11 @@ fn look_once(
         None => window::foreground_target(own),
     };
     let target = target_now().ok_or(LookFailure::NoWindow)?;
+    let consent = consent
+        || LOOK_CONSENT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .granted(target.window, window::exists);
     let walker = uia::UiaWalker::new().map_err(|_| LookFailure::Uia)?;
     let walk = || {
         walker
@@ -761,6 +769,10 @@ fn look_once(
             return Err(LookFailure::Changed);
         }
         // Rewalk after the answer: permission never makes an old mask current.
+        LOOK_CONSENT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .answer(target.window, true);
         return look_once(own, wanted, Some(target.window), confirm, true);
     }
     let cut = snapshot.truncated;

@@ -57,7 +57,7 @@
   "robot.screen_changed": "Something new opened. Let me look.",
   "robot.cant_find": "I can't see that here. Let's open the right window first.",
   "robot.private_window": "I cannot safely inspect this window.",
-  "robot.look_consent": "This window may contain private content I cannot check. Click me to let me look at this window once, or press Esc to cancel.",
+  "robot.look_consent": "This window may contain private content I cannot check. Click me to let me look at this window, or press Esc to cancel.",
   "robot.password_covered": "I covered your password before looking.",
   "robot.login_page": "A password may be visible here. Hide it, then I'll look.",
   "robot.do_it_for_me": "Should I press this button for you? Say yes or no.",

@@ -191,7 +191,7 @@ pub fn settings_foreground(window: TargetWindow) -> bool {
 /// rectangles only, never a title (convention 3).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Target {
-    /// Remote viewers need the person's permission for each capture.
+    /// Remote viewers need the person's permission for this window.
     pub requires_consent: bool,
     pub window: TargetWindow,
     pub hwnd: HWND,
@@ -217,6 +217,15 @@ pub fn foreground_target(own: &[HWND]) -> Option<Target> {
 pub fn remembered_target(window: TargetWindow, own: &[HWND]) -> Option<Target> {
     let target = target_of(HWND(window.handle as usize as *mut std::ffi::c_void), own)?;
     (target.window == window).then_some(target)
+}
+
+/// Whether this handle still belongs to this process, including hidden/minimized windows.
+pub fn exists(window: TargetWindow) -> bool {
+    let hwnd = HWND(window.handle as usize as *mut std::ffi::c_void);
+    let mut process_id = 0u32;
+    // SAFETY: the out pointer is a local u32; a stale handle gives thread 0.
+    let thread = unsafe { GetWindowThreadProcessId(hwnd, Some(&mut process_id)) };
+    thread != 0 && process_id == window.process_id
 }
 
 fn target_of(hwnd: HWND, own: &[HWND]) -> Option<Target> {
