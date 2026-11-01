@@ -64,7 +64,7 @@ fn enumerate(roots: &[PathBuf]) -> Vec<Shortcut> {
                     .extension()
                     .and_then(|ext| ext.to_str())
                     .is_some_and(|ext| {
-                        ["lnk", "url", "appref-ms"]
+                        ["lnk", "appref-ms"]
                             .iter()
                             .any(|allowed| ext.eq_ignore_ascii_case(allowed))
                     })
@@ -77,6 +77,7 @@ fn enumerate(roots: &[PathBuf]) -> Vec<Shortcut> {
             let refs: Vec<_> = components.iter().map(String::as_str).collect();
             if name.chars().any(|ch| ch.is_control())
                 || mm_core::installed_apps::blocked(name, &refs)
+                || !target_allowed(&path)
             {
                 continue;
             }
@@ -87,6 +88,16 @@ fn enumerate(roots: &[PathBuf]) -> Vec<Shortcut> {
         }
     }
     found
+}
+
+/// The shortcut's own bytes (at most 64 KiB) must not name a blocked program: a shortcut called
+/// "Family" can point at AnyDesk or cmd.exe. Unreadable or larger files are not offered.
+fn target_allowed(path: &Path) -> bool {
+    match std::fs::metadata(path) {
+        Ok(meta) if meta.len() <= 64 * 1024 => std::fs::read(path)
+            .is_ok_and(|bytes| !mm_core::installed_apps::shortcut_targets_blocked(&bytes)),
+        _ => false,
+    }
 }
 
 pub fn installed() -> Vec<Shortcut> {
@@ -134,12 +145,19 @@ mod tests {
         ] {
             std::fs::write(root.join(file), []).expect("fixture");
         }
+        // A friendly name that points at a remote-access tool (the target path is inside).
+        let target: Vec<u8> = "C:/Program Files/AnyDesk/AnyDesk.exe"
+            .encode_utf16()
+            .flat_map(u16::to_le_bytes)
+            .collect();
+        std::fs::write(root.join("Family/Grandson help.lnk"), target).expect("fixture");
         let mut names: Vec<_> = enumerate(std::slice::from_ref(&root))
             .into_iter()
             .map(|app| app.name)
             .collect();
         names.sort();
-        assert_eq!(names, ["Telegram", "Word", "Zoom"]);
+        // .url shortcuts are never offered (a .url can carry file: or ms-* targets).
+        assert_eq!(names, ["Telegram", "Word"]);
         std::fs::remove_dir_all(root).expect("cleanup");
     }
 }

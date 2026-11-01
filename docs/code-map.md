@@ -56,8 +56,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   FrameTransform::phys_rect_to_shot:297 MonitorTransform:317 MonitorTransform::new:323 MonitorTransform::phys_to_css:330 MonitorTransform::css_to_phys:339 MonitorTransform::phys_rect_to_css:346 MonitorTransform::css_rect_to_phys:364
   tests: crates/mm-core/tests/geom.rs (6)
 - crates/mm-core/src/installed_apps.rs — Start Menu matching uses only the person's request, never model output or paths.
-  Match:4 requested_app:35 remote_access:204 blocked:213 find:265
-  inline tests (5)
+  Match:4 requested_app:35 remote_access:204 BLOCKED_TARGETS:242 shortcut_targets_blocked:275 blocked:306 find:358
+  inline tests (8)
 - crates/mm-core/src/lib.rs — MetaMate core: pure Rust with no OS calls, no I/O and no async runtime, so every module is unit- and fuzz-testable anywhere (docs/project-structure.md, "Rust split").
   api:4 constants:5 drag:6 flight:7 geom:8 installed_apps:9 matescript:10 mic:11
   phrases:12 placement:13 presence:14 privacy:15 ptt:16 redaction:17 shot:18 teacher:19
@@ -231,7 +231,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   openable:9 open_url:17 open_app:25 open_folder:30 open_shortcut_path:62
   inline tests (1)
 - crates/mm-win32/src/start_menu.rs — Bounded Start Menu discovery; shortcuts stay opaque and never become model input.
-  Shortcut:7 installed:92 open:97
+  Shortcut:7 installed:103 open:108
   inline tests (1)
 - crates/mm-win32/src/time.rs — The local clock: names of files the person sees use local time, not UTC.
   local_offset_seconds:9
@@ -935,7 +935,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 299 | 37 |
+| crates/mm-core | 302 | 37 |
 | crates/mm-platform | 46 | 7 |
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 202 | 20 |

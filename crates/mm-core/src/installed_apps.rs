@@ -202,11 +202,104 @@ const REMOTE: &[&str] = &[
 
 /// A warning is available even when the remote-access program is not installed.
 pub fn remote_access(name: &str) -> Option<&'static str> {
-    let name = words(name);
-    REMOTE
+    let spaced = words(name);
+    // Glued forms too: "Any Desk", "Team-Viewer", "Quick Assist" and "QuickAssist" are one name.
+    let glued = squash(name);
+    REMOTE.iter().copied().find(|alias| {
+        contains(&spaced, &words(alias)) || {
+            let alias = squash(alias);
+            alias.chars().count() >= 5 && glued.contains(&alias)
+        }
+    })
+}
+
+/// Lowercase letters and digits only, Cyrillic spellings of the remote tools in Latin.
+fn squash(text: &str) -> String {
+    let lower: String = text
+        .to_lowercase()
+        .replace('ё', "е")
+        .chars()
+        .filter(|ch| ch.is_alphanumeric())
+        .collect();
+    [
+        ("энидеск", "anydesk"),
+        ("энидэск", "anydesk"),
+        ("анидеск", "anydesk"),
+        ("anidesk", "anydesk"),
+        ("тимвьювер", "teamviewer"),
+        ("тимвьюер", "teamviewer"),
+        ("тимвивер", "teamviewer"),
+        ("растдеск", "rustdesk"),
+        ("ультравьювер", "ultraviewer"),
+        ("быстраяпомощь", "quickassist"),
+    ]
+    .iter()
+    .fold(lower, |text, (from, to)| text.replace(from, to))
+}
+
+/// Program names inside a shortcut that are never opened, whatever the shortcut is called:
+/// remote-access tools, shells and admin tools (Meta #1548 #1: the name alone can lie).
+pub const BLOCKED_TARGETS: &[&str] = &[
+    "anydesk",
+    "teamviewer",
+    "rustdesk",
+    "ultraviewer",
+    "quickassist",
+    "mstsc",
+    "remotepc",
+    "splashtop",
+    "logmein",
+    "gotomypc",
+    "supremo",
+    "aeroadmin",
+    "ammyy",
+    "screenconnect",
+    "connectwise",
+    "zohoassist",
+    "cmd.exe",
+    "powershell",
+    "pwsh",
+    "wt.exe",
+    "regedit",
+    "mmc.exe",
+    "taskschd",
+    "compmgmt",
+    "services.msc",
+    "gpedit",
+    "diskpart",
+    "format.com",
+];
+
+/// Whether a shortcut file's bytes name a blocked program (the target path is stored as
+/// ASCII and as UTF-16LE inside .lnk files).
+pub fn shortcut_targets_blocked(bytes: &[u8]) -> bool {
+    let ascii: String = bytes
         .iter()
-        .copied()
-        .find(|alias| contains(&name, &words(alias)))
+        .map(|&b| (b as char).to_ascii_lowercase())
+        .collect();
+    let utf16: String = bytes
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| {
+            char::from_u32(u32::from(u16::from_le_bytes([pair[0], pair[1]]))).unwrap_or('\0')
+        })
+        .collect::<String>()
+        .to_lowercase();
+    let odd: String = bytes
+        .get(1..)
+        .unwrap_or_default()
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| {
+            char::from_u32(u32::from(u16::from_le_bytes([pair[0], pair[1]]))).unwrap_or('\0')
+        })
+        .collect::<String>()
+        .to_lowercase();
+    BLOCKED_TARGETS
+        .iter()
+        .any(|name| ascii.contains(name) || utf16.contains(name) || odd.contains(name))
 }
 
 /// Folder components and display names are checked separately from shell paths.
@@ -215,12 +308,12 @@ pub fn blocked(name: &str, folders: &[&str]) -> bool {
     remote_access(name).is_some()
         || folders.iter().any(|folder| {
             matches!(
-                folder.to_lowercase().as_str(),
+                squash_folder(folder).as_str(),
                 "startup"
                     | "автозагрузка"
-                    | "windows tools"
-                    | "administrative tools"
-                    | "средства windows"
+                    | "windowstools"
+                    | "administrativetools"
+                    | "средстваwindows"
                     | "администрирование"
             )
         })
@@ -287,6 +380,15 @@ pub fn find<'a>(target: &str, names: impl IntoIterator<Item = &'a str>) -> Match
         }
     }
     best
+}
+
+/// A folder name for the block list: lowercase letters and digits only ("Start-up " is "startup").
+fn squash_folder(folder: &str) -> String {
+    folder
+        .to_lowercase()
+        .chars()
+        .filter(|ch| ch.is_alphanumeric())
+        .collect()
 }
 
 #[cfg(test)]
@@ -424,6 +526,49 @@ mod tests {
             "Открой зум.",
         ] {
             assert_eq!(guess_intent(question), Intent::Chat, "{question}");
+        }
+    }
+
+    #[test]
+    fn remote_tools_are_caught_spaced_glued_and_in_cyrillic() {
+        for name in [
+            "Any Desk",
+            "Team-Viewer QS",
+            "QuickAssist",
+            "Quick Assist",
+            "эни деск",
+            "Тимвьювер",
+            "Быстрая помощь",
+        ] {
+            assert!(super::remote_access(name).is_some(), "{name}");
+        }
+        for name in ["Telegram", "Zoom", "Skype", "Desktop Tools"] {
+            assert!(super::remote_access(name).is_none(), "{name}");
+        }
+    }
+
+    #[test]
+    fn a_shortcut_pointing_at_a_blocked_program_is_refused_whatever_its_name() {
+        let utf16 =
+            |text: &str| -> Vec<u8> { text.encode_utf16().flat_map(u16::to_le_bytes).collect() };
+        let mut lnk = vec![b'L', 0, 0, 0];
+        lnk.extend(utf16(r"C:\Program Files\AnyDesk\AnyDesk.exe"));
+        assert!(super::shortcut_targets_blocked(&lnk));
+        let mut odd = vec![0u8];
+        odd.extend(utf16(r"C:\Windows\System32\cmd.exe"));
+        assert!(super::shortcut_targets_blocked(&odd));
+        assert!(super::shortcut_targets_blocked(
+            br"C:\WINDOWS\system32\WindowsPowerShell"
+        ));
+        let mut fine = vec![b'L', 0, 0, 0];
+        fine.extend(utf16(r"C:\Program Files\Telegram Desktop\Telegram.exe"));
+        assert!(!super::shortcut_targets_blocked(&fine));
+    }
+
+    #[test]
+    fn startup_folders_are_caught_with_spaces_or_hyphens() {
+        for folder in ["Startup ", "Start-up", "Автозагрузка ", "Windows-Tools"] {
+            assert!(super::blocked("Some App", &[folder]), "{folder}");
         }
     }
 }
