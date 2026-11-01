@@ -97,27 +97,27 @@ Pre-submission rehearsal checklist on a clean Windows 10/11 machine (or fresh us
   1. Launch MetaMate from the Start Menu or Desktop shortcut on a profile without existing local storage.
   2. Observe Mate's initial position and speech bubble before interacting.
   3. Wait 18–20 seconds without key presses or mouse clicks.
-- **Expected result:** Mate appears floating in the bottom-right corner (`home` position) above the taskbar without stealing focus from the active foreground window (`WS_EX_NOACTIVATE`). Speech bubble displays `robot.first_launch` ("Hello! I'm Mate. To talk to me, hold Right Ctrl and ask.") and the Right Ctrl keycap prompt (`#mate-keycap`). Every 6 seconds, three example questions from `onboarding.example_1..6` cycle through the bubble. System tray icon appears with tooltip "MetaMate: Hold Right Ctrl and ask me".
+- **Expected result:** Mate appears floating in the bottom-right corner (`home` position) above the taskbar without stealing focus from the active foreground window (`WS_EX_NOACTIVATE`). Speech bubble displays `robot.first_launch` ("Hello! I'm Mate. Press and hold Ctrl, then ask me. Or click me once, speak, and click me again.") and the Ctrl keycap prompt (`#mate-keycap`). Every 6 seconds, three example questions from `onboarding.example_1..6` cycle through the bubble. System tray icon appears with the Ctrl talk-key label.
 - **Pass / Fail:** [ ] Pass  [ ] Fail
 
 ### 3. Push-to-talk
 - **Steps:**
   1. Open a text editor (e.g. Notepad) in the foreground.
-  2. Press and hold **Right Ctrl** alone, speak a conversational query (e.g., "Tell me a joke" or "Hello Mate"), then release the key.
-  3. While continuously typing letters in Notepad, tap Right Ctrl rapidly several times; test pressing `Right Ctrl + C` on highlighted text.
-- **Expected result:** Holding Right Ctrl triggers `PttEvent::Press`, transitions Mate's animation state to `listening`, and plays the listening cue. Releasing the key triggers `thinking` (`robot.thinking`), streams synthesized speech from MMS-TTS, and Mate speaks the answer while showing the transcript in the bubble. Rapid taps do not insert stray characters, get stuck, or swallow keystrokes in Notepad; `Right Ctrl + C` still copies text.
+  2. Press and hold either **Ctrl** key alone for 0.3 seconds, speak a conversational query (e.g., "Tell me a joke" or "Hello Mate"), then release the key.
+  3. While continuously typing letters in Notepad, tap Ctrl rapidly several times; test pressing `Right Ctrl + C` on highlighted text.
+- **Expected result:** Holding either Ctrl key alone for 0.3 seconds triggers `PttEvent::Press`, transitions Mate's animation state to `listening`, and plays the listening cue. Releasing the key triggers `thinking` (`robot.thinking`), streams synthesized speech from MMS-TTS, and Mate speaks the answer while showing the transcript in the bubble. Rapid taps do not insert stray characters, get stuck, or swallow keystrokes in Notepad; `Right Ctrl + C` still copies text.
 - **Pass / Fail:** [ ] Pass  [ ] Fail
 
 ### 4. A where-question in Windows Settings and in Edge
 - **Steps:**
-  1. Open Windows Settings (`Win + I`), bring it to foreground, hold Right Ctrl and ask: "Where is Text size?" (or "Where is Bluetooth?").
-  2. Open Microsoft Edge with a web page loaded, hold Right Ctrl and ask: "Where is the search box?" (or "Where is the new tab button?").
+  1. Open Windows Settings (`Win + I`), bring it to foreground, hold either Ctrl key alone for 0.3 seconds and ask: "Where is Text size?" (or "Where is Bluetooth?").
+  2. Open Microsoft Edge with a web page loaded, hold either Ctrl key alone for 0.3 seconds and ask: "Where is the search box?" (or "Where is the new tab button?").
 - **Expected result:** Mate transitions to `looking` state (eyes sweep as screenshot and UIA snapshot are taken), announces `robot.found_it` ("Here it is. Look where I'm pointing."), flies beside the target control (offset ~24 px to avoid covering the element), and projects a glowing beam and highlight ring on the target bounding rectangle. The overlay window remains click-through (`WS_EX_TRANSPARENT | WS_EX_LAYERED`) and never steals foreground focus (`WS_EX_NOACTIVATE`).
 - **Pass / Fail:** [ ] Pass  [ ] Fail
 
 ### 5. A lesson with a wrong click
 - **Steps:**
-  1. With Windows Settings in foreground, hold Right Ctrl and ask: "How do I make the text bigger?".
+  1. With Windows Settings in foreground, hold either Ctrl key alone for 0.3 seconds and ask: "How do I make the text bigger?".
   2. Mate initiates step-by-step teacher mode, speaks Step 1 ("Step 1 of ..."), and points to "Accessibility".
   3. Intentionally click somewhere wrong (an empty area or unrelated menu item).
   4. Next, click the correctly highlighted "Accessibility" item.
@@ -127,7 +127,7 @@ Pre-submission rehearsal checklist on a clean Windows 10/11 machine (or fresh us
 ### 6. Is-this-safe on fixtures/demo pages
 - **Steps:**
   1. In Edge, open `fixtures/demo/scam-email.html` (account closure phishing) or `fixtures/demo/scam-popup.html` (fake security alert popup).
-  2. With the scam window in foreground, hold Right Ctrl and ask: "Is this safe?" (or "Is this email real?").
+  2. With the scam window in foreground, hold either Ctrl key alone for 0.3 seconds and ask: "Is this safe?" (or "Is this email real?").
 - **Expected result:** Intent routes to `Intent::Safety`; Mate speaks `robot.checking_safety` ("Let me check this carefully. I'm looking only at this window.") and enters `thinking_harder` state. Muse Spark evaluates the page with safety reasoning, delivers a negative safety verdict identifying specific indicators (suspicious domain, urgent countdown, fake hotline), and never instructs the user to click links, call phone numbers, or make payments.
 - **Pass / Fail:** [ ] Pass  [ ] Fail
 
@@ -163,7 +163,7 @@ Pre-submission rehearsal checklist on a clean Windows 10/11 machine (or fresh us
 - **Steps:**
   1. Open a browser login page or credential prompt containing a password field.
   2. Type characters into the password field; toggle "Show password" if available.
-  3. With the password window in foreground, hold Right Ctrl and ask: "Where is the sign in button?".
+  3. With the password window in foreground, hold either Ctrl key alone for 0.3 seconds and ask: "Where is the sign in button?".
 - **Expected result:** UIA identifies sensitive fields (`IsPassword=true`, `PasswordBox`, or password-like attributes/names). In the capture buffer sent to the model, all password boxes are padded by 4 px (`REDACTION_PAD_PX`) and painted opaque solid black (`paint_black`). Mate announces `robot.password_covered` ("I covered your password before looking."). Password values never appear in API requests, debug views, or logs.
 - **Pass / Fail:** [ ] Pass  [ ] Fail
 

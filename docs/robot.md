@@ -55,7 +55,7 @@ Moods react once when they arrive (skipped with reduced motion): surprised ("be 
 ## Interactions
 
 - **Drag** anywhere on the body to move; he leans into the drag, lands with a little squash and remembers his place per monitor.
-- **Press and hold** = talk (same as holding Right Ctrl).
+- **Press and hold** either Ctrl key alone for 0.3 seconds = talk.
 - **Mouse wheel over Mate** or the corner handle = resize: S 64 px, M 96 px (default), L 160 px, XL 220 px (for low vision).
 - **Right-click** = menu: Hide, Size, Calm/Fun sounds, Settings, Quit.
 - **Double-click** = hide to tray; tray click = show.

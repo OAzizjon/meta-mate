@@ -30,7 +30,7 @@ npm run build
 cargo run -p metamate --features custom-protocol
 ```
 
-Hold **Right Ctrl** and speak. Right Ctrl must be held alone; pressing another key during the hold cancels push-to-talk.
+Hold either **Ctrl** key alone for 0.3 seconds and speak; pressing another key during the hold cancels push-to-talk.
 
 For a microphone-free answer test, use `cargo run -p metamate --features custom-protocol -- --ask "question"`. It plays one answer and prints a JSON report with subscription, audio, answer, and playback details.
 
@@ -68,7 +68,7 @@ Before handing the installer to judges, the lead must verify on a real build:
 - Install as a standard user without UAC, on a clean x64 Windows profile with network disabled and no WebView2 runtime; launch successfully after runtime installation.
 - Check both language choices in setup and uninstall, the existing app icons, and playback on first launch. Confirm no Startup entry or Run registry value is created, including after saving Start with Windows.
 - Save settings, uninstall with the deletion box untouched, and reinstall: settings must survive. Repeat with the box checked: the app's config folder must be removed. Verify an upgrade preserves settings too. These checks must confirm the pinned CLI's standard-template checkbox behavior before release.
-- Document the unsigned installer's SmartScreen steps (**More info** → **Run anyway**); then verify the zero-config judge path (holding Right Ctrl to ask with no account, keys, or invite codes required; optional sign-in in Settings with the providers the proxy enables).
+- Document the unsigned installer's SmartScreen steps (**More info** → **Run anyway**); then verify the zero-config judge path (holding either Ctrl key alone for 0.3 seconds to ask with no account, keys, or invite codes required; optional sign-in in Settings with the providers the proxy enables).
 
 ## Judge path (Windows 10/11 x64)
 
@@ -82,7 +82,7 @@ MetaMate supports Windows 10 and 11 x64 only. The evaluation path is designed to
 
 2. **Zero-configuration evaluation (no account, keys, or invite codes)**:
    - The release installer is built for our hosted proxy (`METAMATE_PROXY_URL` and `METAMATE_INVITE` embedded at build time per D51). The installed app never answers on the built-in invite (`invite_for_proxy` clears it): without an account it runs the guest trial, 12 messages an hour counted by the proxy (D58).
-   - A judge installs, clicks **Try without signing in** in the sign-in window, holds **Right Ctrl**, and asks aloud—with no account, no API keys, and no invite codes required.
+   - A judge installs, clicks **Try without signing in** in the sign-in window, holds either **Ctrl** key alone for 0.3 seconds, and asks aloud—with no account, no API keys, and no invite codes required.
    - Live speech recognition: Muse Voice Transcribe opens its WebSocket at key-down and delivers the final transcript 250–360 ms after key-up, rendering live text in Mate's speech bubble.
    - Spoken answers and beam pointing: Mate responds aloud using MMS-TTS (90–110 ms GPU synthesis per sentence on a Modal T4), flies beside the target control in any app, and shines his beam on the right button.
    - Reasoning latency: Muse Spark 1.3 produces its first token in 1.4–2.6 s at minimal reasoning effort.
@@ -93,7 +93,7 @@ MetaMate supports Windows 10 and 11 x64 only. The evaluation path is designed to
    - Keepsake lesson cards: when a lesson finishes, Muse Glimmer 30B (Meta open weights on a Modal L4 GPU, ~15 tokens/s) writes simplified steps and a scene description when its GPU answers; Muse Image renders an accompanying gouache picture without text. The card window displays the text and image with Print and Close buttons.
 
 4. **"Is this safe?" scam check**:
-   - Hold Right Ctrl and ask "Is this safe?" with any suspicious message or window open.
+   - Hold either Ctrl key alone for 0.3 seconds and ask "Is this safe?" with any suspicious message or window open. If Mate asks to look at the window, click Mate (or press Fn + F8; F8 on a desktop keyboard).
    - Mate inspects only the target window, gives a verdict with red flags, and shines his flashlight beam on the worst red flag. He never tells anyone to click, call, or pay.
    - Privacy guarantee: only the active target window is captured, passwords and non-target regions are painted black on the client, and inspection fails closed if safety cannot be guaranteed.
 
