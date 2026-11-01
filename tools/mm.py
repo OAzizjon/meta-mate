@@ -33,6 +33,11 @@
                                    where a name is defined and used across Rust, TS, Python, locales
                                    and docs (sign_out also finds signOut, sign-out; Tauri commands
                                    with their invoke() callers; a locale key with its en/ru text)
+    mm cover PATH [--json]         the tests that plausibly cover one source file, ranked:
+                                   Rust (the inline #[cfg(test)] mod, then crates/*/tests and
+                                   src-tauri tests that 'use' or mention it), TypeScript
+                                   (*.test.ts importing it, one hop through an index.ts),
+                                   Python (tests/test_<name>.py, tests importing the module)
     mm cite FILE|-|#JOB [-C N]     the code behind every path:line an agent's answer cites, next to
                                    the claim; flags missing files, lines past the end, ambiguous names
     mm map [--check]               regenerate docs/code-map.md (files, pub items, cross-language links)
@@ -52,7 +57,7 @@
                                    the locale keys a patch adds, merged key by key (no end-of-file
                                    git conflicts), then the rest of the patch via git apply
     mm locales add KEY EN RU       add one key to locales/en.json and locales/ru.json, both at once
-    mm agent check [--only CHECKS]|test|locales add KEY EN RU|where|cite|map|stats|difflint|gate|legacy|contracts|shot
+    mm agent check [--only CHECKS]|test|locales add KEY EN RU|where|cite|map|cover|stats|difflint|gate|legacy|contracts|shot
                                    the restricted set for sandboxed agents: offline, no secrets, no GUI
                                    (agent locales is add-only: it writes nothing outside locales/)
 
@@ -442,7 +447,8 @@ def cmd_agent(args):
 
 TOOL_MODULES = {'where': 'mm_where', 'cite': 'mm_cite', 'map': 'mm_map', 'stats': 'mm_stats',
                 'difflint': 'mm_difflint', 'gate': 'mm_gate', 'legacy': 'mm_legacy',
-                'contracts': 'mm_contracts', 'shot': 'mm_shot', 'locales': 'mm_locales'}
+                'contracts': 'mm_contracts', 'shot': 'mm_shot', 'locales': 'mm_locales',
+                'cover': 'mm_cover'}
 
 
 def _run_tool(name, rest):
@@ -900,6 +906,7 @@ def build_parser():
     sp.add_argument('--only', help='comma-separated check names')
     sp.add_argument('rest', nargs=argparse.REMAINDER)
     for name, text in (('where', 'where a name is defined and used'),
+                       ('cover', 'the tests that plausibly cover one source file'),
                        ('cite', "the code behind an answer's path:line references"),
                        ('map', 'regenerate docs/code-map.md'),
                        ('stats', 'code, tests, churn and agent numbers'),

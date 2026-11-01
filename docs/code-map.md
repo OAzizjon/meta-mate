@@ -592,9 +592,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:125 first_line:140 agent_mode_reason:144 say:156 cmd_doctor:193 plan_sections:262 cmd_plan:285 cmd_status:312
-  cmd_check:360 cmd_test:384 cmd_agent:427 cmd_tool:459 cmd_release:465 cmd_uia:571 cmd_art:605 cmd_sounds:653
-  cmd_phrases:695 cmd_agents:708 wanted_key_names:721 parse_env:729 cmd_keys:784 build_parser:863 cmd_probe:920 main:936
+  run:130 first_line:145 agent_mode_reason:149 say:161 cmd_doctor:198 plan_sections:267 cmd_plan:290 cmd_status:317
+  cmd_check:365 cmd_test:389 cmd_agent:432 cmd_tool:465 cmd_release:471 cmd_uia:577 cmd_art:611 cmd_sounds:659
+  cmd_phrases:701 cmd_agents:714 wanted_key_names:727 parse_env:735 cmd_keys:790 build_parser:869 cmd_probe:927 main:943
   tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
@@ -608,6 +608,11 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_contracts.py — mm contracts [--verbose]
   findings:434 main:531
   tests: tools/tests/test_mm_contracts.py (26)
+- tools/mm_cover.py — mm cover PATH: the tests that plausibly cover one source file, ranked.
+  entry:41 read:45 rel_of:49 tauri_names:67 rust_location:88 as_rust_test:109 rust_test_files:121 rust_pub_items:132
+  rust_uses_module:142 rust_entries:148 ts_specs:184 resolve_spec:188 ts_reexports:201 mention_pattern:207 ts_entries:212 is_py_test:248
+  dotted:253 py_imports_module:257 py_entries:275 cover:304 render:324 no_tests_text:333 main:342
+  tests: tools/tests/test_mm_cover.py (9)
 - tools/mm_difflint.py — mm difflint [PATCH|-]
   AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284
   tests: tools/tests/test_mm_difflint.py (18)
@@ -936,6 +941,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 203 | 20 |
 | src | 334 | 33 |
-| tools | 438 | 25 |
+| tools | 447 | 26 |
 | server | 94 | 4 |
 | tts | 27 | 2 |
