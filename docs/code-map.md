@@ -259,11 +259,11 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   watch_rejected:285 random_url_safe:529
   inline tests (7)
 - src-tauri/src/card.rs — Mate's lesson card (Muse Glimmer + Muse Image): when a lesson ends well, a keepsake of its steps that an older person can keep or print.
-  CardNote:31^ MAX_STEPS:40 PendingCard:64 init:67 make:112 without_tags:320 cards_list:492 card_show:502
-  card_save_captioned:528 cards_open_folder:541 selftest:559
+  CardNote:30^ MAX_STEPS:39 PendingCard:63 init:66 make:111 without_tags:312 cards_list:484 card_show:494
+  card_save_captioned:520 cards_open_folder:533 selftest:551
 - src-tauri/src/card_notes.rs — Versioned keepsake sidecars; paths come only from validated local stems.
-  SavedCard:17 CardNote:28 valid_id:40 load:87 image:108 list:181 save:253 decode_png:301
-  save_captioned:314 ensure_folder:324
+  SavedCard:18 CardNote:29 valid_id:41 load:88 image:109 list:182 save:254 decode_png:302
+  save_captioned:315 ensure_folder:325
 - src-tauri/src/card_tests.rs
 - src-tauri/src/chat.rs — Session chat mirrored from the answer stream; history stays in the app data folder.
   Message:26 Chat:55 start_request:215 init:223 record:239 open:248 open_chat:275 chat_subscribe:289
@@ -278,8 +278,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   withdraw:107 dropped:113 clicked:298
   inline tests (13)
 - src-tauri/src/flight.rs — Mate's flight: one worker thread for the app's lifetime moves Mate's window along `mm_core::flight::flight_path` at ~60 fps, every frame through `overlay::place`, which never activates it (invariant …
-  Flight:25 Flight::begin_drag:105 Flight::drag_allowed:114 Flight::dragged:120 Flight::end_drag:124 Flight::set_home:129 Flight::home:133 Flight::new:139
-  Flight::fly_to:173 Flight::land:179 Flight::position:184 Flight::wait_idle:193
+  Flight:25 Flight::begin_drag:104 Flight::drag_allowed:113 Flight::dragged:119 Flight::end_drag:123 Flight::set_home:128 Flight::home:132 Flight::new:138
+  Flight::fly_to:172 Flight::land:178 Flight::position:183 Flight::wait_idle:191
   inline tests (13)
 - src-tauri/src/highlight.rs — Rust → the highlight windows: the ring around the element Mate points at, the beam from Mate, the step badge and the X-ray scan of a look (src/highlight.ts is the other end).
   BURST_EVENT:16 HighlightMsg:30 Rect:53 Point:62 Step:68 HighlightError:94 label:127 show:135
@@ -314,8 +314,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Proxy::watch_guest_usage:317 Proxy::watch_rejected:327 Proxy::guest_token:358 Proxy::redeem_login:388 Proxy::respond:405 Proxy::speak:465 Proxy::+3:489
   inline tests (2)
 - src-tauri/src/ptt.rs — The push-to-talk driver (spike S2): one thread feeds the keyboard hook's events to `mm_core::ptt::Ptt` and wakes every 33 ms while a press or recording is pending.
-  click:48 set_ptt_key:56 is_ctrl_talk_key:63 set_lesson_chord:68 set_ptt_mode:76 KeyTapGuard:89 subscribe_keys:135 PttDriver:144^
-  Silencer:144^ probe_if_requested:144^ spawn:144^
+  click:48 set_ptt_key:56 is_ctrl_talk_key:63 set_lesson_chord:68 set_ptt_mode:76 KeyTapGuard:89 subscribe_keys:135 PttDriver:143^
+  Silencer:143^ probe_if_requested:143^
 - src-tauri/src/ptt/driver.rs — The running driver.
   PttDriver:4 PttDriver::silencer:12 Silencer:19 Silencer::silence:23 spawn:40 spawn_timed:48 probe_if_requested:202
 - src-tauri/src/ptt/feed.rs — Hook events and wake-ups as `PttInput`s on one clock, and whether a session is on (between Start and Stop or Cancel).
@@ -721,10 +721,10 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 
 - `auth_providers` src-tauri/src/auth.rs:137 <- src/settings/account.ts:213
 - `auth_status` src-tauri/src/auth.rs:172 <- src/settings/account.ts:239
-- `card_save_captioned` src-tauri/src/card.rs:528 <- src/card-keepsake.ts:8, src/card.ts:246
-- `card_show` src-tauri/src/card.rs:502 <- src/home/lessons.ts:8
-- `cards_list` src-tauri/src/card.rs:492 <- src/home/lessons.ts:6
-- `cards_open_folder` src-tauri/src/card.rs:541 <- src/home/lessons.ts:10
+- `card_save_captioned` src-tauri/src/card.rs:520 <- src/card-keepsake.ts:8, src/card.ts:246
+- `card_show` src-tauri/src/card.rs:494 <- src/home/lessons.ts:8
+- `cards_list` src-tauri/src/card.rs:484 <- src/home/lessons.ts:6
+- `cards_open_folder` src-tauri/src/card.rs:533 <- src/home/lessons.ts:10
 - `chat_clear` src-tauri/src/chat.rs:338 <- src/chat.ts:201
 - `chat_send` src-tauri/src/chat.rs:308 <- src/chat.ts:186
 - `chat_subscribe` src-tauri/src/chat.rs:289 <- src/chat.ts:225
@@ -770,14 +770,14 @@ File names declared as Rust string constants (read or written by the app).
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
 - `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:573, src/settings.ts:156, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
-- `card-ready`: ts emit src/card-page.ts:30; rs listen src-tauri/src/card.rs:69; const src-tauri/src/card.rs:38, src/card.ts:39
+- `card-ready`: ts emit src/card-page.ts:30; rs listen src-tauri/src/card.rs:68; const src-tauri/src/card.rs:37, src/card.ts:39
 - `debug`: rs emit src-tauri/src/debug_view.rs:153; ts listen src/debug.ts:68; const src-tauri/src/debug_view.rs:18
 - `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:594; const src-tauri/src/explain.rs:39
 - `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:572, src/signin.ts:106; const src-tauri/src/signin.rs:18
 - `highlight`: rs emit src-tauri/src/highlight.rs:160,166,302, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:582, src/mate.ts:547; const src-tauri/src/highlight.rs:15
 - `highlight-burst`: rs emit src-tauri/src/highlight.rs:228; ts listen src/highlight.ts:587; const src-tauri/src/highlight.rs:16, src/highlight/geometry.ts:106
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:582
-- `lesson-card`: rs emit src-tauri/src/card.rs:470; ts listen src/card-page.ts:26; const src-tauri/src/card.rs:37, src/card.ts:37
+- `lesson-card`: rs emit src-tauri/src/card.rs:462; ts listen src/card-page.ts:26; const src-tauri/src/card.rs:36, src/card.ts:37
 - `lesson-interrupt`: rs emit src-tauri/src/voice.rs:527; ts listen src/mate.ts:336; const src/mate.ts:40
 - `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:553
 - `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:552
@@ -821,7 +821,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.cancelled`: rs src-tauri/src/auth.rs:216,259,330,429; ts src/settings/account.ts:75
 - `auth.failed`: rs src-tauri/src/auth.rs:215,225,256,360,361,363,364,387,391,404,425; ts src/settings/account.ts:75,263,266
 - `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:146, src/settings/account.ts:75, src/signin.ts:136
-- `card.operation_failed`: rs src-tauri/src/card.rs:481
+- `card.operation_failed`: rs src-tauri/src/card.rs:473
 - `chat.title`: rs src-tauri/src/chat.rs:255; ts src/chat.ts:211
 - `mate.explain_question`: rs src-tauri/src/explain.rs:315
 - `open.app_browser`: rs crates/mm-core/src/matescript/open.rs:40

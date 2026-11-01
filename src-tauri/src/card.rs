@@ -18,7 +18,6 @@ use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use base64::Engine;
 use mm_core::constants::{APP_NAME, ROBOT_NAME};
 use serde::Serialize;
 use serde_json::Value;
@@ -194,13 +193,6 @@ pub(crate) async fn make(app: AppHandle, question: String, steps: Vec<String>) {
         },
     )
     .await;
-}
-
-fn data_url(png: &[u8]) -> String {
-    format!(
-        "data:image/png;base64,{}",
-        base64::engine::general_purpose::STANDARD.encode(png)
-    )
 }
 
 /// Glimmer's wording for the card, or None when it failed or wrote no usable card (logged,

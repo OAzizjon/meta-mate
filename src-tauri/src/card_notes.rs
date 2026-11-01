@@ -1,6 +1,7 @@
 //! Versioned keepsake sidecars; paths come only from validated local stems.
 
 use base64::Engine;
+use mm_core::shot::png_data_url;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::{self, Read, Write};
@@ -109,7 +110,7 @@ pub(super) fn image(folder: &Path, card: &SavedCard, limit: usize) -> Option<Str
     let bytes = bounded(folder, card.image.as_ref()?, limit).ok()?;
     bytes
         .starts_with(PNG_SIGNATURE)
-        .then(|| super::data_url(&bytes))
+        .then(|| png_data_url(&bytes))
 }
 
 fn thumbnail(bytes: &[u8]) -> io::Result<Vec<u8>> {
@@ -175,7 +176,7 @@ fn thumb(folder: &Path, card: &SavedCard, remaining: &mut usize) -> Option<Strin
     let bytes = bounded(folder, &name, THUMB_LIMIT).ok()?;
     bytes
         .starts_with(PNG_SIGNATURE)
-        .then(|| super::data_url(&bytes))
+        .then(|| png_data_url(&bytes))
 }
 
 pub(super) fn list(folder: &Path) -> Vec<CardNote> {

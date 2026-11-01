@@ -140,8 +140,7 @@ mod driver;
 mod feed;
 
 pub(crate) use driver::spawn_timed;
-#[allow(unused_imports)] // `spawn` was public before the split; kept for callers.
-pub use driver::{PttDriver, Silencer, probe_if_requested, spawn};
+pub use driver::{PttDriver, Silencer, probe_if_requested};
 use feed::Feed;
 
 #[cfg(test)]

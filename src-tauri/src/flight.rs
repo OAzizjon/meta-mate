@@ -94,7 +94,6 @@ impl Schedule {
         self.pending.is_none() && !self.closed
     }
 
-    #[allow(dead_code)] // used by wait_idle
     fn idle(&self) -> bool {
         self.pending.is_none() && !self.flying && !self.dragging
     }
@@ -186,7 +185,6 @@ impl Flight {
     }
 
     /// For the teacher (Day 5), which captures right after Mate moves.
-    #[allow(dead_code)]
     /// Waits up to `timeout` for Mate to stop moving; true when he has. Never call it on
     /// the thread that owns Mate's window: every frame's SetWindowPos waits for that
     /// thread, so the flight would stall until the timeout.

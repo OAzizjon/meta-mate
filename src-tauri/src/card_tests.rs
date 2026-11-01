@@ -1,3 +1,5 @@
+use base64::Engine;
+use mm_core::shot::png_data_url;
 use serde_json::json;
 use std::fs;
 
@@ -274,7 +276,7 @@ fn the_card_has_the_shape_the_page_expects() {
         id: "Bigger text".into(),
         title: "Bigger text".into(),
         steps: vec!["Open Settings.".into()],
-        image: data_url(b"\x89PNG"),
+        image: png_data_url(b"\x89PNG"),
         locale: "ru".into(),
         words_by: WordsBy::Glimmer,
     };
@@ -325,10 +327,10 @@ fn sidecars_round_trip_text_and_captioned_images() {
     assert_eq!(fs::read(dir.join("text.png")).unwrap(), png);
     let thumb = fs::read(dir.join("text.thumb.png")).unwrap();
     assert_png_size(&thumb, 360, 480);
-    assert_eq!(notes::list(&dir)[0].thumb, Some(data_url(&thumb)));
+    assert_eq!(notes::list(&dir)[0].thumb, Some(png_data_url(&thumb)));
     assert_eq!(
         notes::image(&dir, &loaded, PNG_MAX_BYTES),
-        Some(data_url(&png))
+        Some(png_data_url(&png))
     );
     assert!(notes::save_captioned(&dir, "missing", &encoded).is_err());
     let _ = fs::remove_dir_all(dir);
@@ -416,7 +418,7 @@ fn first_save_downscales_and_captioning_replaces_the_thumbnail() {
     let replaced = fs::read(dir.join("card.thumb.png")).unwrap();
     assert_png_size(&replaced, 90, 120);
     assert_ne!(replaced, thumb);
-    assert_eq!(notes::list(&dir)[0].thumb, Some(data_url(&replaced)));
+    assert_eq!(notes::list(&dir)[0].thumb, Some(png_data_url(&replaced)));
     let _ = fs::remove_dir_all(dir);
 }
 
