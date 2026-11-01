@@ -26,8 +26,8 @@
           <a href="#scam-check">Scam check</a>
           <a href="#safety-and-privacy">Safety &amp; privacy</a>
           <a href="#built-with-meta">Built with Meta</a>
-          <a class="nav-cta" href="#download">Download</a>
         </nav>
+        <a class="nav-cta header-cta" href="#download">Download</a>
       </div>
     </header>
 
@@ -42,11 +42,22 @@
             <div class="hero-grid">
               <div class="hero-copy">
                 <p class="eyebrow">Peace of mind for you, confidence for your parent — powered by Meta Muse Spark, Wonder, Voice and SAM 3.1.</p>
-                <h1 id="hero-heading">Mate lights the button. Your parent clicks it.</h1>
+                <!-- Each word is wrapped for the intro's slam-in stagger; the
+                     delay comes from nth-child selectors (inline --i is blocked by the CSP). -->
+                <h1 id="hero-heading"><span class="w">Mate</span> <span class="w">lights</span> <span class="w">the</span> <span class="w">button.</span> <span class="w">Your</span> <span class="w">parent</span> <span class="w">clicks</span> <span class="w">it.</span></h1>
                 <p class="hero-sentence">
                   Mate is a small light-bulb helper for Windows who flies to the right button in the app they are using, guides your parent step by step, and waits for them to click—never pressing Pay or Delete.
                 </p>
                 <div class="hero-actions">
+                  <span class="comic-burst intro-click" aria-hidden="true">
+                    <svg viewBox="0 0 120 64" width="96" height="52" focusable="false">
+                      <polygon
+                        class="comic-burst-polygon"
+                        points="60,3 74,14 96,6 91,23 116,28 97,39 112,55 86,51 77,61 60,52 43,61 34,51 8,55 23,39 4,28 29,23 24,6 46,14"
+                      />
+                    </svg>
+                    <span class="comic-burst-word">CLICK!</span>
+                  </span>
                   <a class="button" href="https://github.com/OAzizjon/meta-mate/releases/latest">Download for Windows</a>
                   <span class="hero-note">Windows 10 &amp; 11 (x64) only · Hold Ctrl or click Mate to talk</span>
                 </div>
@@ -76,6 +87,7 @@
               </p>
             </div>
           </div>
+          <div class="intro-beam" aria-hidden="true"></div>
         </div>
       </section>
 
@@ -371,42 +383,42 @@
     <footer class="site-footer">
       <div class="container footer-inner">
         <nav class="panel-nav" aria-label="Comic panel navigation">
-          <div class="progress-track" aria-hidden="true">
+          <div class="progress-track" role="slider" tabindex="0" aria-label="Comic panel progress" aria-valuemin="1" aria-valuemax="7" aria-valuenow="1">
             <span class="progress-fill" id="progress-fill" data-step="1"></span>
           </div>
           <ol class="panel-dots">
             <li>
-              <a class="panel-dot" href="#hero" aria-label="Panel 1 of 7: Mate lights the button" aria-current="step">
+              <a class="panel-dot" href="#hero" data-label="Mate lights the button" aria-label="Panel 1 of 7: Mate lights the button" aria-current="step">
                 <span aria-hidden="true">1</span>
               </a>
             </li>
             <li>
-              <a class="panel-dot" href="#how-it-works" aria-label="Panel 2 of 7: How it works">
+              <a class="panel-dot" href="#how-it-works" data-label="How it works" aria-label="Panel 2 of 7: How it works">
                 <span aria-hidden="true">2</span>
               </a>
             </li>
             <li>
-              <a class="panel-dot" href="#lesson-cards" aria-label="Panel 3 of 7: Keepsake lesson cards">
+              <a class="panel-dot" href="#lesson-cards" data-label="Keepsake lesson cards" aria-label="Panel 3 of 7: Keepsake lesson cards">
                 <span aria-hidden="true">3</span>
               </a>
             </li>
             <li>
-              <a class="panel-dot" href="#scam-check" aria-label="Panel 4 of 7: Scam check">
+              <a class="panel-dot" href="#scam-check" data-label="Scam check" aria-label="Panel 4 of 7: Scam check">
                 <span aria-hidden="true">4</span>
               </a>
             </li>
             <li>
-              <a class="panel-dot" href="#safety-and-privacy" aria-label="Panel 5 of 7: Safety and privacy">
+              <a class="panel-dot" href="#safety-and-privacy" data-label="Safety and privacy" aria-label="Panel 5 of 7: Safety and privacy">
                 <span aria-hidden="true">5</span>
               </a>
             </li>
             <li>
-              <a class="panel-dot" href="#built-with-meta" aria-label="Panel 6 of 7: Built with Meta">
+              <a class="panel-dot" href="#built-with-meta" data-label="Built with Meta" aria-label="Panel 6 of 7: Built with Meta">
                 <span aria-hidden="true">6</span>
               </a>
             </li>
             <li>
-              <a class="panel-dot" href="#download" aria-label="Panel 7 of 7: Download for Windows">
+              <a class="panel-dot" href="#download" data-label="Download" aria-label="Panel 7 of 7: Download for Windows">
                 <span aria-hidden="true">7</span>
               </a>
             </li>
@@ -415,6 +427,25 @@
         <p class="footer-motto">MetaMate — Mate waits; you click.</p>
       </div>
     </footer>
+
+    <!-- Fixed edge arrows for the horizontal strip (shown by main.js in horizontal mode). -->
+    <button class="panel-arrow panel-arrow-prev" type="button" aria-label="Previous panel" hidden>&larr;</button>
+    <button class="panel-arrow panel-arrow-next" type="button" aria-label="Next panel">&rarr;</button>
+
+    <!-- "How to turn the pages" hint; main.js shows it once per visitor in horizontal mode. -->
+    <div class="nav-hint" id="nav-hint">
+      <svg class="nav-hint-wheel" viewBox="0 0 40 58" width="30" height="44" aria-hidden="true" focusable="false">
+        <rect class="nav-hint-wheel-body" x="2" y="2" width="36" height="54" rx="16"></rect>
+        <line class="nav-hint-wheel-divider" x1="2" y1="29" x2="38" y2="29"></line>
+        <rect class="nav-hint-wheel-notch" x="17" y="9" width="6" height="12" rx="3"></rect>
+      </svg>
+      <span class="nav-hint-text">
+        <span class="nav-hint-line nav-hint-line-strong">Scroll or swipe to turn the page</span>
+        <span class="nav-hint-line">or use &larr; &rarr; keys and the arrows</span>
+      </span>
+      <span class="nav-hint-arrow" aria-hidden="true">&rarr;</span>
+      <button class="nav-hint-close" type="button" aria-label="Close navigation hint">&times;</button>
+    </div>
 
     <script src="main.js" defer></script>
   </body>

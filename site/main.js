@@ -10,6 +10,11 @@
   var dots = Array.prototype.slice.call(document.querySelectorAll('.panel-dot'));
   var hashLinks = Array.prototype.slice.call(document.querySelectorAll('a[href^="#"]'));
   var progressFill = document.getElementById('progress-fill');
+  var progressTrack = document.querySelector('.progress-track');
+  var prevArrow = document.querySelector('.panel-arrow-prev');
+  var nextArrow = document.querySelector('.panel-arrow-next');
+  var navHint = document.getElementById('nav-hint');
+  var navHintClose = navHint ? navHint.querySelector('.nav-hint-close') : null;
   if (!panels.length) return;
 
   var wideQuery = window.matchMedia ? window.matchMedia('(min-width: 700px)') : null;
@@ -80,6 +85,15 @@
     }
     if (progressFill) {
       progressFill.setAttribute('data-step', String(activeIndex + 1));
+    }
+    if (progressTrack) {
+      progressTrack.setAttribute('aria-valuenow', String(activeIndex + 1));
+    }
+    if (prevArrow) {
+      prevArrow.hidden = activeIndex <= 0;
+    }
+    if (nextArrow) {
+      nextArrow.hidden = activeIndex >= panels.length - 1;
     }
   }
 
@@ -223,7 +237,12 @@
     'scroll',
     function () {
       if (supportsSnap && wideQuery && wideQuery.matches) {
-        updateIndicators(getCurrentIndex());
+        var activeIndex = getCurrentIndex();
+        updateIndicators(activeIndex);
+        // The navigation hint is only needed until the first panel change.
+        if (hintVisible && activeIndex !== 0) {
+          hideNavHint();
+        }
       }
     },
     { passive: true }
@@ -315,6 +334,104 @@
     }
   });
 
+  // Big edge arrows: one panel per click, hidden on the first/last panel.
+  if (prevArrow) {
+    prevArrow.addEventListener('click', function () {
+      if (!isHorizontalMode()) return;
+      scrollToPanel(getCurrentIndex() - 1, false);
+    });
+  }
+  if (nextArrow) {
+    nextArrow.addEventListener('click', function () {
+      if (!isHorizontalMode()) return;
+      scrollToPanel(getCurrentIndex() + 1, false);
+    });
+  }
+
+  // Clickable progress bar: jump to the panel nearest the click.
+  if (progressTrack) {
+    progressTrack.addEventListener('click', function (event) {
+      if (!isHorizontalMode()) return;
+      var rect = progressTrack.getBoundingClientRect();
+      var ratio = rect.width ? (event.clientX - rect.left) / rect.width : 0;
+      scrollToPanel(Math.round(ratio * (panels.length - 1)), false);
+    });
+  }
+
+  // "How to turn the pages" hint: once per visitor (localStorage), or once per
+  // load when storage is unavailable; hides on first panel change, on close,
+  // or after 10 s.
+  var HINT_KEY = 'mm-site-nav-hint';
+  var hintVisible = false;
+  var hintTimer = 0;
+
+  function hintWasSeen() {
+    try {
+      return window.localStorage.getItem(HINT_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function markHintSeen() {
+    try {
+      window.localStorage.setItem(HINT_KEY, '1');
+    } catch (err) {
+      // No storage: the hint falls back to once per load, nothing to persist.
+    }
+  }
+
+  function showNavHint() {
+    if (!navHint || hintVisible || hintWasSeen()) return;
+    if (!isHorizontalMode() || getCurrentIndex() !== 0) return;
+    hintVisible = true;
+    markHintSeen();
+    navHint.classList.add('is-visible');
+    hintTimer = window.setTimeout(hideNavHint, 10000);
+  }
+
+  function hideNavHint() {
+    if (!hintVisible) return;
+    hintVisible = false;
+    if (hintTimer) {
+      window.clearTimeout(hintTimer);
+      hintTimer = 0;
+    }
+    navHint.classList.remove('is-visible');
+  }
+
+  if (navHintClose) {
+    navHintClose.addEventListener('click', hideNavHint);
+  }
+
+  // Opening sequence: a short comic intro on the hero panel only (horizontal
+  // mode, first panel, motion allowed). A click or a key ends it at once.
+  var INTRO_MS = 1800;
+  var introActive = false;
+  var introTimer = 0;
+
+  function endIntro() {
+    if (!introActive) return;
+    introActive = false;
+    if (introTimer) {
+      window.clearTimeout(introTimer);
+      introTimer = 0;
+    }
+    document.documentElement.classList.remove('intro');
+    document.removeEventListener('pointerdown', endIntro, true);
+    document.removeEventListener('keydown', endIntro, true);
+  }
+
+  function startIntro() {
+    if (introActive || !isHorizontalMode() || prefersReducedMotion()) return;
+    if (getCurrentIndex() !== 0) return;
+    introActive = true;
+    document.documentElement.classList.add('intro');
+    document.addEventListener('pointerdown', endIntro, true);
+    document.addEventListener('keydown', endIntro, true);
+    introTimer = window.setTimeout(endIntro, INTRO_MS);
+  }
+
   syncWheelBinding();
   var initialIndex = resolveHashIndex(window.location.hash);
   if (isHorizontalMode()) {
@@ -324,6 +441,8 @@
     } else {
       updateIndicators(0);
     }
+    showNavHint();
+    startIntro();
   } else {
     updateIndicators(0);
   }
