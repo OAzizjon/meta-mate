@@ -65,6 +65,9 @@ pub(super) fn asks_open(words: &[&str], raw: &str) -> bool {
                     | "вы"
                     | "the"
                     | "a"
+                    | "my"
+                    | "up"
+                    | "мой"
                     | "мне"
             )
         })
@@ -115,7 +118,13 @@ pub(super) fn asks_open(words: &[&str], raw: &str) -> bool {
                 | "будильник"
                 | "почту"
                 | "календарь"
-                | "магазин"]
+                | "магазин"
+                | "браузер"
+                | "интернет"
+                | "хром"
+                | "chrome"
+                | "edge"
+                | "internet"]
                 | ["file", "explorer"]
                 | ["microsoft", "store"]
         )

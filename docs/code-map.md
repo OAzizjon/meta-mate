@@ -63,8 +63,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   APPS:11^ AppId:11^ OpenTarget:11^ Parser:12^ Mode:13^ Settings:13^ Bound:14^ Item:14^
   Level:14^ Point:14^ Say:14^ Sound:14^ Step:14^
 - crates/mm-core/src/matescript/open.rs — Validated website and fixed Windows app targets; no shell input comes from the model.
-  AppId::spec:19 AppId::words:121 OpenTarget:141 OpenTarget::parse:150 OpenTarget::named_in:192 OpenTarget::host:240
-  tests: crates/mm-core/tests/open.rs (8)
+  AppId::spec:19 AppId::words:122 OpenTarget:153 OpenTarget::parse:162 OpenTarget::named_in:204 OpenTarget::host:252
+  tests: crates/mm-core/tests/open.rs (9)
 - crates/mm-core/src/matescript/parser.rs — Incremental, Unicode-safe MateScript parser for a single answer.
   Parser:16 Parser::new:34 Parser::push:54 Parser::finish:66 Parser::needs_point_refusal:84
 - crates/mm-core/src/matescript/sentence.rs
@@ -808,6 +808,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `card.operation_failed`: rs src-tauri/src/card.rs:481
 - `chat.title`: rs src-tauri/src/chat.rs:255; ts src/chat.ts:211
 - `mate.explain_question`: rs src-tauri/src/explain.rs:315
+- `open.app_browser`: rs crates/mm-core/src/matescript/open.rs:40
 - `open.app_calculator`: rs crates/mm-core/src/matescript/open.rs:29
 - `open.app_calendar`: rs crates/mm-core/src/matescript/open.rs:38
 - `open.app_camera`: rs crates/mm-core/src/matescript/open.rs:34
@@ -909,7 +910,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 279 | 36 |
+| crates/mm-core | 280 | 36 |
 | crates/mm-platform | 43 | 6 |
 | crates/mm-win32 | 62 | 11 |
 | src-tauri | 198 | 20 |

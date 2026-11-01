@@ -47,7 +47,7 @@ fn only_unambiguous_https_dns_addresses_are_valid() {
 
 #[test]
 fn app_targets_are_only_from_the_table() {
-    assert_eq!(APPS.len(), 11);
+    assert_eq!(APPS.len(), 12);
     for &(id, name, target, key) in APPS {
         assert_eq!(
             OpenTarget::parse(&format!("app:{name}")),
@@ -56,7 +56,7 @@ fn app_targets_are_only_from_the_table() {
         assert_eq!(id.spec(), (target, key));
     }
     for name in [
-        "browser",
+        "chrome.exe",
         "calc.exe",
         "Calculator",
         "paint --evil",
@@ -253,4 +253,23 @@ fn an_open_tag_must_name_what_the_person_asked_for() {
     assert!(opened("открой яндекс", "https://yandex.ru"));
     // An unknown site keeps the plain rule.
     assert!(opened("open example news", "https://www.example.com"));
+}
+
+#[test]
+fn the_browser_opens_by_name_in_both_languages() {
+    for question in [
+        "open browser",
+        "Open my browser",
+        "open the internet",
+        "open chrome",
+        "открой браузер",
+        "Открой интернет",
+        "открой хром",
+    ] {
+        assert_eq!(guess_intent(question), Intent::Chat, "{question}");
+        let opened = parse_with("Opening it.<open app:browser>", Some(question))
+            .iter()
+            .any(|item| matches!(item, Item::Open(_)));
+        assert!(opened, "{question}");
+    }
 }

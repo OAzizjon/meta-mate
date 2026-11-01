@@ -37,6 +37,7 @@ apps! {
     Mail, "mail", "outlookmail:", "open.app_mail";
     Calendar, "calendar", "outlookcal:", "open.app_calendar";
     Store, "store", "ms-windows-store:", "open.app_store";
+    Browser, "browser", "https://www.google.com", "open.app_browser";
 }
 
 /// Russian spellings of common sites, as people say them (stem, host label).
@@ -131,6 +132,17 @@ impl AppId {
             Self::Mail => &["mail", "email", "e-mail", "почт"],
             Self::Calendar => &["calendar", "календар"],
             Self::Store => &["store", "магазин"],
+            Self::Browser => &[
+                "browser",
+                "браузер",
+                "internet",
+                "интернет",
+                "chrome",
+                "хром",
+                "edge",
+                "эдж",
+                "web",
+            ],
         }
     }
 }
