@@ -47,6 +47,9 @@ pub fn wants_open(question: &str) -> bool {
 }
 
 pub(super) fn asks_open(words: &[&str], raw: &str) -> bool {
+    if crate::installed_apps::requested_app(raw).is_some() {
+        return true;
+    }
     let request: Vec<_> = words
         .iter()
         .copied()

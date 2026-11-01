@@ -542,7 +542,7 @@ fn flat_rewalk(requires_consent: bool, flat: bool, rewalks: u32) -> Option<std::
 }
 
 /// Clicks on Mate (drag.rs) while a consent question is shown: when each one's press
-/// reached us. One question at a time (`LOOKING`).
+/// reached us. One question at a time (`confirm_question`).
 static CONSENT_CLICKS: std::sync::Mutex<Option<std::sync::mpsc::Sender<std::time::Instant>>> =
     std::sync::Mutex::new(None);
 
@@ -587,10 +587,31 @@ pub(crate) fn confirm_look(
     target: mm_platform::TargetWindow,
     wanted: &dyn Fn() -> bool,
 ) -> bool {
-    use std::time::{Duration, Instant};
-    use tauri::Manager;
+    confirm_question(Some(target), wanted, || {
+        use tauri::Manager;
+        app.state::<crate::answer_stream::AnswerStream>().send(
+            crate::answer_stream::AnswerMsg::Line {
+                generation,
+                key: "robot.look_consent",
+            },
+        );
+    })
+}
 
-    use crate::answer_stream::{AnswerMsg, AnswerStream};
+/// Shared physical-input consent. App opening has no foreground-window dependency.
+pub(crate) fn confirm_question(
+    target: Option<mm_platform::TargetWindow>,
+    wanted: &dyn Fn() -> bool,
+    show: impl FnOnce(),
+) -> bool {
+    use std::time::{Duration, Instant};
+    static QUESTION: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let Ok(_question) = QUESTION.try_lock() else {
+        return false;
+    };
+    if !wanted() {
+        return false;
+    }
     let (send, receive) = std::sync::mpsc::channel();
     let Ok(_hook) = mm_win32::keyboard::start(send) else {
         return false;
@@ -602,19 +623,15 @@ pub(crate) fn confirm_look(
         return false;
     };
     let clicks = ConsentClicks::open();
-    let stream = app.state::<AnswerStream>();
-    stream.send(AnswerMsg::Line {
-        generation,
-        key: "robot.look_consent",
-    });
+    show();
     let offered = Instant::now();
-    let mut released = false;
+    let mut released = !mm_win32::keyboard::key_down(0x77);
     // Recent left presses (when, injected), oldest first: a double click on Mate sends two
     // clicks, and each must find its own press (Gemini #1461).
     let mut recent: std::collections::VecDeque<(Instant, bool)> = std::collections::VecDeque::new();
     while wanted() && offered.elapsed() < Duration::from_secs(30) {
         let front = mm_win32::window::foreground_target(&[]).map(|front| front.window);
-        if front != Some(target) {
+        if target.is_some() && front != target {
             return false;
         }
         // A press's hook event is queued before its click can reach us: take the click first.
@@ -646,7 +663,7 @@ pub(crate) fn confirm_look(
 }
 
 fn consent_key_answer(
-    target: mm_platform::TargetWindow,
+    target: impl Into<Option<mm_platform::TargetWindow>>,
     offered: std::time::Instant,
     event: mm_win32::keyboard::KeyEvent,
     released: &mut bool,
@@ -654,11 +671,13 @@ fn consent_key_answer(
     if event.injected || event.at <= offered {
         return None;
     }
-    let Some(front) = event.foreground else {
-        return Some(false);
-    };
-    if front.handle != target.handle || front.process_id != target.process_id {
-        return Some(false);
+    if let Some(target) = target.into() {
+        let Some(front) = event.foreground else {
+            return Some(false);
+        };
+        if front.handle != target.handle || front.process_id != target.process_id {
+            return Some(false);
+        }
     }
     if event.vk == 0x1b && event.down {
         return Some(false);
@@ -686,13 +705,14 @@ const CONSENT_PRESS_MAX_MS: u64 = 1500;
 /// no when the target is not in front. Another click (software's, one held since before the
 /// question, one too soon to have been read) is no answer.
 fn consent_click_answer(
-    target: mm_platform::TargetWindow,
+    target: impl Into<Option<mm_platform::TargetWindow>>,
     offered: std::time::Instant,
     press: Option<(std::time::Instant, bool)>,
     clicked: std::time::Instant,
     front: Option<mm_platform::TargetWindow>,
 ) -> Option<bool> {
-    if front != Some(target) {
+    let target = target.into();
+    if target.is_some() && front != target {
         return Some(false);
     }
     press
@@ -1184,6 +1204,49 @@ mod tests {
         event.foreground = None;
         assert_eq!(
             consent_key_answer(target, offered, event, &mut released),
+            Some(false)
+        );
+    }
+
+    #[test]
+    fn app_consent_needs_fresh_physical_input_but_no_foreground() {
+        use std::time::{Duration, Instant};
+        let offered = Instant::now();
+        let pressed = offered + Duration::from_millis(CONSENT_READ_MS + 1);
+        let clicked = pressed + Duration::from_millis(10);
+        assert_eq!(
+            consent_click_answer(None, offered, Some((pressed, false)), clicked, None),
+            Some(true)
+        );
+        assert_eq!(
+            consent_click_answer(None, offered, Some((pressed, true)), clicked, None),
+            None
+        );
+        assert_eq!(
+            consent_click_answer(None, offered, Some((offered, false)), clicked, None),
+            None
+        );
+        assert_eq!(
+            consent_click_answer(None, offered, None, clicked, None),
+            None
+        );
+        let mut released = true;
+        let mut key = mm_win32::keyboard::KeyEvent {
+            foreground: None,
+            vk: 0x77,
+            down: true,
+            injected: true,
+            at: pressed,
+        };
+        assert_eq!(consent_key_answer(None, offered, key, &mut released), None);
+        key.injected = false;
+        assert_eq!(
+            consent_key_answer(None, offered, key, &mut released),
+            Some(true)
+        );
+        key.vk = 0x1b;
+        assert_eq!(
+            consent_key_answer(None, offered, key, &mut released),
             Some(false)
         );
     }

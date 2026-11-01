@@ -790,6 +790,11 @@ async fn answer(
     }
     let locale = stream.locale();
     let intent = route.unwrap_or_else(|| guess_intent(&question));
+    if intent == Intent::Chat
+        && crate::opening::offer_installed(&app, &proxy, generation, &question, &locale).await
+    {
+        return;
+    }
     if tray_target == Some(None)
         && matches!(
             intent,
@@ -935,15 +940,25 @@ async fn answer(
             Err(_) => return,
         }
     } else {
-        let body = chat_request(
+        let mut body = chat_request(
             ModelChoice::from(crate::settings::model(&app)),
             ReasoningEffort::SPOKEN,
             Some(&locale),
             &question,
         );
+        let missing_app = mm_core::installed_apps::requested_app(&question);
+        if let Some(target) = &missing_app {
+            let line = crate::locale_text(&locale, "open.not_installed").replace("{name}", target);
+            if let Some(instructions) = body["instructions"].as_str() {
+                body["instructions"] = serde_json::Value::String(format!(
+                    "{instructions}\nRust found no matching installed app. Start your answer with this literal sentence: {line}\nDo not emit an <open> tag."
+                ));
+            }
+        }
         let settings = Settings {
             language: locale.clone(),
-            open_request: mm_core::api::intent::wants_open(&question).then(|| question.clone()),
+            open_request: (missing_app.is_none() && mm_core::api::intent::wants_open(&question))
+                .then(|| question.clone()),
             ..Settings::default()
         };
         let turn = usize::try_from(generation).unwrap_or(0) % THINKING.len();

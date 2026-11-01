@@ -6,6 +6,7 @@ pub mod constants;
 pub mod drag;
 pub mod flight;
 pub mod geom;
+pub mod installed_apps;
 pub mod matescript;
 pub mod mic;
 pub mod phrases;

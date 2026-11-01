@@ -18,6 +18,7 @@ pub mod monitors;
 pub mod mouse;
 pub mod overlay;
 pub mod shell;
+pub mod start_menu;
 pub mod time;
 pub mod uia;
 pub mod window;

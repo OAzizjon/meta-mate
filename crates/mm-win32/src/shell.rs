@@ -58,6 +58,11 @@ fn execute(target: &str) -> bool {
     result.0 as isize > 32
 }
 
+// Only the Start Menu enumerator can supply a shortcut path.
+pub(crate) fn open_shortcut_path(path: &str) -> bool {
+    !path.chars().any(|ch| ch.is_control() || ch == '"') && execute(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::openable;
