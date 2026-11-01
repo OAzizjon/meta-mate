@@ -404,6 +404,218 @@
     navHintClose.addEventListener('click', hideNavHint);
   }
 
+  // Beam Hunt demo: a fake Writer window where Mate points at a toolbar button.
+  // Small state machine: idle -> aimed -> nice (auto-reset after 3 s); a wrong
+  // click only changes the bubble text. All motion is CSS transform/opacity;
+  // JS only toggles classes and positions the absolute overlays via the CSSOM.
+  function initBeamHunt() {
+    var root = document.getElementById('beam-hunt');
+    if (!root) return;
+    var winEl = root.querySelector('.beam-window');
+    if (!winEl) return;
+    var chips = Array.prototype.slice.call(root.querySelectorAll('.beam-chip'));
+    var buttons = Array.prototype.slice.call(root.querySelectorAll('.beam-btn'));
+    var cone = winEl.querySelector('.beam-cone');
+    var ring = winEl.querySelector('.beam-ring');
+    var mate = winEl.querySelector('.beam-mate');
+    var bubble = winEl.querySelector('.beam-bubble');
+    var burst = winEl.querySelector('.beam-burst');
+    var bubbleText = bubble ? bubble.querySelector('p') : null;
+    if (!chips.length || !buttons.length || !cone || !ring || !bubbleText || !burst) return;
+
+    var SAY = {
+      save: 'Right here: the disk button at the top.',
+      print: 'Right here: the printer button.'
+    };
+    var WRONG = 'Almost! The light shows where.';
+    var state = 'idle'; // idle | aimed | nice
+    var aimKey = '';
+    var resetTimer = 0;
+    var hintTimer = 0;
+
+    function clearTimers() {
+      if (resetTimer) {
+        window.clearTimeout(resetTimer);
+        resetTimer = 0;
+      }
+      if (hintTimer) {
+        window.clearTimeout(hintTimer);
+        hintTimer = 0;
+      }
+    }
+
+    function buttonFor(key) {
+      for (var i = 0; i < buttons.length; i += 1) {
+        if (buttons[i].getAttribute('data-beam-btn') === key) return buttons[i];
+      }
+      return null;
+    }
+
+    function setLit(key) {
+      for (var i = 0; i < buttons.length; i += 1) {
+        buttons[i].classList.toggle(
+          'is-lit',
+          buttons[i].getAttribute('data-beam-btn') === key
+        );
+      }
+    }
+
+    function aim(key) {
+      var btn = buttonFor(key);
+      if (!btn) return;
+      clearTimers();
+      state = 'aimed';
+      aimKey = key;
+      var wr = winEl.getBoundingClientRect();
+      var br = btn.getBoundingClientRect();
+      var ox = 34;
+      var oy = 68;
+      if (mate) {
+        var mr = mate.getBoundingClientRect();
+        ox = mr.left + mr.width / 2 - wr.left;
+        oy = mr.top + mr.height / 2 - wr.top;
+      }
+      var dx = br.left + br.width / 2 - wr.left - ox;
+      var dy = br.top + br.height / 2 - wr.top - oy;
+      var dist = Math.max(48, Math.sqrt(dx * dx + dy * dy) - 26);
+      cone.style.left = ox.toFixed(1) + 'px';
+      cone.style.top = oy.toFixed(1) + 'px';
+      cone.style.width = dist.toFixed(1) + 'px';
+      cone.style.transform =
+        'rotate(' + ((Math.atan2(dy, dx) * 180) / Math.PI).toFixed(1) + 'deg)';
+      ring.style.left = (br.left - wr.left - 6).toFixed(1) + 'px';
+      ring.style.top = (br.top - wr.top - 6).toFixed(1) + 'px';
+      ring.style.width = (br.width + 12).toFixed(1) + 'px';
+      ring.style.height = (br.height + 12).toFixed(1) + 'px';
+      setLit(key);
+      bubbleText.textContent = SAY[key] || SAY.save;
+      winEl.classList.remove('is-nice');
+      winEl.classList.add('is-aimed');
+    }
+
+    function reset() {
+      clearTimers();
+      state = 'idle';
+      aimKey = '';
+      winEl.classList.remove('is-aimed', 'is-nice');
+      setLit('');
+      bubbleText.textContent = '';
+    }
+
+    function onButtonClick(btn) {
+      if (state !== 'aimed') return;
+      if (btn.getAttribute('data-beam-btn') === aimKey) {
+        state = 'nice';
+        var wr = winEl.getBoundingClientRect();
+        var br = btn.getBoundingClientRect();
+        burst.style.left = (br.left + br.width / 2 - wr.left).toFixed(1) + 'px';
+        burst.style.top = (br.top + br.height / 2 - wr.top).toFixed(1) + 'px';
+        setLit('');
+        winEl.classList.remove('is-aimed');
+        winEl.classList.add('is-nice');
+        resetTimer = window.setTimeout(reset, 3000);
+      } else {
+        bubbleText.textContent = WRONG;
+        if (hintTimer) window.clearTimeout(hintTimer);
+        hintTimer = window.setTimeout(function () {
+          if (state === 'aimed') bubbleText.textContent = SAY[aimKey] || SAY.save;
+        }, 1800);
+      }
+    }
+
+    for (var c = 0; c < chips.length; c += 1) {
+      chips[c].addEventListener('click', function () {
+        if (state === 'nice') return;
+        aim(this.getAttribute('data-beam-ask'));
+      });
+    }
+    for (var b = 0; b < buttons.length; b += 1) {
+      buttons[b].addEventListener('click', function () {
+        onButtonClick(this);
+      });
+    }
+  }
+
+  // Scam Stamp demo: three flags appear one by one on the fictional e-mail,
+  // then a rubber stamp slams on. Small state machine:
+  // idle -> running -> done; "Try again" returns to idle.
+  function initScamDemo() {
+    var root = document.getElementById('scam-demo');
+    if (!root) return;
+    var card = root.querySelector('.scam-card');
+    var ask = root.querySelector('.scam-ask');
+    var retry = root.querySelector('.scam-retry');
+    if (!card || !ask) return;
+
+    var FLAG_MS = 500;
+    var timers = [];
+    var state = 'idle'; // idle | running | done
+
+    function clearTimers() {
+      for (var i = 0; i < timers.length; i += 1) {
+        window.clearTimeout(timers[i]);
+      }
+      timers = [];
+    }
+
+    function later(fn, ms) {
+      timers.push(window.setTimeout(fn, ms));
+    }
+
+    function start() {
+      if (state !== 'idle') return;
+      state = 'running';
+      ask.disabled = true;
+      for (var n = 1; n <= 3; n += 1) {
+        later(
+          (function (index) {
+            return function () {
+              card.classList.add('is-flag-' + index);
+              later(function () {
+                card.classList.add('is-reason-' + index);
+              }, 220);
+            };
+          })(n),
+          n * FLAG_MS
+        );
+      }
+      later(function () {
+        card.classList.add('is-stamped');
+        root.classList.add('is-done');
+        if (retry) retry.hidden = false;
+        state = 'done';
+      }, 3 * FLAG_MS + 420);
+    }
+
+    function reset() {
+      clearTimers();
+      state = 'idle';
+      ask.disabled = false;
+      root.classList.remove('is-done');
+      card.classList.remove(
+        'is-stamped',
+        'is-flag-1',
+        'is-flag-2',
+        'is-flag-3',
+        'is-reason-1',
+        'is-reason-2',
+        'is-reason-3'
+      );
+      if (retry) retry.hidden = true;
+    }
+
+    ask.addEventListener('click', start);
+    if (retry) {
+      retry.addEventListener('click', function (event) {
+        event.preventDefault();
+        reset();
+      });
+    }
+  }
+
+  initBeamHunt();
+  initScamDemo();
+
   // Opening sequence: a short comic intro on the hero panel only (horizontal
   // mode, first panel, motion allowed). A click or a key ends it at once.
   var INTRO_MS = 1800;

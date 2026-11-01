@@ -136,6 +136,59 @@
                 </p>
               </li>
             </ol>
+            <div class="beam-hunt" id="beam-hunt">
+              <div class="beam-hunt-ask">
+                <button class="beam-chip beam-chip-lg" type="button" data-beam-ask="save">Try it: ask &ldquo;Where is Save?&rdquo;</button>
+                <button class="beam-chip" type="button" data-beam-ask="print">Where is Print?</button>
+              </div>
+              <div class="beam-window">
+                <div class="beam-window-title">
+                  <span class="beam-dot" aria-hidden="true"></span>
+                  <span class="beam-dot" aria-hidden="true"></span>
+                  <span class="beam-dot" aria-hidden="true"></span>
+                  <span>Letter.doc &mdash; Writer</span>
+                </div>
+                <div class="beam-toolbar">
+                  <button class="beam-btn" type="button" data-beam-btn="new">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-5L16 4l4 4L9 19l-5 1z" /><path d="M14 6l4 4" /></svg>
+                    <span class="beam-label">New</span>
+                  </button>
+                  <button class="beam-btn" type="button" data-beam-btn="open">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h7l2 2h9v11H3z" /><path d="M3 6V5h7" /></svg>
+                    <span class="beam-label">Open</span>
+                  </button>
+                  <button class="beam-btn" type="button" data-beam-btn="save">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l4 4v14H5z" /><path d="M8 3v5h7V3" /><circle cx="12" cy="13" r="3" /></svg>
+                    <span class="beam-label">Save</span>
+                  </button>
+                  <button class="beam-btn" type="button" data-beam-btn="print">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8V3h10v5" /><path d="M5 8h14v8h-3v5H8v-5H5z" /></svg>
+                    <span class="beam-label">Print</span>
+                  </button>
+                  <button class="beam-btn" type="button" data-beam-btn="undo">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5L4 9l4 4" /><path d="M4 9h9a6 6 0 1 1 0 12h-3" /></svg>
+                    <span class="beam-label">Undo</span>
+                  </button>
+                  <button class="beam-btn" type="button" data-beam-btn="zoom">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6" /><path d="M16 16l5 5" /></svg>
+                    <span class="beam-label">Zoom</span>
+                  </button>
+                </div>
+                <img class="beam-mate" src="images/mate.png" alt="" width="48" height="48" aria-hidden="true" />
+                <div class="beam-cone" aria-hidden="true"></div>
+                <div class="beam-ring" aria-hidden="true"></div>
+                <div class="beam-bubble" aria-live="polite"><p></p></div>
+                <div class="beam-burst" aria-hidden="true">
+                  <svg viewBox="0 0 120 64" width="92" height="50" focusable="false">
+                    <polygon
+                      class="comic-burst-polygon"
+                      points="60,3 74,14 96,6 91,23 116,28 97,39 112,55 86,51 77,61 60,52 43,61 34,51 8,55 23,39 4,28 29,23 24,6 46,14"
+                    />
+                  </svg>
+                  <span class="comic-burst-word">NICE!</span>
+                </div>
+              </div>
+            </div>
             <p class="panel-footnote">
               <strong>Also built in:</strong> ask Mate to open an app or site you name, let him ask what to call you on your first Home visit, revisit <strong>My lessons</strong> as captioned comic-page cards, or step through the <strong>Guide</strong> on Home one card at a time.
             </p>
@@ -221,6 +274,27 @@
                 <p class="feature-body">
                   Mate never clicks anything on screen and never tells the person to click a link, call a phone number, or pay. He shows what is there so your parent can stay safe without being rushed.
                 </p>
+              </div>
+            </div>
+            <div class="scam-demo" id="scam-demo">
+              <div class="scam-card">
+                <div class="scam-mail">
+                  <p class="scam-line"><span class="scam-mail-label">From:</span> <span class="scam-flag" data-flag="1">Moon Cheese Club &lt;prize@moon-cheese.example&gt;</span><span class="scam-marker" data-flag="1">1</span></p>
+                  <p class="scam-line"><span class="scam-mail-label">Subject:</span> You won 900 moon pies!</p>
+                  <p class="scam-line">Dear Earthling, <span class="scam-flag" data-flag="2">send your password</span><span class="scam-marker" data-flag="2">2</span> to claim your cheese.</p>
+                  <p class="scam-line"><span class="scam-flag" data-flag="3">Reply by yesterday</span><span class="scam-marker" data-flag="3">3</span>, before the moon gets hungry!</p>
+                </div>
+                <ul class="scam-reasons">
+                  <li class="scam-reason" data-flag="1">The sender is a made-up club, not a real prize office.</li>
+                  <li class="scam-reason" data-flag="2">No honest company ever asks for your password by e-mail.</li>
+                  <li class="scam-reason" data-flag="3">&ldquo;Reply by yesterday&rdquo; is a fake deadline meant to rush you.</li>
+                </ul>
+                <div class="scam-stamp" aria-hidden="true">SCAM ALERT!</div>
+              </div>
+              <div class="scam-controls">
+                <button class="button scam-ask" type="button">Ask Mate: &ldquo;Is this safe?&rdquo;</button>
+                <p class="scam-caption">Mate spots the tricks. He never tells you to click, call or pay.</p>
+                <a class="scam-retry" href="#scam-check" hidden>Try again</a>
               </div>
             </div>
           </div>

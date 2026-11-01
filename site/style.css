@@ -20,6 +20,8 @@
   --burst-bg: #ffcf33;
   --burst-ink: #141b2d;
   --halftone-dot: rgba(20, 27, 45, 0.085);
+  --danger: #b42318;
+  --danger-soft: rgba(180, 35, 24, 0.12);
   --halftone-dot-alt: rgba(20, 27, 45, 0.1);
   --halftone-bulb: rgba(217, 148, 0, 0.22);
   --font-body: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -50,6 +52,8 @@
     --halftone-dot: rgba(255, 216, 102, 0.075);
     --halftone-dot-alt: rgba(148, 163, 184, 0.09);
     --halftone-bulb: rgba(255, 216, 102, 0.18);
+    --danger: #ff7a6e;
+    --danger-soft: rgba(255, 122, 110, 0.16);
   }
 }
 
@@ -75,6 +79,8 @@ a:hover { color: var(--accent-hover); }
 
 a:focus-visible,
 .button:focus-visible,
+.beam-chip:focus-visible,
+.beam-btn:focus-visible,
 .panel-arrow:focus-visible,
 .panel-dot:focus-visible,
 .progress-track:focus-visible,
@@ -596,6 +602,519 @@ a:focus-visible,
 .panel-footnote { margin: 16px 0 0; padding: 10px 14px; background: var(--card-bg); color: var(--text-muted); border: 2.5px solid var(--frame-ink); border-radius: 10px; box-shadow: 3px 3px 0 var(--ink-shadow); font-size: 16px; line-height: 1.45; }
 .panel-footnote strong { color: var(--text); }
 
+/* Beam Hunt demo: a fake Writer window where Mate points at a toolbar button.
+   Everything is pre-rendered; JS only toggles classes and positions the
+   absolute overlays, so nothing shifts layout. */
+.beam-hunt { margin-top: 18px; }
+
+.beam-hunt-ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 12px;
+}
+
+.beam-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border-radius: 9px;
+  border: 2.5px solid var(--frame-ink);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: 3px 3px 0 var(--ink-shadow);
+  font-family: var(--font-comic);
+  font-size: 15px;
+  font-weight: 900;
+  font-stretch: condensed;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background-color 140ms ease-out, transform 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out;
+}
+
+.beam-chip:hover {
+  background: var(--accent-hover);
+  color: var(--accent-contrast);
+  transform: translate(-1px, -1px);
+}
+
+.beam-chip-lg {
+  padding: 12px 20px;
+  font-size: 17px;
+}
+
+.beam-chip-alt {
+  background: var(--card-bg);
+  color: var(--text);
+}
+
+.beam-chip-alt:hover {
+  background: var(--card-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.beam-window {
+  position: relative;
+  max-width: 620px;
+  background: var(--card-bg);
+  border: 3px solid var(--frame-ink);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink-shadow);
+}
+
+.beam-window-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--panel-alt-bg);
+  border-bottom: 2.5px solid var(--frame-ink);
+  font-family: var(--font-comic);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.beam-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1.5px solid var(--frame-ink);
+  background: var(--danger);
+}
+
+.beam-dot:nth-child(2) { background: var(--burst-bg); }
+.beam-dot:nth-child(3) { background: #3f9d4c; }
+
+.beam-toolbar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 8px 8px 70px;
+  padding: 6px;
+  background: var(--panel-alt-bg);
+  border: 2px solid var(--frame-ink);
+  border-radius: 8px;
+}
+
+.beam-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 56px;
+  padding: 6px 8px;
+  background: var(--card-bg);
+  border: 2px solid var(--frame-ink);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--ink-shadow);
+  color: var(--text);
+  font-family: var(--font-comic);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: border-color 140ms ease-out, color 140ms ease-out, background-color 140ms ease-out;
+}
+
+.beam-btn svg { width: 20px; height: 20px; }
+
+.beam-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.beam-btn.is-lit {
+  background: var(--bulb-soft);
+  border-color: var(--bulb-border);
+  color: var(--bulb-ink);
+  box-shadow: 2px 2px 0 var(--ink-shadow), 0 0 14px 3px var(--halftone-bulb);
+}
+
+.beam-mate {
+  position: absolute;
+  left: 10px;
+  top: 44px;
+  z-index: 3;
+  width: 48px;
+  height: 48px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-18px) scale(0.4);
+  transition: transform 360ms cubic-bezier(0.2, 1.2, 0.4, 1), opacity 240ms ease-out;
+}
+
+.beam-window.is-aimed .beam-mate {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.beam-cone {
+  position: absolute;
+  left: 34px;
+  top: 68px;
+  z-index: 2;
+  width: 140px;
+  height: 26px;
+  pointer-events: none;
+  opacity: 0;
+  transform: rotate(0deg);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, rgba(255, 216, 102, 0.9), rgba(255, 216, 102, 0.35) 55%, rgba(255, 216, 102, 0) 95%);
+  clip-path: polygon(0 30%, 0 70%, 100% 100%, 100% 0);
+  filter: blur(0.5px);
+  transition: transform 560ms ease-in-out, opacity 240ms ease-out;
+}
+
+.beam-window.is-aimed .beam-cone { opacity: 1; }
+
+.beam-ring {
+  position: absolute;
+  z-index: 4;
+  width: 60px;
+  height: 60px;
+  pointer-events: none;
+  opacity: 0;
+  border: 3px solid var(--bulb-border);
+  border-radius: 10px;
+  box-shadow: 0 0 0 4px var(--bulb-soft), 0 0 18px 4px var(--halftone-bulb);
+  transition: opacity 200ms ease-out;
+}
+
+.beam-window.is-aimed .beam-ring {
+  opacity: 1;
+  animation: beam-ring-pulse 850ms ease-in-out infinite alternate;
+}
+
+@keyframes beam-ring-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+.beam-bubble {
+  position: absolute;
+  /* Beside the window, where the panel is empty: above it the bubble hid behind the chips. */
+  left: calc(100% + 18px);
+  top: 50%;
+  translate: 0 -50%;
+  width: max-content;
+  z-index: 6;
+  max-width: min(300px, 80vw);
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--bubble-bg);
+  color: var(--text);
+  border: 3px solid var(--frame-ink);
+  border-radius: 14px;
+  box-shadow: 3px 3px 0 var(--ink-shadow);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  transform: rotate(-1deg);
+  transition: opacity 180ms ease-out;
+}
+
+.beam-bubble p { margin: 0; }
+
+.beam-window.is-aimed .beam-bubble { opacity: 1; }
+
+.beam-burst {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  height: 50px;
+  margin: -25px 0 0 -46px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.beam-burst svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.beam-window.is-nice .beam-burst {
+  animation: beam-nice-pop 900ms ease-out both;
+}
+
+@keyframes beam-nice-pop {
+  0% { opacity: 0; transform: scale(0.3) rotate(-16deg); }
+  35% { opacity: 1; transform: scale(1.25) rotate(-3deg); }
+  60% { opacity: 1; transform: scale(1) rotate(-8deg); }
+  100% { opacity: 0; transform: scale(1.05) rotate(-8deg); }
+}
+
+/* Scam Stamp demo: a fictional e-mail card that Mate flags, then stamps.
+   Flags, markers, reasons and the caption are all pre-rendered; JS only
+   flips classes, so the reveal never moves anything. */
+.scam-demo {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.scam-card {
+  position: relative;
+  width: min(560px, 100%);
+  background: var(--card-bg);
+  border: 3px solid var(--frame-ink);
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 var(--ink-shadow);
+  padding: 14px 16px 12px;
+}
+
+.scam-line {
+  margin: 0 0 7px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.scam-line:last-child { margin-bottom: 0; }
+
+.scam-mail-label {
+  font-family: var(--font-comic);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.scam-flag {
+  padding: 0 3px;
+  border-radius: 4px;
+  transition: background-color 260ms ease-out, box-shadow 260ms ease-out;
+}
+
+.scam-card.is-flag-1 .scam-flag[data-flag="1"],
+.scam-card.is-flag-2 .scam-flag[data-flag="2"],
+.scam-card.is-flag-3 .scam-flag[data-flag="3"] {
+  background: var(--danger-soft);
+  box-shadow: inset 0 0 0 1.5px var(--danger);
+}
+
+.scam-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 5px;
+  border-radius: 50%;
+  border: 2px solid var(--frame-ink);
+  background: var(--danger);
+  color: #ffffff;
+  font-family: var(--font-comic);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  vertical-align: 2px;
+  opacity: 0;
+  transform: scale(0.4);
+  transition: transform 240ms cubic-bezier(0.2, 1.4, 0.4, 1), opacity 160ms ease-out;
+}
+
+.scam-card.is-flag-1 .scam-marker[data-flag="1"],
+.scam-card.is-flag-2 .scam-marker[data-flag="2"],
+.scam-card.is-flag-3 .scam-marker[data-flag="3"] {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.scam-reasons {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 8px 10px 0;
+  border-top: 2px dashed var(--frame-ink);
+  display: grid;
+  gap: 4px;
+}
+
+.scam-reason {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 240ms ease-out, transform 240ms ease-out;
+}
+
+.scam-card.is-reason-1 .scam-reason[data-flag="1"],
+.scam-card.is-reason-2 .scam-reason[data-flag="2"],
+.scam-card.is-reason-3 .scam-reason[data-flag="3"] {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.scam-stamp {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  margin-top: -24px;
+  padding: 6px 14px;
+  border: 3px solid var(--danger);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--danger);
+  font-family: var(--font-comic);
+  font-size: 22px;
+  font-weight: 900;
+  font-stretch: condensed;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transform: rotate(-8deg);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scam-card.is-stamped .scam-stamp {
+  opacity: 1;
+  animation: scam-stamp-slam 420ms cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+
+@keyframes scam-stamp-slam {
+  0% { opacity: 0; transform: rotate(-8deg) scale(1.4); }
+  55% { opacity: 1; transform: rotate(-8deg) scale(0.96) translate(1px, -1px); }
+  70% { opacity: 1; transform: rotate(-8deg) scale(1.03) translate(-1px, 1px); }
+  100% { opacity: 1; transform: rotate(-8deg) scale(1); }
+}
+
+.scam-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+}
+
+.scam-ask:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.scam-caption {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 240ms ease-out, transform 240ms ease-out;
+}
+
+.scam-demo.is-done .scam-caption {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scam-retry { font-weight: 800; }
+
+/* Short laptop screens in horizontal mode: shrink the two demo panels (and
+   their existing text) so each still fits its panel without a scrollbar. */
+@media (min-width: 700px) and (max-height: 820px) {
+  #how-it-works .panel-top-row,
+  #scam-check .panel-top-row { margin-bottom: 8px; }
+  #how-it-works .section-title,
+  #scam-check .section-title { font-size: 26px; }
+  #how-it-works .section-lead,
+  #scam-check .section-lead { font-size: 16px; margin-bottom: 12px; }
+  #how-it-works .steps-grid { gap: 12px; }
+  #how-it-works .step-card { padding: 12px; }
+  #how-it-works .step-card-head { margin-bottom: 6px; }
+  #how-it-works .step-number { width: 30px; height: 30px; font-size: 16px; margin-bottom: 6px; }
+  #how-it-works .step-title { font-size: 17px; }
+  #how-it-works .step-body { font-size: 14px; line-height: 1.4; }
+  #how-it-works .comic-burst { width: 76px; height: 42px; }
+  #how-it-works .panel-footnote { font-size: 13px; line-height: 1.4; padding: 7px 10px; margin-top: 10px; }
+  #scam-check .mate-dialogue-top { margin-bottom: 10px; }
+  #scam-check .mate-avatar { width: 44px; height: 44px; flex-basis: 44px; }
+  #scam-check .mate-dialogue-top .speech-bubble { font-size: 13px; padding: 8px 12px; }
+  #scam-check .feature-card { padding: 12px; }
+  #scam-check .feature-title { font-size: 17px; }
+  #scam-check .feature-body { font-size: 14px; line-height: 1.4; }
+  .beam-hunt { margin-top: 10px; }
+  .beam-hunt-ask { margin-bottom: 8px; }
+  .beam-chip { padding: 7px 12px; font-size: 14px; }
+  .beam-chip-lg { padding: 8px 14px; font-size: 15px; }
+  .beam-toolbar { margin-top: 8px; margin-bottom: 6px; }
+  .scam-demo { margin-top: 10px; }
+  .scam-card { padding: 10px 12px 8px; }
+}
+
+@media (min-width: 700px) and (max-height: 700px) {
+  #how-it-works .panel-top-row,
+  #scam-check .panel-top-row { margin-bottom: 4px; }
+  #how-it-works .comic-caption,
+  #scam-check .comic-caption { font-size: 12px; padding: 3px 8px; }
+  #how-it-works .panel-stamp,
+  #scam-check .panel-stamp { font-size: 11px; padding: 2px 8px; }
+  #how-it-works .section-title,
+  #scam-check .section-title { font-size: 21px; margin-bottom: 4px; }
+  #how-it-works .section-lead,
+  #scam-check .section-lead { font-size: 14px; margin-bottom: 8px; }
+  #how-it-works .step-card { padding: 8px; }
+  #how-it-works .step-card-head { margin-bottom: 4px; }
+  #how-it-works .step-number { width: 24px; height: 24px; font-size: 13px; margin-bottom: 4px; }
+  #how-it-works .step-title { font-size: 14px; margin-bottom: 4px; }
+  #how-it-works .step-body { font-size: 12px; line-height: 1.32; }
+  #how-it-works .comic-burst { width: 60px; height: 34px; }
+  #how-it-works .comic-burst-word { font-size: 13px; }
+  #how-it-works .panel-footnote { font-size: 11px; line-height: 1.3; padding: 5px 8px; margin-top: 6px; }
+  #scam-check .mate-dialogue-top { margin-bottom: 6px; gap: 8px; }
+  #scam-check .mate-avatar { width: 34px; height: 34px; flex-basis: 34px; padding: 4px; }
+  #scam-check .mate-dialogue-top .speech-bubble { font-size: 12px; padding: 6px 10px; }
+  #scam-check .feature-card { padding: 8px; }
+  #scam-check .feature-title { font-size: 14px; margin-bottom: 4px; }
+  #scam-check .feature-body { font-size: 12px; line-height: 1.32; }
+  .beam-hunt { margin-top: 6px; }
+  .beam-hunt-ask { margin-bottom: 6px; gap: 6px 8px; }
+  .beam-chip { padding: 5px 10px; font-size: 13px; }
+  .beam-chip-lg { padding: 6px 12px; font-size: 14px; }
+  .beam-window-title { font-size: 12px; padding: 3px 8px; }
+  .beam-dot { width: 7px; height: 7px; }
+  .beam-toolbar { margin: 6px 6px 6px 64px; padding: 4px; gap: 4px; }
+  .beam-btn { min-width: 48px; padding: 3px 5px; font-size: 11px; gap: 2px; }
+  .beam-btn svg { width: 15px; height: 15px; }
+  .beam-mate { width: 40px; height: 40px; left: 8px; top: 30px; }
+  .beam-bubble { font-size: 12px; padding: 6px 10px; }
+  .scam-demo { margin-top: 6px; gap: 6px; }
+  .scam-card { padding: 8px 10px 6px; }
+  .scam-line { font-size: 12px; margin-bottom: 4px; }
+  .scam-mail-label { font-size: 10px; }
+  .scam-marker { width: 15px; height: 15px; font-size: 9px; }
+  .scam-reasons { margin-top: 6px; padding: 5px 8px 0; gap: 2px; }
+  .scam-reason { font-size: 11px; }
+  .scam-stamp { font-size: 15px; padding: 3px 8px; margin-top: -16px; right: 8px; }
+  .scam-caption { font-size: 13px; }
+  .button.scam-ask { padding: 8px 14px; font-size: 15px; }
+}
+
+@media (max-width: 699px) {
+  /* Phones: chips stack full-width and the demo window stays usable with touch. */
+  .beam-hunt-ask { flex-direction: column; align-items: stretch; }
+  .beam-chip { width: 100%; }
+  .beam-toolbar { margin-left: 60px; }
+  .beam-mate { left: 6px; top: 32px; }
+  .scam-stamp { font-size: 16px; }
+}
+
 /* Download panel */
 .download-card {
   padding: 26px 20px;
@@ -1108,5 +1627,14 @@ html.intro .hero .button {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Phones and narrow panels: the window fills the width, so Mate's line goes under it. */
+@media (max-width: 980px) {
+  .beam-bubble {
+    left: 6px;
+    top: calc(100% + 10px);
+    translate: none;
   }
 }
