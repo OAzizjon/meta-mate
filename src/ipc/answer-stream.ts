@@ -36,7 +36,7 @@ export const ANSWER_LINE_KEYS = [
   "robot.sign_in_again",
   "robot.sign_in_first",
   "robot.guest_limit",
-  // The teacher (src-tauri/src/teacher.rs line_key) and its idle limit.
+  // The teacher (src-tauri/src/teacher/presentation.rs line_key) and its idle limit.
   "robot.click_app_first",
   "robot.wrong_place",
   "robot.wrong_keys",
@@ -50,7 +50,7 @@ export const ANSWER_LINE_KEYS = [
   "robot.too_many_turns",
   "robot.wont_press",
   "robot.thinking_harder",
-  // "Do it for me" (teacher.rs line_key).
+  // "Do it for me" (teacher/presentation.rs line_key).
   "robot.do_it_for_me",
   "robot.pressing",
   "robot.press_cancelled",

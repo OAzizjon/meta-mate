@@ -30,12 +30,6 @@ export type TeacherLineKey =
   | "TooManyTurns"
   | "WontPress";
 
-export interface StepVars {
-  readonly n: number;
-  readonly m: number;
-  readonly instruction: string;
-}
-
 export interface I18nInitOptions {
   /** Explicit language setting (`"en"`, `"ru"`, `"auto"`, or omitted). */
   readonly locale?: string | null;
@@ -54,17 +48,6 @@ type LocaleTable = Readonly<Record<string, string>>;
 const CATALOGS: Readonly<Record<LocaleCode, LocaleTable>> = {
   en,
   ru,
-};
-
-const LINE_KEY_MAP: Readonly<Record<TeacherLineKey, LocaleKey>> = {
-  WrongPlace: "robot.wrong_place",
-  RightClick: "robot.right_click",
-  CantFind: "robot.cant_find",
-  StepN: "robot.step",
-  Done: "robot.done",
-  NetworkError: "robot.network_error",
-  TooManyTurns: "robot.too_many_turns",
-  WontPress: "robot.wont_press",
 };
 
 function detectDevMode(): boolean {
@@ -160,17 +143,8 @@ export function setLocale(locale: LocaleCode | "auto" | null | undefined): Local
   return currentLocale;
 }
 
-export function getRobotName(): string {
-  return currentRobotName;
-}
-
 export function getAppName(): string {
   return currentAppName;
-}
-
-/** Clears the once-per-key dev warning cache (for unit tests). */
-export function resetMissingKeyWarnings(): void {
-  loggedMissingKeys.clear();
 }
 
 function logMissingOnce(locale: LocaleCode, key: string): void {
@@ -209,20 +183,4 @@ export function t(key: LocaleKey, vars?: TemplateVars): string {
   }
 
   return interpolate(template, currentRobotName, vars);
-}
-
-/**
- * Translates a `TeacherLineKey` (`crates/mm-core/src/teacher/line.rs`) into the
- * localized user-facing string, substituting `{n}`, `{m}`, and `{instruction}` for `StepN`.
- */
-export function tLine(line: TeacherLineKey, step?: StepVars): string {
-  const key = LINE_KEY_MAP[line];
-  if (line === "StepN" && step !== undefined) {
-    return t(key, {
-      n: step.n,
-      m: step.m,
-      instruction: step.instruction,
-    });
-  }
-  return t(key);
 }

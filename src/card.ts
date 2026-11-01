@@ -167,16 +167,6 @@ export async function closeCard(): Promise<void> {
   }
 }
 
-/** Escapes special HTML characters to prevent XSS. */
-export function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 /** SVG illustration of Mate used when no card image is available or outside Tauri. */
 export const PLACEHOLDER_MATE_SVG = `
 <svg class="placeholder-bulb" viewBox="0 0 160 160" width="160" height="160" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">

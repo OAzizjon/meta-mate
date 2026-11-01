@@ -118,15 +118,8 @@ export const BURST_POP_MS = 200;
 export const BURST_HOLD_MS = 600;
 /** Fade-out duration (ms). */
 export const BURST_FADE_MS = 250;
-/** Maximum time the burst may cover the next target (ms). */
-export const BURST_MAX_COVER_MS = 1000;
 export const BURST_WORDS_EN = ["CLICK!", "NICE!", "DONE!"] as const;
 export const BURST_WORDS_RU = ["КЛИК!", "ЕСТЬ!", "ГОТОВО!"] as const;
-export const BURST_LOCALE_KEYS = [
-  "highlight.burst_click",
-  "highlight.burst_nice",
-  "highlight.burst_done",
-] as const;
 
 export interface BurstGeometry {
   readonly center: CssPoint;
@@ -149,21 +142,6 @@ export function clamp(value: number, min: number, max: number): number {
 /** Short SVG/CSS attribute numbers rounded to 0.01. */
 export function num(value: number): string {
   return String(Math.round(value * 100) / 100);
-}
-
-/** True when `value` is a plain `{ x, y }` object with finite coordinates. */
-export function isValidPoint(value: unknown): value is CssPoint {
-  return parsePoint(value) !== null;
-}
-
-/** True when `value` is a plain `{ left, top, right, bottom }` object with finite bounds and positive size. */
-export function isValidRect(value: unknown): value is CssRect {
-  return parseRect(value) !== null;
-}
-
-/** True when `value` is a plain `{ number, total }` object with integers `1 <= number <= total <= 20`. */
-export function isValidStep(value: unknown): value is HighlightStep {
-  return parseStep(value) !== null;
 }
 
 /**
@@ -331,8 +309,6 @@ export function ringRect(rect: CssRect, pad: number = RING_PAD): CssRect {
   };
 }
 
-export const inflateRect = ringRect;
-
 /**
  * Picks the edge of `rect` that faces `from`. Returns `null` when `from` is inside or on the
  * boundary of `rect`, or when the inputs are not valid.
@@ -432,8 +408,6 @@ export function computeBeamPolygon(
   return [baseFirst, edgeFirst, edgeLast, baseLast];
 }
 
-export const beamPolygon = computeBeamPolygon;
-
 /** A softly bowed quadratic curve to the middle of the facing edge. */
 export function missPath(from: CssPoint, rect: CssRect): string | null {
   const edge = nearestRectEdge(from, rect);
@@ -512,7 +486,6 @@ export function computeBadgePosition(
   };
 }
 
-export const badgePosition = computeBadgePosition;
 
 /** Picks the word for this step in turn (0 -> CLICK!, 1 -> NICE!, 2 -> DONE!, 3 -> CLICK!, ...). */
 export function nextBurstWord(turn: number, words: readonly string[]): string {

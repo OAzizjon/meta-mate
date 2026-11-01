@@ -16,7 +16,6 @@ import {
   containImageRect,
   creditsKey,
   decodedBase64ByteLength,
-  escapeHtml,
   fitTextBlock,
   formatKeepsakeDate,
   getPlaceholderCard,
@@ -290,12 +289,6 @@ test("resolveCardImageUrl handles web, data, asset, and empty URLs correctly", a
 
   const slashPath = "/assets/art/mate.png";
   assert.equal(await resolveCardImageUrl(slashPath), slashPath);
-});
-
-test("escapeHtml escapes HTML metacharacters", () => {
-  assert.equal(escapeHtml("Mate & Friends"), "Mate &amp; Friends");
-  assert.equal(escapeHtml("<script>alert('xss')</script>"), "&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;");
-  assert.equal(escapeHtml('Click "Save"'), "Click &quot;Save&quot;");
 });
 
 test("PLACEHOLDER_MATE_SVG contains valid SVG markup", () => {

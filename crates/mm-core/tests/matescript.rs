@@ -403,14 +403,6 @@ fn limits_and_recovery_are_character_based() {
 
 #[test]
 fn refusal_and_numeric_failure_rules() {
-    let mut parser = Parser::new(settings(false));
-    parser.push("<point e99>");
-    assert!(parser.needs_point_refusal());
-    parser.push("<point e17><point 1280,0>");
-    parser.finish();
-    assert!(!parser.needs_point_refusal());
-    assert!(!Parser::default().needs_point_refusal());
-
     let timeline = parse(
         "<pause -500><pause +1><pause 99999999999999999999999999999999>",
         false,
@@ -484,7 +476,6 @@ fn rejected_points_preserve_timeline_order_across_chunks() {
                 actual.extend(parser.push(&input[split..]));
                 actual.extend(parser.finish());
                 assert_eq!(actual, expected, "{input:?} split at {split}");
-                assert!(!parser.needs_point_refusal());
             }
         }
         let input = format!("<point e12><mood happy>{tag}Next.");
@@ -506,8 +497,6 @@ fn rejected_points_preserve_timeline_order_across_chunks() {
             parser.push(&tag),
             [Item::Lang("en".into()), Item::PointRejected]
         );
-        parser.finish();
-        assert!(parser.needs_point_refusal(), "{tag:?}");
     }
     for tag in ["<point e12", "<step 1/3 e12"] {
         let input = format!("<point e12>Save.{tag}");

@@ -130,27 +130,6 @@ pub fn level(frame: &[u8]) -> f32 {
     }
 }
 
-/// Normalize a complete PCM16LE utterance to about -3 dBFS peak, with at most
-/// +20 dB gain. Leave near-silence (RMS below -70 dBFS) unchanged. The live
-/// level callback must use the original frames, before this offline adjustment.
-pub fn normalize_utterance(pcm: &mut [u8]) {
-    if level(pcm) < 0.000_316_228 {
-        return;
-    }
-    let peak = pcm
-        .as_chunks::<2>()
-        .0
-        .iter()
-        .map(|bytes| f64::from(i16::from_le_bytes(*bytes)).abs() / 32_768.0)
-        .fold(0.0_f64, f64::max);
-    let gain = (0.707_945_784 / peak).min(10.0);
-    for bytes in pcm.as_chunks_mut::<2>().0 {
-        let sample = f64::from(i16::from_le_bytes(*bytes)) / 32_768.0;
-        let scaled = (sample * gain).clamp(-0.99, 0.99);
-        *bytes = ((scaled * 32_768.0).round() as i16).to_le_bytes();
-    }
-}
-
 /// The utterance gain while the audio streams (speech recognition gets each frame as it is
 /// captured, so the words can show while the person speaks): the gain follows the loudest
 /// speech frame so far, `-3 dBFS / peak`, between 1 (never quieter) and +20 dB. It only goes

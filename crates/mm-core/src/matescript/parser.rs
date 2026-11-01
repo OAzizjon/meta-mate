@@ -22,8 +22,6 @@ pub struct Parser {
     sfx_count: usize,
     next_id: u64,
     language_emitted: bool,
-    point_rejected: bool,
-    point_accepted: bool,
     finished: bool,
     open_seen: bool,
     pending_open: Option<super::OpenTarget>,
@@ -41,8 +39,6 @@ impl Parser {
             sfx_count: 0,
             next_id: 1,
             language_emitted: false,
-            point_rejected: false,
-            point_accepted: false,
             finished: false,
             open_seen: false,
             pending_open: None,
@@ -77,12 +73,6 @@ impl Parser {
             self.state = State::Text;
         }
         std::mem::take(&mut self.output)
-    }
-
-    /// Whether a requested point was rejected and no valid target was supplied.
-    /// After finishing, the caller uses this to select its localized refusal.
-    pub fn needs_point_refusal(&self) -> bool {
-        self.point_rejected && !self.point_accepted
     }
 
     fn character(&mut self, ch: char) {
@@ -151,9 +141,6 @@ impl Parser {
     fn tag(&mut self, raw: &str) {
         match tags::parse(raw, &self.settings, &mut self.sfx_count) {
             Some(Tag::Bound(bound)) => {
-                if matches!(bound, Bound::Point(_) | Bound::Step(_)) {
-                    self.point_accepted = true;
-                }
                 // Sfx accumulate; singleton actions use the last source occurrence.
                 if !matches!(bound, Bound::Sfx(_)) {
                     self.bound.retain(|old| {
@@ -211,7 +198,6 @@ impl Parser {
 
     fn rejected(&mut self, raw: &str) {
         if raw.starts_with("point") || raw.starts_with("step") {
-            self.point_rejected = true;
             self.flush();
             self.orphans();
             self.language();
