@@ -568,7 +568,10 @@ fn either_ctrl_slow_shortcut_secure_desktop_and_key_switch() {
     // UAC or the lock screen: the key-up never arrives and the async state reads up.
     feed.key(key(RIGHT_CTRL, true, at(t0, 3_000)));
     assert_eq!(feed.tick(at(t0, 3_300)), start(2));
-    assert_eq!(feed.poll(false, at(t0, 3_400)), stop(2, StopReason::Watchdog));
+    assert_eq!(
+        feed.poll(false, at(t0, 3_400)),
+        stop(2, StopReason::Watchdog)
+    );
     assert!(!feed.needs_poll());
     assert_eq!(feed.tick(at(t0, 5_000)), nothing());
     // A key switch while Ctrl is held ends listening; Ctrl's key-up is then any key's.
