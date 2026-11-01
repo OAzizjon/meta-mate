@@ -112,7 +112,7 @@ pub enum Ptt {
 #[serde(rename_all = "camelCase")]
 pub enum PttKey {
     #[default]
-    Ctrl, // Either Ctrl (D74); the retired "rightCtrl" is unknown, so it loads as this.
+    Ctrl, // Either Ctrl (D75); the retired "rightCtrl" is unknown, so it loads as this.
     RightAlt,
     CapsLock,
     Insert,

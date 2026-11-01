@@ -938,7 +938,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-core | 299 | 37 |
 | crates/mm-platform | 46 | 7 |
 | crates/mm-win32 | 63 | 12 |
-| src-tauri | 201 | 20 |
+| src-tauri | 202 | 20 |
 | src | 335 | 33 |
 | tools | 391 | 23 |
 | server | 94 | 4 |

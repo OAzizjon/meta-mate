@@ -67,7 +67,7 @@ test("talk keys parse independently and older settings retain their preferences"
     assert.equal(parseSettings({ pttKey, sound: "fun" }).pttKey, pttKey);
     assert.equal(updateSettings(DEFAULT_SETTINGS, { pttKey }).pttKey, pttKey);
   }
-  // "rightCtrl" is retired (D74): a saved one becomes either Ctrl.
+  // "rightCtrl" is retired (D75): a saved one becomes either Ctrl.
   for (const pttKey of [undefined, null, "future", "rightCtrl", "RightCtrl", 0, {}]) {
     const settings = parseSettings({ pttKey, sound: "fun" });
     assert.equal(settings.pttKey, "ctrl");

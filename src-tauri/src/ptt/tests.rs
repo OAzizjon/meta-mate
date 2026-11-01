@@ -547,3 +547,34 @@ fn released_toggle_uses_idle_wait_without_delaying_its_deadline() {
     );
     assert_eq!(feed.tick(at(t0, 30_100)), stop(1, StopReason::TooLong));
 }
+
+#[test]
+fn either_ctrl_slow_shortcut_secure_desktop_and_key_switch() {
+    let t0 = Instant::now();
+    let mut feed = Feed::new(PttSettings::default(), t0);
+    feed.set_key(EITHER_CTRL);
+    // Ctrl held 1 s, then a letter (Ctrl+C): listening starts at 300 ms, the letter
+    // cancels it, and nothing restarts while Ctrl stays down.
+    assert_eq!(feed.key(key(LEFT_CTRL, true, t0)), nothing());
+    assert_eq!(feed.tick(at(t0, 300)), start(1));
+    assert_eq!(feed.key(key(LEFT_CTRL, true, at(t0, 800))), nothing());
+    assert_eq!(
+        feed.key(key(A, true, at(t0, 1_000))),
+        vec![PttEvent::Cancel { generation: 1 }]
+    );
+    assert_eq!(feed.key(key(A, false, at(t0, 1_100))), nothing());
+    assert_eq!(feed.tick(at(t0, 2_000)), nothing());
+    assert_eq!(feed.key(key(LEFT_CTRL, false, at(t0, 2_100))), nothing());
+    // UAC or the lock screen: the key-up never arrives and the async state reads up.
+    feed.key(key(RIGHT_CTRL, true, at(t0, 3_000)));
+    assert_eq!(feed.tick(at(t0, 3_300)), start(2));
+    assert_eq!(feed.poll(false, at(t0, 3_400)), stop(2, StopReason::Watchdog));
+    assert!(!feed.needs_poll());
+    assert_eq!(feed.tick(at(t0, 5_000)), nothing());
+    // A key switch while Ctrl is held ends listening; Ctrl's key-up is then any key's.
+    feed.key(key(LEFT_CTRL, true, at(t0, 6_000)));
+    assert_eq!(feed.tick(at(t0, 6_300)), start(3));
+    assert_eq!(feed.set_key(0x78), stop(3, StopReason::Cancelled));
+    assert_eq!(feed.key(key(LEFT_CTRL, false, at(t0, 6_400))), nothing());
+    assert!(!feed.needs_poll());
+}

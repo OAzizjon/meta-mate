@@ -7,7 +7,7 @@ export type ModelChoice = (typeof MODEL_CHOICES)[number];
 export const PTT_MODES = ["hold", "toggle"] as const;
 export type PttMode = (typeof PTT_MODES)[number];
 
-// "ctrl" is either Ctrl (D74); a saved "rightCtrl" is unknown now and parses as the default.
+// "ctrl" is either Ctrl (D75); a saved "rightCtrl" is unknown now and parses as the default.
 export const PTT_KEYS = ["ctrl", "rightAlt", "capsLock", "insert", "f9", "f10"] as const;
 export type PttKey = (typeof PTT_KEYS)[number];
 

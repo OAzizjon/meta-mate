@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// its key-up was most likely lost while Windows dropped a slow hook.
 pub const STALE_KEY_MS: u64 = 2_000;
 
-/// The talk key "either Ctrl" (D74): `VK_CONTROL`, which `GetAsyncKeyState` reads as down
+/// The talk key "either Ctrl" (D75): `VK_CONTROL`, which `GetAsyncKeyState` reads as down
 /// while either side is. A low-level hook reports the sides, `LEFT_CTRL` and `RIGHT_CTRL`.
 pub const EITHER_CTRL: u32 = 0x11;
 pub const LEFT_CTRL: u32 = 0xA2;
