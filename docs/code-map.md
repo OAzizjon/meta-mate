@@ -592,9 +592,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:122 first_line:137 agent_mode_reason:141 say:153 cmd_doctor:190 plan_sections:259 cmd_plan:282 cmd_status:309
-  cmd_check:357 cmd_test:381 cmd_agent:424 cmd_tool:456 cmd_release:462 cmd_uia:568 cmd_art:602 cmd_sounds:650
-  cmd_phrases:692 cmd_agents:705 wanted_key_names:718 parse_env:726 cmd_keys:781 build_parser:860 cmd_probe:916 main:932
+  run:125 first_line:140 agent_mode_reason:144 say:156 cmd_doctor:193 plan_sections:262 cmd_plan:285 cmd_status:312
+  cmd_check:360 cmd_test:384 cmd_agent:427 cmd_tool:459 cmd_release:465 cmd_uia:571 cmd_art:605 cmd_sounds:653
+  cmd_phrases:695 cmd_agents:708 wanted_key_names:721 parse_env:729 cmd_keys:784 build_parser:863 cmd_probe:920 main:936
   tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
@@ -614,6 +614,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_fixture.py — Pure fixture loading and geometry for recorded UIA probes.
   Fixture:21 load_fixture:40 unsafe_reason:71 FrameMap:93 element_list:140 Hit:156 hit_test:162 describe:178
   tests: tools/tests/test_mm_fixture.py (12)
+- tools/mm_gate.py — mm gate [PATCH|-]
+  new_section:38 add:42 section_status:46 check_apply:76 difflint_section:105 invariant_rows:122 check_invariants:146 check_tests:162
+  check_sizes:193 sections_for:204 main:249
+  tests: tools/tests/test_mm_gate.py (14)
 - tools/mm_legacy.py — mm legacy [--only SECTIONS] [--limit N] [--json] [--strict]
   is_env_file:80 rust_findings:152 ts_findings:205 py_findings:262 locale_findings:292 marker_findings:317 docs_findings:334 external_findings:425
   load_allowlist:443 is_allowlisted:456 collect:468 render:495 main:518
@@ -932,6 +936,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 203 | 20 |
 | src | 334 | 33 |
-| tools | 424 | 24 |
+| tools | 438 | 25 |
 | server | 94 | 4 |
 | tts | 27 | 2 |

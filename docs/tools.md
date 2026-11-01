@@ -28,6 +28,7 @@ Run `mm` from the project root. Owner, lead and backup lead may use ordinary com
 | `mm probe ...` | Probe Meta models, streaming, chat, computer use, SAM, speech recognition, safety, pointing or the usage ledger. Uses API keys. | Lead only |
 | `mm difflint [PATCH\|-]` | Check added patch lines for common leftovers and policy violations. | Owner, lead, backup lead |
 | `mm legacy [--only SECTIONS] [--json] [--strict]` | Report legacy and dead-code candidates; false positives go to `tools/legacy_allow.txt`. | Owner, lead, backup lead |
+| `mm gate PATCH [--json]` | Triage an agent patch before applying: apply check, leftovers, invariants at risk, tests to run, file size. | Owner, lead, backup lead |
 | `mm contracts [--verbose]` | Check Rust/TypeScript commands, events and locale-key contracts. | Owner, lead, backup lead |
 | `mm agent check [options]` | Run the agent-safe project checks. | Agents, via `mm agent` |
 | `mm agent test` | Run the agent-safe offline unit tests. | Agents, via `mm agent` |
@@ -38,10 +39,11 @@ Run `mm` from the project root. Owner, lead and backup lead may use ordinary com
 | `mm agent difflint` | Check patch additions in the restricted environment. | Agents, via `mm agent` |
 | `mm agent contracts` | Check code contracts in the restricted environment. | Agents, via `mm agent` |
 | `mm agent legacy` | Legacy and dead-code report in the restricted environment. | Agents, via `mm agent` |
+| `mm agent gate PATCH` | Patch triage in the restricted environment. | Agents, via `mm agent` |
 | `mm agent shot [PAGE ...]` | Render WebView pages in the restricted agent environment. | Agents, via `mm agent` |
 | `mm agent locales add KEY EN RU` | Add a key to both locale files; agent locale writes are add-only. | Agents, via `mm agent` |
 
-The agent-allowed command set is `mm agent check`, `test`, `where`, `cite`, `map`, `stats`, `difflint`, `contracts`, `legacy`, `shot`, and `locales add`. Agent mode refuses other top-level `mm` commands.
+The agent-allowed command set is `mm agent check`, `test`, `where`, `cite`, `map`, `stats`, `difflint`, `contracts`, `legacy`, `gate`, `shot`, and `locales add`. Agent mode refuses other top-level `mm` commands.
 
 ## 2. Local CLI and desktop tools
 
@@ -116,7 +118,7 @@ Submit with `team.py submit <agent> <mode> -C <root> --prompt "..."` (lead only)
 | Need | Run |
 |---|---|
 | Is the tree healthy? | `mm check` then `mm test --changed` |
-| Leftovers in an agent patch | `mm difflint PATCH` |
+| Should I apply this agent patch? | `mm gate PATCH` (apply check + leftovers + invariants + tests to run) |
 | Where is X used? | `mm where X` (also words quoted from a window) |
 | Does an agent's claim match the code? | `mm cite #JOB` |
 | Unused Python code / imports | `vulture tools server tts --min-confidence 80`, `ruff check --select F401,F811,F841 tools server` |
