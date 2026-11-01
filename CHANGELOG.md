@@ -10,6 +10,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
+- `mm legacy` reports legacy and dead-code candidates across Rust, TypeScript, Python, locales, docs and optional external tools.
+- `mm shot` replays fixture events and answer streams to render Mate's states.
+- `mm gate` checks agent patches for applicability, leftovers, affected invariants, tests and file size before review.
 - "Open Telegram" for an app outside Mate's fixed list: Mate looks for it among the Start Menu shortcuts by your own words (Russian spellings too), says "I found Telegram. Shall I open it? Click me to open, or press Esc" and opens it only after a physical click on him or F8; command lines, admin tools, uninstallers, disk tools and Startup items are never offered, and remote-access programs (AnyDesk, TeamViewer, Quick Assist and others) are always refused with a warning that scammers ask people to open them (D76; Codex, from the owner's idea; block list from a Mistral second opinion).
 - Simple animated hints in Mate's window: when he asks to look at a private-looking window, a picture shows exactly what to press, "Fn + F8" keycaps over a mini laptop keyboard with Fn (bottom left) and F8 (top row) lit and pressing in turn, "just F8 on a desktop keyboard", and "or click me" with an arrow; for the first days, a pressing talk-key cap ("Hold Ctrl and talk") and a pulse "or click me" when he is idle; once, "Drag me anywhere" after the first answer. Never over the beam target, never focus-stealing, static under reduced motion (claude@alpha).
 - Hold Ctrl to talk, left or right: many laptops (the owner's included) have no Right Ctrl, so the talk key is now either Ctrl, held alone for 0.3 s so Ctrl+C, Ctrl+V and other shortcuts never wake Mate; a saved "Right Ctrl" becomes "Ctrl"; Right Alt, Caps Lock, Insert, F9 and F10 stay as choices (D75; claude@alpha).
@@ -127,6 +130,9 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Changed
 
+- `docs/tools.md` documents the command set, including the agent-safe commands.
+- Removed unused code from the Rust crates, TypeScript sources and locale files.
+- Reused the existing helper in `src-tauri` instead of keeping a duplicate.
 - The browser's last sign-in page is clearer and closes itself after a successful sign-in when the browser allows.
 - Home: the try-it cards wrap by width, Quit comes last and stands apart, dark-mode buttons stand out more, and a busy question shows a spinner.
 - The chat's empty state suggests an example question; opening the chat from the tray brings it to the front.
