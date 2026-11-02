@@ -606,7 +606,7 @@ pub(crate) fn confirm_question(
 ) -> bool {
     use std::time::{Duration, Instant};
     static QUESTION: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let Ok(_question) = QUESTION.try_lock() else {
+    let Some(_question) = question_turn(&QUESTION) else {
         return false;
     };
     if !wanted() {
@@ -660,6 +660,16 @@ pub(crate) fn confirm_question(
         }
     }
     false
+}
+
+/// The question's turn, or None while another question is shown. The lock guards no data:
+/// a question that panicked must not refuse every later one.
+fn question_turn(lock: &std::sync::Mutex<()>) -> Option<std::sync::MutexGuard<'_, ()>> {
+    match lock.try_lock() {
+        Ok(turn) => Some(turn),
+        Err(std::sync::TryLockError::Poisoned(poisoned)) => Some(poisoned.into_inner()),
+        Err(std::sync::TryLockError::WouldBlock) => None,
+    }
 }
 
 fn consent_key_answer(
@@ -1332,6 +1342,21 @@ mod tests {
         assert_eq!(clicks.0.try_recv().ok(), Some(pressed));
         drop(clicks);
         assert!(!consent_clicked(pressed));
+    }
+
+    #[test]
+    fn one_question_at_a_time_even_after_one_panicked() {
+        let lock = std::sync::Mutex::new(());
+        let shown = question_turn(&lock);
+        assert!(shown.is_some());
+        assert!(question_turn(&lock).is_none());
+        drop(shown);
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _shown = question_turn(&lock);
+            panic!("the question failed");
+        }));
+        assert!(lock.is_poisoned());
+        assert!(question_turn(&lock).is_some());
     }
 
     #[test]

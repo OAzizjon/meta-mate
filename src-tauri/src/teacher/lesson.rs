@@ -316,6 +316,8 @@ pub(crate) async fn teach(
                             )
                             .is_some();
                         pointed_ms = now();
+                        // Each step shown may ask once to click the app first.
+                        asked_to_focus = false;
                         pointed_target = shown.then_some(rect);
                         if !shown {
                             // The last step's ring would stay over whatever is there now.

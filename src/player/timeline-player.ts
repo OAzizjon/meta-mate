@@ -229,8 +229,18 @@ export class TimelinePlayer {
     this.options.robot.setState(pointing ? "pointing" : "speaking");
     run.announced = true;
     let hadSamples = true;
-    await untilAborted(run.abort.signal, this.options.audio.waitForSentenceEnd(run.generation, say.id)
-      .then((played) => { hadSamples = played; }));
+    await untilAborted(
+      run.abort.signal,
+      this.options.audio.waitForSentenceEnd(run.generation, say.id).then(
+        (played) => {
+          hadSamples = played;
+        },
+        (error: unknown) => {
+          hadSamples = false;
+          report("say", error);
+        },
+      ),
+    );
     if (run.abort.signal.aborted || hadSamples || say.id === 0) return;
     this.options.showBubble(say.text);
     run.shown = true;
@@ -268,7 +278,10 @@ export class TimelinePlayer {
     step: { readonly number: number; readonly total: number } | null,
   ): Promise<boolean> {
     const rect = await this.options.resolveTarget(point, run.generation, step);
-    if (run.abort.signal.aborted) return false;
+    if (run.abort.signal.aborted) {
+      if (rect !== null) this.options.robot.aimAt(null);
+      return false;
+    }
     this.options.robot.aimAt(rect);
     run.aimed = rect !== null;
     return rect !== null;

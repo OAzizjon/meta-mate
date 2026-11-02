@@ -434,3 +434,83 @@ test("a failing action is reported without its text and the sentence still plays
   assert.match(logged, /mood failed/);
   assert.doesNotMatch(logged, /Secret|125%/);
 });
+
+test("a rejected speech wait reports without text and falls back to the bubble", async (t) => {
+  const errors = t.mock.method(console, "error", () => {});
+  const h = setup();
+  let rejectSentence!: (reason?: unknown) => void;
+  h.player = new TimelinePlayer({
+    robot: h.robot,
+    audio: {
+      cancel() {},
+      waitForSentenceEnd() {
+        return new Promise<boolean>((_resolve, reject) => {
+          rejectSentence = reject;
+        });
+      },
+      playSfx() {
+        return { stop() {}, finished: Promise.resolve() };
+      },
+      setAmbience() {},
+    },
+    setLocale() {},
+    resolveTarget: () => null,
+    showBubble(text: string | null) {
+      h.robot.setState(`bubble:${String(text)}`);
+    },
+    onLine() {},
+    onDone() {},
+    sleep() {
+      return Promise.resolve();
+    },
+  });
+  pushAll(h.player, 1, [
+    '{"kind":"say","value":{"id":1,"text":"Fallback words.","bound":[]}}',
+  ]);
+  await settle();
+  rejectSentence(new Error("audio failed"));
+  await settle();
+  assert.deepEqual(h.take(), ["state speaking", "state bubble:Fallback words."]);
+  assert.equal(errors.mock.callCount(), 1);
+  const logged = errors.mock.calls[0].arguments.map(String).join(" ");
+  assert.match(logged, /say failed/);
+  assert.doesNotMatch(logged, /Fallback/);
+});
+
+test("cancelling while resolveTarget is pending clears the target once resolved", async () => {
+  const log: string[] = [];
+  let finishResolve!: (rect: typeof RECT | null) => void;
+  const player = new TimelinePlayer({
+    robot: {
+      setState(state: string) { log.push(`state ${state}`); },
+      setMood() {},
+      aimAt(rect: unknown) { log.push(rect ? "aim rect" : "aim null"); },
+    },
+    audio: {
+      cancel(generation: number) { log.push(`audio.cancel ${generation}`); },
+      waitForSentenceEnd: () => Promise.resolve(true),
+      playSfx: () => ({ stop() {}, finished: Promise.resolve() }),
+      setAmbience() {},
+    },
+    setLocale() {},
+    resolveTarget() {
+      log.push("resolve start");
+      return new Promise((resolve) => {
+        finishResolve = resolve;
+      });
+    },
+    showBubble() {},
+    onLine() {},
+    onDone() {},
+  });
+  pushAll(player, 1, [
+    '{"kind":"say","value":{"id":1,"text":"Look here.","bound":[{"kind":"point","value":{"kind":"id","value":"e12"}}]}}',
+  ]);
+  await settle();
+  assert.deepEqual(log.splice(0), ["resolve start"]);
+  player.cancel(1);
+  assert.deepEqual(log.splice(0), ["audio.cancel 1"]);
+  finishResolve(RECT);
+  await settle();
+  assert.deepEqual(log.splice(0), ["aim null"]);
+});

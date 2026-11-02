@@ -8,7 +8,7 @@ use regex::Regex;
 
 static PRIVATE_EXPLAIN_NAME: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(concat!(
-        r"(?i)@|\d{4}|[a-z][a-z0-9+.-]*://|www\.|",
+        r"(?i)@|\d{4}|(?:\d\D*){7}|[a-z][a-z0-9+.-]*://|www\.|",
         r"\b(?:https?|ftp|file|mailto|about|data):|\b(?:\d{1,3}\.){3}\d{1,3}\b|",
         r"(?:[\p{L}\p{N}-]+\.)+[\p{L}]{2,}\b|\blocalhost\b",
     ))
@@ -38,6 +38,7 @@ mod wp87_tests {
             "құпия сөз",
             "сырсөз",
             "şifrə",
+            "Passwort",
             "PIN",
             "OTP",
         ] {
@@ -56,7 +57,7 @@ static PASSWORD_LONG: LazyLock<Regex> = LazyLock::new(|| {
         r"security\s+key|network\s+key|network\s+security\s+key|show\s+characters|",
         r"ключ\s+безопасности|ключ\s+сети|отображать\s+вводимые\s+знаки|",
         r"clave|код\s+подтверждения|құпия\s+сөз|сырсөз|şifrə|",
-        r"пароль|пин-код|kennwort|contraseña|mot\s+de\s+passe|senha|",
+        r"пароль|пин-код|kennwort|passwort|contraseña|mot\s+de\s+passe|senha|",
         r"[şs]ifre|hasło|heslo|wachtwoord|lösenord|salasana|jelszó|parola|",
         r"κωδικός|密码|密碼|パスワード|비밀번호|",
         r"كلمة\s+المرور|סיסמה|mật\s+khẩu|kata\s+sandi|รหัสผ่าน",
@@ -384,6 +385,7 @@ mod tests {
             "482916",
             "Your sign-in code is 482916",
             "Call 5551234",
+            "Call +7 916 123-45-67",
             "Balance 1234",
             "x1234y",
             "Code \u{0661}\u{0662}\u{0663}\u{0664}",
@@ -456,6 +458,7 @@ mod tests {
             "Отправить деньги",
             "Пожертвовать",
             "Show password",
+            "Passwort anzeigen",
             "Показать пароль",
             "Пароль",
             "Top up",

@@ -95,6 +95,7 @@ impl Pointing {
         if let Ok(mut current) = self.current.lock() {
             *current = Some((generation, Arc::new(look)));
         }
+        self.stop_outlines(Some(generation));
     }
 
     /// The teacher's current look (it changes every turn).
@@ -102,6 +103,21 @@ impl Pointing {
         self.stop_following();
         if let Ok(mut current) = self.current.lock() {
             *current = Some((generation, look));
+        }
+        self.stop_outlines(Some(generation));
+    }
+
+    /// Stops the outlines asked for early by every answer but `keep`: each costs a SAM call
+    /// and holds its answer's look (the screenshot) until it ends.
+    fn stop_outlines(&self, keep: Option<u64>) {
+        if let Ok(mut outlines) = self.outlines.lock() {
+            outlines.retain(|(owner, _, _), task| {
+                let kept = keep == Some(*owner);
+                if !kept {
+                    task.abort();
+                }
+                kept
+            });
         }
     }
 
@@ -122,6 +138,28 @@ impl Pointing {
             .and_then(|mut current| current.take())
             .map(|(generation, _)| generation);
         self.stop_following();
+        self.stop_outlines(None);
+        taken
+    }
+
+    /// `take` for `generation` alone: true when its look was current and is dropped; a newer
+    /// answer's look, follower and outlines stay.
+    fn take_if(&self, generation: u64) -> bool {
+        let taken = match self.current.lock() {
+            Ok(mut current)
+                if current
+                    .as_ref()
+                    .is_some_and(|(owner, _)| *owner == generation) =>
+            {
+                current.take();
+                true
+            }
+            _ => false,
+        };
+        if taken {
+            self.stop_following();
+            self.stop_outlines(None);
+        }
         taken
     }
 
@@ -263,11 +301,11 @@ impl Follower {
                                     Some(now.frame) == frame && popup_state(&now) == expected_popups
                                 });
                             if clear || !valid {
-                                stop_pointing(&ui);
+                                stop_pointing_if(&ui, generation);
                             } else if let Some(rect) = shifted
                                 && render_target(&ui, generation, rect, step).is_none()
                             {
-                                stop_pointing(&ui);
+                                stop_pointing_if(&ui, generation);
                             }
                         })
                         .is_err()
@@ -340,7 +378,7 @@ pub async fn point_at(
     let look = pointing.look(generation)?;
     // The picture must still be true: the window there, unmoved.
     if !mm_win32::window::still_shown(look.snapshot.target, look.window_frame) {
-        stop_pointing(&app);
+        stop_pointing_if(&app, generation);
         app.state::<AnswerStream>().send(AnswerMsg::Line {
             generation,
             key: "robot.window_closed",
@@ -390,12 +428,12 @@ pub async fn point_at(
     }
     // The window may have moved or closed during the wait: the picture must still be true.
     if !mm_win32::window::still_shown(look.snapshot.target, look.window_frame) {
-        stop_pointing(&app);
+        stop_pointing_if(&app, generation);
         return None;
     }
     let Some(target) = resolved else {
         // Nothing pointable there: the ring of an earlier point must not stay lit.
-        stop_pointing(&app);
+        stop_pointing_if(&app, generation);
         return None;
     };
     show_target(&app, generation, target, step.map(|s| (s.number, s.total)))
@@ -411,8 +449,9 @@ pub fn show_target(
     step: Option<(u32, u32)>,
 ) -> Option<MateRect> {
     let pointing = app.try_state::<Pointing>()?;
-    pointing.stop_following();
+    // An outdated call must not stop the newer answer's follower.
     let look = pointing.look(generation)?;
+    pointing.stop_following();
     // Following a moved window is a nicety: without it the ring still shows, and the
     // checks before every point (still_shown) keep it honest.
     let follower = Follower::start(app, generation, &look, target, step);
@@ -427,7 +466,7 @@ pub fn show_target(
     }
     let shown = render_target(app, generation, target, step);
     if shown.is_none() {
-        stop_pointing(app);
+        stop_pointing_if(app, generation);
         return None;
     }
     let mut following = pointing.follower.lock().ok()?;
@@ -551,6 +590,21 @@ pub fn stop_pointing(app: &AppHandle) {
     }
 }
 
+/// `stop_pointing` for `generation` alone, after its checks: a newer answer that took over
+/// meanwhile keeps its look, its ring and Mate beside it.
+fn stop_pointing_if(app: &AppHandle, generation: u64) {
+    if !app
+        .try_state::<Pointing>()
+        .is_some_and(|pointing| pointing.take_if(generation))
+    {
+        return;
+    }
+    let _ = crate::highlight::clear(app);
+    if let Some(flight) = app.try_state::<Flight>() {
+        flight.land(flight.home());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -572,6 +626,39 @@ mod tests {
         pointing.take();
         assert!(stopped.load(Ordering::Acquire));
         assert!(pointing.warmth.lock().unwrap().is_none());
+    }
+
+    #[test]
+    fn an_outdated_stop_leaves_the_current_answer_alone() {
+        let pointing = Pointing::default();
+        let stopped = Arc::new(AtomicBool::new(false));
+        *pointing.warmth.lock().unwrap() = Some(Follower {
+            stopped: Arc::clone(&stopped),
+            thread: None,
+        });
+        assert!(!pointing.take_if(7));
+        assert!(!stopped.load(Ordering::Acquire));
+        assert!(pointing.warmth.lock().unwrap().is_some());
+    }
+
+    #[test]
+    fn ending_an_answer_stops_its_early_outlines() {
+        let pointing = Pointing::default();
+        let held = Arc::new(());
+        let inside = Arc::clone(&held);
+        let task = tauri::async_runtime::spawn(async move {
+            let _look = inside;
+            std::future::pending::<Option<PhysRect>>().await
+        });
+        pointing.outlines.lock().unwrap().insert((7, 1, 2), task);
+        pointing.take();
+        assert!(pointing.outlines.lock().unwrap().is_empty());
+        // The stopped task lets go of what it held (in the app: the look's screenshot).
+        let asked = std::time::Instant::now();
+        while Arc::strong_count(&held) > 1 {
+            assert!(asked.elapsed() < Duration::from_secs(5));
+            std::thread::sleep(Duration::from_millis(10));
+        }
     }
 
     #[test]

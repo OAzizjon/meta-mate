@@ -158,8 +158,9 @@ pub(super) async fn outline_unlisted(
         .computer_calls
         .iter()
         .flat_map(|call| call.actions.iter());
-    // All at once: a turn with several such clicks waits for the slowest, not the sum.
-    let mut asked = Vec::new();
+    // All at once: a turn with several such clicks waits for the slowest, not the sum. In a
+    // set that aborts them when dropped: an aborted lesson starts no SAM call after it ends.
+    let mut asked = tokio::task::JoinSet::new();
     for (index, (action, target)) in actions.zip(targets.iter()).enumerate() {
         let (Action::Click { x, y, .. } | Action::DoubleClick { x, y }) = action else {
             continue;
@@ -169,7 +170,7 @@ pub(super) async fn outline_unlisted(
         };
         if target.is_none() && (look.cut || crate::sam::outline_allowed(look, x, y)) {
             let (proxy, look) = (proxy.clone(), Arc::clone(look));
-            let task = tokio::spawn(async move {
+            asked.spawn(async move {
                 if look.cut
                     && let Some(phys) = ShotPoint::new(f64::from(x) + 0.5, f64::from(y) + 0.5)
                         .ok()
@@ -186,20 +187,22 @@ pub(super) async fn outline_unlisted(
                         .resolve_live(element)
                         .filter(|rect| rect.contains(phys))
                     {
-                        return Some(rect);
+                        return (index, Some(rect));
                     }
                 }
                 if crate::sam::outline_allowed(&look, x, y) {
-                    crate::sam::sam_outline(&proxy, &look, x, y).await
+                    (index, crate::sam::sam_outline(&proxy, &look, x, y).await)
                 } else {
-                    None
+                    (index, None)
                 }
             });
-            asked.push((index, task));
         }
     }
-    for (index, task) in asked {
-        targets[index] = task.await.ok().flatten();
+    // A task that failed leaves its step unplaceable (None), as before.
+    while let Some(done) = asked.join_next().await {
+        if let Ok((index, target)) = done {
+            targets[index] = target;
+        }
     }
 }
 
