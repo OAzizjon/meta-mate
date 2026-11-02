@@ -1,1 +1,6 @@
-{"version": "0.2.0", "url": "https://meta-mate.stream/download/MetaMate-setup.exe", "sha256": "0000000000000000000000000000000000000000000000000000000000000000"}
+{
+  "version": "0.2.0",
+  "url": "https://meta-mate.stream/download/MetaMate-setup.exe",
+  "sha256": "efef97bbd071088c93bac02257743b4a65ba882c03ed6faa9a65dce0b97b8294",
+  "size_mb": 18
+}
