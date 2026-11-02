@@ -25,6 +25,7 @@ export default defineConfig({
         home: "home.html",
         chat: "chat.html",
         signin: "signin.html",
+        practice: "practice.html",
       },
     },
   },

@@ -31,6 +31,20 @@ import {
   devButtonsHidden,
 } from "./settings/dev-view.ts";
 import type { DevCommand, DevSectionRefs } from "./settings/dev-view.ts";
+import {
+  UPDATE_INSTALL_CMD,
+  UPDATE_STATUS_CMD,
+  buildUpdateSection,
+  isValidSemver,
+  parseUpdateStatus,
+  resolveUpdateNote,
+} from "./settings/update-view.ts";
+import type {
+  UpdateNotes,
+  UpdateNotice,
+  UpdateSectionRefs,
+  UpdateStatus,
+} from "./settings/update-view.ts";
 import { buildVoiceSpeedGroup } from "./settings/voice-speed-view.ts";
 import {
   AUTH_CHANGED_EVENT,
@@ -121,6 +135,12 @@ export {
   OPEN_UNDER_THE_HOOD_CMD,
   buildDevSection,
   devButtonsHidden,
+  UPDATE_INSTALL_CMD,
+  UPDATE_STATUS_CMD,
+  buildUpdateSection,
+  isValidSemver,
+  parseUpdateStatus,
+  resolveUpdateNote,
 };
 export type {
   AccountInvoke,
@@ -141,6 +161,10 @@ export type {
   SettingsStore,
   SettingsSubscribe,
   SoundMode,
+  UpdateNotes,
+  UpdateNotice,
+  UpdateSectionRefs,
+  UpdateStatus,
 };
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
@@ -260,6 +284,7 @@ export function mountSettings(
   };
 
   const accountGroup = buildAccountSection(accountStore);
+  const updateGroup = buildUpdateSection(invoke, t, getLocale);
   const devGroup = buildDevSection(
     (developerMode) => {
       void applyPatch({ developerMode });
@@ -336,6 +361,7 @@ export function mountSettings(
     sizeGroup.fieldset,
     togglesGroup,
     accountGroup.section,
+    updateGroup.section,
     devGroup.section,
   );
 
@@ -399,6 +425,7 @@ export function mountSettings(
     reduceMotionBox.titleEl.textContent = t(reduceMotionBox.labelKey);
     startWithWindowsBox.titleEl.textContent = t(startWithWindowsBox.labelKey);
     accountGroup.syncText();
+    updateGroup.syncText(t, getLocale());
     devGroup.syncText(t);
   };
 
@@ -444,6 +471,7 @@ export function mountSettings(
   );
 
   void settingsActions.load();
+  void updateGroup.load();
 
   const unsubscribeAccount = accountStore.subscribe((accountState) => {
     if (!destroyed) {
@@ -466,6 +494,7 @@ export function mountSettings(
     },
     reload(): Promise<Settings> {
       void accountStore.load();
+      void updateGroup.load();
       return settingsActions.load();
     },
     setLocale(locale: LocaleCode): void {
@@ -477,6 +506,7 @@ export function mountSettings(
       unsubscribeChanged();
       unsubscribeAccount();
       accountGroup.destroy();
+      updateGroup.destroy();
       devGroup.destroy();
       motionQuery?.removeEventListener("change", onMotionMediaChange);
       container.replaceChildren();

@@ -130,6 +130,9 @@ pub fn level(frame: &[u8]) -> f32 {
     }
 }
 
+/// The most `StreamGain` lifts a quiet microphone: +20 dB.
+pub const MAX_GAIN: f64 = 10.0;
+
 /// The utterance gain while the audio streams (speech recognition gets each frame as it is
 /// captured, so the words can show while the person speaks): the gain follows the loudest
 /// speech frame so far, `-3 dBFS / peak`, between 1 (never quieter) and +20 dB. It only goes
@@ -153,7 +156,7 @@ impl StreamGain {
             self.peak = self.peak.max(frame_peak);
         }
         let gain = if self.peak > 0.0 {
-            (0.707_945_784 / self.peak).clamp(1.0, 10.0)
+            (0.707_945_784 / self.peak).clamp(1.0, MAX_GAIN)
         } else {
             1.0
         };
@@ -165,5 +168,29 @@ impl StreamGain {
             let scaled = (sample * gain).clamp(-0.99, 0.99);
             *bytes = ((scaled * 32_768.0).round() as i16).to_le_bytes();
         }
+    }
+}
+
+/// How long a recording may go without samples once they flowed: a Bluetooth headset
+/// switching profile or a changed default device can leave the stream silent for good.
+pub const STALL_MS: u64 = 1_000;
+
+/// Whether the microphone stopped delivering samples. Timestamps are milliseconds since
+/// capture began; the clock starts at the first samples, as a device may be slow to open.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct StallWatch {
+    fed_at: Option<u64>,
+}
+
+impl StallWatch {
+    /// Samples arrived at `now_ms`.
+    pub fn fed(&mut self, now_ms: u64) {
+        self.fed_at = Some(now_ms);
+    }
+
+    /// Whether more than `STALL_MS` passed since samples last arrived.
+    pub fn stalled(&self, now_ms: u64) -> bool {
+        self.fed_at
+            .is_some_and(|fed_at| now_ms.saturating_sub(fed_at) > STALL_MS)
     }
 }

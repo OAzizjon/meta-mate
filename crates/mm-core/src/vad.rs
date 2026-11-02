@@ -4,6 +4,11 @@ const CALIBRATE_MS: u64 = 300;
 const MIN_SPEECH_MS: u64 = 600;
 const SILENCE_MS: u64 = 1_200;
 const MAX_MS: u64 = 30_000;
+/// The speech threshold's minimum.
+const ENTER_MIN: f32 = 0.003;
+/// The `heard` threshold's minimum: speech recognition gets the frames lifted by up to
+/// `StreamGain`'s +20 dB, so a quiet microphone it understands has caught sound.
+const HEARD_MIN: f32 = ENTER_MIN / crate::mic::MAX_GAIN as f32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SilenceEnd {
@@ -62,11 +67,11 @@ impl SilenceDetector {
             // start does not teach the detector that the speaker is background.
             self.floor = self.floor.min(0.03);
         }
-        let enter = (self.floor * 3.0).max(0.003);
+        let enter = (self.floor * 3.0).max(ENTER_MIN);
         let leave = (self.floor * 1.8).max(0.0015);
         let was_speaking = self.speaking;
         self.speaking = rms >= if was_speaking { leave } else { enter };
-        self.heard |= self.speaking;
+        self.heard |= self.speaking || rms >= (self.floor * 3.0).max(HEARD_MIN);
         if was_speaking {
             self.speech_ms = self.speech_ms.saturating_add(delta);
         }
@@ -141,6 +146,21 @@ mod tests {
         }
         assert!(!muted.heard());
         assert!(!SilenceDetector::new().heard());
+    }
+
+    #[test]
+    fn a_quiet_microphone_recognition_can_lift_is_heard() {
+        // Words below the speech threshold, within reach of StreamGain's +20 dB.
+        let mut detector = SilenceDetector::new();
+        let mut now = 0;
+        for (frames, rms) in [(4, 0.0001), (5, 0.001), (5, 0.0001)] {
+            for _ in 0..frames {
+                assert_eq!(detector.input(rms, now), None);
+                now += 80;
+            }
+        }
+        assert!(detector.heard());
+        assert_eq!(detector.speech_ms, 0);
     }
 
     #[test]

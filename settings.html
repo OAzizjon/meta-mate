@@ -103,6 +103,7 @@
       .settings-legend,
       .settings-label,
       .settings-account-title,
+      .settings-update-title,
       .settings-dev-title {
         margin: 0;
         font-family: var(--font);
@@ -363,6 +364,7 @@
       }
 
       .settings-account-title,
+      .settings-update-title,
       .settings-dev-title {
         margin-bottom: 4px;
       }
@@ -374,8 +376,13 @@
         color: var(--text-muted);
       }
 
+      .settings-update-notes {
+        margin-top: 4px;
+      }
+
       /* Side by side when both fit, stacked full width when not. */
       .settings-account-buttons,
+      .settings-update-buttons,
       .settings-dev-buttons {
         display: flex;
         flex-wrap: wrap;
@@ -388,6 +395,7 @@
       }
 
       .settings-account-btn,
+      .settings-update-btn,
       .settings-dev-btn {
         flex: 1 1 200px;
       }
@@ -409,6 +417,7 @@
       }
 
       .settings-account-status,
+      .settings-update-status,
       .settings-dev-status {
         margin-top: 10px;
         font-size: var(--text-sm);
@@ -417,12 +426,15 @@
       }
 
       .settings-account-status:empty,
+      .settings-update-status:empty,
+      .settings-update-status[hidden],
       .settings-dev-status:empty,
       .settings-dev-status[hidden] {
         margin-top: 0;
       }
 
       .settings-account-status.is-error,
+      .settings-update-status.is-error,
       .settings-dev-status.is-error {
         color: var(--error);
         font-weight: 600;

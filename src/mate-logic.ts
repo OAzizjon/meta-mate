@@ -5,14 +5,14 @@ import { AnswerGenerations, HeldPresentation } from "./ipc/answer-generation.ts"
 import { guestUsageOf } from "./mate-menu.ts";
 import { nextStamp } from "./safety-stamp.ts";
 import type { HintKind } from "./hints/logic.ts";
+import type { CueEvent } from "./audio/cue-policy.ts";
 import type { AnswerModel, AnswerMsg } from "./ipc/answer-stream.ts";
 import type { TimelineItem } from "./ipc/timeline.ts";
 import type { LocaleKey } from "./i18n/index.ts";
-import type { RobotController, RobotMood, RobotState } from "./robot/index.ts";
+import type { CssRect, RobotController, RobotMood, RobotState } from "./robot/index.ts";
 import type { TimelinePlayer, TimelinePlayerOptions } from "./player/timeline-player.ts";
 import type { SafetyVerdict, StampState } from "./safety-stamp.ts";
 
-export const CANT_FIND_HOLD_MS = 3000;
 /** As long as Rust waits for a click on Mate (or F8) before an unclear window is looked at (screen.rs confirm_look). */
 export const LOOK_CONSENT_MS = 30_000;
 
@@ -50,6 +50,8 @@ export interface Bubble {
   show(text: string | null, ms?: number, hint?: BubbleHint): void;
   /** Keep the remaining reading time, and at least this many ms from now. */
   hideAfter(ms: number): void;
+  /** The beam's target in this window (CSS pixels), or null. */
+  avoid?(target: CssRect | null): void;
 }
 
 /** The safety check's comic stamp (src/safety-stamp.ts). */
@@ -71,15 +73,17 @@ interface AnswerEffects {
   onPcm: (msg: Extract<AnswerMsg, { type: "pcm" }>) => void;
   reportPlayback: (kind: "trace" | "done", generation: number, detail?: string) => unknown;
   sleep: (ms: number) => Promise<void>;
+  onCue?: (event: CueEvent) => void;
 }
 
 export function createMateAnswerRouter(effects: AnswerEffects) {
-  const { robot, bubble, stamp, player, t, stopOnboarding, onPcm, reportPlayback, sleep } = effects;
+  const { robot, bubble, stamp, player, t, stopOnboarding, onPcm, reportPlayback, sleep, onCue } = effects;
   let listening = false;
   let listeningGeneration: number | null = null;
   let clickListening = false;
   let showingHeard = false;
   let lookConsentGeneration: number | null = null;
+  let cantSpeakShown = false;
   let currentState: RobotState = "idle";
   let currentMood: RobotMood = "calm";
   let currentStamp: SafetyVerdict | null = null;
@@ -90,6 +94,16 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
   const presentation = new HeldPresentation();
   const present = (key: string, update: () => void): void => {
     presentation.apply(key, generations.holdPresentation, update);
+  };
+  const cantSpeak = (): void => {
+    if (cantSpeakShown) return;
+    cantSpeakShown = true;
+    lookConsentGeneration = null;
+    present("bubble", () => {
+      showingHeard = false;
+      const text = t("robot.cant_speak");
+      bubble.show(text, bubbleReadMs(text));
+    });
   };
   // The answer Rust named a safety check (`markSafety`) and its stamp so far.
   let safety: { generation: number; state: StampState } | null = null;
@@ -149,6 +163,7 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
     }
     if (!generations.holdPresentation) presentation.release();
     if (generations.newest > newest) {
+      if (newest >= 0) player.cancel(generations.newest - 1);
       idle = false;
       bubble.setModel(null);
       // A newer press ends the verdict's stamp at once, like the chip.
@@ -169,12 +184,17 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
           present("bubble", () => bubble.show(null));
         }
         if (msg.generation !== generations.listening && generations.holdPresentation) {
-          present("state", () => setState(msg.state));
+          present("state", () => {
+            setState(msg.state);
+            onCue?.({ type: "answer-state", generation: msg.generation, state: msg.state });
+          });
           return;
         }
         setState(msg.state);
+        onCue?.({ type: "answer-state", generation: msg.generation, state: msg.state });
         if (msg.state === "listening") {
           listeningGeneration = msg.generation;
+          lookConsentGeneration = null;
           clickListening = false;
           showingHeard = false;
           bubble.show(null);
@@ -192,6 +212,7 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
         if (listening) robot.setVoiceLevel(msg.level);
         return;
       case "item":
+        onCue?.({ type: "answer-item", generation: msg.generation, item: msg.item });
         player.push(msg.generation, msg.item);
         stampItem(msg.generation, msg.item);
         void reportPlayback("trace", msg.generation, `item ${msg.item.kind}`);
@@ -200,6 +221,11 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
         onPcm(msg);
         return;
       case "cancel":
+        onCue?.({ type: "answer-cancel", generation: msg.generation });
+        if (lookConsentGeneration !== null && lookConsentGeneration <= msg.generation) {
+          lookConsentGeneration = null;
+          present("bubble", () => bubble.show(null));
+        }
         if (safety && safety.generation <= msg.generation) unstamp();
         if (msg.generation >= generations.answer && currentMood !== "calm") setMood("calm");
         // Cancels the audio engine too.
@@ -215,39 +241,67 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
           }
           return;
         }
+        if (msg.key === "robot.cant_speak") {
+          cantSpeak();
+          onCue?.({ type: "answer-line", generation: msg.generation, key: msg.key });
+          return;
+        }
         // The consent question must stay up until its answer window closes; tracked on
         // arrival, so a close that comes while presentation is held still finds it.
-        lookConsentGeneration = msg.key === "robot.look_consent" ? msg.generation : null;
+        const consentGen = msg.key === "robot.look_consent" ? msg.generation : null;
+        lookConsentGeneration = consentGen;
         present("bubble", () => {
           showingHeard = false;
           const text = t(msg.key);
           // The consent question brings its picture: where Fn and F8 are, or a click on Mate.
-          if (msg.key === "robot.look_consent") bubble.show(text, LOOK_CONSENT_MS, "consent");
-          else bubble.show(text, bubbleReadMs(text));
+          if (consentGen !== null) {
+            bubble.show(text, LOOK_CONSENT_MS, "consent");
+            void sleep(LOOK_CONSENT_MS).then(() => {
+              if (lookConsentGeneration !== consentGen) return;
+              lookConsentGeneration = null;
+              const expired = t("robot.consent_expired");
+              present("bubble", () => {
+                showingHeard = false;
+                bubble.show(expired, bubbleReadMs(expired));
+                onCue?.({ type: "answer-line", generation: consentGen, key: "robot.consent_expired" });
+              });
+            });
+          } else {
+            bubble.show(text, bubbleReadMs(text));
+          }
+          onCue?.({ type: "answer-line", generation: msg.generation, key: msg.key });
         });
         return;
     }
   };
   const timeline: Pick<TimelinePlayerOptions, "showBubble" | "onLine" | "onDone"> = {
     showBubble: (text) => {
+      lookConsentGeneration = null;
       present("bubble", () => {
         showingHeard = false;
-        bubble.show(text);
+        if (text === null) bubble.show(null);
+        else bubble.show(text, bubbleReadMs(text));
       });
     },
     onLine(line) {
       // The only line a timeline raises today; nothing speaks it here.
       if (line !== "CantFind") return;
+      lookConsentGeneration = null;
+      const text = t("robot.cant_find");
+      const ms = bubbleReadMs(text);
       present("bubble", () => {
         showingHeard = false;
-        const text = t("robot.cant_find");
-        bubble.show(text, bubbleReadMs(text));
+        bubble.show(text, ms);
+        onCue?.({ type: "answer-line", generation: generations.answer, key: "robot.cant_find" });
       });
-      return sleep(CANT_FIND_HOLD_MS);
+      return sleep(ms);
     },
     onDone(doneGeneration) {
       if (doneGeneration !== generations.answer) return;
-      present("state", () => setState("idle"));
+      present("state", () => {
+        onCue?.({ type: "answer-done", generation: doneGeneration });
+        setState("idle");
+      });
       present("bubble-hide", () => bubble.hideAfter(BUBBLE_LINGER_MS));
       if (stamped && safety?.generation === doneGeneration) {
         present("stamp-hide", () => stamp.hideAfter(BUBBLE_LINGER_MS));
@@ -264,7 +318,7 @@ export function createMateAnswerRouter(effects: AnswerEffects) {
     unstamp();
     safety = { generation: payload, state: undefined };
   };
-  return { route, present, setState, setMood, markSafety, ...timeline };
+  return { route, present, setState, setMood, markSafety, cantSpeak, ...timeline };
 }
 
 /** Lesson audio is interrupted independently of the answer's presentation generation. */
@@ -282,6 +336,7 @@ export function awakeBubble(bubble: Bubble, isSleeping: () => boolean): Bubble {
     // Only the arguments given: a hint is passed on only with the consent question.
     show: (...args) => { if (!isSleeping()) bubble.show(...args); },
     hideAfter: (ms) => { if (!isSleeping()) bubble.hideAfter(ms); },
+    avoid: (target) => { if (target === null || !isSleeping()) bubble.avoid?.(target); },
   };
 }
 
@@ -294,6 +349,7 @@ interface WindowEffects {
   stopOnboarding: () => void;
   hidingText: (minutes: number) => string;
   explainText: (control: string) => string;
+  onCue?: (event: CueEvent) => void;
 }
 
 export function createMateWindowEvents(effects: WindowEffects) {
@@ -304,15 +360,18 @@ export function createMateWindowEvents(effects: WindowEffects) {
       effects.stopOnboarding();
       effects.setSleeping(true);
       robot.setMood?.("calm");
+      effects.onCue?.({ type: "sleep" });
       robot.setState("sleeping");
       bubble.setShape?.("speech");
       bubble.setModel(null);
+      bubble.avoid?.(null);
       bubble.show(effects.hidingText(minutes), 3000);
     },
     wake(): void {
       effects.setSleeping(false);
       bubble.show(null);
       robot.setState("idle");
+      effects.onCue?.({ type: "wake" });
     },
     explain(payload: { control?: unknown; ms?: unknown } | null): void {
       const control = payload?.control;
@@ -322,6 +381,7 @@ export function createMateWindowEvents(effects: WindowEffects) {
       robot.setMood?.("calm");
       bubble.setShape?.("speech");
       bubble.setModel(null);
+      bubble.avoid?.(null);
       bubble.show(effects.explainText(control), ms);
     },
   };

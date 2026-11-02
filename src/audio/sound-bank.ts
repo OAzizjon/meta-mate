@@ -227,7 +227,7 @@ export class SoundBank {
    * `think` loops seamlessly until stopped.
    */
   playCue(name: CueName, opts?: CueOptions): PlaybackHandle {
-    if (!isCueName(name)) {
+    if (!isCueName(name) || this.mixer.getSettings().volume <= 0) {
       return { stop: () => {}, finished: Promise.resolve() };
     }
 
@@ -294,6 +294,9 @@ export class SoundBank {
 
         const panner = this.ctx.createStereoPanner();
         panner.pan.value = panValue;
+        this.mixer.cuesInput.gain.value =
+          opts?.gain ??
+          this.mixer.levelGain(opts?.level ?? "normal", this.mixer.getMode());
 
         source.connect(panner);
         panner.connect(this.mixer.cuesInput);

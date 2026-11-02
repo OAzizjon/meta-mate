@@ -201,3 +201,18 @@ fn stream_gain_lifts_quiet_speech_frame_by_frame_and_never_pumps() {
     gain.apply(&mut quiet_again);
     assert!(peak(&quiet_again) < before * 3);
 }
+
+#[test]
+fn a_stream_stalls_only_after_its_samples_stop_for_over_a_second() {
+    use mm_core::mic::{STALL_MS, StallWatch};
+    let mut watch = StallWatch::default();
+    // A device slow to open (a Bluetooth headset) has not stalled before its first samples.
+    assert!(!watch.stalled(5_000));
+    watch.fed(5_000);
+    assert!(!watch.stalled(5_000 + STALL_MS));
+    assert!(watch.stalled(5_000 + STALL_MS + 20));
+    // Samples again restart the clock.
+    watch.fed(7_000);
+    assert!(!watch.stalled(7_000 + STALL_MS));
+    assert!(watch.stalled(7_000 + STALL_MS + 20));
+}

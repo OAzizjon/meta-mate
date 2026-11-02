@@ -103,6 +103,10 @@ body {
   display: none;
 }
 
+#mate-bubble.is-covering {
+  visibility: hidden;
+}
+
 .mate-bubble-content {
   display: flex;
   flex-direction: column;

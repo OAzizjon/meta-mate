@@ -59,7 +59,9 @@ class AnswerLineTests(unittest.TestCase):
         self.assertEqual(wait.group(1), shown.group(1))
 
     def test_the_whitelist_has_no_stale_keys(self):
-        stale = line_keys() - set(rust_keys())
+        # Lines Mate's own window shows (src/mate-logic.ts), never sent by Rust.
+        window_only = {'robot.consent_expired', 'robot.cant_speak'}
+        stale = line_keys() - set(rust_keys()) - window_only
         self.assertEqual(stale, set())
 
 

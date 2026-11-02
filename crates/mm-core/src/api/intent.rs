@@ -14,6 +14,13 @@ use safety::asks_safety;
 #[path = "intent_about.rs"]
 mod about;
 
+#[path = "intent_describe.rs"]
+mod describe;
+
+#[path = "intent_repeat.rs"]
+mod repeat;
+pub use repeat::{asks_repeat, repeat_question};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Intent {
     Where,
@@ -22,6 +29,8 @@ pub enum Intent {
     Do,
     /// "Is this safe?": a verdict on the window (scams). Only the offline cues pick it.
     Safety,
+    /// "What is going on on this page?": a look to explain the window, not to find one thing.
+    Describe,
 }
 
 const CLASSIFIER: &str = "Classify the user's request. Reply with one word:\n\
@@ -62,6 +71,7 @@ fn label(word: &str) -> Option<Intent> {
         "how" => Some(Intent::How),
         "chat" => Some(Intent::Chat),
         "do" => Some(Intent::Do),
+        "describe" => Some(Intent::Describe),
         _ => None,
     }
 }
@@ -278,45 +288,6 @@ pub fn asks_do_it(text: &str) -> bool {
                 "можете нажать",
             ],
         )
-}
-
-/// How far either side of a verdict its subject may be: "is this message from my bank real".
-const VERDICT_REACH: usize = 6;
-
-/// The thing on the screen ("this", "это", "тут") or the person a scam is aimed at ("меня").
-fn is_subject(word: &str) -> bool {
-    matches!(
-        word,
-        "this"
-            | "that"
-            | "it"
-            | "these"
-            | "those"
-            | "they"
-            | "its"
-            | "thats"
-            | "theyre"
-            | "это"
-            | "этот"
-            | "эта"
-            | "эти"
-            | "этому"
-            | "этой"
-            | "эту"
-            | "этом"
-            | "этого"
-            | "этим"
-            | "этих"
-            | "тут"
-            | "здесь"
-            | "он"
-            | "она"
-            | "оно"
-            | "они"
-            | "меня"
-            | "нас"
-            | "мне"
-    )
 }
 
 /// Russian verdicts inflect ("мошенник", "мошенники", "мошенничество"): matched by stem.
@@ -772,6 +743,11 @@ pub fn guess_intent(question: &str) -> Intent {
                 | "стишок"
         )
     });
+    // "What is going on on this page?", "что тут написано?": explain the whole window. The
+    // where/how cues above win ("where is Save on this page?" still points).
+    if !story && describe::asks_describe(&words) {
+        return Intent::Describe;
+    }
     if bare_this
         || (!story && words.iter().any(|word| screen_word(word)))
         || has_phrase(&words, &["что", "это", "за", "окно"])

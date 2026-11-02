@@ -12,6 +12,7 @@ import {
   HOME_TRY_COMMAND,
   HOME_TRY_HINTS,
   HOME_TRY_KEYS,
+  HOME_WOW_CHIPS,
   OPEN_SETTINGS_COMMAND,
   createHomeTryRunner,
   isHomeTryKey,
@@ -518,6 +519,34 @@ test("the talk card keeps the keycap and both steps, then one line on where the 
     assert.equal(
       byClass(talk, "home-talk-more").textContent,
       `${LOCALES.en["home.where_f9"]} ${LOCALES.en["home.talk_click"]}`,
+    );
+  } finally {
+    unmount();
+  }
+});
+
+test("three chips under the greeting name what visitors miss, each with a one-line tip", async () => {
+  assert.deepEqual(
+    HOME_WOW_CHIPS.map((chip) => chip.label),
+    ["home.wow_spotlight", "home.wow_warmer", "home.wow_drop"],
+  );
+  for (const [code, strings] of Object.entries(LOCALES)) {
+    for (const { label, tip } of HOME_WOW_CHIPS) {
+      assert.ok(strings[label]?.trim() && strings[label].length <= 30, `${code}: ${label}`);
+      assert.ok(strings[tip]?.trim() && !strings[tip].includes("\n") && strings[tip].length <= 90, `${code}: ${tip}`);
+    }
+  }
+
+  const { container, unmount } = await mountFakeHome({ ...SAVED, profileAsked: true });
+  try {
+    assert.deepEqual(
+      byClass(container, "home-hero-text").children.map((node) => node.className),
+      ["home-greeting", "home-wow", "home-intro home-bubble", "home-talk"],
+    );
+    const chips = byClass(container, "home-wow").children;
+    assert.deepEqual(
+      chips.map((chip) => [chip.tagName, chip.textContent, (chip as FakeElement & { title?: string }).title]),
+      HOME_WOW_CHIPS.map(({ label, tip }) => ["li", LOCALES.en[label], LOCALES.en[tip]]),
     );
   } finally {
     unmount();

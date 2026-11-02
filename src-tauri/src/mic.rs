@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{ErrorKind, InputCallbackInfo, SampleFormat, Stream, StreamConfig};
-use mm_core::mic::{Framer, level};
+use mm_core::mic::{Framer, StallWatch, level};
 use ringbuf::HeapRb;
 use ringbuf::traits::*;
 use tokio::sync::mpsc;
@@ -29,6 +29,10 @@ const FLUSH_DEADLINE: Duration = Duration::from_secs(2);
 pub enum MicError {
     NoDevice,
     UnsupportedFormat,
+    /// Windows privacy settings refuse desktop apps the microphone (E_ACCESSDENIED).
+    Denied(String),
+    /// Another program holds the microphone exclusively (AUDCLNT_E_DEVICE_IN_USE).
+    Busy(String),
     Device(String),
 }
 
@@ -37,6 +41,8 @@ impl fmt::Display for MicError {
         match self {
             Self::NoDevice => f.write_str("no default microphone device"),
             Self::UnsupportedFormat => f.write_str("unsupported microphone sample format"),
+            Self::Denied(error) => write!(f, "microphone access denied: {error}"),
+            Self::Busy(error) => write!(f, "microphone in use by another program: {error}"),
             Self::Device(error) => write!(f, "microphone device error: {error}"),
         }
     }
@@ -44,8 +50,17 @@ impl fmt::Display for MicError {
 
 impl std::error::Error for MicError {}
 
+/// Tells apart the failures the person can fix by the HRESULT in the message.
 fn device_error(error: impl fmt::Display) -> MicError {
-    MicError::Device(error.to_string())
+    let text = error.to_string();
+    let code = text.to_ascii_lowercase();
+    if code.contains("0x80070005") {
+        MicError::Denied(text)
+    } else if code.contains("0x8889000a") {
+        MicError::Busy(text)
+    } else {
+        MicError::Device(text)
+    }
 }
 
 enum Command {
@@ -70,9 +85,13 @@ impl Microphone {
     /// Opens the default input device and starts capturing at once (called on PttEvent::Start).
     /// `on_level` receives RMS in 0..=1 for each 80 ms PCM frame (12.5 Hz),
     /// including the final padded frame. It runs on the capture worker.
+    /// `on_lost` runs there once if the device is lost or stops delivering samples for
+    /// over a second (`mm_core::mic::STALL_MS`): the recording ended by itself and `frames`
+    /// closes.
     pub fn start(
         frames: mpsc::Sender<Vec<u8>>,
         on_level: impl FnMut(f32) + Send + 'static,
+        on_lost: impl FnOnce() + Send + 'static,
     ) -> Result<Microphone, MicError> {
         let (ready_tx, ready_rx) = std_mpsc::sync_channel(1);
         let (command_tx, command_rx) = std_mpsc::channel();
@@ -80,7 +99,16 @@ impl Microphone {
         let worker_abandon = Arc::clone(&abandon);
         let worker = thread::Builder::new()
             .name("metamate-mic".into())
-            .spawn(move || session(frames, on_level, ready_tx, command_rx, &worker_abandon))
+            .spawn(move || {
+                session(
+                    frames,
+                    on_level,
+                    on_lost,
+                    ready_tx,
+                    command_rx,
+                    &worker_abandon,
+                )
+            })
             .map_err(device_error)?;
         match ready_rx.recv() {
             Ok(Ok(())) => Ok(Self {
@@ -127,6 +155,7 @@ impl Drop for Microphone {
 fn session(
     frames: mpsc::Sender<Vec<u8>>,
     mut on_level: impl FnMut(f32) + Send + 'static,
+    on_lost: impl FnOnce() + Send + 'static,
     ready: SyncSender<Result<(), MicError>>,
     commands: std_mpsc::Receiver<Command>,
     abandon: &AtomicBool,
@@ -144,6 +173,8 @@ fn session(
     };
 
     let mut scratch = vec![0.0_f32; DRAIN_CHUNK_SAMPLES];
+    let started = Instant::now();
+    let mut watch = StallWatch::default();
     loop {
         match commands.recv_timeout(DRAIN_INTERVAL) {
             Ok(Command::Stop) => {
@@ -169,6 +200,7 @@ fn session(
             }
             Err(RecvTimeoutError::Timeout) => {
                 if device_lost.load(Ordering::Acquire) {
+                    on_lost();
                     break;
                 }
                 let outlet = Outlet {
@@ -176,13 +208,34 @@ fn session(
                     abandon,
                     deadline: None,
                 };
-                if !drain_ring(
+                let Some(popped) = drain_ring(
                     &mut consumer,
                     &mut scratch,
                     &mut framer,
                     &outlet,
                     &mut on_level,
-                ) {
+                ) else {
+                    break;
+                };
+                let now_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+                if popped > 0 {
+                    watch.fed(now_ms);
+                } else if watch.stalled(now_ms) {
+                    // A Bluetooth headset switching profile or a changed default device can
+                    // leave the stream silent: the recording ends as if released.
+                    let outlet = Outlet {
+                        frames: &frames,
+                        abandon,
+                        deadline: Some(Instant::now() + FLUSH_DEADLINE),
+                    };
+                    let _ = flush_ring(
+                        &mut consumer,
+                        &mut scratch,
+                        &mut framer,
+                        &outlet,
+                        &mut on_level,
+                    );
+                    on_lost();
                     break;
                 }
             }
@@ -297,21 +350,24 @@ struct Outlet<'a> {
     deadline: Option<Instant>,
 }
 
+/// The samples taken from the ring, or None once frames can no longer be sent.
 fn drain_ring(
     consumer: &mut impl Consumer<Item = f32>,
     scratch: &mut [f32],
     framer: &mut Framer,
     frames: &Outlet<'_>,
     on_level: &mut (impl FnMut(f32) + Send),
-) -> bool {
+) -> Option<usize> {
+    let mut popped = 0;
     loop {
         let count = consumer.pop_slice(scratch);
         if count == 0 {
-            return true;
+            return Some(popped);
         }
+        popped += count;
         for frame in framer.push(&scratch[..count]) {
             if !send_frame(frame, frames, on_level) {
-                return false;
+                return None;
             }
         }
     }
@@ -324,7 +380,7 @@ fn flush_ring(
     frames: &Outlet<'_>,
     on_level: &mut (impl FnMut(f32) + Send),
 ) -> bool {
-    if !drain_ring(consumer, scratch, framer, frames, on_level) {
+    if drain_ring(consumer, scratch, framer, frames, on_level).is_none() {
         return false;
     }
     if let Some(last) = framer.finish() {
@@ -405,13 +461,16 @@ mod tests {
         };
         let mut levels = Vec::new();
 
-        assert!(drain_ring(
-            &mut consumer,
-            &mut scratch,
-            &mut framer,
-            &outlet,
-            &mut |rms| levels.push(rms),
-        ));
+        assert_eq!(
+            drain_ring(
+                &mut consumer,
+                &mut scratch,
+                &mut framer,
+                &outlet,
+                &mut |rms| levels.push(rms),
+            ),
+            Some(FRAME_SAMPLES + 100)
+        );
         assert_eq!(levels.len(), 1);
         assert!((levels[0] - 0.5).abs() < 0.01);
         assert_eq!(rx.try_recv().unwrap().len(), FRAME_BYTES);
@@ -448,14 +507,33 @@ mod tests {
         };
         let mut levels = Vec::new();
 
-        assert!(!drain_ring(
-            &mut consumer,
-            &mut scratch,
-            &mut framer,
-            &outlet,
-            &mut |rms| levels.push(rms),
-        ));
+        assert_eq!(
+            drain_ring(
+                &mut consumer,
+                &mut scratch,
+                &mut framer,
+                &outlet,
+                &mut |rms| levels.push(rms),
+            ),
+            None
+        );
         assert!(levels.is_empty());
+    }
+
+    #[test]
+    fn windows_failures_the_person_can_fix_are_told_apart() {
+        assert!(matches!(
+            device_error("Access is denied. (0x80070005)"),
+            MicError::Denied(_)
+        ));
+        assert!(matches!(
+            device_error("HRESULT(0x8889000A)"),
+            MicError::Busy(_)
+        ));
+        assert!(matches!(
+            device_error("The requested device is no longer available."),
+            MicError::Device(_)
+        ));
     }
 
     #[test]

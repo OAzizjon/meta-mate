@@ -2,6 +2,6 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Mate's window, the highlight windows (one per monitor), the settings, lesson card, Home, chat and sign-in windows: core events only for now.",
-  "windows": ["mate", "highlight-*", "debug", "settings", "card", "home", "signin", "chat"],
+  "windows": ["mate", "highlight-*", "debug", "settings", "card", "home", "signin", "chat", "practice"],
   "permissions": ["core:default"]
 }

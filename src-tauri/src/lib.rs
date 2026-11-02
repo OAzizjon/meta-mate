@@ -49,6 +49,7 @@ mod settings;
 mod signin;
 #[cfg(windows)]
 mod teacher;
+mod updater;
 #[cfg(windows)]
 mod voice;
 mod voice_selftest;
@@ -104,6 +105,7 @@ pub fn run() {
         .manage(pointing::Pointing::default())
         .manage(auth::Auth::default())
         .manage(presence::Presence::default())
+        .manage(updater::Updater::default())
         .on_menu_event(handle_menu)
         .invoke_handler(tauri::generate_handler![
             answer_stream::subscribe_answer_stream,
@@ -119,6 +121,7 @@ pub fn run() {
             card::cards_open_folder,
             home::open_home,
             home::home_try,
+            home::open_practice,
             chat::open_chat,
             chat::chat_send,
             chat::chat_subscribe,
@@ -135,7 +138,10 @@ pub fn run() {
             signin::guest_usage,
             signin::try_as_guest,
             debug_view::open_under_the_hood,
-            debug_view::mate_jump
+            debug_view::mate_jump,
+            updater::update_status,
+            updater::update_check,
+            updater::update_install
         ])
         .setup(move |app| {
             #[cfg(windows)]
@@ -247,6 +253,7 @@ fn finish_startup(app: &tauri::AppHandle) {
     if let Err(error) = tray(app) {
         eprintln!("tray: {error}");
     }
+    updater::check(app);
     #[cfg(windows)]
     if let Some(voice) = voice::start(app) {
         use tauri::Manager;
@@ -279,6 +286,7 @@ fn finish_startup(app: &tauri::AppHandle) {
 /// Tray menu ids.
 const MENU_HOME: &str = "tray.open_home";
 const MENU_CHAT: &str = "tray.chat";
+const MENU_UPDATE: &str = "tray.update";
 const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
 const MENU_HIDE: &str = "hide_hour";
@@ -303,6 +311,26 @@ pub(crate) fn show_tray_wake(app: &tauri::AppHandle, hidden: bool) {
             let _ = wake.menu.insert(&wake.item, 0);
         }
     }
+}
+
+/// Enables and places "Update MetaMate to {version}" in the tray menu once an update is found.
+pub(crate) fn show_tray_update(app: &tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(labels) = app.try_state::<TrayLabels>() {
+        let _ = labels.update_item.set_enabled(true);
+        let _ = labels.menu.remove(&labels.update_item);
+        let _ = labels.menu.insert(&labels.update_item, 0);
+    }
+    refresh_tray_labels(app);
+}
+
+fn tray_update_label(app: &tauri::AppHandle, locale: &str) -> String {
+    use tauri::Manager;
+    let version = app
+        .try_state::<updater::Updater>()
+        .and_then(|updater| updater.available_version())
+        .unwrap_or_else(|| updater::CURRENT_VERSION.to_owned());
+    locale_text(locale, MENU_UPDATE).replace("{version}", &version)
 }
 
 /// The tray menu follows the saved language preference. Automatic uses the Windows
@@ -355,6 +383,17 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         true,
         None::<&str>,
     )?;
+    let update_ready = app
+        .state::<updater::Updater>()
+        .available_version()
+        .is_some();
+    let update_item = MenuItem::with_id(
+        app,
+        MENU_UPDATE,
+        tray_update_label(app, &locale),
+        update_ready,
+        None::<&str>,
+    )?;
     let try_items = TRY_QUESTIONS
         .iter()
         .map(|key| MenuItem::with_id(app, *key, locale_text(&locale, key), true, None::<&str>))
@@ -380,6 +419,9 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
             &quit_item,
         ],
     )?;
+    if update_ready {
+        let _ = menu.insert(&update_item, 0);
+    }
     app.manage(TrayWake {
         menu: menu.clone(),
         item: wake_item.clone(),
@@ -393,6 +435,7 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
     // The app keeps the icon; this handle relabels its tooltip below.
     let _tray = builder.build(app)?;
     app.manage(TrayLabels {
+        menu,
         items: vec![
             (chat_item, MENU_CHAT),
             (home_item, MENU_HOME),
@@ -404,13 +447,16 @@ fn tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         .into_iter()
         .chain(try_items.into_iter().zip(TRY_QUESTIONS.iter().copied()))
         .collect(),
+        update_item,
         try_menu,
     });
     Ok(())
 }
 
 struct TrayLabels {
+    menu: tauri::menu::Menu<tauri::Wry>,
     items: Vec<(tauri::menu::MenuItem<tauri::Wry>, &'static str)>,
+    update_item: tauri::menu::MenuItem<tauri::Wry>,
     try_menu: tauri::menu::Submenu<tauri::Wry>,
 }
 
@@ -421,6 +467,7 @@ pub(crate) fn refresh_tray_labels(app: &tauri::AppHandle) {
         for (item, key) in &labels.items {
             let _ = item.set_text(locale_text(&locale, key));
         }
+        let _ = labels.update_item.set_text(tray_update_label(app, &locale));
         let _ = labels
             .try_menu
             .set_text(locale_text(&locale, "tray.try_title"));
@@ -475,6 +522,12 @@ fn handle_menu(app: &tauri::AppHandle, event: tauri::menu::MenuEvent) {
         MENU_QUIT => app.exit(0),
         MENU_HIDE => presence::hide(app),
         MENU_WAKE => presence::wake(app, false),
+        MENU_UPDATE => {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = updater::install(&app).await;
+            });
+        }
         #[cfg(windows)]
         key if TRY_QUESTIONS.contains(&key) => {
             let text = locale_text(&app.state::<answer_stream::AnswerStream>().locale(), key);
@@ -544,6 +597,7 @@ mod tests {
         for locale in ["en", "ru"] {
             for key in [
                 MENU_HOME,
+                MENU_UPDATE,
                 "tray.settings",
                 "tray.quit",
                 "tray.try_title",
@@ -553,6 +607,8 @@ mod tests {
                 "home.closed_hint",
                 "robot.no_microphone",
                 "robot.open_browser_first",
+                "robot.update_ready",
+                "robot.update_failed",
             ]
             .into_iter()
             .chain(TRY_QUESTIONS)

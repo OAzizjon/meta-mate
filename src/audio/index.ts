@@ -126,6 +126,7 @@ export {
 };
 
 export * from "./types.ts";
+export * from "./cue-policy.ts";
 
 export interface AudioEngineOptions extends PlayerCallbacks, SoundBankOptions {
   readonly settings?: Partial<AudioSettings>;

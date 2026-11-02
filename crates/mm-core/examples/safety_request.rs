@@ -3,7 +3,9 @@ use std::error::Error;
 
 mod probe;
 
-use mm_core::api::request::{ModelChoice, ReasoningEffort, render_element_list, safety_request};
+use mm_core::api::request::{
+    ModelChoice, ReasoningEffort, describe_request, render_element_list, safety_request,
+};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -14,13 +16,20 @@ fn main() -> Result<(), Box<dyn Error>> {
 pub(crate) fn build_request(args: &[String]) -> Result<serde_json::Value, Box<dyn Error>> {
     if !args.len().is_multiple_of(2) {
         return Err(
-            "expected --image PNG --lang en|ru [--max-edge PX] [--model ID] [--reasoning EFFORT]"
+            "expected --image PNG --lang en|ru [--max-edge PX] [--model ID] [--reasoning EFFORT] [--kind safety|describe]"
                 .into(),
         );
     }
     for pair in args.as_chunks::<2>().0 {
-        if !["--image", "--lang", "--max-edge", "--model", "--reasoning"]
-            .contains(&pair[0].as_str())
+        if ![
+            "--image",
+            "--lang",
+            "--max-edge",
+            "--model",
+            "--reasoning",
+            "--kind",
+        ]
+        .contains(&pair[0].as_str())
         {
             return Err("unknown argument".into());
         }
@@ -58,6 +67,22 @@ pub(crate) fn build_request(args: &[String]) -> Result<serde_json::Value, Box<dy
     };
     let max_edge = value("--max-edge").unwrap_or("1280").parse()?;
     let redacted = probe::image(image, max_edge)?;
+    // `mm probe safety --kind describe`: the same pages, "What is going on on this page?" (D80).
+    if value("--kind") == Some("describe") {
+        let question = if lang == "ru" {
+            "Что происходит на этой странице?"
+        } else {
+            "What is going on on this page?"
+        };
+        let effort = value("--reasoning").map_or(ReasoningEffort::SPOKEN, |_| effort);
+        return Ok(describe_request(
+            model,
+            effort,
+            question,
+            &render_element_list(&[], 0),
+            &redacted.image,
+        ));
+    }
     Ok(safety_request(
         model,
         effort,

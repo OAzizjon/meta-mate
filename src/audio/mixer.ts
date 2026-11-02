@@ -123,6 +123,7 @@ export class AudioMixer {
     this.speechInput = ctx.createGain();
     this.sfxInput = ctx.createGain();
     this.cuesInput = ctx.createGain();
+    this.cuesInput.gain.value = levelGain("normal", this.mode);
     this.ambInput = ctx.createGain();
 
     // 300 Hz - 3.2 kHz 2nd-order Butterworth bandpass for SFX (laptop speakers & hearing aids).
@@ -237,6 +238,7 @@ export class AudioMixer {
     }
     if ((opts.mode === "calm" || opts.mode === "fun") && opts.mode !== this.mode) {
       this.mode = opts.mode;
+      this.cuesInput.gain.value = levelGain("normal", this.mode);
       for (const listener of this.modeListeners) listener();
     }
     if (typeof opts.reduceMotion === "boolean") {

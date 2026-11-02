@@ -1,7 +1,7 @@
-use super::{
-    VERDICT_REACH, computer_thing, contains_spoken, is_subject, is_verdict, screen_word,
-    spoken_words, words,
-};
+use super::{computer_thing, contains_spoken, is_verdict, screen_word, spoken_words, words};
+
+/// How far either side of a verdict its subject may be: "is this message from my bank real".
+const VERDICT_REACH: usize = 6;
 
 /// "Is this email real?", "Это мошенники?": a verdict on trust with the thing on the
 /// screen (or the person it is aimed at) at most a few words either side of it. A verdict word
@@ -188,6 +188,42 @@ pub(super) fn asks_safety(text: &str) -> bool {
                     .iter()
                     .any(|word| is_subject(word))
         })
+}
+
+/// The thing on the screen ("this", "это", "тут") or the person a scam is aimed at ("меня").
+fn is_subject(word: &str) -> bool {
+    matches!(
+        word,
+        "this"
+            | "that"
+            | "it"
+            | "these"
+            | "those"
+            | "they"
+            | "its"
+            | "thats"
+            | "theyre"
+            | "это"
+            | "этот"
+            | "эта"
+            | "эти"
+            | "этому"
+            | "этой"
+            | "эту"
+            | "этом"
+            | "этого"
+            | "этим"
+            | "этих"
+            | "тут"
+            | "здесь"
+            | "он"
+            | "она"
+            | "оно"
+            | "они"
+            | "меня"
+            | "нас"
+            | "мне"
+    )
 }
 
 fn russian_card(word: &str) -> bool {

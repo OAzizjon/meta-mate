@@ -22,6 +22,12 @@ export type AnswerModel = (typeof ANSWER_MODELS)[number];
 export const ANSWER_LINE_KEYS = [
   "robot.network_error",
   "robot.no_microphone",
+  // A microphone Windows refuses or another program holds (voice.rs microphone_line).
+  "robot.mic_denied",
+  // Shown by Mate's window itself (src/mate-logic.ts), never sent by Rust.
+  "robot.consent_expired",
+  "robot.cant_speak",
+  "robot.mic_busy",
   "robot.didnt_catch",
   "robot.open_browser_first",
   "robot.cant_find",
@@ -57,6 +63,7 @@ export const ANSWER_LINE_KEYS = [
   "robot.press_cancelled",
   "robot.press_failed",
   "robot.sleep",
+  "robot.update_failed",
 ] as const satisfies readonly LocaleKey[];
 export type AnswerLineKey = (typeof ANSWER_LINE_KEYS)[number];
 

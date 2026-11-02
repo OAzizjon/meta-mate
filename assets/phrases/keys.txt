@@ -30,3 +30,10 @@ robot.login_page
 robot.do_it_for_me
 robot.checking_safety
 robot.thinking_harder
+robot.didnt_catch
+robot.mic_denied
+robot.mic_busy
+robot.consent_expired
+robot.cant_speak
+robot.update_ready
+robot.update_failed

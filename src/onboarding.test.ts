@@ -25,6 +25,7 @@ function t(key: string): string {
 import {
   ONBOARDING_EXAMPLE_COUNT,
   ONBOARDING_EXAMPLE_KEYS,
+  ONBOARDING_IDLE_MS,
   ONBOARDING_STEP_MS,
   ONBOARDING_STORAGE_KEY,
   claimFirstRun,
@@ -198,14 +199,15 @@ test("onboarding.example_1..6 exist in both English and Russian locales", () => 
 
 });
 
-test("each step lasts long enough to read, then hides after three wrapped examples", () => {
+test("the first run is the greeting and one example; each later example waits for a quiet window", () => {
   const clock = createFakeClock();
   const storage = createMemoryStorage();
   const shown: (string | null)[] = [];
+  let idle = true;
 
   const controller = startOnboarding(
     { showBubble: (text) => shown.push(text) },
-    { clock, storage },
+    { clock, storage, isIdle: () => idle },
   );
 
   assert.equal(controller.isActive(), true);
@@ -219,18 +221,26 @@ test("each step lasts long enough to read, then hides after three wrapped exampl
   clock.advance(1);
   assert.deepEqual(shown, [t("robot.first_launch"), exampleText("onboarding.example_1")]);
 
+  // Then everything hides: the passive first run is only these two steps.
   clock.advance(stepDuration(exampleText("onboarding.example_1")));
-  assert.deepEqual(shown, [
-    t("robot.first_launch"),
-    exampleText("onboarding.example_1"),
-    exampleText("onboarding.example_2"),
-  ]);
+  assert.deepEqual(shown.slice(2), [null]);
+  assert.equal(controller.isActive(), true);
 
-  clock.advance(stepDuration(exampleText("onboarding.example_2")));
-  assert.deepEqual(shown, [
-    t("robot.first_launch"),
-    exampleText("onboarding.example_1"),
+  // Busy when the quiet time is up: the example waits another quiet time.
+  idle = false;
+  clock.advance(ONBOARDING_IDLE_MS);
+  assert.deepEqual(shown.slice(2), [null]);
+  idle = true;
+  clock.advance(ONBOARDING_IDLE_MS - 1);
+  assert.deepEqual(shown.slice(2), [null]);
+  clock.advance(1);
+  assert.deepEqual(shown.slice(2), [null, exampleText("onboarding.example_2")]);
+
+  clock.advance(stepDuration(exampleText("onboarding.example_2")) + ONBOARDING_IDLE_MS);
+  assert.deepEqual(shown.slice(2), [
+    null,
     exampleText("onboarding.example_2"),
+    null,
     exampleText("onboarding.example_3"),
   ]);
   assert.equal(controller.isActive(), true);
@@ -239,6 +249,34 @@ test("each step lasts long enough to read, then hides after three wrapped exampl
   assert.equal(shown[shown.length - 1], null);
   assert.equal(controller.isActive(), false);
   assert.equal(clock.pendingCount(), 0);
+});
+
+test("while waiting for a quiet window nothing shows, not even after a key change, and stopOnboarding() ends the wait", () => {
+  const clock = createFakeClock();
+  const shown: (string | null)[] = [];
+  const caps: (string | null)[] = [];
+  const controller = startOnboarding(
+    { showBubble: (text) => shown.push(text), showKeycap: (text) => caps.push(text) },
+    { clock, storage: createMemoryStorage() },
+  );
+
+  clock.advance(stepDuration(t("robot.first_launch")));
+  clock.advance(stepDuration(exampleText("onboarding.example_1")));
+  assert.deepEqual(caps, ["Ctrl", null]);
+  assert.equal(shown.at(-1), null);
+
+  setOnboardingPttKey("f9");
+  assert.deepEqual(caps, ["Ctrl", null]);
+  assert.equal(shown.at(-1), null);
+  assert.equal(clock.pendingCount(), 1);
+
+  stopOnboarding();
+  assert.equal(controller.isActive(), false);
+  assert.equal(clock.pendingCount(), 0);
+  const counts = [shown.length, caps.length];
+  clock.advance(ONBOARDING_IDLE_MS * 3);
+  assert.deepEqual([shown.length, caps.length], counts);
+  setOnboardingPttKey("ctrl");
 });
 
 test("second launch with persisted localStorage flag does not show onboarding", () => {
@@ -373,8 +411,15 @@ test("mountOnboarding updates DOM elements using textContent and hidden attribut
   assert.equal(fakeOnboarding.hidden, false);
   assert.equal(fakeOnboarding.textContent, exampleText("onboarding.example_4"));
 
+  // Nothing shows while waiting for a quiet window; the next example brings the keycap back.
   clock.advance(stepDuration(exampleText("onboarding.example_4")));
+  assert.equal(fakeOnboarding.hidden, true);
+  assert.equal(fakeKeycap.hidden, true);
+  clock.advance(ONBOARDING_IDLE_MS);
+  assert.equal(fakeOnboarding.hidden, false);
   assert.equal(fakeOnboarding.textContent, exampleText("onboarding.example_5"));
+  assert.equal(fakeKeycap.hidden, false);
+  assert.equal(fakeKeycap.textContent, "Ctrl");
 
   // stopOnboarding() hides all
   stopOnboarding();
@@ -420,7 +465,7 @@ for (const locale of ["en", "ru"]) {
   }
 }
 
-test("keycap stays through examples and hides on completion or stopOnboarding()", () => {
+test("keycap stays with every example and hides between them, on completion or stopOnboarding()", () => {
   const clock = createFakeClock();
   const storage = createMemoryStorage();
   const keycaps: (string | null)[] = [];
@@ -440,11 +485,12 @@ test("keycap stays through examples and hides on completion or stopOnboarding()"
   clock.advance(stepDuration(t("robot.first_launch")) - 1);
   assert.deepEqual(keycaps, ["Ctrl"]);
 
-  // Stays visible when the examples begin, then hides when all steps finish.
+  // Stays visible when the examples begin, hides while waiting for a quiet window, comes back
+  // with each later example, then hides when all steps finish.
   clock.advance(1);
   assert.deepEqual(keycaps, ["Ctrl"]);
-  clock.advance(100_000);
-  assert.deepEqual(keycaps, ["Ctrl", null]);
+  clock.advance(ONBOARDING_IDLE_MS * 10);
+  assert.deepEqual(keycaps, ["Ctrl", null, "Ctrl", null, "Ctrl", null]);
 
   // Stopping early during robot.first_launch also hides the keycap immediately
   resetOnboardingSession();

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  awakeBubble, bubbleShape, CANT_FIND_HOLD_MS, createMateAnswerRouter, createMateWindowEvents,
+  awakeBubble, bubbleShape, createMateAnswerRouter, createMateWindowEvents,
   LOOK_CONSENT_MS, guestTrialView, interruptLesson, signedIn,
 } from "./mate-logic.ts";
 import type { BubbleShape } from "./mate-logic.ts";
@@ -25,6 +25,7 @@ function harness(locale = "en", stop = () => {}) {
     setModel: record("model"),
     show: record("bubble"),
     hideAfter: record("linger"),
+    avoid: record("avoid"),
   };
   const robot = { setState: record("state"), setVoiceLevel: record("level") };
   const stamp = { show: record("stamp"), hideAfter: record("stamp-linger") };
@@ -113,7 +114,7 @@ test("older lesson visuals wait for recording to finish and retain only the late
   assert.deepEqual(h.calls, []);
   h.send({ type: "state", generation: 2, state: "thinking" });
   assert.deepEqual(h.calls, [
-    ["bubble", "latest"], ["level", 0], ["state", "speaking"], ["stop"], ["state", "thinking"],
+    ["bubble", "latest", bubbleReadMs("latest")], ["level", 0], ["state", "speaking"], ["stop"], ["state", "thinking"],
   ]);
 });
 
@@ -169,7 +170,7 @@ test("locale lines use reading time; timeline completion lingers only for the ac
     const held = h.router.onLine("CantFind");
     const cantFind = locales[locale]["robot.cant_find"];
     assert.deepEqual(h.calls, [["bubble", cantFind, bubbleReadMs(cantFind)]]);
-    assert.deepEqual(h.waits, [CANT_FIND_HOLD_MS]);
+    assert.deepEqual(h.waits, [bubbleReadMs(cantFind)]);
     let settled = false;
     void Promise.resolve(held).then(() => { settled = true; });
     await Promise.resolve();
@@ -289,21 +290,29 @@ test("mate-hiding closes the menu, stops onboarding, sleeps and protects its tim
   h.events.hide(60);
   assert.deepEqual(h.calls, [
     ["menu-close"], ["stop"], ["sleeping", true], ["state", "sleeping"],
-    ["model", null], ["hiding-text", 60], ["bubble", locales.en["mate.hiding"], 3000],
+    ["model", null], ["avoid", null], ["hiding-text", 60], ["bubble", locales.en["mate.hiding"], 3000],
   ]);
   h.calls.length = 0;
+  const target = { left: 10, top: 20, right: 80, bottom: 60 };
   h.live.setModel("sam-3.1");
   h.live.show("answer", 100);
   h.live.hideAfter(200);
+  h.live.avoid?.(target);
   h.events.explain({ control: "button", ms: 100 });
   assert.deepEqual(h.calls, []);
+  h.live.avoid?.(null);
+  assert.deepEqual(h.calls, [["avoid", null]]);
+  h.calls.length = 0;
   h.events.wake();
   assert.deepEqual(h.calls, [["sleeping", false], ["bubble", null], ["state", "idle"]]);
   h.calls.length = 0;
   h.live.setModel("sam-3.1");
   h.live.show("answer", 100);
   h.live.hideAfter(200);
-  assert.deepEqual(h.calls, [["model", "sam-3.1"], ["bubble", "answer", 100], ["linger", 200]]);
+  h.live.avoid?.(target);
+  assert.deepEqual(h.calls, [
+    ["model", "sam-3.1"], ["bubble", "answer", 100], ["linger", 200], ["avoid", target],
+  ]);
 });
 
 test("explain-offer validates fields and forwards control and positive duration unchanged", () => {
@@ -317,7 +326,7 @@ test("explain-offer validates fields and forwards control and positive duration 
   for (const [control, ms] of [["<button>", 42], ["", Infinity]] as const) {
     h.events.explain({ control, ms });
     assert.deepEqual(h.calls.splice(0), [
-      ["stop"], ["model", null], ["control", control], ["bubble", locales.en["mate.explain_offer"], ms],
+      ["stop"], ["model", null], ["avoid", null], ["control", control], ["bubble", locales.en["mate.explain_offer"], ms],
     ]);
   }
 });
@@ -366,8 +375,9 @@ test("onboarding greets, shows examples in order, then hides; an accepted answer
         pending.delete(handle);
         advance();
       }
+      // Each later example comes after a quiet wait with nothing shown.
       assert.deepEqual(shown, [
-        "robot.first_launch", "onboarding.example_1", "onboarding.example_2", "onboarding.example_3", null,
+        "robot.first_launch", "onboarding.example_1", null, "onboarding.example_2", null, "onboarding.example_3", null,
       ]);
       assert.equal(controller.isActive(), false);
     }
@@ -433,7 +443,9 @@ test("look consent hides once its generation starts thinking or returns idle", (
     h.calls.length = 0;
     h.router.showBubble("Answer text.");
     h.send({ type: "state", generation: 1, state });
-    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [["bubble", "Answer text."]]);
+    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [
+      ["bubble", "Answer text.", bubbleReadMs("Answer text.")],
+    ]);
   }
 });
 
@@ -520,4 +532,128 @@ test("router updates comic bubble shape across thinking, warnings, safety stamps
   assert.equal(shapes.at(-1), "shout");
   router.route({ type: "state", generation: 4, state: "listening" });
   assert.equal(shapes.at(-1), "speech");
+});
+
+test("routes answer states, lines, items, done, hide, and wake into onCue", () => {
+  const cues: unknown[] = [];
+  const router = createMateAnswerRouter({
+    robot: { setState: () => {}, setVoiceLevel: () => {} },
+    bubble: { setModel: () => {}, show: () => {}, hideAfter: () => {} },
+    stamp: { show: () => {}, hideAfter: () => {} },
+    player: { push: () => {}, cancel: () => {} },
+    t: (key) => locales.en[key],
+    stopOnboarding: () => {},
+    onPcm: () => {},
+    reportPlayback: () => {},
+    sleep: () => Promise.resolve(),
+    onCue: (event) => cues.push(event),
+  });
+
+  router.route({ type: "state", generation: 1, state: "listening" });
+  router.route({ type: "state", generation: 1, state: "looking" });
+  router.route({ type: "state", generation: 1, state: "thinking" });
+  router.route({ type: "item", generation: 1, item: { kind: "wait" } });
+  router.route({ type: "line", generation: 1, key: "robot.right_click" });
+  router.onDone(1);
+
+  const windowEvents = createMateWindowEvents({
+    bubble: { setModel: () => {}, show: () => {}, hideAfter: () => {} },
+    robot: { setState: () => {} },
+    isSleeping: () => false,
+    setSleeping: () => {},
+    closeMenu: () => {},
+    stopOnboarding: () => {},
+    hidingText: () => "hiding",
+    explainText: () => "explain",
+    onCue: (event) => cues.push(event),
+  });
+  windowEvents.hide(60);
+  windowEvents.wake();
+
+  assert.deepEqual(cues, [
+    { type: "answer-state", generation: 1, state: "listening" },
+    { type: "answer-state", generation: 1, state: "looking" },
+    { type: "answer-state", generation: 1, state: "thinking" },
+    { type: "answer-item", generation: 1, item: { kind: "wait" } },
+    { type: "answer-line", generation: 1, key: "robot.right_click" },
+    { type: "answer-done", generation: 1 },
+    { type: "sleep" },
+    { type: "wake" },
+  ]);
+});
+
+test("cantSpeak shows one localized bubble on first failure and does not repeat", () => {
+  for (const locale of ["en", "ru"]) {
+    const h = harness(locale);
+    const text = locales[locale]["robot.cant_speak"];
+    h.router.cantSpeak();
+    h.router.cantSpeak();
+    h.send({ type: "line", generation: 1, key: "robot.cant_speak" });
+    assert.deepEqual(h.calls.filter(([kind]) => kind === "bubble"), [
+      ["bubble", text, bubbleReadMs(text)],
+    ]);
+  }
+});
+
+test("showBubble sets a reading-time watchdog so a missing onDone still clears the bubble", () => {
+  const h = harness();
+  h.router.showBubble("Final sentence without onDone.");
+  h.router.showBubble(null);
+  assert.deepEqual(h.calls, [
+    ["bubble", "Final sentence without onDone.", bubbleReadMs("Final sentence without onDone.")],
+    ["bubble", null],
+  ]);
+});
+
+test("look consent expiry shows robot.consent_expired in both locales unless already resolved", async () => {
+  assert.equal(
+    locales.en["robot.consent_expired"],
+    "I did not look. Ask me again when you are ready.",
+  );
+  assert.match(locales.ru["robot.consent_expired"], /вы/i);
+
+  for (const locale of ["en", "ru"]) {
+    const h = harness(locale);
+    h.send({ type: "state", generation: 1, state: "looking" });
+    h.calls.length = 0;
+    h.send({ type: "line", generation: 1, key: "robot.look_consent" });
+    assert.deepEqual(h.waits, [LOOK_CONSENT_MS]);
+    h.calls.length = 0;
+    h.release();
+    await Promise.resolve();
+    const expired = locales[locale]["robot.consent_expired"];
+    assert.deepEqual(h.calls, [["bubble", expired, bubbleReadMs(expired)]]);
+  }
+
+  for (const action of [
+    (h: ReturnType<typeof harness>) => h.send({ type: "state", generation: 1, state: "thinking" }),
+    (h: ReturnType<typeof harness>) => h.send({ type: "state", generation: 1, state: "idle" }),
+    (h: ReturnType<typeof harness>) => h.send({ type: "state", generation: 2, state: "listening" }),
+    (h: ReturnType<typeof harness>) => {
+      h.calls.length = 0;
+      h.send({ type: "cancel", generation: 1 });
+      assert.deepEqual(h.calls, [["stop"], ["bubble", null], ["cancel", 1], ["state", "idle"]]);
+    },
+    (h: ReturnType<typeof harness>) => h.router.showBubble("Other bubble."),
+  ]) {
+    const h = harness();
+    h.send({ type: "state", generation: 1, state: "looking" });
+    h.send({ type: "line", generation: 1, key: "robot.look_consent" });
+    action(h);
+    h.calls.length = 0;
+    h.release();
+    await Promise.resolve();
+    assert.deepEqual(h.calls, []);
+  }
+});
+
+test("advancing to a newer generation cancels the prior timeline run", () => {
+  const h = harness();
+  h.send({ type: "item", generation: 1, item: { kind: "end" } });
+  h.router.onDone(1);
+  h.calls.length = 0;
+  h.send({ type: "state", generation: 2, state: "listening" });
+  assert.deepEqual(h.calls, [
+    ["cancel", 1], ["model", null], ["stop"], ["state", "listening"], ["bubble", null],
+  ]);
 });

@@ -1,0 +1,298 @@
+/* "Scam fire drill" practice page. Comic style: ink outlines, hard 4 px shadows.
+   Uses theme.css variables when they exist and safe fallback values otherwise. */
+
+.practice-root {
+  min-height: 100vh;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 24px;
+  background: var(--paper, #fff8e7);
+  color: var(--ink, #1d1d1d);
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.practice-header {
+  max-width: 720px;
+  margin: 0 auto 16px;
+}
+
+.practice-title {
+  margin: 0 0 4px;
+  font-size: 2rem;
+  letter-spacing: 0.5px;
+}
+
+.practice-subtitle {
+  margin: 0 0 12px;
+}
+
+.practice-progress {
+  margin: 0;
+  font-weight: 700;
+}
+
+.practice-stage {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.practice-round-title {
+  margin: 0 0 4px;
+  font-size: 1.4rem;
+}
+
+.practice-round-title:focus {
+  outline: none;
+}
+
+.practice-instruction {
+  margin: 0 0 12px;
+}
+
+/* The fictional scam page itself. */
+.practice-page {
+  border: 3px solid var(--ink, #1d1d1d);
+  border-radius: 12px;
+  background: var(--card, #ffffff);
+  box-shadow: 4px 4px 0 var(--ink, #1d1d1d);
+  padding: 20px;
+}
+
+.practice-page--popup {
+  background: var(--accent-wash, #fff3bf);
+  text-align: center;
+}
+
+.practice-page--email {
+  background: var(--card, #ffffff);
+}
+
+.practice-page--alert {
+  background: var(--danger-wash, #ffe3e3);
+  text-align: center;
+}
+
+.practice-line {
+  margin: 0 0 10px;
+}
+
+.practice-line--headline {
+  margin: 0 0 10px;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.practice-line--subject {
+  margin: 0 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed var(--ink, #1d1d1d);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.practice-line--meta {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+.practice-line--sender {
+  margin: 0 0 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.practice-countdown {
+  margin: 4px 6px;
+  padding: 6px 16px;
+  font-size: 1.6rem;
+  font-weight: 800;
+}
+
+.practice-phone {
+  margin: 4px 6px;
+  padding: 6px 16px;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+/* Every clickable part is a button: big target, keyboard focus visible. */
+.practice-part {
+  position: relative;
+  display: inline-block;
+  margin: 4px 6px;
+  padding: 12px 16px;
+  min-height: 48px;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  background: transparent;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.practice-part:hover {
+  border-color: var(--ink, #1d1d1d);
+}
+
+.practice-part:focus-visible {
+  border-color: var(--ink, #1d1d1d);
+  outline: 3px dashed var(--ink, #1d1d1d);
+  outline-offset: 3px;
+}
+
+/* Buttons inside the fictional pages. */
+.practice-btn {
+  background: var(--accent, #ffd43b);
+  border: 3px solid var(--ink, #1d1d1d);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink, #1d1d1d);
+  font-weight: 700;
+}
+
+.practice-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--ink, #1d1d1d);
+}
+
+.practice-btn--danger {
+  background: var(--danger, #ff6b6b);
+  color: #ffffff;
+}
+
+.practice-btn--quiet {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  text-decoration: underline;
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+.practice-btn--quiet:hover {
+  border-color: var(--ink, #1d1d1d);
+}
+
+/* Found flags: comic burst + explanation. */
+.practice-burst {
+  display: none;
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  padding: 4px 8px;
+  background: var(--spotted, #51cf66);
+  color: var(--ink, #1d1d1d);
+  border: 3px solid var(--ink, #1d1d1d);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  transform: rotate(8deg);
+}
+
+.practice-expl {
+  display: none;
+  margin-top: 8px;
+  font-size: 0.95rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: start;
+}
+
+.is-spotted {
+  background: var(--spotted-wash, #d3f9d8);
+  border-color: var(--ink, #1d1d1d);
+}
+
+.is-spotted .practice-burst {
+  display: inline-block;
+}
+
+.is-spotted .practice-expl,
+.is-revealed .practice-expl {
+  display: block;
+}
+
+/* "Show me" glow for flags that were not found. */
+.is-revealed:not(.is-spotted) {
+  background: var(--spotted-wash, #d3f9d8);
+  border-color: var(--ink, #1d1d1d);
+  box-shadow: 0 0 0 4px var(--spotted, #51cf66), 4px 4px 0 var(--ink, #1d1d1d);
+}
+
+.practice-feedback {
+  min-height: 1.6em;
+  margin: 12px 0;
+  font-weight: 700;
+}
+
+.practice-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0 24px;
+}
+
+.practice-control {
+  min-height: 52px;
+  padding: 12px 20px;
+  font-size: 1.05rem;
+  cursor: pointer;
+}
+
+/* Final badge screen. */
+.practice-badge-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.practice-badge {
+  display: inline-block;
+  margin: 0 0 16px;
+  padding: 30px 24px;
+  background: var(--badge, #ffd43b);
+  color: var(--ink, #1d1d1d);
+  border: 4px solid var(--ink, #1d1d1d);
+  border-radius: 50%;
+  box-shadow: 4px 4px 0 var(--ink, #1d1d1d);
+  font-size: 1.7rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  transform: rotate(-6deg);
+}
+
+.practice-score {
+  margin: 0 0 8px;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.practice-perfect {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.practice-tip {
+  margin: 0 0 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-root * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .practice-btn:active {
+    transform: none;
+    box-shadow: 4px 4px 0 var(--ink, #1d1d1d);
+  }
+
+  .practice-badge,
+  .practice-burst {
+    transform: none;
+  }
+}

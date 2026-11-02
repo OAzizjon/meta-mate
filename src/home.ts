@@ -1,6 +1,7 @@
 // Home window controller (WP89a): the friendly start page for older users.
 // Greets them with Mate (by name once they told him: src/home/profile.ts asks on the first
-// open), shows how to talk to him (hold the configured talk key), offers three "Try it"
+// open), names three features people miss as chips with tips (`HOME_WOW_CHIPS`), shows how to
+// talk to him (hold the configured talk key), offers three "Try it"
 // questions (`invoke("home_try", { key })`), lists the lesson cards (src/home/lessons-view.ts),
 // says what Mate never does, opens the guide (the Guide button or "?", src/home/guide.ts) and
 // Settings (`invoke("open_settings_window")`).
@@ -53,6 +54,13 @@ export const HOME_NEVER_KEYS = [
   "home.never_look",
   "home.never_passwords",
 ] as const satisfies readonly LocaleKey[];
+
+/** The chips under the greeting: features first-time visitors miss, each with a one-line tip. */
+export const HOME_WOW_CHIPS = [
+  { label: "home.wow_spotlight", tip: "home.wow_spotlight_tip" },
+  { label: "home.wow_warmer", tip: "home.wow_warmer_tip" },
+  { label: "home.wow_drop", tip: "home.wow_drop_tip" },
+] as const satisfies readonly { readonly label: LocaleKey; readonly tip: LocaleKey }[];
 
 /** How long the line under the questions stays after a click. */
 export const HOME_STATUS_MS = 30_000;
@@ -348,6 +356,12 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   guideBtn.setAttribute("aria-haspopup", "dialog");
   guideBtn.setAttribute("aria-keyshortcuts", GUIDE_SHORTCUT);
   greeting.append(title, editBtn, guideBtn);
+  const wow = el("ul", "home-wow");
+  for (const chip of HOME_WOW_CHIPS) {
+    const item = el("li", "home-wow-chip", t(chip.label));
+    item.title = t(chip.tip);
+    wow.append(item);
+  }
   const intro = el("p", "home-intro home-bubble", t("home.intro"));
 
   const talk = el("div", "home-talk");
@@ -371,7 +385,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   talkMore.append(talkWhere, " ", talkClick);
   talk.append(talkTitle, talkRow, talkMore);
 
-  heroText.append(greeting, intro, talk);
+  heroText.append(greeting, wow, intro, talk);
   hero.append(mateBox, heroText);
 
   const modelPicker = mountModelPicker({
@@ -445,7 +459,18 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   // My lessons: the cards Mate made, right under the questions so they are easy to find.
   const lessons = createLessonsSection({ invoke, t, locale: () => getLocale() });
 
-  content.append(profilePanel.element, hero, modelPicker.element, trySection, lessons.element, neverSection);
+  // The scam fire drill: fictional scam pages where the person practises spotting red flags.
+  const practiceSection = section("home-practice", "home-section", t("home.practice_title"), t("home.practice_intro"));
+  const practiceBtn = el("button", "btn btn-secondary", t("home.practice_open"));
+  practiceBtn.type = "button";
+  practiceBtn.disabled = !invoke;
+  practiceBtn.addEventListener("click", () => {
+    void invoke?.("open_practice").catch(() => console.error("home: could not open the practice"));
+  });
+  practiceSection.append(practiceBtn);
+
+  content.append(profilePanel.element, hero, modelPicker.element, trySection, lessons.element, practiceSection,
+    neverSection);
 
   // Footer, kept in view: the checkbox as a small line, Write to Mate and Settings side by
   // side, Quit as a quiet text button under them.

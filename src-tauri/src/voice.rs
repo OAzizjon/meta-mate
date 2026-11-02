@@ -5,8 +5,9 @@
 //! cached "let me think" phrase covers the wait.
 //!
 //! A question about the screen ("where is", "how do I", "do it for me": D47; "is this
-//! safe") first gets one redacted look at the foreground window (screen.rs); the answer
-//! then points, and the WebView asks `point_at` (pointing.rs) when it reaches that sentence.
+//! safe"; "what is on this page": D80) first gets one redacted look at the foreground window
+//! (screen.rs); the answer then points, and the WebView asks `point_at` (pointing.rs) when
+//! it reaches that sentence.
 //!
 //! For now it runs in development builds against `server/run_dev.py --tts`, whose
 //! per-run invite it reads; the installed app gets its proxy and invite with Day 6.
@@ -16,9 +17,9 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use mm_core::api::intent::{Intent, guess_intent};
+use mm_core::api::intent::{Intent, asks_repeat, guess_intent, repeat_question};
 use mm_core::api::request::{
-    ModelChoice, ReasoningEffort, chat_request, point_request, safety_request,
+    ModelChoice, ReasoningEffort, chat_request, describe_request, point_request, safety_request,
 };
 use mm_core::matescript::{Bound, Item, Mode, Parser, Point, Settings};
 use mm_core::ptt::{PttEvent, PttSettings};
@@ -28,7 +29,7 @@ use tokio::task::{AbortHandle, JoinHandle};
 
 use crate::answer_stream::{AnswerMsg, AnswerStream, model_chip};
 use crate::flight::Flight;
-use crate::mic::Microphone;
+use crate::mic::{MicError, Microphone};
 use crate::pointing::{Pointing, stop_pointing};
 use crate::proxy::{CallKind, Proxy, ProxyError, Transcript};
 use crate::ptt::{self, PttDriver};
@@ -67,6 +68,20 @@ const CHECKING: &str = "robot.checking_safety";
 /// Tells Mate's window which generation is "Is this safe?": the answer stream carries no
 /// intent, and the window stamps only a safety verdict (src/safety-stamp.ts).
 const SAFETY_EVENT: &str = "safety-check";
+/// What Mate said last (its generation and sentences), for "say that again": the
+/// person's own screen only, never logged.
+static LAST_ANSWER: Mutex<(u64, String)> = Mutex::new((0, String::new()));
+
+/// "Повтори", "slower please": the last answer again, asked of the model to say it slower
+/// and simpler (a creative extra of 2026-11-02); None when there is nothing to repeat.
+fn repeat_of(question: &str, locale: &str) -> Option<String> {
+    if !asks_repeat(question) {
+        return None;
+    }
+    let last = LAST_ANSWER.lock().ok()?.1.clone();
+    (!last.trim().is_empty()).then(|| repeat_question(&last, locale == "ru"))
+}
+
 /// How long the beam stays after the answer played out.
 const POINT_LINGER: Duration = Duration::from_secs(3);
 /// The longest an answer may take to play out before its pointing is cleared anyway.
@@ -619,21 +634,10 @@ async fn run(
                     });
                     continue;
                 }
-                stream.send(AnswerMsg::State {
-                    generation,
-                    state: "listening",
-                });
                 // The voice and Glimmer wake up while the person is still talking.
                 let waker = proxy.clone();
                 let glimmer = crate::settings::model(&app) == crate::settings::Model::Open;
                 tauri::async_runtime::spawn(async move { waker.warm(glimmer).await });
-                // Click starts carry no key-down time; keep their stop instruction visible.
-                if pressed_at.is_none() {
-                    stream.send(AnswerMsg::Line {
-                        generation,
-                        key: "robot.click_stop",
-                    });
-                }
                 let (frames, received) = mpsc::channel(FRAME_QUEUE);
                 // Each 80 ms frame's level moves Mate's ears and, in the hands-free mode,
                 // ends the recording after the speech (ptt.rs ignores it when held).
@@ -643,6 +647,12 @@ async fn run(
                 // A microphone that fails must also end the driver's click/toggle recording,
                 // or the next click would only stop this stale one.
                 let release = (silencer.clone(), driver_generation);
+                // A microphone that stops delivering ends a click/toggle recording as if
+                // released; a held key ends at key-up.
+                let on_lost = {
+                    let silencer = silencer.clone();
+                    move || silencer.silence(driver_generation)
+                };
                 let mut detector = mm_core::vad::SilenceDetector::new();
                 let mut frame_ms = 0u64;
                 // An empty transcript then means "say it again", not "no microphone".
@@ -661,8 +671,10 @@ async fn run(
                         caught_level.store(true, Ordering::Release);
                     }
                 };
-                let opened =
-                    tokio::task::spawn_blocking(move || Microphone::start(frames, on_level)).await;
+                let opened = tokio::task::spawn_blocking(move || {
+                    Microphone::start(frames, on_level, on_lost)
+                })
+                .await;
                 let microphone = match opened {
                     Ok(Ok(microphone)) => microphone,
                     Ok(Err(error)) => {
@@ -674,7 +686,7 @@ async fn run(
                             &phrases,
                             &stream.locale(),
                             generation,
-                            "robot.no_microphone",
+                            microphone_line(&error),
                         );
                         stream.send(AnswerMsg::State {
                             generation,
@@ -699,6 +711,19 @@ async fn run(
                         continue;
                     }
                 };
+                // "Listening" only once the microphone really records: words spoken before
+                // that would be lost while Mate already looked ready (Meta voice audit).
+                stream.send(AnswerMsg::State {
+                    generation,
+                    state: "listening",
+                });
+                // Click starts carry no key-down time; keep their stop instruction visible.
+                if pressed_at.is_none() {
+                    stream.send(AnswerMsg::Line {
+                        generation,
+                        key: "robot.click_stop",
+                    });
+                }
                 let transcriber = proxy.clone();
                 // What Mate hears appears in his bubble as the person speaks (their own
                 // words on their own screen; never logged), at most ~8 times a second.
@@ -830,6 +855,14 @@ async fn answer(
         });
         return;
     }
+    // "Say that again" during a lesson must not end it: the step stays on screen.
+    if asks_repeat(&question) && live_lesson(&lessons).is_some() {
+        stream.send(AnswerMsg::State {
+            generation,
+            state: "idle",
+        });
+        return;
+    }
     // The lesson decides first. Recognition belongs to this press; accepted words
     // and all resulting speech still belong to the lesson's original generation.
     if let Some(lesson) = live_lesson(&lessons) {
@@ -864,8 +897,15 @@ async fn answer(
         crate::chat::spoken(&app, generation, &question);
     }
     let locale = stream.locale();
+    // A repeat is Mate's own words again: they never count as the person asking to open
+    // something (only the person's words may, D71/D76).
+    let (question, route, repeated) = match repeat_of(&question, &locale) {
+        Some(again) => (again, Some(Intent::Chat), true),
+        None => (question, route, false),
+    };
     let intent = route.unwrap_or_else(|| guess_intent(&question));
     if intent == Intent::Chat
+        && !repeated
         && crate::opening::offer_installed(&app, &proxy, generation, &question, &locale).await
     {
         return;
@@ -873,7 +913,7 @@ async fn answer(
     if tray_target == Some(None)
         && matches!(
             intent,
-            Intent::How | Intent::Do | Intent::Where | Intent::Safety
+            Intent::How | Intent::Do | Intent::Where | Intent::Safety | Intent::Describe
         )
     {
         say_line(
@@ -937,8 +977,9 @@ async fn answer(
         let _ = task.await;
         return;
     }
-    // "Is this safe?" takes the where path's look and pointing; only the prompt differs.
-    let screen = matches!(intent, Intent::Where | Intent::Safety);
+    // "Is this safe?" and "what is on this page?" take the where path's look and pointing;
+    // only the prompt differs.
+    let screen = matches!(intent, Intent::Where | Intent::Safety | Intent::Describe);
     let (body, settings, wait_phrase) = if screen {
         let own = own_windows(&app);
         let looker = app.clone();
@@ -985,6 +1026,12 @@ async fn answer(
                         safety_request(model, effort, &question, list, image),
                         CHECKING,
                     )
+                } else if intent == Intent::Describe {
+                    let effort = ReasoningEffort::SPOKEN;
+                    (
+                        describe_request(model, effort, &question, list, image),
+                        LOOKING,
+                    )
                 } else {
                     let effort = ReasoningEffort::SPOKEN;
                     (
@@ -1016,7 +1063,9 @@ async fn answer(
             Some(&locale),
             &question,
         );
-        let missing_app = mm_core::installed_apps::requested_app(&question);
+        let missing_app = (!repeated)
+            .then(|| mm_core::installed_apps::requested_app(&question))
+            .flatten();
         if let Some(target) = &missing_app {
             let line = crate::locale_text(&locale, "open.not_installed").replace("{name}", target);
             if let Some(instructions) = body["instructions"].as_str() {
@@ -1027,8 +1076,10 @@ async fn answer(
         }
         let settings = Settings {
             language: locale.clone(),
-            open_request: (missing_app.is_none() && mm_core::api::intent::wants_open(&question))
-                .then(|| question.clone()),
+            open_request: (!repeated
+                && missing_app.is_none()
+                && mm_core::api::intent::wants_open(&question))
+            .then(|| question.clone()),
             ..Settings::default()
         };
         let turn = usize::try_from(generation).unwrap_or(0) % THINKING.len();
@@ -1079,7 +1130,8 @@ async fn answer(
         // A sentence whose point the look cannot resolve is never spoken as "here": it
         // becomes "I can't see that here" before its speech is made (invariant 5). A safety
         // verdict keeps its words without the beam: its red flag is often plain text (the
-        // sender), and the warning matters more than the pointing.
+        // sender), and the warning matters more than the pointing. So does a description:
+        // its one point is extra, the explanation is the answer.
         let look = app
             .try_state::<Pointing>()
             .and_then(|pointing| pointing.look(generation));
@@ -1090,7 +1142,7 @@ async fn answer(
                     Item::Say(mut say)
                         if look.as_ref().is_some_and(|look| !resolvable(look, &say)) =>
                     {
-                        if intent == Intent::Safety {
+                        if matches!(intent, Intent::Safety | Intent::Describe) {
                             say.bound
                                 .retain(|bound| !matches!(bound, Bound::Point(_) | Bound::Step(_)));
                             Item::Say(say)
@@ -1129,6 +1181,14 @@ async fn answer(
                             voice_of(locale).to_owned()
                         };
                         let _ = sentences.send((voice, say.id, say.text.clone()));
+                        if let Ok(mut last) = LAST_ANSWER.lock() {
+                            if last.0 != generation {
+                                *last = (generation, String::new());
+                            } else {
+                                last.1.push(' ');
+                            }
+                            last.1.push_str(&say.text);
+                        }
                     }
                     _ => {}
                 }
@@ -1334,6 +1394,17 @@ fn empty_transcript_line(caught: bool) -> &'static str {
     }
 }
 
+/// What Mate says when the microphone does not open: what to do, where Windows says why.
+fn microphone_line(error: &MicError) -> &'static str {
+    match error {
+        MicError::Denied(_) => "robot.mic_denied",
+        MicError::Busy(_) => "robot.mic_busy",
+        MicError::NoDevice | MicError::UnsupportedFormat | MicError::Device(_) => {
+            "robot.no_microphone"
+        }
+    }
+}
+
 /// What Mate says when a call fails: a refused sign-in is not a lost connection.
 pub(crate) fn error_line(error: &ProxyError) -> &'static str {
     if matches!(error, ProxyError::SessionRefused) {
@@ -1481,6 +1552,28 @@ mod tests {
         for locale in ["en", "ru"] {
             let text = crate::locale_text(locale, empty_transcript_line(true));
             assert!(!text.is_empty() && text != "robot.didnt_catch", "{locale}");
+        }
+    }
+
+    #[test]
+    fn a_microphone_that_does_not_open_says_what_to_do() {
+        use super::{MicError, microphone_line};
+        let denied = microphone_line(&MicError::Denied(String::new()));
+        let busy = microphone_line(&MicError::Busy(String::new()));
+        assert_eq!(denied, "robot.mic_denied");
+        assert_eq!(busy, "robot.mic_busy");
+        for error in [
+            MicError::NoDevice,
+            MicError::UnsupportedFormat,
+            MicError::Device(String::new()),
+        ] {
+            assert_eq!(microphone_line(&error), "robot.no_microphone");
+        }
+        for locale in ["en", "ru"] {
+            for key in [denied, busy] {
+                let text = crate::locale_text(locale, key);
+                assert!(!text.is_empty() && text != key, "{locale} {key}");
+            }
         }
     }
 

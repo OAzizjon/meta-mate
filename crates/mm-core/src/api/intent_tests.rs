@@ -360,3 +360,108 @@ fn more_ways_to_ask_about_mate_take_no_screenshot() {
         );
     }
 }
+
+#[test]
+fn questions_about_the_whole_window_are_described() {
+    let mut failures = Vec::new();
+    for (text, expected) in [
+        ("What is going on on this page?", Intent::Describe),
+        ("What's going on on this page?", Intent::Describe),
+        ("What is going on this page?", Intent::Describe),
+        ("What’s happening on my screen?", Intent::Describe),
+        ("What's on this page?", Intent::Describe),
+        ("Mate, what is on this website?", Intent::Describe),
+        ("What's on this tab?", Intent::Describe),
+        ("What's on the site?", Intent::Describe),
+        ("What is this page?", Intent::Describe),
+        ("What is this website?", Intent::Describe),
+        ("What's this window?", Intent::Describe),
+        ("What site is this?", Intent::Describe),
+        ("What am I looking at?", Intent::Describe),
+        ("Explain this page to me", Intent::Describe),
+        ("Can you explain this window?", Intent::Describe),
+        ("Explain the screen, please", Intent::Describe),
+        ("Read this to me", Intent::Describe),
+        ("Read this", Intent::Describe),
+        ("Please read me this", Intent::Describe),
+        ("Read it to me", Intent::Describe),
+        ("Read the message to me", Intent::Describe),
+        ("What does it say?", Intent::Describe),
+        ("What does this say?", Intent::Describe),
+        ("What does this message say?", Intent::Describe),
+        ("Summarize this page", Intent::Describe),
+        ("Summarise this for me", Intent::Describe),
+        ("Describe the screen", Intent::Describe),
+        ("Describe what you see", Intent::Describe),
+        ("Tell me what is on this page", Intent::Describe),
+        ("Что происходит на странице?", Intent::Describe),
+        ("Что происходит на экране?", Intent::Describe),
+        ("Что происходит в окне?", Intent::Describe),
+        ("Что тут творится на этом сайте?", Intent::Describe),
+        ("Что на этой странице?", Intent::Describe),
+        ("Что на странице?", Intent::Describe),
+        ("Что в этом окне?", Intent::Describe),
+        ("Что это за страница?", Intent::Describe),
+        ("Что это за сайт?", Intent::Describe),
+        ("Что за сайт?", Intent::Describe),
+        ("Объясни, что здесь", Intent::Describe),
+        ("Объясни, что на экране", Intent::Describe),
+        ("Объясните мне эту страницу", Intent::Describe),
+        ("Прочитай мне это", Intent::Describe),
+        ("Прочитай это, пожалуйста", Intent::Describe),
+        ("Прочитайте, что тут написано", Intent::Describe),
+        ("Что тут написано?", Intent::Describe),
+        ("Что здесь написано?", Intent::Describe),
+        ("Расскажи, что на экране", Intent::Describe),
+        ("Расскажи про этот сайт", Intent::Describe),
+        ("Опиши экран", Intent::Describe),
+        ("На что я смотрю?", Intent::Describe),
+        ("Я не понимаю, что на этой странице", Intent::Describe),
+        // No window named: life, books and stories take no screenshot (invariant 3).
+        ("What is going on with my back?", Intent::Chat),
+        ("What's the page count of War and Peace?", Intent::Chat),
+        ("What's going on in the world today?", Intent::Chat),
+        ("What's on TV tonight?", Intent::Chat),
+        ("Read me a story", Intent::Chat),
+        ("I read this book yesterday", Intent::Chat),
+        ("It is hard for me to read this", Intent::Chat),
+        ("Mate, can you read this to me?", Intent::Describe),
+        ("What does the doctor say about my knees?", Intent::Chat),
+        ("Describe a sunset over the sea", Intent::Chat),
+        ("Tell me a joke about this page", Intent::Chat),
+        ("Don't read it to me", Intent::Chat),
+        ("Что происходит за окном?", Intent::Chat),
+        ("Что происходит в мире?", Intent::Chat),
+        ("Прочитай мне сказку", Intent::Chat),
+        ("Объясни, что это значит", Intent::Chat),
+        ("Что написано в законе о пенсиях?", Intent::Chat),
+        ("Расскажи, какой сайт лучше для билетов", Intent::Chat),
+        ("Расскажи анекдот про этот сайт", Intent::Chat),
+        // Earlier routes win: finding, lessons, delegation, the scam check, the plain look.
+        ("Where is the Save button on this page?", Intent::Where),
+        ("Show me what's on this page", Intent::Where),
+        ("Где на этой странице кнопка входа?", Intent::Where),
+        ("How do I print this page?", Intent::How),
+        ("How do I sign in on this page?", Intent::How),
+        ("Как мне войти на этом сайте?", Intent::How),
+        ("Click Next, then explain this page", Intent::How),
+        ("Read this page and do it for me", Intent::Do),
+        ("What is this page? Is it a scam?", Intent::Safety),
+        ("Это безопасный сайт? Что на этой странице?", Intent::Safety),
+        ("What's on my screen?", Intent::Where),
+        ("Что у меня на экране?", Intent::Where),
+        ("Что это за окно?", Intent::Where),
+        ("What is this link?", Intent::Where),
+        ("What is this?", Intent::Where),
+    ] {
+        let got = guess_intent(text);
+        if got != expected {
+            failures.push(format!("{text:?}: expected {expected:?}, got {got:?}"));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    // Only the offline guess picks it, but a DESCRIBE label is read like the others.
+    assert_eq!(super::parse_intent("DESCRIBE"), Some(Intent::Describe));
+    assert_eq!(super::parse_intent("**describe**."), Some(Intent::Describe));
+    assert_eq!(super::parse_intent("DESCRIBE or WHERE"), None);
+}

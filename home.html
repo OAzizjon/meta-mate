@@ -63,6 +63,7 @@
         grid-template-columns: auto minmax(0, 1fr);
         grid-template-areas:
           "mate title"
+          "mate wow"
           "mate intro"
           "talk talk";
         column-gap: 20px;
@@ -106,6 +107,28 @@
         margin: 6px 0 0;
         color: var(--text-muted);
         text-wrap: pretty;
+      }
+
+      /* Three small chips under the greeting: what first-time visitors miss; tips on hover. */
+      .home-wow {
+        grid-area: wow;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 8px;
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .home-wow-chip {
+        padding: 2px 12px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: var(--text-sm);
+        font-weight: 600;
+        line-height: 1.5;
+        cursor: help;
       }
 
       /* How to talk to Mate: a white card inside the header. */
@@ -548,6 +571,7 @@
           grid-template-areas:
             "mate"
             "title"
+            "wow"
             "intro"
             "talk";
           justify-items: center;

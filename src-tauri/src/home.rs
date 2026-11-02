@@ -53,6 +53,45 @@ pub async fn open_home(app: AppHandle) -> Result<(), String> {
     })
 }
 
+/// The scam fire drill (practice.html): fictional scam pages where the person spots the red
+/// flags. Opened from Home like the chat: an explicit open, so it comes to the front.
+#[tauri::command]
+pub async fn open_practice(app: AppHandle) -> Result<(), String> {
+    let window = match app.get_webview_window("practice") {
+        Some(window) => window,
+        None => {
+            WebviewWindowBuilder::new(&app, "practice", WebviewUrl::App("practice.html".into()))
+                .title(crate::locale_text(
+                    &app.state::<crate::answer_stream::AnswerStream>().locale(),
+                    "practice.title",
+                ))
+                .inner_size(980.0, 720.0)
+                .min_inner_size(560.0, 480.0)
+                .center()
+                .resizable(true)
+                .decorations(true)
+                .focused(false)
+                .visible(false)
+                .additional_browser_args(crate::overlay::BROWSER_ARGS)
+                .build()
+                .map_err(|error| {
+                    eprintln!("practice: window: {error}");
+                    "could not open the practice window".to_owned()
+                })?
+        }
+    };
+    let _ = window.unminimize();
+    #[cfg(windows)]
+    {
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        mm_win32::overlay::show(hwnd);
+        mm_win32::focus::activate_on_request(hwnd);
+    }
+    #[cfg(not(windows))]
+    window.show().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 fn validate_try_key(key: &str) -> Result<(), String> {
     if TRY_QUESTIONS.contains(&key) {
         Ok(())

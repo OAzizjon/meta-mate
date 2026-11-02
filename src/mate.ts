@@ -5,7 +5,8 @@
 // __mate.setState("pointing"); __mate.aimAt({ left: 20, top: 20, right: 120, bottom: 60 });
 // __mate.setStamp("scam"); __mate.hint("talk").
 import { parseHighlightMsg } from "./highlight/geometry.ts";
-import { createAudioEngine } from "./audio";
+import { createAudioEngine, createCuePolicy } from "./audio";
+import type { CueEvent, CuePolicy } from "./audio";
 import { bubbleLingerMs, bubbleReadMs } from "./bubble-timing";
 import { mountHints } from "./hints/view.ts";
 import type { Hints } from "./hints/view.ts";
@@ -78,14 +79,18 @@ declare global {
 
 function devHook(
   robot: RobotController,
+  bubble: Bubble | null,
   stamp: LiveStamp,
   hints: Hints | null,
   setUiLocale: (locale: LocaleCode) => void,
+  onCue?: (event: CueEvent) => void,
 ): MateDevHook {
   return {
     setState(state) {
       if (!isRobotState(state)) throw new TypeError(`unknown state: ${state}`);
       robot.setState(state);
+      if (state === "success") onCue?.({ type: "lesson-step-right" });
+      else if (state === "oops") onCue?.({ type: "click-miss" });
     },
     setMood(mood) {
       if (!isRobotMood(mood)) throw new TypeError(`unknown mood: ${mood}`);
@@ -93,8 +98,10 @@ function devHook(
     },
     aimAt(target) {
       robot.aimAt(target);
+      bubble?.avoid?.(target);
       stamp.avoid(target);
       hints?.avoid(target);
+      onCue?.({ type: "beam-target", rect: target, viewportWidth: window.innerWidth });
     },
     setLocale(locale) {
       if (locale !== "en" && locale !== "ru") throw new TypeError(`unknown locale: ${locale}`);
@@ -177,7 +184,9 @@ function mountBubble(
       showingDots = false;
       element.classList.remove("mate-bubble-dots");
       element.hidden = false;
-      if (ms !== undefined) timer = setTimeout(() => show(null), ms);
+      if (ms !== undefined) {
+        timer = setTimeout(() => show(null), ms);
+      }
     } else if (shape === "thought" && !isSleeping()) {
       syncDots();
     } else {
@@ -204,6 +213,9 @@ function mountBubble(
         () => show(null),
         bubbleLingerMs(currentText, performance.now() - shownAt, ms),
       );
+    },
+    avoid(target) {
+      element.classList.toggle("is-covering", !stampClearOf(target, window.innerWidth, window.innerHeight));
     },
   };
 }
@@ -253,6 +265,8 @@ function mountStamp(
 interface LiveAnswers {
   /** Switches the UI language; Rust voices its cached phrases in it. */
   setUiLocale(locale: LocaleCode): void;
+  /** Routes window/menu/highlight events through the sound cue policy. */
+  onCue(event: CueEvent): void;
 }
 
 /**
@@ -268,28 +282,51 @@ function startLiveAnswers(
 ): LiveAnswers {
   let uiLocale = getLocale();
   let unsubscribe: (() => void) | null = null;
-  const ready = createRouter(robot, bubble, stamp, hints, settings);
+  let subscribed = false;
+  let fallbackCantSpeak = false;
+  let cues: CuePolicy | null = null;
+  const ready = createRouter(robot, bubble, stamp, hints, settings, (policy) => {
+    cues = policy;
+  });
   // (Re)subscriptions run one at a time, in call order, once the engine is up.
   let queue: Promise<void> = Promise.resolve();
   const subscribe = (): void => {
     queue = queue
       .then(async () => {
-        const route = await ready;
+        const { route } = await ready;
         const next = await subscribeAnswerStream(uiLocale, route);
         unsubscribe?.();
         unsubscribe = next;
+        subscribed = true;
       })
-      .catch((error: unknown) => {
+      .catch(async (error: unknown) => {
+        subscribed = false;
         console.error("[mate] live answers failed", error);
+        try {
+          (await ready).cantSpeak();
+        } catch {
+          if (!fallbackCantSpeak) {
+            fallbackCantSpeak = true;
+            const text = t("robot.cant_speak");
+            bubble.setModel(null);
+            bubble.show(text, bubbleReadMs(text));
+          }
+        }
       });
   };
   subscribe();
+  window.addEventListener("pointerdown", () => {
+    if (!subscribed) subscribe();
+  });
   return {
     setUiLocale(locale) {
       setLocale(locale);
-      if (locale === uiLocale) return;
+      if (locale === uiLocale && subscribed) return;
       uiLocale = locale;
       subscribe();
+    },
+    onCue(event) {
+      cues?.trigger(event);
     },
   };
 }
@@ -301,11 +338,19 @@ async function createRouter(
   stamp: LiveStamp,
   hints: Hints | null,
   settings: MateSettingsBinding,
-): Promise<(msg: AnswerMsg) => void> {
+  onCuesReady?: (cues: CuePolicy) => void,
+): Promise<{ route: (msg: AnswerMsg) => void; cantSpeak: () => void }> {
   const audio = await createAudioEngine({
     settings: toAudioSettings(settings.get()),
   });
   settings.setAudio(audio);
+  const cues = createCuePolicy({
+    isSpeaking: () => audio.mixer.isSpeechActive(),
+    getSettings: () => audio.mixer.getSettings(),
+    getViewportWidth: () => window.innerWidth,
+    playCue: (name, opts) => audio.playCue(name, opts),
+  });
+  onCuesReady?.(cues);
   const updateAudioActivity = (): void => {
     const state = document.documentElement.dataset.mateState;
     audio.setIdle(state === "idle" || state === "sleeping");
@@ -335,7 +380,10 @@ async function createRouter(
   const { getCurrentWebviewWindow } = await import("@tauri-apps/api/webviewWindow");
   void getCurrentWebviewWindow()
     .listen<unknown>(LESSON_INTERRUPT_EVENT, (event) => {
-      interruptLesson(event.payload, (generation) => audio.interrupt(generation));
+      interruptLesson(event.payload, (generation) => {
+        cues.markLesson(generation);
+        audio.interrupt(generation);
+      });
     })
     .catch((error: unknown) => {
       console.error("[mate] lesson-interrupt listener failed", error);
@@ -348,6 +396,7 @@ async function createRouter(
     },
     t, stopOnboarding, reportPlayback,
     sleep: (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+    onCue: (event) => cues.trigger(event),
     onPcm: (msg) => {
       const samples = decodePcm(msg.samplesB64);
       audio.pushPcm({
@@ -360,6 +409,7 @@ async function createRouter(
       void reportPlayback("pcm", msg.generation, `s=${msg.sentence} n=${samples.length}`);
     },
   });
+  if (!running) router.cantSpeak();
   // "Is this safe?" (src-tauri/src/voice.rs): only this event says an answer is a verdict.
   void getCurrentWebviewWindow()
     .listen<unknown>(SAFETY_CHECK_EVENT, (event) => router.markSafety(event.payload))
@@ -372,11 +422,17 @@ async function createRouter(
     robot: {
       setState: (state) => router.present("state", () => router.setState(state)),
       setMood: (mood) => router.present("mood", () => router.setMood(mood)),
-      aimAt: (target) => router.present("aim", () => {
-        robot.aimAt(target);
-        stamp.avoid(target);
-        hints?.avoid(target);
-      }),
+      aimAt: (target) => {
+        const apply = (): void => {
+          robot.aimAt(target);
+          bubble.avoid?.(target);
+          stamp.avoid(target);
+          hints?.avoid(target);
+          cues.trigger({ type: "beam-target", rect: target, viewportWidth: window.innerWidth });
+        };
+        if (target === null) apply();
+        router.present("aim", apply);
+      },
     },
     audio,
     resolveTarget: (point, generation, step) => pointAt(generation, point, step),
@@ -394,10 +450,13 @@ async function createRouter(
       hints?.answered();
     },
   });
-  return (msg: AnswerMsg) => {
-    // A question: the talk hint stops after three (src/hints/logic.ts).
-    if (msg.type === "state" && msg.state === "thinking") hints?.asked(msg.generation);
-    router.route(msg);
+  return {
+    route: (msg: AnswerMsg) => {
+      // A question: the talk hint stops after three (src/hints/logic.ts).
+      if (msg.type === "state" && msg.state === "thinking") hints?.asked(msg.generation);
+      router.route(msg);
+    },
+    cantSpeak: router.cantSpeak,
   };
 }
 
@@ -442,7 +501,10 @@ if (container) {
   robot.setState("idle");
   setOnboardingTranslator((key) => t(key));
   const inTauri = "__TAURI_INTERNALS__" in window;
-  const menu = inTauri ? mountMateMenu(tauriInvoke, t) : null;
+  let live: LiveAnswers | null = null;
+  const menu = inTauri
+    ? mountMateMenu(tauriInvoke, t, () => live?.onCue({ type: "menu-open" }))
+    : null;
   container.addEventListener("contextmenu", (event) => {
     event.preventDefault();
     menu?.open();
@@ -502,7 +564,12 @@ if (container) {
       },
     },
   );
-  void settings.ready.then(() => mountOnboarding(undefined, null));
+  // Later first-run examples only on a quiet window: Mate idle, nothing else on screen.
+  const quietForOnboarding = (): boolean =>
+    !document.hidden && document.documentElement.dataset.mateState === "idle"
+    && ["mate-bubble", "mate-hint", "mate-stamp", "mate-menu"]
+      .every((id) => document.getElementById(id)?.hidden !== false);
+  void settings.ready.then(() => mountOnboarding(undefined, null, { isIdle: quietForOnboarding }));
   const onEnvironmentChange = (): void => {
     settings.reapply();
   };
@@ -529,7 +596,7 @@ if (container) {
         syncBubbleShape();
       })
     : { show() {}, hideAfter() {}, avoid() {} };
-  const live =
+  live =
     liveBubble && inTauri ? startLiveAnswers(robot, liveBubble, stamp, hints, settings) : null;
   if (mountedBubble && inTauri) {
     const events = createMateWindowEvents({
@@ -543,12 +610,17 @@ if (container) {
         key: pttKeyLabel(settings.get().pttKey, t),
       }),
       explainText: (control) => t("mate.explain_offer", { control }),
+      onCue: (event) => live?.onCue(event),
     });
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
       await listen<unknown>("highlight", (event) => {
         const msg = parseHighlightMsg(event.payload);
-        if (msg?.type === "warmth") robot.setWarmth(msg.level, msg.onTarget);
-        else if (msg?.type === "clear") robot.setWarmth(null, false);
+        if (!msg) return;
+        if (msg.type === "warmth") robot.setWarmth(msg.level, msg.onTarget);
+        else if (msg.type === "clear") robot.setWarmth(null, false);
+        if (msg.type !== "target") {
+          live?.onCue({ type: "highlight", payload: msg, viewportWidth: window.innerWidth });
+        }
       });
       await listen("mate-menu-outside", () => menu?.close());
       await listen<{ minutes: number }>("mate-hiding", (event) => {
@@ -600,9 +672,16 @@ if (container) {
     });
   }
   if (import.meta.env.DEV) {
-    window.__mate = devHook(robot, stamp, hints, (locale) => {
-      if (live) live.setUiLocale(locale);
-      else setLocale(locale);
-    });
+    window.__mate = devHook(
+      robot,
+      mountedBubble,
+      stamp,
+      hints,
+      (locale) => {
+        if (live) live.setUiLocale(locale);
+        else setLocale(locale);
+      },
+      (event) => live?.onCue(event),
+    );
   }
 }

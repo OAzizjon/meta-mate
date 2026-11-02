@@ -29,6 +29,7 @@ export function hideReturnTime(minutes: number, now: number, locale: string): st
 export function mountMateMenu(
   invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>,
   translate: (key: LocaleKey) => string,
+  onOpen?: () => void,
 ): { open(): void; close(): void } {
   const menu = document.createElement("div");
   menu.id = "mate-menu";
@@ -77,6 +78,7 @@ export function mountMateMenu(
       clearTimeout(leaveTimer);
       if (wanted) return;
       wanted = true;
+      onOpen?.();
       menu.replaceChildren();
       for (const item of MATE_MENU_ITEMS) {
         if (item === null) {

@@ -1,9 +1,10 @@
 // First-run onboarding in Mate's window (WP25).
 // On the very first launch (a flag in localStorage, wrapped in try/catch; when storage fails,
-// once per session in memory), Mate's bubble shows `robot.first_launch` and then, one at a time
-// at a readable pace, three example questions (`onboarding.example_1..6`). Stops as soon as the first
-// answer stream message arrives via `stopOnboarding()`. Pure scheduling logic is testable with
-// a fake clock and without DOM or Tauri dependencies.
+// once per session in memory), Mate's bubble shows `robot.first_launch` and one example question
+// (`onboarding.example_1..6`) at a readable pace, then hides. The other two examples come one at
+// a time, each only after `ONBOARDING_IDLE_MS` of quiet. Stops as soon as the first answer stream
+// message arrives via `stopOnboarding()`. Pure scheduling logic is testable with a fake clock and
+// without DOM or Tauri dependencies.
 
 import type { LocaleKey } from "./i18n/index.ts";
 import type { PttKey } from "./settings/model.ts";
@@ -26,6 +27,8 @@ export function setOnboardingTranslator(translate: (key: LocaleKey) => string): 
   translator = translate;
 }
 export const ONBOARDING_STEP_MS = 8000;
+/** Quiet time before each later example; the first one follows the greeting at once. */
+export const ONBOARDING_IDLE_MS = 45_000;
 export const ONBOARDING_EXAMPLE_COUNT = 3;
 
 export const ONBOARDING_EXAMPLE_KEYS = [
@@ -69,8 +72,12 @@ export interface OnboardingOptions {
   readonly storage?: StorageLike | null;
   /** Overrides the global timer functions. */
   readonly clock?: OnboardingClock;
-  /** Overrides the minimum step interval (defaults to `ONBOARDING_STEP_MS = 6000`). */
+  /** Overrides the minimum step interval (defaults to `ONBOARDING_STEP_MS`). */
   readonly stepMs?: number;
+  /** Overrides the quiet wait before each later example (defaults to `ONBOARDING_IDLE_MS`). */
+  readonly idleMs?: number;
+  /** Whether Mate's window is quiet now; when not, a later example waits another `idleMs`. */
+  readonly isIdle?: () => boolean;
   /** Overrides the 3 example keys shown after `robot.first_launch` (or pass a picker). */
   readonly exampleKeys?: readonly OnboardingExampleKey[];
   /** Optional random number generator (`0 <= r < 1`) used when picking 3 examples from the 6. */
@@ -167,10 +174,12 @@ let activeController: OnboardingController | null = null;
 
 /**
  * Starts the pure onboarding schedule if this is the first launch.
- * Step 0 (t = 0): shows `robot.first_launch` in the bubble.
- * Steps 1..3: shows three wrapped example questions one at a time, keeping the keycap visible.
- * Each step lasts at least `stepMs` (default 6000 ms) and its text's reading time.
- * Step 4: hides the onboarding text and keycap after the third example.
+ * Step 0 (t = 0): shows `robot.first_launch` in the bubble with the talk-key keycap.
+ * Step 1: shows the first wrapped example question, keeping the keycap; then both hide.
+ * Steps 2..3: each later example waits `idleMs` with nothing shown and appears, with the
+ * keycap, only if `isIdle()`; otherwise it waits another `idleMs`.
+ * Each shown step lasts at least `stepMs` (default `ONBOARDING_STEP_MS`) and its text's
+ * reading time. Everything hides after the last example.
  * Calling `stop()` (or `stopOnboarding()`) at any time cancels pending timers and hides the text.
  */
 export function startOnboarding(
@@ -183,6 +192,8 @@ export function startOnboarding(
   const storage = options.storage !== undefined ? options.storage : defaultStorage();
   const clock = options.clock ?? DEFAULT_CLOCK;
   const stepMs = options.stepMs ?? ONBOARDING_STEP_MS;
+  const idleMs = options.idleMs ?? ONBOARDING_IDLE_MS;
+  const isIdle = options.isIdle ?? (() => true);
   const translate = options.translate ?? ((key: LocaleKey) => translator(key));
   const examples =
     options.exampleKeys !== undefined
@@ -201,6 +212,8 @@ export function startOnboarding(
   let active = true;
   let timer: unknown = undefined;
   let stepIndex = 0;
+  // Between later examples: nothing on screen until a quiet moment.
+  let resting = false;
 
   const showExample = sink.showExample
     ? (text: string | null) => sink.showExample!(text)
@@ -213,8 +226,7 @@ export function startOnboarding(
     }
   };
 
-  const hideAll = (): void => {
-    refreshKey = null;
+  const hideText = (): void => {
     sink.showBubble(null);
     if (sink.showExample) {
       sink.showExample(null);
@@ -222,11 +234,32 @@ export function startOnboarding(
     sink.showKeycap?.(null);
   };
 
+  const hideAll = (): void => {
+    refreshKey = null;
+    hideText();
+  };
+
   const advance = (): void => {
     timer = undefined;
     if (!active) return;
 
+    // Only the first example follows the greeting; each later one waits for a quiet window.
+    if (stepIndex > 0 && stepIndex < examples.length && (!resting || !isIdle())) {
+      if (!resting) {
+        resting = true;
+        hideText();
+        if (!active) return;
+      }
+      timer = clock.setTimeout(advance, idleMs);
+      return;
+    }
+
     if (stepIndex < examples.length) {
+      if (resting) {
+        resting = false;
+        sink.showKeycap?.(pttKeycapLabel(pttKey, translate));
+        if (!active) return;
+      }
       const key = examples[stepIndex];
       stepIndex += 1;
       const text = translate("onboarding.try_asking").replaceAll("{question}", translate(key));
@@ -257,7 +290,9 @@ export function startOnboarding(
     if (stepIndex === 0) {
       sink.showBubble(withPttKey(translate("robot.first_launch"), pttKey, translate));
     }
-    sink.showKeycap?.(pttKeycapLabel(pttKey, translate));
+    if (!resting) {
+      sink.showKeycap?.(pttKeycapLabel(pttKey, translate));
+    }
   };
   refreshKey();
   const greeting = withPttKey(translate("robot.first_launch"), pttKey, translate);

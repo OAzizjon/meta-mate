@@ -166,7 +166,11 @@ export type WorkletOutboundMsg =
 export interface CueOptions {
   readonly pan?: number;
   readonly loop?: boolean;
+  readonly level?: SoundLevel;
+  readonly gain?: number;
 }
+
+export type PlayCueOptions = CueOptions;
 
 export interface PlaybackHandle {
   readonly stop: () => void;
