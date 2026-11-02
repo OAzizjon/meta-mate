@@ -1,5 +1,7 @@
 # Video: 3-Minute Plan, Recording Checklist, Backup Video & Tester Session
 
+> **2026-11-02:** the current cut with the rendered motion-graphics clips is in [video-edit.md](video-edit.md); this file keeps the recording checklist and the backup plan.
+
 Target video length: **3:00** (180 seconds).  
 Language: English narration and subtitles, with bilingual live demonstrations (English and Russian).  
 Production rule: Show only what genuinely works in the codebase—never invent UI dialogs, buttons, or simulated features. Every live demo segment must be recorded from real application runs.
