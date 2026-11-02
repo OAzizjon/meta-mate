@@ -404,6 +404,84 @@
     navHintClose.addEventListener('click', hideNavHint);
   }
 
+  // Download info: fill the version line and the SHA-256 from version.json
+  // (same origin, written by the release tool). If the fetch fails, the page
+  // keeps the static fallback text with no numbers, and the hash stays hidden.
+  function initDownloadInfo() {
+    var versionText = document.getElementById('download-version-text');
+    var hashBlock = document.getElementById('download-hash');
+    var hashValue = document.getElementById('download-hash-value');
+    var copyButton = document.getElementById('download-copy');
+    if (!versionText) return;
+
+    if (window.fetch) {
+      fetch('version.json')
+        .then(function (response) {
+          if (!response.ok) throw new Error('version.json: HTTP ' + response.status);
+          return response.json();
+        })
+        .then(function (data) {
+          var version = data && typeof data.version === 'string' ? data.version : '';
+          var sha256 = data && typeof data.sha256 === 'string' ? data.sha256 : '';
+          if (version) {
+            var size = data && typeof data.size_mb === 'number' ? ' \u00B7 ' + data.size_mb + ' MB' : '';
+            versionText.textContent = 'MetaMate ' + version + size + ' \u00B7 Windows 10/11';
+          }
+          if (/^[0-9a-f]{64}$/.test(sha256) && !/^0+$/.test(sha256) && hashBlock && hashValue) {
+            hashValue.textContent = sha256;
+            hashBlock.hidden = false;
+          }
+        })
+        .catch(function () {
+          // Offline or missing file: keep the static fallback text.
+        });
+    }
+
+    if (copyButton && hashValue) {
+      copyButton.addEventListener('click', function () {
+        var text = hashValue.textContent || '';
+        if (!text) return;
+
+        function markCopied() {
+          copyButton.textContent = 'Copied';
+          window.setTimeout(function () {
+            copyButton.textContent = 'Copy';
+          }, 2000);
+        }
+
+        // Clipboard API needs a secure context; fall back to select + execCommand.
+        function copyWithSelection() {
+          var range = document.createRange();
+          range.selectNodeContents(hashValue);
+          var selection = window.getSelection();
+          var ok = false;
+          selection.removeAllRanges();
+          selection.addRange(range);
+          try {
+            ok = document.execCommand('copy');
+          } catch (err) {
+            ok = false;
+          }
+          selection.removeAllRanges();
+          if (ok) {
+            markCopied();
+          } else {
+            copyButton.textContent = 'Select, then Ctrl+C';
+            window.setTimeout(function () {
+              copyButton.textContent = 'Copy';
+            }, 4000);
+          }
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(markCopied, copyWithSelection);
+        } else {
+          copyWithSelection();
+        }
+      });
+    }
+  }
+
   // Beam Hunt demo: a fake Writer window where Mate points at a toolbar button.
   // Small state machine: idle -> aimed -> nice (auto-reset after 3 s); a wrong
   // click only changes the bubble text. All motion is CSS transform/opacity;
@@ -613,6 +691,7 @@
     }
   }
 
+  initDownloadInfo();
   initBeamHunt();
   initScamDemo();
 

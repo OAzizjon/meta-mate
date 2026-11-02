@@ -144,7 +144,7 @@ class StaticSiteTests(unittest.TestCase):
                 self.assertEqual(response.headers['referrer-policy'], 'no-referrer')
                 self.assertEqual(response.headers['content-security-policy'],
                                  "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
-                                 "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+                                 "connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
 
     def test_api_routes_win_over_matching_static_files(self):
         (self.site / 'healthz').write_text('static health', encoding='utf-8')

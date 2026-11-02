@@ -14,7 +14,7 @@ class SiteFiles(StaticFiles):
         response = await super().get_response(path, scope)
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Content-Security-Policy'] = (
-            "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
+            "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; "
             "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
         response.headers['Referrer-Policy'] = 'no-referrer'
         return response

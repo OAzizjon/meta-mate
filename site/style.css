@@ -1130,6 +1130,237 @@ a:focus-visible,
 .download-actions { align-items: center; margin-bottom: 16px; }
 .smartscreen-card { text-align: left; max-width: 680px; margin: 0 auto; }
 
+/* Version line, SHA-256 with copy, and the "Safe to install?" comic strip. */
+.download-version { margin: 0; font-size: 16px; font-weight: 700; color: var(--text-muted); }
+
+.download-hash {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 10px;
+  max-width: 100%;
+  margin: 0;
+}
+
+/* The display:flex above would beat the UA [hidden] rule, so repeat it. */
+.download-hash[hidden] { display: none; }
+
+.download-hash-label {
+  font-family: var(--font-comic);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.download-hash-value {
+  max-width: 100%;
+  padding: 4px 8px;
+  background: var(--panel-alt-bg);
+  border: 2px solid var(--frame-ink);
+  border-radius: 6px;
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.download-copy {
+  padding: 5px 14px;
+  background: var(--card-bg);
+  color: var(--text);
+  border: 2.5px solid var(--frame-ink);
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 var(--ink-shadow);
+  font-family: var(--font-comic);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.download-copy:hover { border-color: var(--accent); color: var(--accent); }
+
+.download-copy:focus-visible,
+.download-safe-summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* Native <details>: keyboard- and touch-friendly with no script. */
+.download-safe {
+  width: 100%;
+  max-width: 680px;
+  margin: 4px auto 0;
+  text-align: left;
+}
+
+.download-safe-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--card-bg);
+  color: var(--accent);
+  border: 2.5px solid var(--frame-ink);
+  border-radius: 999px;
+  box-shadow: 2px 2px 0 var(--ink-shadow);
+  font-weight: 800;
+  cursor: pointer;
+  list-style: none;
+}
+
+.download-safe-summary::-webkit-details-marker { display: none; }
+
+.download-safe-summary::after {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid var(--accent);
+  transition: transform 140ms ease-out;
+}
+
+.download-safe[open] .download-safe-summary::after { transform: rotate(180deg); }
+
+.download-safe-body { margin-top: 14px; }
+
+/* The 3-step "what the warnings look like" comic, drawn in HTML/CSS only. */
+.install-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.install-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.install-step-number { margin-bottom: 0; }
+
+.install-step-caption { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--text-muted); }
+.install-step-caption strong { color: var(--text); }
+
+.install-window {
+  width: 100%;
+  max-width: 250px;
+  background: var(--card-bg);
+  border: 3px solid var(--frame-ink);
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink-shadow);
+  overflow: hidden;
+}
+
+.install-window-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  background: var(--panel-alt-bg);
+  border-bottom: 2.5px solid var(--frame-ink);
+  font-family: var(--font-comic);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+/* A SmartScreen dialog keeps its Windows-blue title in both colour schemes. */
+.install-window-title-guard { background: #cfe4ff; color: #12325e; }
+
+.install-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1.5px solid var(--frame-ink);
+  background: var(--danger);
+}
+
+.install-dot:nth-child(2) { background: var(--burst-bg); }
+.install-dot:nth-child(3) { background: #3f9d4c; }
+
+.install-window-body {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 12px;
+}
+
+.install-shield { color: var(--accent); line-height: 0; }
+.install-shield svg { display: block; }
+
+.install-window-text { margin: 0; font-size: 13px; line-height: 1.4; color: var(--text-muted); text-align: center; }
+.install-window-text strong { color: var(--text); }
+
+.install-window-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.install-window-actions-split { justify-content: space-between; }
+
+.install-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  background: var(--panel-alt-bg);
+  color: var(--text);
+  border: 2px solid var(--frame-ink);
+  border-radius: 6px;
+  font-family: var(--font-comic);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.install-btn-keep { background: var(--accent); color: var(--accent-contrast); }
+.install-btn-run { background: #3f9d4c; color: #ffffff; }
+
+/* "More info" is a hyperlink in the real dialog. */
+.install-btn-link {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Mate's yellow ring around the button to press. */
+.install-ring {
+  border: 3px solid var(--bulb-border);
+  box-shadow: 0 0 0 4px var(--bulb-soft), 0 0 18px 4px var(--halftone-bulb);
+  animation: beam-ring-pulse 850ms ease-in-out infinite alternate;
+}
+
+.install-honest {
+  margin: 14px 0 0;
+  padding: 8px 12px;
+  background: var(--bulb-soft);
+  color: var(--bulb-ink);
+  border: 2px solid var(--bulb-border);
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+@media (min-width: 700px) {
+  .install-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 /* Footer & bottom dot/progress nav */
 .site-footer {
   border-top: 3px solid var(--frame-ink);
