@@ -1,0 +1,125 @@
+/* Shared look for the video clips (video/clips/*.html, rendered by tools/render_clips.mjs):
+   the app's comic tokens, halftone and burst helpers. Scenes animate with CSS keyframes and
+   animation-delay only (no timers): the renderer seeks every animation to frame k / fps. With
+   ?render=1 the page adds `render` to <html> so nothing runs ahead before the first seek. */
+
+:root {
+  --ink: #1f2a44;
+  --paper: #fcf9f1;
+  --white: #ffffff;
+  --bulb: #ffcd3c;
+  --bulb-soft: #fff4cf;
+  --glow: rgb(255 205 60 / 0.55);
+  --alarm: #e0322a;
+  --ok: #17603a;
+  --font: "Segoe UI", system-ui, sans-serif;
+  --comic: "Segoe Print", "Comic Sans MS", var(--font);
+  --pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --snap: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+:root.render *,
+:root.render *::before,
+:root.render *::after {
+  animation-play-state: paused !important;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font);
+}
+
+/* Transparent overlays (alpha=1 in the clip meta) set this on <body>. */
+body.alpha {
+  background: transparent;
+}
+
+.stage {
+  position: absolute;
+  inset: 0;
+}
+
+/* Comic halftone dots; colour via --dot. */
+.halftone {
+  background-image: radial-gradient(var(--dot, rgb(31 42 68 / 0.12)) 22%, transparent 24%);
+  background-size: 22px 22px;
+}
+
+/* Ink panel: outline plus the app's offset shadow. */
+.panel {
+  border: 5px solid var(--ink);
+  border-radius: 22px;
+  background: var(--white);
+  box-shadow: 10px 10px 0 var(--ink);
+}
+
+.comic {
+  font-family: var(--comic);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+/* Outlined comic lettering (BOO!, CLICK!, SCAM ALERT!). */
+.shout {
+  font-family: var(--comic);
+  font-weight: 900;
+  -webkit-text-stroke: 6px var(--ink);
+  paint-order: stroke fill;
+}
+
+/* A jagged burst behind a shout: clip-path star, sized by its box. */
+.burst {
+  clip-path: polygon(50% 0%, 61% 18%, 82% 7%, 78% 30%, 100% 34%, 83% 50%, 100% 66%, 78% 70%, 82% 93%,
+    61% 82%, 50% 100%, 39% 82%, 18% 93%, 22% 70%, 0% 66%, 17% 50%, 0% 34%, 22% 30%, 18% 7%, 39% 18%);
+  background: var(--white);
+}
+
+/* Spinning sunburst rays behind a hero. */
+.rays {
+  background: repeating-conic-gradient(rgb(255 205 60 / 0.45) 0deg 9deg, rgb(255 205 60 / 0) 9deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, #000 25%, transparent 60%);
+  mask-image: radial-gradient(circle, #000 0%, #000 25%, transparent 60%);
+}
+
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.2) rotate(-8deg); }
+  65% { opacity: 1; transform: scale(1.15) rotate(3deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes slam {
+  0% { opacity: 0; transform: scale(2.4); }
+  60% { opacity: 1; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-7px, 3px); }
+  40% { transform: translate(6px, -4px); }
+  60% { transform: translate(-5px, 3px); }
+  80% { transform: translate(3px, -2px); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

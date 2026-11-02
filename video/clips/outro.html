@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="clip" content="duration=5.0;fps=60;width=1920;height=1080;alpha=0">
+<meta charset="utf-8">
+<title>outro</title>
+<link rel="stylesheet" href="_kit.css">
+<style>
+  /* Outro, 5.0 s: the cold open's bookend. Mate in the centre with a breathing glow, the tagline
+     in the cold open's lettering, the site with a hand-drawn underline at 2.5 s, "Hold Ctrl and
+     talk." under it, and a halftone vignette that closes in slightly at 4.5 s. It is the last frame
+     of the video, so it never fades to black. Mate is 420 px wide; his head centre is at 960,173. */
+  .scene { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--bulb); }
+  .full { position: absolute; inset: 0; }
+  .bleed { position: absolute; inset: -24px; } /* oversized so the shake never shows an edge */
+
+  .warm { background: radial-gradient(circle at 984px 197px, #fff8e1 0%, #ffe48f 22%, #ffcd3c 50%, #f5a623 90%, #e08a1e 125%); }
+  .dots {
+    --dot: rgb(150 72 0 / 0.2);
+    -webkit-mask-image: radial-gradient(circle at 984px 197px, transparent 22%, #000 70%);
+    mask-image: radial-gradient(circle at 984px 197px, transparent 22%, #000 70%);
+  }
+
+  .glow { position: absolute; left: 530px; top: -257px; width: 860px; height: 860px; animation: glow-in 0.4s var(--snap) 0s both; }
+  /* 1.15 s breaths from 0.4 s: exactly four by 5.0 s, so the last frame is at rest. */
+  .glow-breathe {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle, rgb(255 252 230 / 0.95) 0%, rgb(255 236 160 / 0.7) 26%, rgb(255 214 90 / 0) 68%);
+    animation: glow-breathe 1.15s ease-in-out 0.4s infinite both;
+  }
+
+  .mate { position: absolute; left: 782px; top: 18px; width: 420px; height: 388px; }
+  .layer { position: absolute; inset: 0; transform-origin: 42.3% 86.7%; } /* origin = his base */
+  .mate svg { display: block; }
+  .m-pop { animation: mate-pop 0.36s linear 0s both; }
+  .m-hop { animation: hop 0.36s linear 2.5s both; }
+  .m-breathe { animation: mate-breathe 1.15s ease-in-out 0.4s infinite both; }
+  #mate-a { animation: fade-out 0.06s linear 2.62s both; }
+  #mate-b { animation: fade-in 0.1s linear 2.52s both; }
+
+  /* Same lettering as the cold open. */
+  .line { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; line-height: 1.2; }
+  .line1 { top: 372px; font-size: 96px; color: #fff; -webkit-text-stroke: 10px var(--ink); filter: drop-shadow(7px 7px 0 var(--ink)); }
+  .line1 .w { display: inline-block; animation: word-snap 0.22s var(--snap) var(--t) both; }
+  .line2 { top: 482px; font-size: 124px; color: var(--ink); -webkit-text-stroke: 14px #fff; filter: drop-shadow(8px 8px 0 var(--ink)); }
+  .line2 .slam-in { display: inline-block; animation: slam 0.32s var(--snap) 1.4s both; }
+
+  .url-row { position: absolute; left: 0; right: 0; top: 648px; display: flex; justify-content: center; }
+  .url {
+    font-size: 112px; line-height: 1.2; white-space: nowrap; color: var(--ink); text-shadow: 5px 5px 0 var(--bulb-soft);
+    animation: url-in 0.4s linear 2.5s both;
+  }
+  /* Hand-drawn underline: pathLength 1, dash 1 + gap 2, offset 1.01 (hidden) -> 0 (drawn). */
+  .underline { position: absolute; left: 460px; top: 782px; overflow: visible; }
+  .underline path {
+    fill: none; stroke: var(--alarm); stroke-width: 14; stroke-linecap: round;
+    stroke-dasharray: 1 2; animation: draw 0.5s ease-in-out 2.82s both;
+  }
+
+  .hint-row { position: absolute; left: 0; right: 0; top: 872px; display: flex; justify-content: center; }
+  .hint { font-size: 62px; line-height: 1.3; white-space: nowrap; color: var(--ink); animation: rise 0.34s var(--pop) 3.4s both; }
+  .key {
+    display: inline-block; margin: 0 6px; padding: 0 22px 6px; line-height: 1.15;
+    border: 5px solid var(--ink); border-radius: 16px; background: var(--white); box-shadow: 6px 6px 0 var(--ink);
+  }
+
+  /* Ink dots and a light tint at the edges only; the centre (all the text and Mate) stays clear. */
+  .vignette {
+    background-image: radial-gradient(rgb(31 42 68 / 0.55) 30%, transparent 33%), linear-gradient(rgb(31 42 68 / 0.3), rgb(31 42 68 / 0.3));
+    background-size: 18px 18px, auto;
+    -webkit-mask-image: radial-gradient(1150px 720px at 50% 48%, transparent 72%, #000 100%);
+    mask-image: radial-gradient(1150px 720px at 50% 48%, transparent 72%, #000 100%);
+    animation: vignette 0.5s ease-out 4.5s both;
+  }
+
+  .shake { animation: shake 0.22s linear 1.56s both; }
+
+  @keyframes glow-in {
+    0% { opacity: 0; transform: scale(0.2); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes glow-breathe {
+    0%, 100% { opacity: 0.8; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.12); }
+  }
+  @keyframes mate-breathe {
+    0%, 100% { transform: scale(1, 1); }
+    50% { transform: scale(1.02, 1.03); }
+  }
+  @keyframes mate-pop {
+    0% { opacity: 0; transform: scale(0.1, 0.1); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+    15% { opacity: 1; }
+    45% { transform: scale(0.9, 1.3); animation-timing-function: ease-out; }
+    70% { transform: scale(1.22, 1.08); animation-timing-function: ease-in-out; }
+    86% { transform: scale(0.96, 1.04); animation-timing-function: ease-in-out; }
+    100% { opacity: 1; transform: scale(1, 1); }
+  }
+  @keyframes hop {
+    0% { transform: translateY(0) scale(1, 1); animation-timing-function: ease-out; }
+    18% { transform: translateY(0) scale(1.1, 0.88); animation-timing-function: ease-out; }
+    50% { transform: translateY(-30px) scale(0.94, 1.08); animation-timing-function: ease-in; }
+    78% { transform: translateY(0) scale(1.07, 0.93); animation-timing-function: ease-out; }
+    100% { transform: translateY(0) scale(1, 1); }
+  }
+  @keyframes word-snap {
+    0% { opacity: 0; transform: translateY(-50px) scale(1.7) rotate(-8deg); }
+    60% { opacity: 1; transform: translateY(6px) scale(0.92) rotate(3deg); }
+    100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+  }
+  @keyframes url-in {
+    0% { opacity: 0; transform: scale(0.3) rotate(-4deg); animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1); }
+    25% { opacity: 1; }
+    65% { transform: scale(1.08) rotate(1deg); animation-timing-function: ease-in-out; }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  }
+  @keyframes draw {
+    from { stroke-dashoffset: 1.01; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes rise {
+    0% { opacity: 0; transform: translateY(40px) scale(0.9); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes vignette {
+    0% { opacity: 0; transform: scale(1.22); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+<script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+<div class="scene">
+  <div class="shake full">
+    <div class="warm bleed"></div>
+    <div class="dots halftone bleed"></div>
+
+    <div class="glow"><div class="glow-breathe"></div></div>
+
+    <div class="mate">
+      <div class="layer m-pop"><div class="layer m-hop"><div class="layer m-breathe">
+        <div class="layer" id="mate-a"></div>
+        <div class="layer" id="mate-b"></div>
+      </div></div></div>
+    </div>
+
+    <div class="line line1 shout">
+      <span class="w" style="--t: 0.5s">Mate</span>
+      <span class="w" style="--t: 0.64s">lights</span>
+      <span class="w" style="--t: 0.78s">the</span>
+      <span class="w" style="--t: 0.92s">button.</span>
+    </div>
+    <div class="line line2 shout"><span class="slam-in">You click it.</span></div>
+
+    <div class="url-row"><div class="url comic">meta-mate.stream</div></div>
+    <svg class="underline" viewBox="0 0 1000 60" width="1000" height="60"><path d="M14 40 C 170 22, 330 50, 500 34 S 840 18, 986 30" pathLength="1"/></svg>
+
+    <div class="hint-row"><div class="hint comic">Hold <span class="key">Ctrl</span> and talk.</div></div>
+  </div>
+  <div class="vignette full"></div>
+</div>
+<script src="../../assets/art/src/mate-lib.js"></script>
+<script>
+  document.getElementById('mate-a').innerHTML = mate({ eyes: 'open', mouth: 'smile', arm: 'none', glow: true, size: 420 });
+  document.getElementById('mate-b').innerHTML = mate({ eyes: 'happy', mouth: 'grin', arm: 'none', glow: true, size: 420 });
+</script>
+</body>
+</html>

@@ -67,3 +67,5 @@ HF_HUB_OFFLINE
 DEEP_SEEK
 # Development builds: 1 = require signing in like the installed app (src-tauri/src/signin.rs)
 MM_REQUIRE_SIGN_IN
+# Video clip renderer (tools/render_clips.mjs): the browser executable
+CLIPS_BROWSER

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="clip" content="duration=4.0;fps=60;width=1920;height=1080;alpha=1">
+  <link rel="stylesheet" href="_kit.css">
+  <title>Hold Ctrl</title>
+  <style>
+    .band {
+      position: absolute;
+      left: 60px;
+      bottom: 60px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 30px;
+      width: 760px;
+      height: 170px;
+      padding: 22px 30px;
+      animation: ctrl-band 4s linear 0s both;
+    }
+
+    .keycap {
+      display: grid;
+      place-items: center;
+      flex: 0 0 150px;
+      height: 92px;
+      border: 5px solid var(--ink);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 5px 6px 0 var(--ink);
+      font-size: 46px;
+      font-weight: 900;
+      animation: key-drop 0.5s var(--pop) 0s both;
+    }
+
+    .instruction {
+      margin: 0;
+      font-size: 50px;
+      font-weight: 900;
+      white-space: nowrap;
+      animation: text-slide 0.4s var(--snap) 0.4s both;
+    }
+
+    .dot {
+      width: 24px;
+      height: 24px;
+      flex: 0 0 24px;
+      border: 4px solid var(--ink);
+      border-radius: 50%;
+      background: var(--bulb);
+      box-shadow: 0 0 0 8px rgb(255 205 60 / 0.25);
+      animation: dot-pulse 0.7s ease-in-out 0.9s infinite alternate both;
+    }
+
+    @keyframes ctrl-band {
+      0% { transform: translateX(-900px); }
+      7.5% { transform: translateX(24px); }
+      15% { transform: translateX(0); }
+      87.5% { transform: translateX(0); }
+      100% { transform: translateX(-900px); }
+    }
+
+    @keyframes key-drop {
+      0% { opacity: 0; transform: translateY(-100px) scale(0.75, 1.2); }
+      65% { opacity: 1; transform: translateY(8px) scale(1.12, 0.82); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes text-slide {
+      from { opacity: 0; transform: translateX(-36px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes dot-pulse {
+      from { transform: scale(0.86); }
+      to { transform: scale(1.14); }
+    }
+  </style>
+</head>
+<body class="alpha">
+  <script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+  <main class="stage">
+    <section class="band panel" aria-label="Hold Ctrl and talk">
+      <div class="keycap">Ctrl</div>
+      <p class="instruction">Hold Ctrl and talk</p>
+      <span class="dot" aria-hidden="true"></span>
+    </section>
+  </main>
+</body>
+</html>

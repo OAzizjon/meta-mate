@@ -74,6 +74,7 @@ Only the lead (and the owner) run these in a real shell. Codex and oss run comma
 | `ruff` | Lint Python code. |
 | `vulture` | Find likely unused Python code. |
 | `cargo-machete` | Find unused Rust dependencies. |
+| `node tools/render_clips.mjs [NAME ...] [--poster] [--only-poster] [--list]` | Render the video's motion-graphics scenes (`video/clips/*.html`, shared look in `_kit.css`) frame-exactly into `video/out/` (MP4, or transparent WebM + ProRes 4444 MOV when the scene's meta says `alpha=1`): headless Edge over CDP seeks every CSS animation to frame k / fps, ffmpeg encodes. Scenes animate with CSS keyframes only. |
 
 ## 3. Drafting team
 

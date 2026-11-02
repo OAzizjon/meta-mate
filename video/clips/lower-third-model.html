@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="clip" content="duration=4.0;fps=60;width=1920;height=1080;alpha=1">
+  <link rel="stylesheet" href="_kit.css">
+  <title>Muse Spark 1.3</title>
+  <style>
+    .band {
+      position: absolute;
+      left: 60px;
+      bottom: 60px;
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      width: 760px;
+      height: 170px;
+      padding: 24px 30px;
+      animation: model-band 4s linear 0s both;
+    }
+
+    .bulb-dot {
+      position: relative;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      border: 4px solid var(--ink);
+      border-radius: 50%;
+      background: var(--bulb);
+      box-shadow: 0 0 0 9px rgb(255 205 60 / 0.22), 0 0 28px 8px var(--glow);
+      animation: bulb-pulse 0.9s ease-in-out 0.6s infinite alternate both;
+    }
+
+    .copy {
+      min-width: 0;
+    }
+
+    .model {
+      margin: 0 0 7px;
+      font-size: 50px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .description {
+      margin: 0;
+      font-size: 31px;
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+
+    @keyframes model-band {
+      0% { transform: translateX(-850px); }
+      10% { transform: translateX(20px); }
+      15% { transform: translateX(0); }
+      85% { transform: translateX(0); }
+      100% { transform: translateX(-850px); }
+    }
+
+    @keyframes bulb-pulse {
+      from { transform: scale(0.88); }
+      to { transform: scale(1.12); }
+    }
+  </style>
+</head>
+<body class="alpha">
+  <script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+  <main class="stage">
+    <section class="band panel" aria-label="Muse Spark 1.3 sees the screen, finds the button">
+      <span class="bulb-dot" aria-hidden="true"></span>
+      <div class="copy">
+        <p class="model">Muse Spark 1.3</p>
+        <p class="description">sees the screen, finds the button</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

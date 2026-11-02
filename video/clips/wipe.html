@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta name="clip" content="duration=1.0;fps=60;width=1920;height=1080;alpha=0">
+  <link rel="stylesheet" href="_kit.css">
+  <title>Next</title>
+  <style>
+    .wipe-panel {
+      position: absolute;
+      inset: 0;
+      background-color: var(--ink);
+      --dot: rgb(255 255 255 / 0.16);
+      animation: wipe 1s linear 0s both;
+    }
+
+    .next-burst {
+      position: absolute;
+      z-index: 1;
+      top: 50%;
+      left: 50%;
+      display: grid;
+      place-items: center;
+      width: 420px;
+      height: 320px;
+      background: var(--bulb);
+      transform: translate(-50%, -50%);
+      animation: next-flash 0.4s ease-out 0.32s both;
+    }
+
+    .next-text {
+      color: var(--alarm);
+      font-size: 104px;
+      line-height: 1;
+      -webkit-text-stroke: 4px var(--ink);
+    }
+
+    @keyframes wipe {
+      0% { transform: translateX(100%); }
+      50% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+
+    @keyframes next-flash {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.35) rotate(-8deg); }
+      30% { opacity: 1; transform: translate(-50%, -50%) scale(1.12) rotate(3deg); }
+      80% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(0); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(0.92) rotate(0); }
+    }
+  </style>
+</head>
+<body>
+  <script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+  <main class="stage">
+    <div class="wipe-panel halftone" aria-hidden="true"></div>
+    <div class="next-burst burst">
+      <span class="next-text shout">NEXT!</span>
+    </div>
+  </main>
+</body>
+</html>

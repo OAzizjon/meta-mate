@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="clip" content="duration=1.0;fps=30;width=640;height=360;alpha=0">
+<title>_smoke</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 640px; height: 360px; overflow: hidden; background: #14213d; }
+  .ball {
+    position: absolute;
+    top: 150px;
+    left: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #ffd60a;
+    animation: slide 1s linear infinite;
+  }
+  @keyframes slide {
+    from { transform: translateX(0); }
+    to { transform: translateX(580px); }
+  }
+</style>
+</head>
+<body>
+  <div class="ball"></div>
+</body>
+</html>
