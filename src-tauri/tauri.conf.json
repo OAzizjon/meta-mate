@@ -39,7 +39,7 @@
       "nsis": {
         "installMode": "currentUser",
         "languages": ["English", "Russian"],
-        "displayLanguageSelector": true,
+        "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico"
       }

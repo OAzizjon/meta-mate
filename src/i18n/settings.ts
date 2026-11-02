@@ -12,6 +12,8 @@ export async function followSettingsLocale(render: () => void): Promise<void> {
   await followWindowSettings(document.documentElement, invoke, async (onChanged) => {
     return listen<unknown>(SETTINGS_CHANGED_EVENT, (event) => onChanged(event.payload));
   }, (settings) => {
+    // The in-app "less motion" choice, like Windows' own (theme.css `.reduce-motion`).
+    document.documentElement.classList.toggle("reduce-motion", settings.reduceMotion);
     const previous = getLocale();
     const locale = setLocale(settings.language);
     document.documentElement.lang = locale;

@@ -13,7 +13,7 @@ import {
   buildSizeGroup,
   buildSoundGroup,
 } from "./choices-view.ts";
-import { syncRadioSelection } from "./controls.ts";
+import { buildCheckbox, syncCheckbox, syncRadioSelection } from "./controls.ts";
 import type { RadioGroupRefs } from "./controls.ts";
 
 class FakeClassList {
@@ -172,7 +172,7 @@ test("a segment's hint sits under the row, describes its radio, and shows for th
   // Cards keep every description in view.
   const model = buildModelGroup(noop);
   syncRadioSelection(model, "quick");
-  assert.deepEqual(parts(model).items.map(({ hint }) => hint?.hidden), [false, false]);
+  assert.deepEqual(parts(model).items.map(({ hint }) => hint?.hidden), [false, false, false]);
 });
 
 test("choosing a segment marks it and shows its hint at once, then passes the value on", () => {
@@ -206,4 +206,34 @@ test("model cards name radios by the title and describe them by the hint", () =>
     assert.equal(input.getAttribute("aria-describedby"), hintEl?.id);
     assert.notEqual(titleEl.id, hintEl?.id);
   }
+});
+
+test("buildCheckbox wires an optional hint and syncCheckbox updates checked and selection class", () => {
+  const plain = buildCheckbox("settings-reduce-motion", "settings.reduce_motion", noop);
+  assert.equal(plain.hintEl, undefined);
+  assert.equal(plain.hintKey, undefined);
+  assert.equal(fake(plain.input).getAttribute("aria-describedby"), null);
+
+  const toggled: boolean[] = [];
+  const withHint = buildCheckbox(
+    "settings-dev-mode",
+    "settings.dev_mode",
+    (checked) => toggled.push(checked),
+    "settings.dev_mode_hint",
+  );
+  assert.equal(withHint.hintKey, "settings.dev_mode_hint");
+  assert.equal(withHint.hintEl?.id, "settings-dev-mode-hint");
+  assert.equal(fake(withHint.input).getAttribute("aria-describedby"), "settings-dev-mode-hint");
+
+  syncCheckbox(withHint, true);
+  assert.equal(withHint.input.checked, true);
+  assert.equal(fake(withHint.wrapper).classList.contains("is-selected"), true);
+
+  syncCheckbox(withHint, false);
+  assert.equal(withHint.input.checked, false);
+  assert.equal(fake(withHint.wrapper).classList.contains("is-selected"), false);
+
+  fake(withHint.input).checked = true;
+  fake(withHint.input).dispatch("change");
+  assert.deepEqual(toggled, [true]);
 });

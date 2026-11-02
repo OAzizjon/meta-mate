@@ -141,12 +141,15 @@ export interface CheckboxRefs {
   readonly input: HTMLInputElement;
   readonly titleEl: HTMLSpanElement;
   readonly labelKey: LocaleKey;
+  readonly hintEl?: HTMLSpanElement;
+  readonly hintKey?: LocaleKey;
 }
 
 export function buildCheckbox(
   id: string,
   labelKey: LocaleKey,
   onToggle: (checked: boolean) => void,
+  hintKey?: LocaleKey,
 ): CheckboxRefs {
   const wrapper = document.createElement("label");
   wrapper.className = "settings-checkbox-option";
@@ -165,10 +168,24 @@ export function buildCheckbox(
   titleEl.className = "option-title";
   textWrap.append(titleEl);
 
+  let hintEl: HTMLSpanElement | undefined;
+  if (hintKey) {
+    hintEl = document.createElement("span");
+    hintEl.className = "option-hint";
+    hintEl.id = `${id}-hint`;
+    input.setAttribute("aria-describedby", hintEl.id);
+    textWrap.append(hintEl);
+  }
+
   input.addEventListener("change", () => {
     onToggle(input.checked);
   });
 
   wrapper.append(input, textWrap);
-  return { wrapper, input, titleEl, labelKey };
+  return { wrapper, input, titleEl, labelKey, hintEl, hintKey };
+}
+
+export function syncCheckbox(box: CheckboxRefs, checked: boolean): void {
+  box.input.checked = checked;
+  box.wrapper.classList.toggle("is-selected", checked);
 }

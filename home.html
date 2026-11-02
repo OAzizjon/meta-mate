@@ -198,6 +198,85 @@
         text-wrap: pretty;
       }
 
+      /* Mate's brain: three comic pill cards side by side (stacked on narrow windows). */
+      .home-model {
+        padding: 18px clamp(14px, 4vw, 24px) 20px;
+        background: var(--surface-soft);
+        border: var(--ink-width, 2.5px) solid var(--ink, var(--border));
+        border-radius: var(--radius-lg);
+        box-shadow: 4px 4px 0 var(--ink-shadow, rgb(0 0 0 / 0.14));
+      }
+
+      .home-model-list {
+        margin: 14px 0 0;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .home-model-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        min-width: 0;
+        padding: 14px 16px;
+        border: var(--ink-width, 2.5px) solid var(--ink, var(--border));
+        border-radius: 22px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        box-shadow: 4px 4px 0 var(--ink-shadow, rgb(0 0 0 / 0.14));
+      }
+
+      .home-model-card:hover {
+        background: var(--surface-hover);
+      }
+
+      .home-model-card.is-selected,
+      .home-model-card[aria-checked="true"] {
+        background: var(--accent-soft);
+      }
+
+      .home-model-card::after {
+        content: "";
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        width: 20px;
+        height: 20px;
+        border: 2.5px solid var(--ink, currentColor);
+        border-radius: 50%;
+        background: var(--surface);
+      }
+
+      .home-model-card[aria-checked="true"]::after {
+        background: radial-gradient(circle, var(--ink, currentColor) 0 42%, var(--accent) 45% 100%);
+      }
+
+      .home-model-icon {
+        width: 36px;
+        height: 36px;
+      }
+
+      .home-model-name {
+        padding-right: 26px;
+        font-size: var(--text-lg);
+        font-weight: 700;
+        line-height: 1.25;
+        overflow-wrap: break-word;
+      }
+
+      .home-model-hint {
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+        line-height: 1.35;
+        text-wrap: pretty;
+      }
+
       /* Try it: cards wrap as space allows, each with its own button. */
       .home-try-list {
         list-style: none;
@@ -488,6 +567,10 @@
         .home-actions .btn {
           padding-inline: 12px;
         }
+
+        .home-model-list {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
 
       /* Windows contrast themes drop the fills: the cards, the keycap and the marks keep a
@@ -495,12 +578,28 @@
       @media (forced-colors: active) {
         .home-hero,
         .home-talk,
+        .home-model,
+        .home-model-card,
         .home-try-card,
         .home-never,
         .home-cards,
         .home-cards-folder,
         .home-try-status {
           border: 1px solid CanvasText;
+        }
+
+        .home-model-card::after {
+          border-color: CanvasText;
+        }
+
+        .home-model-card[aria-checked="true"] {
+          outline: 2px solid Highlight;
+          outline-offset: -4px;
+        }
+
+        .home-model-card[aria-checked="true"]::after {
+          forced-color-adjust: none;
+          background: Highlight;
         }
 
         .home-keycap,

@@ -52,7 +52,10 @@ class LocaleTests(unittest.TestCase):
                                'settings.keycap_ctrl', 'settings.keycap_rightAlt',
                                'settings.keycap_capsLock', 'settings.keycap_insert',
                                'settings.keycap_f9', 'settings.keycap_f10',
-                               'hints.key_fn', 'hints.key_f8'}:
+                               'hints.key_fn', 'hints.key_f8',
+                               # Meta's model names.
+                               'chat.model_spark', 'chat.model_wonder', 'home.model_quick',
+                               'home.model_thorough', 'home.model_open'}:
                     self.assertIsNotNone(CYRILLIC.search(russian[key]))
 
 

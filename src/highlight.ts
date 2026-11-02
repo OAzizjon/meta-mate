@@ -9,6 +9,10 @@ import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { parseSettings, SETTINGS_CHANGED_EVENT } from "./settings/model.ts";
 import { applyTheme } from "./settings/theme.ts";
 import { setLocale, t } from "./i18n/index.ts";
+import { MATE_JUMP_EVENT } from "./highlight/jump.ts";
+import { mountJump } from "./highlight/jump-view.ts";
+import { VOICE_BAR_EVENT } from "./highlight/voicebar.ts";
+import { mountVoiceBar } from "./highlight/voicebar-view.ts";
 import {
   BADGE_HEIGHT,
   BADGE_WIDTH,
@@ -69,6 +73,8 @@ export interface HighlightController {
 declare global {
   interface Window {
     __highlight?: HighlightController;
+    __voiceBar?: import("./highlight/voicebar-view.ts").VoiceBar;
+    __mateJump?: import("./highlight/jump-view.ts").MateJump;
   }
 }
 
@@ -567,17 +573,37 @@ if (typeof document !== "undefined") {
   const svg = document.getElementById("highlight");
   if (svg instanceof SVGSVGElement) {
     const controller = mountHighlight(svg);
+    // The voice bar and Mate's surprise entrance follow the same reduced-motion rule.
+    let reduceSetting = false;
+    const motionQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+    const reducedMotion = (): boolean => reduceSetting || motionQuery.matches;
+    const voiceBar = mountVoiceBar(reducedMotion);
+    const jump = mountJump(reducedMotion);
+    const noteSettings = (raw: unknown): void => {
+      reduceSetting = parseSettings(raw).reduceMotion;
+      controller.setSettings(raw);
+    };
     if ("__TAURI_INTERNALS__" in window) {
       let settingsChanged = false;
       void import("@tauri-apps/api/core").then(async ({ invoke }) => {
         const settings = await invoke("load_settings");
-        if (!settingsChanged) controller.setSettings(settings);
+        if (!settingsChanged) noteSettings(settings);
       }).catch((error: unknown) => console.error("[highlight] settings load failed", error));
       // This window only: with one highlight window per monitor, a global listener would
       // draw every monitor's ring at its own coordinates.
       void getCurrentWebviewWindow().listen<unknown>(SETTINGS_CHANGED_EVENT, (event) => {
         settingsChanged = true;
-        controller.setSettings(event.payload);
+        noteSettings(event.payload);
+      });
+      void getCurrentWebviewWindow().listen<unknown>(VOICE_BAR_EVENT, (event) => {
+        voiceBar.handleRaw(event.payload);
+      }).catch((error: unknown) => {
+        console.error("[highlight] voice bar listener failed", error);
+      });
+      void getCurrentWebviewWindow().listen<unknown>(MATE_JUMP_EVENT, (event) => {
+        jump.handleRaw(event.payload);
+      }).catch((error: unknown) => {
+        console.error("[highlight] jump listener failed", error);
       });
       void getCurrentWebviewWindow().listen<unknown>("highlight", (event) => {
         controller.handleRaw(event.payload);
@@ -592,6 +618,8 @@ if (typeof document !== "undefined") {
     }
     if (import.meta.env.DEV) {
       window.__highlight = controller;
+      window.__voiceBar = voiceBar;
+      window.__mateJump = jump;
     }
   }
 }

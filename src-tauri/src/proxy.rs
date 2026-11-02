@@ -460,6 +460,20 @@ impl Proxy {
         ))
     }
 
+    /// Wakes the proxy's GPU services (MMS-TTS, and Muse Glimmer when it answers chat)
+    /// while the person is still talking. Best effort: any failure is ignored, and an
+    /// older proxy without `/v1/warm` simply answers 404.
+    pub async fn warm(&self, glimmer: bool) {
+        let _ = self
+            .http
+            .post(format!("{}/v1/warm", self.base))
+            .bearer_auth(self.credential())
+            .timeout(Duration::from_secs(10))
+            .json(&json!({"glimmer": glimmer}))
+            .send()
+            .await;
+    }
+
     /// One sentence in Mate's voice (`lang` is `en` or `ru`) at the voice speed of the
     /// settings (0.8..=1.3, already sanitized).
     pub async fn speak(&self, lang: &str, text: &str) -> Result<Speech, ProxyError> {

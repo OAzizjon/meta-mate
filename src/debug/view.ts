@@ -1,15 +1,102 @@
-// Pure formatting and wire validation for the development debug window (WP14).
-// Listens to `DebugMsg` events inside Tauri and displays timeline items as MateScript-like
-// chips, sentence text in a muted line, PCM arrivals per sentence with sample counts,
-// timings as a horizontal bar chart against key-up, and look stats.
+// Pure formatting and wire validation for the "Under the hood" debug window (WP14, D78).
+// Listens to `DebugMsg` events inside Tauri and displays the pipeline strip, timeline items
+// as MateScript-like chips, sentence text in a muted line, PCM arrivals per sentence with
+// sample counts, timings as a horizontal bar chart against key-up, and look stats.
 // Runs in Node tests directly without DOM or Tauri dependencies.
 
-import type { AnswerMsg, AnswerState } from "../ipc/answer-stream.ts";
-import { ANSWER_STATES, parseAnswerMsg } from "../ipc/answer-stream.ts";
+import type { AnswerModel, AnswerMsg, AnswerState } from "../ipc/answer-stream.ts";
+import { ANSWER_MODELS, ANSWER_STATES, parseAnswerMsg } from "../ipc/answer-stream.ts";
 import { parseTimelineItem } from "../ipc/timeline.ts";
 import type { Bound, Point, Sound, TimelineItem } from "../ipc/timeline.ts";
 
 export const MAX_GENERATIONS = 20;
+
+export const PRIVACY_NOTE =
+  "Shown here: timings, models, Mate's own words and counts. Never your words or your screenshot.";
+
+export const DEBUG_ANSWER_MODELS = [
+  "muse-spark-1.3",
+  "muse-wonder-1.0",
+  "muse-glimmer-30b",
+] as const satisfies readonly AnswerModel[];
+
+export type DebugAnswerModel = (typeof DEBUG_ANSWER_MODELS)[number];
+
+export const MODEL_FULL_NAMES: Readonly<Record<AnswerModel, string>> = {
+  "muse-spark-1.3": "Muse Spark 1.3",
+  "muse-wonder-1.0": "Muse Wonder 1.0",
+  "muse-glimmer-30b": "Muse Glimmer 30B",
+  "sam-3.1": "SAM 3.1",
+  "muse-voice-transcribe-1.0": "Muse Voice Transcribe 1.0",
+};
+
+export function isDebugAnswerModel(value: unknown): value is DebugAnswerModel {
+  return typeof value === "string" && (DEBUG_ANSWER_MODELS as readonly string[]).includes(value);
+}
+
+export function isAnswerModel(value: unknown): value is AnswerModel {
+  return typeof value === "string" && (ANSWER_MODELS as readonly string[]).includes(value);
+}
+
+export function formatModelName(model: string): string {
+  return isAnswerModel(model) ? MODEL_FULL_NAMES[model] : model;
+}
+
+export interface PipelineStepView {
+  readonly id: string;
+  readonly label: string;
+  readonly active: boolean;
+}
+
+export const PIPELINE_STEPS: readonly Omit<PipelineStepView, "active">[] = [
+  { id: "voice", label: "Your voice" },
+  { id: "asr", label: "Muse Voice Transcribe" },
+  { id: "model", label: "Muse Spark / Wonder / Glimmer" },
+  { id: "timeline", label: "MateScript timeline" },
+  { id: "tts", label: "MMS-TTS voice" },
+];
+
+export const PIPELINE_MODEL_LABELS: Readonly<Record<DebugAnswerModel, string>> = {
+  "muse-spark-1.3": "Muse Spark",
+  "muse-wonder-1.0": "Wonder",
+  "muse-glimmer-30b": "Glimmer",
+};
+
+/** The answer model of the newest generation, or null when unset or outside the answer set. */
+export function activePipelineModel(records: readonly GenerationRecord[]): DebugAnswerModel | null {
+  if (records.length === 0) return null;
+  const newest = records[0];
+  if (newest.model !== undefined) {
+    return isDebugAnswerModel(newest.model) ? newest.model : null;
+  }
+  for (let i = newest.lines.length - 1; i >= 0; i--) {
+    const candidate = newest.lines[i];
+    if (isDebugAnswerModel(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Pure HTML rendering of the pipeline strip, lighting up the newest generation's model chip. */
+export function renderPipelineStripHtml(activeModel: string | null = null): string {
+  const lit = isDebugAnswerModel(activeModel) ? activeModel : null;
+  const modelSubchips = DEBUG_ANSWER_MODELS.map((id) => {
+    const isLit = lit === id;
+    const cls = isLit ? "pipeline-chip pipeline-model is-active" : "pipeline-chip pipeline-model";
+    const current = isLit ? ` aria-current="true"` : "";
+    return `<span class="${cls}" data-model="${id}"${current}>${escapeHtml(PIPELINE_MODEL_LABELS[id])}</span>`;
+  }).join(` <span class="pipeline-slash" aria-hidden="true">/</span> `);
+
+  const chips = PIPELINE_STEPS.map((step) => {
+    if (step.id === "model") {
+      const cls = lit ? "pipeline-models is-active" : "pipeline-models";
+      return `<span class="${cls}" data-step="model" data-active-model="${lit ?? ""}">${modelSubchips}</span>`;
+    }
+    return `<span class="pipeline-chip" data-step="${step.id}">${escapeHtml(step.label)}</span>`;
+  });
+
+  const joined = chips.join(` <span class="pipeline-arrow" aria-hidden="true">-&gt;</span> `);
+  return `<div class="pipeline-strip" role="region" aria-label="Meta AI pipeline">${joined}</div>`;
+}
 
 /** `DebugPcmMsg`: PCM payload carries sample count `samples` instead of base64 samplesB64. */
 export interface DebugPcmMsg {
@@ -331,9 +418,25 @@ export function formatSentencePcm(summary: SentencePcmSummary): string {
   return `${label}: ${samplesFormatted} samples (${chunkText} @ ${khz} kHz${eosText})`;
 }
 
+export const TIMING_LABELS: Readonly<Record<string, string>> = {
+  transcript: "heard you",
+  asr_final: "heard you",
+  look: "checked screen",
+  first_item: "first words",
+  first_text: "first words",
+  first_sentence: "first sentence",
+  first_audio: "first sound",
+  done: "finished",
+};
+
+export function formatTimingLabel(name: string): string | null {
+  return Object.hasOwn(TIMING_LABELS, name) ? TIMING_LABELS[name] : null;
+}
+
 /** View model for a timing bar scaled against key-up (t = 0 ms). */
 export interface TimingBarView {
   readonly name: string;
+  readonly label: string | null;
   readonly ms: number;
   readonly percentage: number;
 }
@@ -351,6 +454,7 @@ export function computeTimingBars(timings: readonly DebugTimingMsg[]): TimingBar
     const percentage = Math.max(0, Math.min(100, Math.round(rawPct * 10) / 10));
     return {
       name: timing.name,
+      label: formatTimingLabel(timing.name),
       ms: timing.ms,
       percentage,
     };
@@ -378,6 +482,7 @@ export interface GenerationRecord {
   readonly pcm: readonly DebugPcmMsg[];
   readonly timings: readonly DebugTimingMsg[];
   readonly look: DebugLookMsg | null;
+  readonly model?: AnswerModel | null;
   readonly state?: AnswerState;
   readonly cancelled?: boolean;
   readonly lines: readonly string[];
@@ -389,6 +494,7 @@ interface MutableGenerationRecord {
   pcm: DebugPcmMsg[];
   timings: DebugTimingMsg[];
   look: DebugLookMsg | null;
+  model?: AnswerModel | null;
   state?: AnswerState;
   cancelled?: boolean;
   lines: string[];
@@ -433,7 +539,10 @@ export class DebugStore {
       const inner = msg.msg;
       switch (inner.type) {
         case "model":
-          if (inner.model !== null) record.lines.push(inner.model);
+          record.model = inner.model;
+          if (inner.model !== null && !record.lines.includes(inner.model)) {
+            record.lines.push(inner.model);
+          }
           break;
         case "item":
           record.items.push(inner.item);
@@ -459,6 +568,11 @@ export class DebugStore {
     return Array.from(this.generations.values()).sort((a, b) => b.generation - a.generation);
   }
 
+  /** The answer model of the newest generation, or null. */
+  getActiveModel(): DebugAnswerModel | null {
+    return activePipelineModel(this.getGenerations());
+  }
+
   clear(): void {
     this.generations.clear();
   }
@@ -473,14 +587,29 @@ export class DebugStore {
   }
 }
 
+function resolveRecordModel(record: GenerationRecord): AnswerModel | null {
+  if (record.model !== undefined) return record.model;
+  for (let i = record.lines.length - 1; i >= 0; i--) {
+    const line = record.lines[i];
+    if (isAnswerModel(line)) return line;
+  }
+  return null;
+}
+
 /**
  * Pure HTML rendering of a single generation card.
  */
 export function renderGenerationHtml(record: GenerationRecord): string {
   const gen = record.generation;
+  const model = resolveRecordModel(record);
 
-  // Badges: state, cancelled, lines
+  // Badges: model (with full name), state, cancelled, lines
   const badges: string[] = [];
+  if (model) {
+    badges.push(
+      `<span class="badge badge-model" data-model="${escapeHtml(model)}">${escapeHtml(formatModelName(model))}</span>`,
+    );
+  }
   if (record.state) {
     badges.push(`<span class="badge badge-state">${escapeHtml(record.state)}</span>`);
   }
@@ -488,7 +617,14 @@ export function renderGenerationHtml(record: GenerationRecord): string {
     badges.push(`<span class="badge badge-cancelled">cancelled</span>`);
   }
   for (const line of record.lines) {
-    badges.push(`<span class="badge badge-line">${escapeHtml(line)}</span>`);
+    if (isAnswerModel(line) && model === line) continue;
+    if (isAnswerModel(line)) {
+      badges.push(
+        `<span class="badge badge-model" data-model="${escapeHtml(line)}">${escapeHtml(formatModelName(line))}</span>`,
+      );
+    } else {
+      badges.push(`<span class="badge badge-line">${escapeHtml(line)}</span>`);
+    }
   }
 
   // Look stats
@@ -506,16 +642,19 @@ export function renderGenerationHtml(record: GenerationRecord): string {
   if (record.timings.length > 0) {
     const bars = computeTimingBars(record.timings);
     const rows = bars
-      .map(
-        (b) => `
+      .map((b) => {
+        const plainHtml = b.label
+          ? `<span class="timing-plain">${escapeHtml(b.label)}</span> `
+          : "";
+        return `
         <div class="timing-row">
-          <span class="timing-name">${escapeHtml(b.name)}</span>
+          <span class="timing-label">${plainHtml}<span class="timing-name">${escapeHtml(b.name)}</span></span>
           <div class="timing-track" aria-hidden="true">
             <div class="timing-bar" style="width: ${b.percentage}%"></div>
           </div>
           <span class="timing-val">${b.ms} ms</span>
-        </div>`,
-      )
+        </div>`;
+      })
       .join("");
 
     timingsHtml = `

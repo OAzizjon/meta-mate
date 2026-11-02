@@ -63,8 +63,11 @@ pub struct AnswerStream {
     /// one, never reaches the window after its `Cancel`.
     cancelled: Mutex<Option<u64>>,
     reports: Mutex<Vec<(&'static str, u64, Instant, String)>>,
-    #[cfg(debug_assertions)]
+    /// The "Under the hood" mirror (debug_view.rs): debug builds and developer mode.
     debug: Mutex<Option<tauri::AppHandle>>,
+    /// The voice bar at the bottom of Mate's monitor (highlight.rs), and the generation
+    /// of the recording it shows, if any.
+    bar: Mutex<Option<(tauri::AppHandle, Option<u64>)>>,
 }
 
 /// The playback reports the window may send (src/ipc/answer-stream.ts `reportPlayback`).
@@ -84,6 +87,7 @@ pub fn model_chip(served: Option<&str>) -> Option<&'static str> {
     match served {
         Some(model) if model.starts_with("muse-spark") => Some("muse-spark-1.3"),
         Some(model) if model.starts_with("muse-wonder") => Some("muse-wonder-1.0"),
+        Some(model) if model.starts_with("muse-glimmer") => Some("muse-glimmer-30b"),
         _ => None,
     }
 }
@@ -177,6 +181,7 @@ mod model_tests {
             (Some("muse-spark-preview"), Some("muse-spark-1.3")),
             (Some("muse-wonder-1.0"), Some("muse-wonder-1.0")),
             (Some("muse-wonder-preview"), Some("muse-wonder-1.0")),
+            (Some("muse-glimmer-30b"), Some("muse-glimmer-30b")),
             (None, None),
             (Some(""), None),
             (Some("other-muse-spark"), None),
@@ -237,8 +242,59 @@ impl AnswerStream {
             .map(|(_, _, at, _)| *at)
     }
 
-    /// Connects the development debug mirror (`debug_view.rs`) once at startup.
-    #[cfg(debug_assertions)]
+    /// Connects the voice bar once the highlight windows exist.
+    pub fn attach_voice_bar(&self, app: tauri::AppHandle) {
+        if let Ok(mut bar) = self.bar.lock() {
+            *bar = Some((app, None));
+        }
+    }
+
+    /// Listening raises the bar for that recording; only its level and words follow, and
+    /// only its own next state (or a cancel reaching it) lowers it: a lesson still talking
+    /// in an older generation never touches the bar of a newer recording.
+    #[cfg(windows)]
+    fn voice_bar(&self, message: &AnswerMsg) {
+        let Ok(mut guard) = self.bar.lock() else {
+            return;
+        };
+        let Some((app, listening)) = guard.as_mut() else {
+            return;
+        };
+        use crate::highlight::VoiceBarMsg;
+        let next = match (message, *listening) {
+            (
+                AnswerMsg::State {
+                    generation,
+                    state: "listening",
+                },
+                _,
+            ) => {
+                *listening = Some(*generation);
+                crate::highlight::follow_mate(app);
+                VoiceBarMsg::State { state: "listening" }
+            }
+            (AnswerMsg::Level { generation, level }, Some(shown)) if *generation == shown => {
+                VoiceBarMsg::Level { level: *level }
+            }
+            (AnswerMsg::Heard { generation, text }, Some(shown)) if *generation == shown => {
+                VoiceBarMsg::Heard { text: text.clone() }
+            }
+            (AnswerMsg::State { generation, state }, Some(shown)) if *generation >= shown => {
+                *listening = None;
+                VoiceBarMsg::State {
+                    state: if *state == "idle" { "idle" } else { "thinking" },
+                }
+            }
+            (AnswerMsg::Cancel { generation }, Some(shown)) if *generation >= shown => {
+                *listening = None;
+                VoiceBarMsg::State { state: "idle" }
+            }
+            _ => return,
+        };
+        crate::highlight::voice_bar(app, &next);
+    }
+
+    /// Connects the "Under the hood" mirror (`debug_view.rs`) once at startup.
     pub fn attach_debug(&self, app: tauri::AppHandle) {
         if let Ok(mut debug) = self.debug.lock() {
             *debug = Some(app);
@@ -276,7 +332,8 @@ impl AnswerStream {
         {
             *opening = Some((*generation, Some(target.clone())));
         }
-        #[cfg(debug_assertions)]
+        #[cfg(windows)]
+        self.voice_bar(&message);
         if let Some(app) = self.debug.lock().ok().and_then(|debug| debug.clone()) {
             crate::debug_view::answer(&app, &message);
         }

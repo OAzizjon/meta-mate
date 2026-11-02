@@ -1,0 +1,13 @@
+{
+  "load_settings": {"theme": "light", "language": "en"},
+  "events": [
+    {"event": "voice-bar", "payload": {"type": "state", "state": "listening"}, "at_ms": 50},
+    {"event": "voice-bar", "payload": {"type": "level", "level": 0.35}, "at_ms": 200},
+    {"event": "voice-bar", "payload": {"type": "level", "level": 0.6}, "at_ms": 400},
+    {"event": "voice-bar", "payload": {"type": "level", "level": 0.25}, "at_ms": 600},
+    {"event": "voice-bar", "payload": {"type": "level", "level": 0.5}, "at_ms": 800},
+    {"event": "voice-bar", "payload": {"type": "heard", "text": "How do I make the text bigger in Settings?"}, "at_ms": 900},
+    {"event": "voice-bar", "payload": {"type": "level", "level": 0.45}, "at_ms": 1000},
+    {"event": "mate-jump", "payload": {"type": "jump", "locale": "en"}, "at_ms": 100}
+  ]
+}

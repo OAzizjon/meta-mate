@@ -126,6 +126,8 @@ enum Input {
     /// generation once that answer owns the screen.
     Explain(String, oneshot::Sender<u64>),
     Line(&'static str),
+    /// The chat's Talk/Stop button: a click on Mate whose recording belongs to the chat.
+    ChatTalk,
 }
 
 struct TextQuestions {
@@ -159,6 +161,12 @@ pub(crate) fn ask_chat(app: &AppHandle, text: String, epoch: u64) -> bool {
 pub(crate) fn ask_explain(app: &AppHandle, text: String, started: oneshot::Sender<u64>) -> bool {
     app.try_state::<TextQuestions>()
         .is_some_and(|questions| questions.sender.send(Input::Explain(text, started)).is_ok())
+}
+
+/// Starts or stops a click-to-talk recording from the chat window (chat.rs `chat_talk`).
+pub(crate) fn chat_talk(app: &AppHandle) -> bool {
+    app.try_state::<TextQuestions>()
+        .is_some_and(|questions| questions.sender.send(Input::ChatTalk).is_ok())
 }
 
 pub(crate) fn remembered_target(app: &AppHandle) -> Option<mm_platform::TargetWindow> {
@@ -257,6 +265,7 @@ pub fn ask(app: &AppHandle, question: String) {
             Arc::default(),
             None,
             None,
+            None,
         )
         .await;
         let sent = asked.elapsed();
@@ -324,6 +333,11 @@ struct Session {
     pressed_at: Option<Instant>,
     generation: u64,
     microphone: Option<Microphone>,
+    /// Set once a frame rose above the noise floor (mm_core::vad).
+    heard: Arc<AtomicBool>,
+    /// Started or stopped from the chat: the answer looks at the person's last app window,
+    /// never at the chat in front.
+    from_chat: bool,
     transcript: Option<JoinHandle<Result<Transcript, ProxyError>>>,
     /// Kept after the handle moves into the answer task: dropping a JoinHandle detaches
     /// its task, so a barge-in aborts recognition through this.
@@ -381,6 +395,8 @@ async fn run(
     // include tray questions and must never collide with a later press.
     let mut next_generation = 0u64;
     let mut recording = None;
+    // The chat's Talk clicked while nothing listened: the next click start is the chat's.
+    let mut chat_click = false;
     let mut sampling = tokio::time::interval(Duration::from_millis(100));
     #[cfg(debug_assertions)]
     let mut sampling_wakes = crate::perf::Wakes::new("voice sampling");
@@ -401,6 +417,12 @@ async fn run(
             Input::Ptt(PttEvent::Start { .. }, pressed_at) => *pressed_at,
             _ => None,
         };
+        // The driver's next event answers the chat's click, whatever it is; only a click
+        // start (no key-down time) makes the recording the chat's.
+        let chat_claim = matches!(event, Input::Ptt(..)) && std::mem::take(&mut chat_click);
+        let from_chat = chat_claim
+            && matches!(event, Input::Ptt(PttEvent::Start { .. }, _))
+            && pressed_at.is_none();
         // Clear also invalidates questions still waiting in the queue. Bind accepted
         // requests under the history lock before any state, refusal or answer is sent.
         if let Input::Text(_, _, Some(epoch)) = &event
@@ -424,7 +446,10 @@ async fn run(
         ) && crate::signin::missing(&app)
         {
             next_generation += 1;
-            recording = None;
+            // The driver must forget a click or toggle recording too, or the next press only stops it.
+            if let Some((raw, _)) = recording.take() {
+                silencer.silence(raw);
+            }
             cancel_feedback(&stream, &mut current, &lessons).await;
             stop_pointing(&app);
             crate::presence::wake(&app, false);
@@ -440,10 +465,25 @@ async fn run(
             continue;
         }
         let (event, text) = match event {
+            Input::ChatTalk => {
+                // Exactly a click on Mate: the driver starts or stops the recording.
+                match current
+                    .as_mut()
+                    .filter(|session| session.microphone.is_some())
+                {
+                    Some(session) => session.from_chat = true,
+                    None => chat_click = true,
+                }
+                ptt::click();
+                continue;
+            }
             Input::Line(key) => {
                 crate::presence::wake(&app, false);
                 next_generation += 1;
-                recording = None;
+                // The driver must forget a click or toggle recording too, or the next press only stops it.
+                if let Some((raw, _)) = recording.take() {
+                    silencer.silence(raw);
+                }
                 // A detached lesson's queued speech and timeline must stop, not only its task.
                 cancel_feedback(&stream, &mut current, &lessons).await;
                 stop_pointing(&app);
@@ -458,7 +498,10 @@ async fn run(
                 // Home's Try and the tray's questions: a question wakes Mate like a press.
                 crate::presence::wake(&app, false);
                 next_generation += 1;
-                recording = None;
+                // The driver must forget a click or toggle recording too, or the next press only stops it.
+                if let Some((raw, _)) = recording.take() {
+                    silencer.silence(raw);
+                }
                 (
                     PttEvent::Start {
                         generation: next_generation,
@@ -469,7 +512,10 @@ async fn run(
             Input::Explain(text, started) => {
                 crate::presence::wake(&app, false);
                 next_generation += 1;
-                recording = None;
+                // The driver must forget a click or toggle recording too, or the next press only stops it.
+                if let Some((raw, _)) = recording.take() {
+                    silencer.silence(raw);
+                }
                 (
                     PttEvent::Start {
                         generation: next_generation,
@@ -553,6 +599,8 @@ async fn run(
                         pressed_at: None,
                         generation,
                         microphone: None,
+                        heard: Arc::default(),
+                        from_chat: false,
                         transcript: None,
                         transcript_abort,
                         answer: Some(tokio::spawn(answer(
@@ -566,6 +614,7 @@ async fn run(
                             Arc::clone(&lessons),
                             Some(target),
                             route,
+                            None,
                         ))),
                     });
                     continue;
@@ -574,6 +623,10 @@ async fn run(
                     generation,
                     state: "listening",
                 });
+                // The voice and Glimmer wake up while the person is still talking.
+                let waker = proxy.clone();
+                let glimmer = crate::settings::model(&app) == crate::settings::Model::Open;
+                tauri::async_runtime::spawn(async move { waker.warm(glimmer).await });
                 // Click starts carry no key-down time; keep their stop instruction visible.
                 if pressed_at.is_none() {
                     stream.send(AnswerMsg::Line {
@@ -592,6 +645,9 @@ async fn run(
                 let release = (silencer.clone(), driver_generation);
                 let mut detector = mm_core::vad::SilenceDetector::new();
                 let mut frame_ms = 0u64;
+                // An empty transcript then means "say it again", not "no microphone".
+                let caught = Arc::new(AtomicBool::new(false));
+                let caught_level = Arc::clone(&caught);
                 let on_level = move |level: f32| {
                     heard.state::<AnswerStream>().send(AnswerMsg::Level {
                         generation,
@@ -600,6 +656,9 @@ async fn run(
                     frame_ms += 80;
                     if detector.input(level, frame_ms).is_some() {
                         silencer.silence(driver_generation);
+                    }
+                    if detector.heard() {
+                        caught_level.store(true, Ordering::Release);
                     }
                 };
                 let opened =
@@ -668,6 +727,8 @@ async fn run(
                     pressed_at,
                     generation,
                     microphone: Some(microphone),
+                    heard: caught,
+                    from_chat,
                     transcript_abort: transcript.abort_handle(),
                     transcript: Some(transcript),
                     answer: None,
@@ -688,6 +749,8 @@ async fn run(
                     state: "thinking",
                 });
                 if let Some(transcript) = session.transcript.take() {
+                    // The chat is in front: look where its typed questions look.
+                    let target = session.from_chat.then(|| remembered_target(&app));
                     session.answer = Some(tokio::spawn(answer(
                         app.clone(),
                         proxy.clone(),
@@ -697,8 +760,9 @@ async fn run(
                         transcript,
                         session.pressed_at,
                         Arc::clone(&lessons),
+                        target,
                         None,
-                        None,
+                        Some(Arc::clone(&session.heard)),
                     )));
                 }
             }
@@ -733,6 +797,8 @@ async fn answer(
     lessons: Lessons,
     tray_target: Option<Option<mm_platform::TargetWindow>>,
     route: Option<Intent>,
+    // A recording's: whether its microphone caught sound above the noise floor.
+    heard: Option<Arc<AtomicBool>>,
 ) {
     let stream = app.state::<AnswerStream>();
     let question = match transcript.await {
@@ -747,12 +813,15 @@ async fn answer(
     if question.trim().is_empty() {
         let generation = live_lesson(&lessons).map_or(generation, |lesson| lesson.generation);
         if !(pressed_at.is_some() && crate::ptt::is_ctrl_talk_key()) {
+            let caught = heard
+                .as_deref()
+                .is_some_and(|heard| heard.load(Ordering::Acquire));
             say_line(
                 &stream,
                 &phrases,
                 &stream.locale(),
                 generation,
-                "robot.no_microphone",
+                empty_transcript_line(caught),
             );
         }
         stream.send(AnswerMsg::State {
@@ -790,6 +859,10 @@ async fn answer(
         });
         stop_pointing(&app);
     }
+    // A spoken question joins the chat history like a typed one, before its answer.
+    if heard.is_some() {
+        crate::chat::spoken(&app, generation, &question);
+    }
     let locale = stream.locale();
     let intent = route.unwrap_or_else(|| guess_intent(&question));
     if intent == Intent::Chat
@@ -819,21 +892,17 @@ async fn answer(
     let target = tray_target.flatten();
     // D47: the offline guess routes at once (a classifier call would cost ~2 s); a question
     // about the screen gets one redacted look at the foreground window first.
-    // Development builds: timings against key-up for the debug window.
+    // Timings against key-up for "Under the hood" (debug_view.rs).
     let key_up = ack_at.checked_sub(ACK_AFTER).unwrap_or(ack_at);
-    #[cfg(debug_assertions)]
     let since_key_up = |instant: tokio::time::Instant| {
         u64::try_from(instant.saturating_duration_since(key_up).as_millis()).unwrap_or(u64::MAX)
     };
-    #[cfg(debug_assertions)]
     crate::debug_view::timing(
         &app,
         generation,
         "transcript",
         since_key_up(tokio::time::Instant::now()),
     );
-    #[cfg(not(debug_assertions))]
-    let _ = key_up;
     if matches!(intent, Intent::How | Intent::Do) {
         // Several steps: the teacher, with the person as the hand (D48).
         let own = own_windows(&app);
@@ -895,7 +964,6 @@ async fn answer(
         });
         match looked.await {
             Ok(Ok(look)) => {
-                #[cfg(debug_assertions)]
                 crate::debug_view::look(
                     &app,
                     generation,
@@ -967,7 +1035,6 @@ async fn answer(
         (body, settings, THINKING[turn])
     };
     let body = mm_core::api::profile::with_profile(body, &crate::settings::profile(&app));
-    #[cfg(debug_assertions)]
     let debug_app = &app;
     // Plain references, so the three futures below can share them.
     let (stream, locale, phrases): (&AnswerStream, &str, &Phrases) = (&stream, &locale, &phrases);
@@ -1045,7 +1112,6 @@ async fn answer(
                     && !started.swap(true, Ordering::AcqRel)
                 {
                     first_item.notify_one();
-                    #[cfg(debug_assertions)]
                     crate::debug_view::timing(
                         debug_app,
                         generation,
@@ -1069,9 +1135,20 @@ async fn answer(
                 stream.send(AnswerMsg::Item { generation, item });
             }
         };
-        let result = proxy
+        let mut result = proxy
             .respond(CallKind::Answer, &body, |delta| emit(parser.push(delta)))
             .await;
+        // A proxy from before D77 refuses Glimmer's id outright, before any text: the same
+        // question goes to Spark, and the chip says who answered.
+        if matches!(&result, Err(ProxyError::Refused { status: 400, .. }))
+            && body["model"] == serde_json::json!(ModelChoice::Open)
+        {
+            let mut spark = body.clone();
+            spark["model"] = serde_json::json!(ModelChoice::Quick);
+            result = proxy
+                .respond(CallKind::Answer, &spark, |delta| emit(parser.push(delta)))
+                .await;
+        }
         if let Ok(answer) = &result {
             stream.send(AnswerMsg::Model {
                 generation,
@@ -1247,6 +1324,16 @@ fn failed(stream: &AnswerStream, phrases: &Phrases, generation: u64, error: &Pro
     });
 }
 
+/// What Mate says to an empty transcript: a microphone that caught sound worked, the words
+/// were lost; one that delivered no frames or only silence is the problem.
+fn empty_transcript_line(caught: bool) -> &'static str {
+    if caught {
+        "robot.didnt_catch"
+    } else {
+        "robot.no_microphone"
+    }
+}
+
 /// What Mate says when a call fails: a refused sign-in is not a lost connection.
 pub(crate) fn error_line(error: &ProxyError) -> &'static str {
     if matches!(error, ProxyError::SessionRefused) {
@@ -1287,6 +1374,7 @@ async fn cache_phrases(proxy: Proxy, phrases: Phrases, resource_dir: Option<std:
         LOOKING,
         CHECKING,
         "robot.no_microphone",
+        "robot.didnt_catch",
         "robot.open_browser_first",
     ]) {
         for (voice, locale) in [
@@ -1385,6 +1473,17 @@ mod tests {
         assert_eq!(phrase(&phrases, "en", key), Some(vec![3]));
     }
 
+    #[test]
+    fn an_empty_transcript_blames_the_microphone_only_when_it_caught_no_sound() {
+        use super::empty_transcript_line;
+        assert_eq!(empty_transcript_line(true), "robot.didnt_catch");
+        assert_eq!(empty_transcript_line(false), "robot.no_microphone");
+        for locale in ["en", "ru"] {
+            let text = crate::locale_text(locale, empty_transcript_line(true));
+            assert!(!text.is_empty() && text != "robot.didnt_catch", "{locale}");
+        }
+    }
+
     #[tokio::test]
     async fn refusal_cancels_answer_and_detached_lesson() {
         use super::*;
@@ -1397,6 +1496,8 @@ mod tests {
             pressed_at: None,
             generation: 2,
             microphone: None,
+            heard: Arc::default(),
+            from_chat: false,
             transcript: None,
             transcript_abort: transcript_abort.clone(),
             answer: Some(answer),

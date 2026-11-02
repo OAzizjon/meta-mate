@@ -34,7 +34,7 @@ test("the Rust settings JSON preserves the profile and profileAsked", () => {
             "ptt": "hold", "pttKey": "ctrl", "sound": "calm",
             "voiceSpeed": 1.0, "robotSize": "M", "reduceMotion": false,
             "spotlight": true, "startWithWindows": false,
-            "showHomeAtStart": true
+            "showHomeAtStart": true, "developerMode": false
         }`);
   const settings = parseSettings(raw);
   assert.deepEqual(settings.profile, { name: "Demo", about: "Learning the app" });
@@ -91,6 +91,7 @@ test("defaultSettings returns a fresh copy of the expected defaults", () => {
     reduceMotion: false,
     startWithWindows: false,
     showHomeAtStart: true,
+    developerMode: false,
     spotlight: true,
   });
   assert.deepEqual(defaults, DEFAULT_SETTINGS);
@@ -129,6 +130,7 @@ test("parseSettings accepts every valid enum combination and boundary voiceSpeed
               reduceMotion: model === "thorough",
               startWithWindows: ptt === "toggle",
               showHomeAtStart: model === "quick",
+              developerMode: model === "open",
               spotlight: true,
             };
             const parsed = parseSettings(raw);
@@ -171,6 +173,7 @@ test("parseSettings drops unknown fields and preserves valid ones", () => {
     reduceMotion: true,
     startWithWindows: true,
     showHomeAtStart: true,
+    developerMode: false,
     spotlight: true,
   });
   assert.equal("unknownField" in parsed, false);
@@ -201,6 +204,7 @@ test("parseSettings replaces out-of-range and wrong-type fields with defaults pe
       reduceMotion: true,
       startWithWindows: DEFAULT_SETTINGS.startWithWindows,
       showHomeAtStart: DEFAULT_SETTINGS.showHomeAtStart,
+      developerMode: DEFAULT_SETTINGS.developerMode,
       spotlight: true,
     },
   );
@@ -369,6 +373,7 @@ test("createSettingsStore loads and saves through invoke and falls back to memor
     reduceMotion: true,
     startWithWindows: false,
     showHomeAtStart: true,
+    developerMode: false,
     spotlight: true,
   });
 
@@ -438,6 +443,7 @@ test("subscribeSettingsChanged refreshes store state without echoing save_settin
     reduceMotion: true,
     startWithWindows: true,
     showHomeAtStart: true,
+    developerMode: false,
     spotlight: true,
   });
   assert.deepEqual(store.get(), refreshed[0]);

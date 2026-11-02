@@ -58,6 +58,13 @@ export function canReuseMessages(previous: readonly Message[], next: readonly Me
   });
 }
 
+/** Mate's last answer appeared or grew in place; a model or mood update alone does not count. */
+export function mateAnswerGrew(previous: readonly Message[], next: readonly Message[]): boolean {
+  const last = next[next.length - 1];
+  if (last?.role !== "mate" || !canReuseMessages(previous, next)) return false;
+  return previous[next.length - 1]?.text !== last.text;
+}
+
 /** Wait for the question to appear before a reply or cleared history can end the wait. */
 export function nextAwaitingReply(awaiting: AwaitingReply, next: readonly Message[]): AwaitingReply {
   const last = next[next.length - 1]?.role;

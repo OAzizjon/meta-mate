@@ -16,6 +16,22 @@ test("legacy history loads and only supported Mate moods survive validation", ()
   ]);
 });
 
+test("only Mate answers keep a model the chat can name", () => {
+  assert.deepEqual(parseHistory([
+    { role: "mate", text: "spark", timestamp: 1, model: "muse-spark-1.3", mood: "happy" },
+    { role: "mate", text: "wonder", timestamp: 2, model: "muse-wonder-1.0" },
+    { role: "mate", text: "card", timestamp: 3, model: "muse-glimmer-30b" },
+    { role: "mate", text: "raw", timestamp: 4, model: "muse-spark-preview" },
+    { role: "person", text: "hello", timestamp: 5, model: "muse-spark-1.3" },
+  ]), [
+    { role: "mate", text: "spark", timestamp: 1, mood: "happy", model: "muse-spark-1.3" },
+    { role: "mate", text: "wonder", timestamp: 2, model: "muse-wonder-1.0" },
+    { role: "mate", text: "card", timestamp: 3, model: "muse-glimmer-30b" },
+    { role: "mate", text: "raw", timestamp: 4 },
+    { role: "person", text: "hello", timestamp: 5 },
+  ]);
+});
+
 test("only nonempty questions of at most 1000 Unicode characters send", () => {
   for (const text of ["", " \n\t", "a".repeat(1001)]) assert.equal(canSend(text), false);
   for (const text of [" hello ", "one\ntwo", "😀".repeat(1000)]) assert.equal(canSend(text), true);

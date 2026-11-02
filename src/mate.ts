@@ -44,6 +44,7 @@ const MATE_STATE_EVENT = "mate-state-changed";
 const MODEL_KEYS: Readonly<Record<AnswerModel, LocaleKey>> = {
   "muse-spark-1.3": "model.muse_spark",
   "muse-wonder-1.0": "model.muse_wonder",
+  "muse-glimmer-30b": "model.muse_glimmer",
   "sam-3.1": "model.sam",
   "muse-voice-transcribe-1.0": "model.voice_transcribe",
 };

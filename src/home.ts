@@ -12,9 +12,10 @@
 import type { LocaleKey } from "./i18n/index.ts";
 import { pttKeycapLabel, withPttKey } from "./settings/ptt-key.ts";
 import { createSettingsStore, subscribeSettingsChanged } from "./settings/model.ts";
-import type { Profile, Settings, SettingsInvoke, SettingsSubscribe } from "./settings/model.ts";
+import type { ModelChoice, Profile, Settings, SettingsInvoke, SettingsSubscribe } from "./settings/model.ts";
 import { GUIDE_SHORTCUT, createGuide, isGuideShortcut } from "./home/guide.ts";
 import { createLessonsSection } from "./home/lessons-view.ts";
+import { mountModelPicker } from "./home/model-picker.ts";
 import { createProfilePanel, greetingText, shouldAskProfile } from "./home/profile.ts";
 
 // The locale lookup comes from the page entry (src/home-page.ts): importing src/i18n here
@@ -144,6 +145,8 @@ export interface HomeSettings {
    * settings. Rejects until `canSave()`: the person would believe it saved.
    */
   saveProfile(profile: Profile | null): Promise<Settings>;
+  /** Saves `model` over the current settings; rejects until `canSave()`. */
+  setModel(model: ModelChoice): Promise<Settings>;
   /** Resolves once the first `load_settings` call has finished (or failed). */
   readonly ready: Promise<Settings>;
   /** Stops listening for `settings-changed`. */
@@ -207,6 +210,21 @@ export function startHomeSettings(
       }
       try {
         return await store.update(profile ? { profile, profileAsked: true } : { profileAsked: true });
+      } finally {
+        if (!destroyed) {
+          onChange(store.get(), known);
+        }
+      }
+    },
+    async setModel(model: ModelChoice): Promise<Settings> {
+      if (!known) {
+        if (!destroyed) {
+          onChange(store.get(), known);
+        }
+        throw new Error("home: the settings are not in yet");
+      }
+      try {
+        return await store.update({ model });
       } finally {
         if (!destroyed) {
           onChange(store.get(), known);
@@ -356,6 +374,11 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   heroText.append(greeting, intro, talk);
   hero.append(mateBox, heroText);
 
+  const modelPicker = mountModelPicker({
+    t: (key) => t(key),
+    onSelect: (model) => settings.setModel(model),
+  });
+
   // Try it: three questions, each with what Mate will do and its own button.
   const trySection = section("home-try-title", "home-try", t("home.try_title"), t("home.try_intro"));
   const tryList = el("ul", "home-try-list");
@@ -422,7 +445,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   // My lessons: the cards Mate made, right under the questions so they are easy to find.
   const lessons = createLessonsSection({ invoke, t, locale: () => getLocale() });
 
-  content.append(profilePanel.element, hero, trySection, lessons.element, neverSection);
+  content.append(profilePanel.element, hero, modelPicker.element, trySection, lessons.element, neverSection);
 
   // Footer, kept in view: the checkbox as a small line, Write to Mate and Settings side by
   // side, Quit as a quiet text button under them.
@@ -545,6 +568,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
     if (shouldAskProfile(updated, canSave) && !profilePanel.isShown()) {
       profilePanel.show(updated.profile, false);
     }
+    modelPicker.setSelected(updated.model);
     reduceSetting = updated.reduceMotion;
     syncMotion();
   });
@@ -579,6 +603,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
       document.removeEventListener("keydown", onKeyDown);
       document.documentElement.removeEventListener("pointerleave", onPointerLeave);
       motionQuery?.removeEventListener("change", syncMotion);
+      modelPicker.destroy();
       lessons.destroy();
       settings.destroy();
       mate?.destroy();

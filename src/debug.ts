@@ -1,17 +1,19 @@
-// Debug overlay / window controller (WP14): development builds only.
+// "Under the hood" debug window controller (WP14, D78).
 // Listens for the `"debug"` Tauri event carrying `DebugMsg` payloads,
-// updates the in-memory generation store, and renders timeline chips, muted text,
-// PCM arrivals, horizontal bar chart timings against key-up, and look stats.
+// updates the in-memory generation store, lights the active model chip in the
+// pipeline strip, and renders generation cards with model badges, timeline chips,
+// muted text, PCM arrivals, timings against key-up, and look stats.
 // Message text is never logged to the console.
 
 import { listen } from "@tauri-apps/api/event";
-import { DebugStore, renderDebugViewHtml } from "./debug/view.ts";
-import type { DebugMsg, GenerationRecord } from "./debug/view.ts";
+import { DebugStore, renderDebugViewHtml, renderPipelineStripHtml } from "./debug/view.ts";
+import type { DebugAnswerModel, DebugMsg, GenerationRecord } from "./debug/view.ts";
 
 export interface DebugController {
   handleRaw(raw: unknown): boolean;
   addMsg(msg: DebugMsg): void;
   getGenerations(): readonly GenerationRecord[];
+  getActiveModel(): DebugAnswerModel | null;
   clear(): void;
   destroy(): void;
 }
@@ -22,10 +24,18 @@ declare global {
   }
 }
 
-export function mountDebug(container: HTMLElement): DebugController {
+export function mountDebug(
+  container: HTMLElement,
+  pipelineEl: HTMLElement | null = typeof document !== "undefined"
+    ? document.getElementById("debug-pipeline")
+    : null,
+): DebugController {
   const store = new DebugStore();
 
   const render = (): void => {
+    if (pipelineEl) {
+      pipelineEl.innerHTML = renderPipelineStripHtml(store.getActiveModel());
+    }
     container.innerHTML = renderDebugViewHtml(store.getGenerations());
   };
 
@@ -49,12 +59,18 @@ export function mountDebug(container: HTMLElement): DebugController {
     getGenerations(): readonly GenerationRecord[] {
       return store.getGenerations();
     },
+    getActiveModel(): DebugAnswerModel | null {
+      return store.getActiveModel();
+    },
     clear(): void {
       store.clear();
       render();
     },
     destroy(): void {
       store.clear();
+      if (pipelineEl) {
+        pipelineEl.innerHTML = renderPipelineStripHtml(null);
+      }
       container.replaceChildren();
     },
   };

@@ -1,7 +1,7 @@
 // Run with npm test (Node's test runner strips the TypeScript types).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canReuseMessages, nextAwaitingReply, parseMateBlocks, parseMateInline } from "./history.ts";
+import { canReuseMessages, mateAnswerGrew, nextAwaitingReply, parseMateBlocks, parseMateInline } from "./history.ts";
 import type { AwaitingReply } from "./history.ts";
 import { HISTORY_LIMIT, parseHistory } from "./model.ts";
 import type { Message } from "./model.ts";
@@ -77,6 +77,17 @@ test("history limit rollover rebuilds bubbles even when the message count stays 
   const next = parseHistory(raw);
   assert.equal(previous.length, next.length);
   assert.equal(canReuseMessages(previous, next), false);
+});
+
+test("only a new or longer Mate answer counts as a new answer", () => {
+  assert.equal(mateAnswerGrew([question], [question, answer]), true);
+  assert.equal(mateAnswerGrew([question, answer], [question, { ...answer, text: "answer more" }]), true);
+  assert.equal(mateAnswerGrew([], [answer]), true);
+  assert.equal(mateAnswerGrew([question, answer], [question, { ...answer, model: "muse-spark-1.3" }]), false);
+  assert.equal(mateAnswerGrew([question, answer], [question, answer]), false);
+  assert.equal(mateAnswerGrew([answer], [answer, question]), false);
+  assert.equal(mateAnswerGrew([question, answer], [{ ...answer, timestamp: 3 }]), false);
+  assert.equal(mateAnswerGrew([question], []), false);
 });
 
 test("every waiting state handles empty, person and Mate history tails", () => {

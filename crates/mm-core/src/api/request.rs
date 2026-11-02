@@ -32,6 +32,21 @@ pub enum ModelChoice {
     /// Muse Wonder 1.0; the proxy falls back to Spark when the allowance runs out.
     #[serde(rename = "muse-wonder-1.0")]
     Thorough,
+    /// Muse Glimmer 30B, Meta's open weights on our own GPU (D77): text only, so it
+    /// answers chat; anything with a screenshot or the computer tool goes to Spark.
+    #[serde(rename = "muse-glimmer-30b")]
+    Open,
+}
+
+impl ModelChoice {
+    /// The model for a request that carries a screenshot or the computer tool: Glimmer
+    /// has no vision, so it never gets one.
+    pub fn seeing(self) -> Self {
+        match self {
+            Self::Open => Self::Quick,
+            model => model,
+        }
+    }
 }
 
 /// `reasoning.effort`. Every Spark reasons before it answers (D41): the first token came
@@ -239,7 +254,7 @@ pub fn point_request(
 ) -> Value {
     let text = screen_text(question, &element_list.text);
     json!({
-        "model": model,
+        "model": model.seeing(),
         "instructions": spoken_instructions(None, true),
         "input": [user_message(&text, Some(image.data_url()))],
         "stream": true,
@@ -260,7 +275,7 @@ pub fn safety_request(
 ) -> Value {
     let text = screen_text(question, &element_list.text);
     json!({
-        "model": model,
+        "model": model.seeing(),
         "instructions": safety_instructions(),
         "input": [user_message(&text, Some(image.data_url()))],
         "stream": true,
@@ -280,7 +295,7 @@ pub fn computer_request(
 ) -> Value {
     let text = screen_text(question, &element_list.text);
     json!({
-        "model": model,
+        "model": model.seeing(),
         "instructions": teacher_instructions(),
         "input": [user_message(&text, Some(image.data_url()))],
         "tools": [computer_tool()],
@@ -319,7 +334,7 @@ pub fn computer_followup(
         }
     }
     json!({
-        "model": session.model,
+        "model": session.model.seeing(),
         "instructions": teacher_instructions(),
         "previous_response_id": previous_response_id,
         "input": [output],
@@ -586,6 +601,33 @@ mod tests {
             assert!(!instructions(&body).contains("zzz"));
             assert!(!instructions(&body).contains("heard"));
         }
+    }
+
+    #[test]
+    fn glimmer_answers_chat_and_never_gets_a_screenshot() {
+        assert_eq!(
+            serde_json::to_value(ModelChoice::Open).unwrap(),
+            "muse-glimmer-30b"
+        );
+        assert_eq!(ModelChoice::Open.seeing(), ModelChoice::Quick);
+        assert_eq!(ModelChoice::Thorough.seeing(), ModelChoice::Thorough);
+        let chat = chat_request(ModelChoice::Open, SPOKEN, None, "Hi");
+        assert_eq!(chat["model"], "muse-glimmer-30b");
+        let list = render_element_list(&[large_button()], 150);
+        let open = ModelChoice::Open;
+        for body in [
+            point_request(open, SPOKEN, "Where?", &list, &image()),
+            safety_request(open, SPOKEN, "Safe?", &list, &image()),
+            computer_request(open, SPOKEN, "How?", &list, &image()),
+        ] {
+            assert_eq!(body["model"], "muse-spark-1.3");
+        }
+        let session = ComputerSession {
+            model: open,
+            ..session()
+        };
+        let next = computer_followup(session, "resp_1", "call_1", &[], &image());
+        assert_eq!(next["model"], "muse-spark-1.3");
     }
 
     #[test]

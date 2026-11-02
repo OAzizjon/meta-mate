@@ -15,7 +15,6 @@ mod answer_stream;
 mod auth;
 mod card;
 mod chat;
-#[cfg(debug_assertions)]
 mod debug_view;
 #[cfg(windows)]
 mod drag;
@@ -124,6 +123,7 @@ pub fn run() {
             chat::chat_send,
             chat::chat_subscribe,
             chat::chat_clear,
+            chat::chat_talk,
             presence::quit_app,
             presence::hide_mate,
             presence::mate_menu_size,
@@ -133,7 +133,9 @@ pub fn run() {
             auth::sign_in,
             auth::sign_out,
             signin::guest_usage,
-            signin::try_as_guest
+            signin::try_as_guest,
+            debug_view::open_under_the_hood,
+            debug_view::mate_jump
         ])
         .setup(move |app| {
             #[cfg(windows)]
@@ -209,13 +211,11 @@ pub fn run() {
                             let _ = mm_win32::overlay::place(hwnd, monitor.area);
                         }
                     }
+                    let stream = handle.state::<answer_stream::AnswerStream>();
+                    stream.attach_debug(handle.clone());
+                    stream.attach_voice_bar(handle.clone());
                     #[cfg(debug_assertions)]
-                    {
-                        handle
-                            .state::<answer_stream::AnswerStream>()
-                            .attach_debug(handle.clone());
-                        debug_view::open(&handle);
-                    }
+                    debug_view::open(&handle);
                     if let Some(question) = ask {
                         voice::ask(&handle, question);
                         return;

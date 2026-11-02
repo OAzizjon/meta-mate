@@ -7,22 +7,30 @@ import { inspect } from "node:util";
 import { ANSWER_MODELS } from "../ipc/answer-stream.ts";
 import type { TimelineItem } from "../ipc/timeline.ts";
 import {
+  DEBUG_ANSWER_MODELS,
   DebugStore,
   MAX_GENERATIONS,
+  MODEL_FULL_NAMES,
+  PRIVACY_NOTE,
+  activePipelineModel,
   computeTimingBars,
   escapeHtml,
   formatBoundChip,
   formatLookStats,
+  formatModelName,
   formatPoint,
   formatSentencePcm,
   formatSound,
   formatTimelineItem,
+  formatTimingLabel,
   getDebugMsgGeneration,
   groupPcmBySentence,
+  isDebugAnswerModel,
   parseDebugAnswerMsg,
   parseDebugMsg,
   renderDebugViewHtml,
   renderGenerationHtml,
+  renderPipelineStripHtml,
 } from "./view.ts";
 import type { DebugLookMsg, DebugMsg, DebugPcmMsg, DebugTimingMsg } from "./view.ts";
 
@@ -112,6 +120,7 @@ test("every valid DebugMsg variant parses into a fresh copy", () => {
     VALID_ANSWER_LINE,
     VALID_ANSWER_MODEL,
     { type: "answer", msg: { type: "model", generation: 0, model: "muse-wonder-1.0" } },
+    { type: "answer", msg: { type: "model", generation: 1, model: "muse-glimmer-30b" } },
     VALID_TIMING,
     { type: "timing", generation: 2, name: "first_text", ms: 820 },
     { type: "timing", generation: 2, name: "first_audio", ms: 1250 },
@@ -378,7 +387,7 @@ test("groupPcmBySentence groups multiple chunks and formats sample counts", () =
   assert.equal(formatSentencePcm(grouped[1]), "Sentence #1: 24,000 samples (2 chunks @ 16 kHz, eos)");
 });
 
-test("computeTimingBars scales widths against max ms (key-up t = 0)", () => {
+test("computeTimingBars scales widths against max ms (key-up t = 0) and attaches plain-English labels", () => {
   const timings: DebugTimingMsg[] = [
     { type: "timing", generation: 1, name: "asr_final", ms: 350 },
     { type: "timing", generation: 1, name: "first_text", ms: 820 },
@@ -388,19 +397,73 @@ test("computeTimingBars scales widths against max ms (key-up t = 0)", () => {
   const bars = computeTimingBars(timings);
   assert.equal(bars.length, 3);
   assert.equal(bars[0].name, "asr_final");
+  assert.equal(bars[0].label, "heard you");
   assert.equal(bars[0].ms, 350);
   assert.equal(bars[0].percentage, 25); // 350 / 1400 = 25%
 
   assert.equal(bars[1].name, "first_text");
+  assert.equal(bars[1].label, "first words");
   assert.equal(bars[1].ms, 820);
   assert.equal(bars[1].percentage, 58.6); // 820 / 1400 = 58.57% -> 58.6%
 
   assert.equal(bars[2].name, "first_audio");
+  assert.equal(bars[2].label, "first sound");
   assert.equal(bars[2].ms, 1400);
   assert.equal(bars[2].percentage, 100);
 
+  // Live voice.rs names and custom names
+  assert.equal(formatTimingLabel("transcript"), "heard you");
+  assert.equal(formatTimingLabel("look"), "checked screen");
+  assert.equal(formatTimingLabel("first_item"), "first words");
+  assert.equal(formatTimingLabel("first_sentence"), "first sentence");
+  assert.equal(formatTimingLabel("done"), "finished");
+  assert.equal(formatTimingLabel("custom_stage"), null);
+
   // Empty timings
   assert.deepEqual(computeTimingBars([]), []);
+});
+
+test("formatModelName and isDebugAnswerModel cover Spark, Wonder, and Glimmer", () => {
+  assert.deepEqual(DEBUG_ANSWER_MODELS, [
+    "muse-spark-1.3",
+    "muse-wonder-1.0",
+    "muse-glimmer-30b",
+  ]);
+  for (const id of DEBUG_ANSWER_MODELS) {
+    assert.equal(isDebugAnswerModel(id), true);
+  }
+  assert.equal(isDebugAnswerModel("sam-3.1"), false);
+  assert.equal(isDebugAnswerModel("gpt-4o"), false);
+  assert.equal(isDebugAnswerModel(null), false);
+
+  assert.equal(formatModelName("muse-spark-1.3"), "Muse Spark 1.3");
+  assert.equal(formatModelName("muse-wonder-1.0"), "Muse Wonder 1.0");
+  assert.equal(formatModelName("muse-glimmer-30b"), "Muse Glimmer 30B");
+  assert.equal(formatModelName("sam-3.1"), MODEL_FULL_NAMES["sam-3.1"]);
+  assert.equal(formatModelName("unknown-id"), "unknown-id");
+});
+
+test("renderPipelineStripHtml renders comic chips and lights the newest generation model", () => {
+  const unlit = renderPipelineStripHtml(null);
+  const plainText = unlit.replace(/<[^>]+>/g, "").replace(/&gt;/g, ">");
+  assert.equal(
+    plainText,
+    "Your voice -> Muse Voice Transcribe -> Muse Spark / Wonder / Glimmer -> MateScript timeline -> MMS-TTS voice",
+  );
+  assert.doesNotMatch(unlit, /is-active/);
+
+  for (const id of DEBUG_ANSWER_MODELS) {
+    const lit = renderPipelineStripHtml(id);
+    assert.match(
+      lit,
+      new RegExp(`class="pipeline-chip pipeline-model is-active" data-model="${id}" aria-current="true"`),
+    );
+  }
+
+  assert.equal(
+    PRIVACY_NOTE,
+    "Shown here: timings, models, Mate's own words and counts. Never your words or your screenshot.",
+  );
 });
 
 test("formatLookStats formats element counts, painted counts, and duration", () => {
@@ -506,12 +569,15 @@ test("DebugStore aggregates items, pcm, timings, look, state, and cancellation",
   assert.equal(updated.timings.find((t) => t.name === "first_text")?.ms, 420);
 });
 
-test("DebugStore records the model chip of its generation among the lines", () => {
+test("DebugStore records the model chip of its generation and tracks the newest active model", () => {
   const store = new DebugStore();
+  assert.equal(store.getActiveModel(), null);
 
   store.addMsg({ type: "answer", msg: { type: "state", generation: 7, state: "thinking" } });
   store.addMsg({ type: "answer", msg: { type: "model", generation: 7, model: "muse-spark-1.3" } });
   store.addMsg({ type: "answer", msg: { type: "line", generation: 7, key: "robot.cant_find" } });
+  assert.equal(store.getActiveModel(), "muse-spark-1.3");
+
   assert.equal(
     store.handleRaw({
       type: "answer",
@@ -519,25 +585,43 @@ test("DebugStore records the model chip of its generation among the lines", () =
     }),
     true,
   );
+  assert.equal(store.getActiveModel(), "muse-wonder-1.0");
+
+  assert.equal(
+    store.handleRaw({
+      type: "answer",
+      msg: { type: "model", generation: 9, model: "muse-glimmer-30b" },
+    }),
+    true,
+  );
+  assert.equal(store.getActiveModel(), "muse-glimmer-30b");
+
   // An unknown model is dropped before it reaches the store.
   assert.equal(
-    store.handleRaw({ type: "answer", msg: { type: "model", generation: 8, model: "gpt-4o" } }),
+    store.handleRaw({ type: "answer", msg: { type: "model", generation: 9, model: "gpt-4o" } }),
     false,
   );
 
-  const [newest, older] = store.getGenerations();
-  assert.equal(newest.generation, 8);
-  assert.deepEqual(newest.lines, ["muse-wonder-1.0"]);
+  const [newest, middle, older] = store.getGenerations();
+  assert.equal(newest.generation, 9);
+  assert.equal(newest.model, "muse-glimmer-30b");
+  assert.deepEqual(newest.lines, ["muse-glimmer-30b"]);
+  assert.equal(middle.generation, 8);
+  assert.equal(middle.model, "muse-wonder-1.0");
+  assert.deepEqual(middle.lines, ["muse-wonder-1.0"]);
   assert.equal(older.generation, 7);
+  assert.equal(older.model, "muse-spark-1.3");
   assert.deepEqual(older.lines, ["muse-spark-1.3", "robot.cant_find"]);
   assert.equal(older.state, "thinking");
   assert.equal(older.items.length, 0);
+  assert.equal(activePipelineModel(store.getGenerations()), "muse-glimmer-30b");
 });
 
 test("renderDebugViewHtml and renderGenerationHtml generate complete HTML markup", () => {
   const store = new DebugStore();
   assert.match(renderDebugViewHtml(store.getGenerations()), /Waiting for events/);
 
+  store.addMsg(VALID_ANSWER_MODEL);
   store.addMsg(VALID_LOOK);
   store.addMsg(VALID_TIMING);
   store.addMsg(VALID_ANSWER_ITEM);
@@ -545,11 +629,13 @@ test("renderDebugViewHtml and renderGenerationHtml generate complete HTML markup
 
   const html = renderDebugViewHtml(store.getGenerations());
 
-  // Generation card header
+  // Generation card header and full-name model badge
   assert.match(html, /Generation #1/);
+  assert.match(html, /class="badge badge-model" data-model="muse-spark-1\.3">Muse Spark 1\.3<\/span>/);
   // Look stats
   assert.match(html, /142 elements, 35 listed, 35 painted in 180 ms/);
-  // Timings bar
+  // Timings bar with plain-English label next to raw name
+  assert.match(html, /heard you/);
   assert.match(html, /asr_final/);
   assert.match(html, /350 ms/);
   // Timeline chips

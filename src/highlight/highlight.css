@@ -266,3 +266,215 @@
   animation: highlight-burst-fade 250ms ease-out forwards;
   transform: none;
 }
+
+/* The voice bar (src/highlight/voicebar-view.ts): a comic pill at the bottom centre while the
+   person talks. Bars follow `--h` (0..1) per bar and the glow follows `--level`. */
+.voice-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  width: min(640px, 80vw);
+  margin-left: calc(min(640px, 80vw) / -2);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  pointer-events: none;
+  user-select: none;
+  --level: 0;
+}
+
+.voice-bar[hidden] {
+  display: none;
+}
+
+.voice-bar-heard {
+  align-self: center;
+  max-width: 100%;
+  padding: 8px 18px;
+  border: 3px solid var(--panel-ink, #1f2a44);
+  border-radius: 18px;
+  background: var(--surface, #ffffff);
+  color: var(--text, #1f2a44);
+  box-shadow: 4px 4px 0 var(--panel-shadow, #1f2a44);
+  font: 600 24px/1.3 var(--font, "Segoe UI", system-ui, sans-serif);
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.voice-bar-heard[hidden] {
+  display: none;
+}
+
+.voice-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 76px;
+  padding: 0 22px;
+  border: 3px solid var(--panel-ink, #1f2a44);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff8dc 0%, #ffe9a3 100%);
+  box-shadow:
+    4px 4px 0 var(--panel-shadow, #1f2a44),
+    0 0 calc(12px + var(--level) * 36px) rgb(255 205 60 / calc(0.35 + var(--level) * 0.5));
+}
+
+.voice-bar-dot {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--panel-ink, #1f2a44);
+  border-radius: 50%;
+  background: var(--accent, #ffcd3c);
+  box-shadow: 0 0 calc(6px + var(--level) * 18px) rgb(255 190 30 / 0.9);
+  transform: scale(calc(0.9 + var(--level) * 0.35));
+}
+
+.voice-bar-wave {
+  flex: 1;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.voice-bar-bar {
+  flex: 1;
+  height: calc(var(--h, 0.08) * 100%);
+  min-height: 4px;
+  border-radius: 999px;
+  background: var(--panel-ink, #1f2a44);
+}
+
+.voice-bar.is-thinking .voice-bar-bar {
+  background: var(--accent-line, #b98000);
+}
+
+/* Mate's surprise entrance (src/highlight/jump-view.ts): a giant Mate leaps up from the bottom
+   edge, the bulb flashes, burst rays turn behind him and a jagged BOO! balloon pops. */
+.mate-jump {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.mate-jump-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 65%, #fffbe6 0%, rgb(255 225 120 / 0.85) 35%, rgb(255 205 60 / 0) 75%);
+  opacity: 0;
+}
+
+.mate-jump-rays {
+  position: absolute;
+  left: 50%;
+  top: 62%;
+  width: 180vmax;
+  height: 180vmax;
+  margin: -90vmax 0 0 -90vmax;
+  background: repeating-conic-gradient(rgb(255 205 60 / 0.42) 0deg 9deg, rgb(255 205 60 / 0) 9deg 18deg);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, #000 22%, transparent 55%);
+  mask-image: radial-gradient(circle, #000 0%, #000 22%, transparent 55%);
+  animation: mate-jump-spin 6s linear infinite;
+}
+
+.mate-jump.reduce-motion .mate-jump-rays {
+  animation: none;
+}
+
+@keyframes mate-jump-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mate-jump-mate {
+  position: absolute;
+  left: 50%;
+  bottom: -2vh;
+  height: 72vh;
+  aspect-ratio: 260 / 240;
+  margin-left: calc(72vh * 260 / 240 / -2);
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 0 40px rgb(255 205 60 / 0.75));
+}
+
+.mate-jump-mate svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mate-jump-balloon {
+  position: absolute;
+  left: 50%;
+  top: 6vh;
+  width: min(46vw, 620px);
+  height: min(24vh, 260px);
+  margin-left: calc(min(46vw, 620px) / -2 + min(18vw, 260px));
+  display: grid;
+  place-items: center;
+  transform-origin: 30% 80%;
+}
+
+.mate-jump-balloon[hidden],
+.mate-jump-line[hidden] {
+  display: none;
+}
+
+.mate-jump-balloon svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mate-jump-balloon polygon {
+  fill: #ffffff;
+  stroke: var(--panel-ink, #1f2a44);
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(6px 6px 0 var(--panel-shadow, #1f2a44));
+}
+
+.mate-jump-shout {
+  position: relative;
+  font: 900 clamp(64px, 11vh, 140px) / 1 var(--font-comic, "Segoe Print", "Comic Sans MS", sans-serif);
+  color: #e0322a;
+  letter-spacing: 0.04em;
+  -webkit-text-stroke: 3px var(--panel-ink, #1f2a44);
+  paint-order: stroke fill;
+  transform: rotate(-6deg);
+}
+
+.mate-jump-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 8vh;
+  width: fit-content;
+  margin-inline: auto;
+  padding: 12px 26px;
+  border: 3px solid var(--panel-ink, #1f2a44);
+  border-radius: 20px;
+  background: var(--surface, #ffffff);
+  color: var(--text, #1f2a44);
+  box-shadow: 5px 5px 0 var(--panel-shadow, #1f2a44);
+  font: 700 clamp(24px, 3.6vh, 40px) / 1.2 var(--font-comic, "Segoe Print", "Comic Sans MS", sans-serif);
+  white-space: nowrap;
+}
+
+/* The wink: his right eye (every second node of the "open" eyes) closes. */
+.mate-jump-mate.is-winking .mate-eyes > :nth-child(2n) {
+  transform: scaleY(0.12);
+  transform-box: fill-box;
+  transform-origin: center;
+}

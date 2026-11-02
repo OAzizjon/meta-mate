@@ -14,7 +14,7 @@ export const ANSWER_STATES = ["listening", "looking", "thinking", "idle"] as con
 export type AnswerState = (typeof ANSWER_STATES)[number];
 
 export const ANSWER_MODELS = [
-  "muse-spark-1.3", "muse-wonder-1.0", "sam-3.1", "muse-voice-transcribe-1.0",
+  "muse-spark-1.3", "muse-wonder-1.0", "muse-glimmer-30b", "sam-3.1", "muse-voice-transcribe-1.0",
 ] as const;
 export type AnswerModel = (typeof ANSWER_MODELS)[number];
 
@@ -22,6 +22,7 @@ export type AnswerModel = (typeof ANSWER_MODELS)[number];
 export const ANSWER_LINE_KEYS = [
   "robot.network_error",
   "robot.no_microphone",
+  "robot.didnt_catch",
   "robot.open_browser_first",
   "robot.cant_find",
   "robot.click_stop",

@@ -57,6 +57,7 @@ pub(crate) fn build_request(args: &[String]) -> Result<serde_json::Value, Box<dy
     let model = match value("--model").unwrap_or("muse-spark-1.3") {
         "muse-spark-1.3" => ModelChoice::Quick,
         "muse-wonder-1.0" => ModelChoice::Thorough,
+        "muse-glimmer-30b" => ModelChoice::Open,
         _ => return Err("unsupported chat model".into()),
     };
     let effort = match value("--reasoning") {

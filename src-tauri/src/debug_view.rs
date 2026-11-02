@@ -1,9 +1,8 @@
-//! Development debug mirror (WP20): in `cfg(debug_assertions)` builds, opens the
-//! `debug` window (`debug.html`) when started with `--debug-window` and emits
-//! `DebugMsg` events (`answer`, `timing`, `look`) to it whenever that window exists.
-//! Release builds compile none of this module.
-
-#![cfg(debug_assertions)]
+//! The debug mirror (WP20), "Under the hood" for judges: emits `DebugMsg` events
+//! (`answer`, `timing`, `look`) to the `debug` window (`debug.html`) whenever it exists.
+//! Development builds open it with `--debug-window`; any build opens it from Settings
+//! when developer mode is on (`open_under_the_hood`). It never carries the person's
+//! words, only counts, timings, models and Mate's parsed timeline.
 
 use base64::Engine;
 use mm_core::constants::APP_NAME;
@@ -85,25 +84,74 @@ pub enum DebugMsg {
 
 /// Creates the `debug` window (900x600, normal decorations, focusable so the developer
 /// can interact with it, but `.focused(false)` so it never steals focus at creation)
-/// only when the app was started with `--debug-window`.
+/// only when a development build was started with `--debug-window`.
+#[cfg(debug_assertions)]
 pub fn open(app: &AppHandle) {
     if !std::env::args().any(|arg| arg == FLAG) {
         return;
     }
-    let result = WebviewWindowBuilder::new(app, WINDOW, WebviewUrl::App("debug.html".into()))
-        .title(format!("{APP_NAME} Debug"))
+    if let Err(error) = build(app) {
+        eprintln!("debug: window: {error}");
+    }
+}
+
+fn build(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
+    let window = WebviewWindowBuilder::new(app, WINDOW, WebviewUrl::App("debug.html".into()))
+        .title(format!(
+            "{APP_NAME} · {}",
+            crate::locale_text(
+                &app.state::<crate::answer_stream::AnswerStream>().locale(),
+                "debug.window_title",
+            )
+        ))
         .inner_size(900.0, 600.0)
         .decorations(true)
         .focused(false)
         .additional_browser_args(crate::overlay::BROWSER_ARGS)
-        .build();
-    match result {
-        #[cfg(windows)]
-        Ok(window) => crate::voice::overlays_changed(&window),
-        #[cfg(not(windows))]
-        Ok(_) => {}
-        Err(error) => eprintln!("debug: window: {error}"),
+        .build()?;
+    #[cfg(windows)]
+    crate::voice::overlays_changed(&window);
+    Ok(window)
+}
+
+/// Settings' "Open Under the hood" (developer mode only): an explicit open, so the
+/// window comes to the front like the chat. Async: building a window inside a synchronous
+/// command deadlocks WebView2 on Windows (lib.rs, open_settings_window).
+#[tauri::command]
+pub async fn open_under_the_hood(app: AppHandle) -> Result<(), String> {
+    if !crate::settings::developer_mode(&app) {
+        return Err("developer mode is off".into());
     }
+    let window = match app.get_webview_window(WINDOW) {
+        Some(window) => window,
+        None => build(&app).map_err(|_| "could not open the window".to_owned())?,
+    };
+    let _ = window.unminimize();
+    // Settings' button is the person asking for it: the same explicit open as the chat.
+    #[cfg(windows)]
+    {
+        let hwnd = window.hwnd().map_err(|error| error.to_string())?;
+        mm_win32::overlay::show(hwnd);
+        mm_win32::focus::activate_on_request(hwnd);
+    }
+    #[cfg(not(windows))]
+    window.show().map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// Settings' "Mate's surprise entrance" (developer mode only).
+#[tauri::command]
+pub fn mate_jump(app: AppHandle) -> Result<(), String> {
+    if !crate::settings::developer_mode(&app) {
+        return Err("developer mode is off".into());
+    }
+    #[cfg(windows)]
+    {
+        let locale = app.state::<crate::answer_stream::AnswerStream>().locale();
+        crate::highlight::mate_jump(&app, locale).map_err(|error| error.to_string())
+    }
+    #[cfg(not(windows))]
+    Ok(())
 }
 
 /// Mirrors one `AnswerMsg` to the `debug` window if it exists.

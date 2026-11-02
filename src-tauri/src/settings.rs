@@ -89,14 +89,18 @@ pub fn language() -> Language {
 pub enum Model {
     Quick,
     Thorough,
+    /// Muse Glimmer, Meta's open weights on our GPU (D77): chat only.
+    Open,
 }
 
 impl From<Model> for ModelChoice {
-    /// Quick is Muse Spark, Thorough is Muse Wonder (mm-core maps them to model ids).
+    /// Quick is Muse Spark, Thorough is Muse Wonder, Open is Muse Glimmer (mm-core maps
+    /// them to model ids and keeps Glimmer away from screenshots).
     fn from(model: Model) -> Self {
         match model {
             Model::Quick => Self::Quick,
             Model::Thorough => Self::Thorough,
+            Model::Open => Self::Open,
         }
     }
 }
@@ -200,6 +204,8 @@ pub struct Settings {
     pub spotlight: bool,
     pub start_with_windows: bool,
     pub show_home_at_start: bool,
+    /// Developer mode for judges: "Under the hood" and Mate's surprise entrance.
+    pub developer_mode: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mate_home: Option<MateHome>,
 }
@@ -222,6 +228,7 @@ impl Default for Settings {
             spotlight: true,
             start_with_windows: false,
             show_home_at_start: true,
+            developer_mode: false,
             mate_home: None,
         }
     }
@@ -289,8 +296,9 @@ pub fn save_settings(
     settings: Settings,
 ) -> Result<(), String> {
     let mut settings = settings.sanitized();
-    let saved = {
+    let (saved, chose_glimmer) = {
         let mut current = store.lock();
+        let chose_glimmer = settings.model == Model::Open && current.model != Model::Open;
         settings.mate_home = current.mate_home;
         *current = settings.clone();
         LANGUAGE.store(settings.language as u64, Ordering::Relaxed);
@@ -300,8 +308,14 @@ pub fn save_settings(
         #[cfg(windows)]
         crate::ptt::set_ptt_key(settings.ptt_key);
         // Written under the lock: two saves cannot interleave and the file ends as the last.
-        persist(&app, &current)
+        (persist(&app, &current), chose_glimmer)
     };
+    // Glimmer's GPU scales to zero and takes a minute to wake: start it now, not at the
+    // first question (D77).
+    if chose_glimmer && let Some(proxy) = app.try_state::<crate::proxy::Proxy>() {
+        let proxy = proxy.inner().clone();
+        tauri::async_runtime::spawn(async move { proxy.warm(true).await });
+    }
     // Sent after the lock is released: a listener may read the store.
     crate::refresh_tray_labels(&app);
     if let Err(error) = app.emit(CHANGED_EVENT, settings) {
@@ -311,6 +325,12 @@ pub fn save_settings(
         eprintln!("settings: could not save: {error}");
         SAVE_FAILED.to_owned()
     })
+}
+
+/// Whether developer mode is on (Settings, for judges); off before the store exists.
+pub fn developer_mode(app: &AppHandle) -> bool {
+    app.try_state::<SettingsStore>()
+        .is_some_and(|store| store.get().developer_mode)
 }
 
 /// The model the person chose, read from the store at this moment; Quick before the
@@ -420,6 +440,7 @@ mod tests {
             spotlight: true,
             start_with_windows: true,
             show_home_at_start: false,
+            developer_mode: false,
             mate_home: None,
         }
     }
@@ -497,7 +518,8 @@ mod tests {
                 "reduceMotion": false,
                 "spotlight": true,
                 "startWithWindows": false,
-                "showHomeAtStart": true
+                "showHomeAtStart": true,
+                "developerMode": false
             })
         );
     }
@@ -515,7 +537,7 @@ mod tests {
             "ptt": "hold", "pttKey": "ctrl", "sound": "calm",
             "voiceSpeed": 1.0, "robotSize": "M", "reduceMotion": false,
             "spotlight": true, "startWithWindows": false,
-            "showHomeAtStart": true
+            "showHomeAtStart": true, "developerMode": false
         }"#;
         assert_eq!(
             serde_json::to_value(&settings).unwrap(),
@@ -577,6 +599,7 @@ mod tests {
             serde_json::to_value(value).unwrap()
         }
         assert_eq!(name(Model::Thorough), json!("thorough"));
+        assert_eq!(name(Model::Open), json!("open"));
         assert_eq!(name(Ptt::Toggle), json!("toggle"));
         assert_eq!(name(Sound::Fun), json!("fun"));
         assert_eq!(name(RobotSize::S), json!("S"));

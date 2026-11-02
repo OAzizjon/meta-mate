@@ -1,7 +1,7 @@
 // Pure settings model, validation, and in-memory store (WP24).
 // No DOM, i18n JSON, or Tauri imports so Node (`node --test`) runs this module directly.
 
-export const MODEL_CHOICES = ["quick", "thorough"] as const;
+export const MODEL_CHOICES = ["quick", "thorough", "open"] as const;
 export type ModelChoice = (typeof MODEL_CHOICES)[number];
 
 export const PTT_MODES = ["hold", "toggle"] as const;
@@ -50,7 +50,7 @@ export interface Settings {
   profileAsked: boolean;
   language: Language;
   theme: Theme;
-  model: "quick" | "thorough";
+  model: "quick" | "thorough" | "open";
   ptt: "hold" | "toggle";
   pttKey: PttKey;
   sound: "calm" | "fun";
@@ -60,6 +60,8 @@ export interface Settings {
   spotlight: boolean;
   startWithWindows: boolean;
   showHomeAtStart: boolean;
+  /** Developer mode for judges: the "Under the hood" window and Mate's surprise entrance. */
+  developerMode: boolean;
 }
 
 export const SETTINGS_KEYS = [
@@ -77,6 +79,7 @@ export const SETTINGS_KEYS = [
   "spotlight",
   "startWithWindows",
   "showHomeAtStart",
+  "developerMode",
 ] as const satisfies readonly (keyof Settings)[];
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
@@ -94,6 +97,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   spotlight: true,
   startWithWindows: false,
   showHomeAtStart: true,
+  developerMode: false,
 });
 
 /** Returns a fresh mutable copy of `DEFAULT_SETTINGS`. */
@@ -184,6 +188,7 @@ export function parseSettings(raw: unknown): Settings {
     const reduceMotion = readOwnField(raw, "reduceMotion");
     const startWithWindows = readOwnField(raw, "startWithWindows");
     const showHomeAtStart = readOwnField(raw, "showHomeAtStart");
+    const developerMode = readOwnField(raw, "developerMode");
 
     return {
       profile: {
@@ -208,6 +213,7 @@ export function parseSettings(raw: unknown): Settings {
           : DEFAULT_SETTINGS.startWithWindows,
       showHomeAtStart:
         typeof showHomeAtStart === "boolean" ? showHomeAtStart : DEFAULT_SETTINGS.showHomeAtStart,
+      developerMode: typeof developerMode === "boolean" ? developerMode : DEFAULT_SETTINGS.developerMode,
     };
   } catch {
     return defaultSettings();

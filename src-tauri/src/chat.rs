@@ -9,16 +9,23 @@ const MATE_TEXT_MAX_BYTES: usize = 8 * 1024;
 
 use mm_core::matescript::{Bound, Item};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, ipc::Channel};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, ipc::Channel};
 
 use crate::answer_stream::AnswerMsg;
 
+/// Tells the chat window whether a recording listens: its Talk button becomes Stop.
+const TALK_EVENT: &str = "chat-talk";
 const LIMIT: usize = 200;
 // JSON can escape each text byte as six ASCII bytes; include metadata overhead.
 const HISTORY_MAX_BYTES: usize = LIMIT * (MATE_TEXT_MAX_BYTES * 6 + 256);
 
 fn chat_mood(raw: &str) -> Option<&str> {
     matches!(raw, "calm" | "happy" | "surprised" | "sad").then_some(raw)
+}
+
+/// Only a closed display id (`model_chip`) survives a saved history.
+fn chat_model(raw: &str) -> Option<&'static str> {
+    crate::answer_stream::model_chip(Some(raw)).filter(|id| *id == raw)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -29,6 +36,9 @@ pub struct Message {
     timestamp: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     mood: Option<String>,
+    /// The Meta model that wrote a Mate answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    model: Option<String>,
     // Generations restart with the process; never merge a new answer into loaded history.
     #[serde(skip)]
     generation: Option<u64>,
@@ -48,7 +58,11 @@ struct History {
     subscriber: Option<Channel<Vec<Message>>>,
     cancelled: Option<u64>,
     latest: Option<u64>,
+    // A lesson names its model before it speaks; an answer after its first sentences.
+    model: Option<(u64, Option<&'static str>)>,
     epoch: u64,
+    /// The generation of the recording that listens now, if one does.
+    listening: Option<u64>,
 }
 
 #[derive(Default)]
@@ -83,10 +97,52 @@ impl History {
                 .try_into()
                 .unwrap_or(u64::MAX),
             mood: None,
+            model: None,
             generation,
         });
         let excess = self.messages.len().saturating_sub(LIMIT);
         self.messages.drain(..excess);
+    }
+
+    /// A recording's final transcript, as the person's message before Mate's answer; a
+    /// cancelled or cleared recording leaves none.
+    fn spoken(&mut self, generation: u64, text: &str) -> bool {
+        let text = text.trim();
+        if text.is_empty() || self.cancelled.is_some_and(|through| generation <= through) {
+            return false;
+        }
+        // A long recording is cut to a typed question's length rather than dropped.
+        let text = if text.chars().count() > 1000 {
+            let mut cut: String = text.chars().take(999).collect();
+            cut.push('…');
+            cut
+        } else {
+            text.to_owned()
+        };
+        self.push(Role::Person, text, None);
+        true
+    }
+
+    /// Whether a recording listens, from the stream's states like the voice bar's; Some
+    /// when that changed. An older generation's state never ends a newer recording.
+    fn talk_state(&mut self, message: &AnswerMsg) -> Option<bool> {
+        let before = self.listening.is_some();
+        match message {
+            AnswerMsg::State {
+                generation,
+                state: "listening",
+            } => self.listening = Some(*generation),
+            AnswerMsg::State { generation, .. } | AnswerMsg::Cancel { generation }
+                if self
+                    .listening
+                    .is_some_and(|listening| *generation >= listening) =>
+            {
+                self.listening = None;
+            }
+            _ => {}
+        }
+        let after = self.listening.is_some();
+        (before != after).then_some(after)
     }
 
     fn answer(&mut self, message: &AnswerMsg, locale: &str) -> bool {
@@ -108,6 +164,23 @@ impl History {
             );
             return false;
         }
+        if let AnswerMsg::Model { generation, model } = message {
+            if self.cancelled.is_some_and(|through| *generation <= through) {
+                return false;
+            }
+            self.model = Some((*generation, *model));
+            return match self.messages.last_mut() {
+                Some(last)
+                    if last.role == Role::Mate
+                        && last.generation == Some(*generation)
+                        && last.model.as_deref() != *model =>
+                {
+                    last.model = model.map(str::to_owned);
+                    true
+                }
+                _ => false,
+            };
+        }
         let (generation, text, mood) = match message {
             AnswerMsg::Item {
                 generation,
@@ -128,6 +201,11 @@ impl History {
                 crate::locale_text(locale, "robot.cant_find"),
                 None,
             ),
+            // The listening hint is no part of the conversation: the spoken question follows.
+            AnswerMsg::Line {
+                key: "robot.click_stop",
+                ..
+            } => return false,
             AnswerMsg::Line { generation, key } => {
                 (*generation, crate::locale_text(locale, key), None)
             }
@@ -149,11 +227,16 @@ impl History {
                 }
             }
         } else {
+            let model = self
+                .model
+                .filter(|(owner, _)| *owner == generation)
+                .and_then(|(_, model)| model);
             self.push(Role::Mate, text, Some(generation));
             if let Some(last) = self.messages.last_mut()
                 && last.generation == Some(generation)
             {
                 last.mood = mood.map(str::to_owned);
+                last.model = model.map(str::to_owned);
             }
         }
         true
@@ -205,6 +288,15 @@ fn load_history(reader: impl Read) -> Vec<Message> {
         } else {
             None
         };
+        message.model = if message.role == Role::Mate {
+            message
+                .model
+                .as_deref()
+                .and_then(chat_model)
+                .map(str::to_owned)
+        } else {
+            None
+        };
     }
     let excess = messages.len().saturating_sub(LIMIT);
     messages.drain(..excess);
@@ -237,10 +329,23 @@ pub fn init(app: &AppHandle) {
 }
 
 pub fn record(app: &AppHandle, message: &AnswerMsg, locale: &str) {
-    if let Ok(mut history) = app.state::<Chat>().0.lock()
-        && history.answer(message, locale)
-        && history.publish().is_err()
-    {
+    let chat = app.state::<Chat>();
+    let Ok(mut history) = chat.0.lock() else {
+        return;
+    };
+    if let Some(listening) = history.talk_state(message) {
+        let _ = app.emit_to("chat", TALK_EVENT, listening);
+    }
+    if history.answer(message, locale) && history.publish().is_err() {
+        eprintln!("chat: could not save history");
+    }
+}
+
+/// A spoken question (voice.rs), recorded like a typed one; its text is never logged.
+pub(crate) fn spoken(app: &AppHandle, generation: u64, text: &str) {
+    let chat = app.state::<Chat>();
+    let mut history = chat.0.lock().unwrap_or_else(PoisonError::into_inner);
+    if history.spoken(generation, text) && history.publish().is_err() {
         eprintln!("chat: could not save history");
     }
 }
@@ -294,7 +399,21 @@ pub fn chat_subscribe(
     let mut history = chat.0.lock().unwrap_or_else(PoisonError::into_inner);
     let _ = channel.send(history.messages.clone());
     history.subscriber = Some(channel);
+    // A chat opened during a recording shows Stop at once.
+    let _ = app.emit_to("chat", TALK_EVENT, history.listening.is_some());
     app.state::<crate::answer_stream::AnswerStream>().locale()
+}
+
+/// The chat's Talk/Stop button: starts or stops a recording exactly like a click on Mate.
+#[tauri::command]
+pub fn chat_talk(app: AppHandle) -> Result<(), String> {
+    #[cfg(windows)]
+    if crate::voice::chat_talk(&app) {
+        return Ok(());
+    }
+    #[cfg(not(windows))]
+    let _ = app;
+    Err("voice input is not running".to_owned())
 }
 
 fn question(text: &str) -> Result<String, String> {
@@ -382,6 +501,54 @@ mod tests {
     }
 
     #[test]
+    fn model_chips_follow_their_answer_and_legacy_history_loads() {
+        let mut history = History::default();
+        let say = |generation| AnswerMsg::Item {
+            generation,
+            item: Item::Say(mm_core::matescript::Say {
+                id: 1,
+                text: "Hello.".into(),
+                bound: vec![],
+            }),
+        };
+        let served = |generation, model| AnswerMsg::Model { generation, model };
+        // A lesson names its model before it speaks.
+        assert!(!history.answer(&served(1, Some("muse-wonder-1.0")), "en"));
+        assert!(history.answer(&say(1), "en"));
+        assert_eq!(
+            history.messages[0].model.as_deref(),
+            Some("muse-wonder-1.0")
+        );
+        // An answer names it after its first sentences; an older answer's model changes nothing.
+        assert!(history.answer(&say(2), "en"));
+        assert_eq!(history.messages[1].model, None);
+        assert!(history.answer(&served(2, Some("muse-spark-1.3")), "en"));
+        assert!(!history.answer(&served(1, Some("muse-wonder-1.0")), "en"));
+        assert_eq!(
+            history.messages[0].model.as_deref(),
+            Some("muse-wonder-1.0")
+        );
+        assert_eq!(history.messages[1].model.as_deref(), Some("muse-spark-1.3"));
+        history.answer(&AnswerMsg::Cancel { generation: 2 }, "en");
+        assert!(!history.answer(&served(2, None), "en"));
+        let saved = serde_json::to_vec(&history.messages).unwrap();
+        assert_eq!(
+            load_history(saved.as_slice())[1].model.as_deref(),
+            Some("muse-spark-1.3")
+        );
+
+        let raw = br#"[{"role":"mate","text":"old","timestamp":1},{"role":"mate","text":"new","timestamp":2,"model":"muse-wonder-1.0"},{"role":"person","text":"hi","timestamp":3,"model":"muse-spark-1.3"},{"role":"mate","text":"raw","timestamp":4,"model":"muse-spark-preview"}]"#;
+        let loaded = load_history(&raw[..]);
+        assert_eq!(loaded.len(), 4);
+        assert_eq!(loaded[0].model, None);
+        assert_eq!(loaded[1].model.as_deref(), Some("muse-wonder-1.0"));
+        assert_eq!(loaded[2].model, None);
+        assert_eq!(loaded[3].model, None);
+        // Without a model, a message is saved as before.
+        assert!(!serde_json::to_string(&loaded[0]).unwrap().contains("model"));
+    }
+
+    #[test]
     fn clear_invalidates_queued_and_started_requests() {
         let mut history = History::default();
         let queued_epoch = history.epoch;
@@ -420,6 +587,7 @@ mod tests {
                 text: "x".repeat(MATE_TEXT_MAX_BYTES + 1),
                 timestamp: 0,
                 mood: None,
+                model: None,
                 generation: None,
             },
             Message {
@@ -427,6 +595,7 @@ mod tests {
                 text: "x".repeat(1001),
                 timestamp: 0,
                 mood: None,
+                model: None,
                 generation: None,
             },
             Message {
@@ -434,6 +603,7 @@ mod tests {
                 text: "kept".into(),
                 timestamp: 0,
                 mood: None,
+                model: None,
                 generation: None,
             },
         ];
@@ -535,6 +705,73 @@ mod tests {
         assert!(history.messages.last().unwrap().text.contains('\n'));
         history.answer(&AnswerMsg::Cancel { generation: 1 }, "en");
         assert!(!history.answer(&line, "en"));
+    }
+
+    #[test]
+    fn a_spoken_question_comes_before_its_answer() {
+        let mut history = History::default();
+        let state = |generation, state| AnswerMsg::State { generation, state };
+        // Listening: the hint, levels and partial words stay out of the history.
+        history.answer(&state(4, "listening"), "en");
+        assert!(!history.answer(
+            &AnswerMsg::Line {
+                generation: 4,
+                key: "robot.click_stop",
+            },
+            "en"
+        ));
+        history.answer(&state(4, "thinking"), "en");
+        assert!(history.spoken(4, "  Is this page safe?\n"));
+        assert!(history.answer(
+            &AnswerMsg::Item {
+                generation: 4,
+                item: Item::Say(mm_core::matescript::Say {
+                    id: 1,
+                    text: "It looks safe.".into(),
+                    bound: vec![],
+                }),
+            },
+            "en"
+        ));
+        let roles: Vec<_> = history.messages.iter().map(|m| m.role).collect();
+        assert_eq!(roles, [Role::Person, Role::Mate]);
+        assert_eq!(history.messages[0].text, "Is this page safe?");
+        // Silence, a cancelled recording and a cleared chat leave nothing.
+        assert!(!history.spoken(5, " \n"));
+        history.answer(&AnswerMsg::Cancel { generation: 5 }, "en");
+        assert!(!history.spoken(5, "late"));
+        history.answer(&state(6, "listening"), "en");
+        history.clear();
+        assert!(!history.spoken(6, "cleared"));
+        assert!(history.messages.is_empty());
+        // A long recording is cut to a typed question's length, never dropped.
+        assert!(history.spoken(7, &"\u{1f600}".repeat(1200)));
+        let kept = &history.messages[0].text;
+        assert_eq!(kept.chars().count(), 1000);
+        assert!(valid_text(Role::Person, kept));
+    }
+
+    #[test]
+    fn the_talk_button_follows_the_newest_recording() {
+        let mut history = History::default();
+        let state = |generation, state| AnswerMsg::State { generation, state };
+        assert_eq!(history.talk_state(&state(3, "listening")), Some(true));
+        assert_eq!(history.talk_state(&state(3, "listening")), None);
+        // A lesson's older generation goes on talking while the person speaks.
+        assert_eq!(history.talk_state(&state(2, "idle")), None);
+        assert_eq!(
+            history.talk_state(&AnswerMsg::Cancel { generation: 2 }),
+            None
+        );
+        assert_eq!(history.talk_state(&state(3, "thinking")), Some(false));
+        assert_eq!(history.talk_state(&state(3, "idle")), None);
+        assert_eq!(history.talk_state(&state(4, "listening")), Some(true));
+        assert_eq!(
+            history.talk_state(&AnswerMsg::Cancel { generation: 4 }),
+            Some(false)
+        );
+        let page = include_str!("../../src/chat.ts");
+        assert!(page.contains(&format!("\"{TALK_EVENT}\"")), "{TALK_EVENT}");
     }
 
     #[test]

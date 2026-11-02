@@ -20,6 +20,7 @@ pub struct SilenceDetector {
     floor: f32,
     calibration_samples: u32,
     speaking: bool,
+    heard: bool,
     speech_ms: u64,
     quiet_since: Option<u64>,
     ended: bool,
@@ -28,6 +29,11 @@ pub struct SilenceDetector {
 impl SilenceDetector {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Whether any frame rose above the noise floor: the microphone works and caught sound.
+    pub fn heard(&self) -> bool {
+        self.heard
     }
 
     /// Feed a frame's RMS and capture timestamp, not its delivery time. Backward
@@ -60,6 +66,7 @@ impl SilenceDetector {
         let leave = (self.floor * 1.8).max(0.0015);
         let was_speaking = self.speaking;
         self.speaking = rms >= if was_speaking { leave } else { enter };
+        self.heard |= self.speaking;
         if was_speaking {
             self.speech_ms = self.speech_ms.saturating_add(delta);
         }
@@ -112,6 +119,28 @@ mod tests {
         }
         assert!(!detector.speaking);
         assert_eq!(detector.speech_ms, 0);
+        assert!(!detector.heard());
+    }
+
+    #[test]
+    fn a_short_word_is_heard_and_silence_is_not() {
+        // A quick press: under a second, too short to end on silence, yet sound was caught.
+        let mut word = SilenceDetector::new();
+        let mut now = 0;
+        for (frames, rms) in [(4, 0.0005), (3, 0.05), (3, 0.0005)] {
+            for _ in 0..frames {
+                assert_eq!(word.input(rms, now), None);
+                now += 80;
+            }
+        }
+        assert!(word.heard());
+        // A muted microphone delivers zeros; none at all leaves the detector untouched.
+        let mut muted = SilenceDetector::new();
+        for now in (0..1_000).step_by(80) {
+            assert_eq!(muted.input(0.0, now), None);
+        }
+        assert!(!muted.heard());
+        assert!(!SilenceDetector::new().heard());
     }
 
     #[test]

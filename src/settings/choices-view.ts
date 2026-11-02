@@ -64,6 +64,12 @@ export function buildModelGroup(
         labelKey: "settings.model_thorough",
         hintKey: "settings.model_thorough_hint",
       },
+      {
+        id: "settings-model-open",
+        value: "open",
+        labelKey: "settings.model_open",
+        hintKey: "settings.model_open_hint",
+      },
     ],
     "cards",
     onSelect,

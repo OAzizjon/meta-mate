@@ -51,7 +51,7 @@ pub(crate) async fn teach(
     speech_epoch: Arc<AtomicU64>,
     target: Option<mm_platform::TargetWindow>,
 ) {
-    let model = ModelChoice::from(crate::settings::model(&app));
+    let model = ModelChoice::from(crate::settings::model(&app)).seeing();
     let stream = app.state::<AnswerStream>();
     struct LessonChordGuard;
     impl Drop for LessonChordGuard {

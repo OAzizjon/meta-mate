@@ -48,6 +48,84 @@ pub enum HighlightMsg {
     Burst { rect: Rect },
 }
 
+/// The voice bar at the bottom of Mate's monitor (src/highlight/voicebar.ts): raised while
+/// the person talks, with the microphone level and their words so far.
+pub const VOICE_BAR_EVENT: &str = "voice-bar";
+/// Mate's surprise entrance (src/highlight/jump.ts), from Settings' developer mode.
+pub const MATE_JUMP_EVENT: &str = "mate-jump";
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum VoiceBarMsg {
+    /// "listening", "thinking" or "idle".
+    State {
+        state: &'static str,
+    },
+    Level {
+        level: f32,
+    },
+    /// The person's own words on their own screen; never logged.
+    Heard {
+        text: String,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum JumpMsg {
+    Jump { locale: String },
+}
+
+/// The highlight window of the monitor Mate is on, picked when a recording starts so the
+/// bar's ~12 messages a second do not enumerate the monitors each time.
+static BAR_MONITOR: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// The index of the monitor under Mate's center; the primary one when Mate is unknown.
+#[cfg(windows)]
+fn mate_monitor(app: &AppHandle) -> usize {
+    let monitors = mm_win32::monitors::monitors();
+    app.try_state::<crate::flight::Flight>()
+        .map(|flight| flight.position().center())
+        .and_then(|center| monitors.iter().position(|m| m.area.contains(center)))
+        .or_else(|| monitors.iter().position(|m| m.primary))
+        .unwrap_or(0)
+}
+
+#[cfg(not(windows))]
+fn mate_monitor(_app: &AppHandle) -> usize {
+    0
+}
+
+/// Moves the voice bar to Mate's monitor; called as a recording starts. A bar left on the
+/// monitor Mate came from is lowered there.
+pub fn follow_mate(app: &AppHandle) {
+    let index = mate_monitor(app);
+    let before = BAR_MONITOR.swap(index, std::sync::atomic::Ordering::Relaxed);
+    if before != index {
+        let _ = app.emit_to(
+            label(before).as_str(),
+            VOICE_BAR_EVENT,
+            VoiceBarMsg::State { state: "idle" },
+        );
+    }
+}
+
+pub fn voice_bar(app: &AppHandle, message: &VoiceBarMsg) {
+    let index = BAR_MONITOR.load(std::sync::atomic::Ordering::Relaxed);
+    let _ = app.emit_to(label(index).as_str(), VOICE_BAR_EVENT, message);
+}
+
+/// Giant Mate jumps up from the bottom of his monitor for about three seconds; the
+/// window stays click-through, so nothing underneath is blocked.
+pub fn mate_jump(app: &AppHandle, locale: String) -> Result<(), HighlightError> {
+    app.emit_to(
+        label(mate_monitor(app)).as_str(),
+        MATE_JUMP_EVENT,
+        JumpMsg::Jump { locale },
+    )
+    .map_err(|error| HighlightError::Emit(error.to_string()))
+}
+
 /// CSS pixels relative to the highlight window.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub struct Rect {

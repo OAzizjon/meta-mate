@@ -21,8 +21,16 @@ import {
   buildSoundGroup,
   buildToggles,
 } from "./settings/choices-view.ts";
-import { syncRadioSelection } from "./settings/controls.ts";
+import { syncCheckbox, syncRadioSelection } from "./settings/controls.ts";
 import type { RadioGroupRefs } from "./settings/controls.ts";
+import {
+  DEV_STATUS_DURATION_MS,
+  MATE_JUMP_CMD,
+  OPEN_UNDER_THE_HOOD_CMD,
+  buildDevSection,
+  devButtonsHidden,
+} from "./settings/dev-view.ts";
+import type { DevCommand, DevSectionRefs } from "./settings/dev-view.ts";
 import { buildVoiceSpeedGroup } from "./settings/voice-speed-view.ts";
 import {
   AUTH_CHANGED_EVENT,
@@ -108,6 +116,11 @@ export {
   snapVoiceSpeed,
   subscribeSettingsChanged,
   updateSettings,
+  DEV_STATUS_DURATION_MS,
+  MATE_JUMP_CMD,
+  OPEN_UNDER_THE_HOOD_CMD,
+  buildDevSection,
+  devButtonsHidden,
 };
 export type {
   AccountInvoke,
@@ -117,6 +130,8 @@ export type {
   AccountSubscribe,
   AuthProvider,
   AuthStatus,
+  DevCommand,
+  DevSectionRefs,
   ModelChoice,
   PttKey,
   PttMode,
@@ -178,6 +193,7 @@ export interface MountSettingsOptions {
   readonly store?: SettingsStore;
   readonly subscribe?: SettingsSubscribe | null;
   readonly accountStore?: AccountStore;
+  readonly invoke?: SettingsInvoke | null;
 }
 
 export interface SettingsController {
@@ -208,6 +224,12 @@ export function mountSettings(
         : null
       : options.subscribe;
   const accountStore = options.accountStore ?? defaultAccountStore;
+  const invoke =
+    options.invoke === undefined
+      ? isTauri()
+        ? tauriInvoke
+        : null
+      : options.invoke;
   let destroyed = false;
   let saveFailed = false;
 
@@ -238,6 +260,13 @@ export function mountSettings(
   };
 
   const accountGroup = buildAccountSection(accountStore);
+  const devGroup = buildDevSection(
+    (developerMode) => {
+      void applyPatch({ developerMode });
+    },
+    invoke,
+    t,
+  );
 
   const languageGroup = buildLanguageGroup((language) => {
     void applyPatch({ language });
@@ -295,7 +324,7 @@ export function mountSettings(
     },
   );
 
-  // The everyday choices first; the account, set once, comes last (WP85).
+  // The everyday choices first; the account and developer tools come last (WP85).
   form.append(
     languageGroup.fieldset,
     themeGroup.fieldset,
@@ -307,6 +336,7 @@ export function mountSettings(
     sizeGroup.fieldset,
     togglesGroup,
     accountGroup.section,
+    devGroup.section,
   );
 
   container.replaceChildren(header, saveAlert, form);
@@ -369,6 +399,7 @@ export function mountSettings(
     reduceMotionBox.titleEl.textContent = t(reduceMotionBox.labelKey);
     startWithWindowsBox.titleEl.textContent = t(startWithWindowsBox.labelKey);
     accountGroup.syncText();
+    devGroup.syncText(t);
   };
 
   const syncControls = (settings: Settings): void => {
@@ -386,13 +417,10 @@ export function mountSettings(
     speedInput.value = String(settings.voiceSpeed);
     showVoiceSpeed(settings.voiceSpeed);
 
-    spotlightBox.input.checked = settings.spotlight;
-    spotlightBox.wrapper.classList.toggle("is-selected", settings.spotlight);
-    reduceMotionBox.input.checked = settings.reduceMotion;
-    reduceMotionBox.wrapper.classList.toggle("is-selected", settings.reduceMotion);
-
-    startWithWindowsBox.input.checked = settings.startWithWindows;
-    startWithWindowsBox.wrapper.classList.toggle("is-selected", settings.startWithWindows);
+    syncCheckbox(spotlightBox, settings.spotlight);
+    syncCheckbox(reduceMotionBox, settings.reduceMotion);
+    syncCheckbox(startWithWindowsBox, settings.startWithWindows);
+    devGroup.syncState(settings.developerMode);
 
     syncReducedMotionClass(settings.reduceMotion);
   };
@@ -449,6 +477,7 @@ export function mountSettings(
       unsubscribeChanged();
       unsubscribeAccount();
       accountGroup.destroy();
+      devGroup.destroy();
       motionQuery?.removeEventListener("change", onMotionMediaChange);
       container.replaceChildren();
     },
