@@ -562,8 +562,30 @@ def cmd_release(args):
             print('Release failed: cannot read app version from src-tauri/tauri.conf.json.')
             return 1
         installer = installers[0]
+        # Code signing (docs/code-signing.md): only when the owner's certificate is given;
+        # the password stays in the environment and is never printed.
+        pfx = os.environ.get('MM_SIGN_PFX')
+        if pfx:
+            sign = ['signtool', 'sign', '/fd', 'SHA256', '/tr', 'http://timestamp.digicert.com', '/td', 'SHA256',
+                    '/d', 'MetaMate', '/du', 'https://meta-mate.stream', '/f', pfx]
+            if os.environ.get('MM_SIGN_PASSWORD'):
+                sign += ['/p', os.environ['MM_SIGN_PASSWORD']]
+            if subprocess.call(sign + [str(installer)], cwd=ROOT, stdin=subprocess.DEVNULL) != 0:
+                print('Release failed: signtool could not sign the installer.')
+                return 1
+            print('Signed with the certificate in MM_SIGN_PFX.')
         with installer.open('rb') as stream:
             digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        # What installed apps check for an update (src-tauri/src/updater.rs); the site serves
+        # it next to the installer.
+        manifest = {'version': version, 'url': 'https://meta-mate.stream/download/MetaMate-setup.exe',
+                    'sha256': digest, 'size_mb': round(installer.stat().st_size / 1_000_000)}
+        try:
+            (ROOT / 'site/version.json').write_bytes((json.dumps(manifest, indent=2) + '\n').encode('utf-8'))
+            print('Wrote site/version.json: publish it with the installer as download/MetaMate-setup.exe.')
+        except OSError:
+            # The installer is good either way; only the update manifest is missing.
+            print('Warning: could not write site/version.json; write it by hand before publishing.')
         print(f'Installer: {installer}\nSize: {installer.stat().st_size} bytes\nSHA-256: {digest}')
         print(f'Commit: {commit}{"+dirty" if dirty else ""}\nProxy host: {proxy_host}\nVersion: {version}')
     except OSError:

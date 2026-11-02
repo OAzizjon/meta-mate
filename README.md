@@ -8,17 +8,17 @@
 
 ## Try it in 60 seconds
 
-1. **Download** the release installer — no API keys or invite codes needed.
-2. **SmartScreen:** click **More info**, then **Run anyway** (not code-signed yet).
+1. **Download** [MetaMate for Windows](https://meta-mate.stream/download/MetaMate-setup.exe) — no API keys or invite codes needed.
+2. **SmartScreen:** Windows may say 'Windows protected your PC': click More info, then Run anyway. MetaMate is new and not yet code-signed; Microsoft Defender found nothing in it when we checked. [Code-signing details](docs/code-signing.md).
 3. **Start:** **Try without signing in** (12 messages/hour, count shown under Mate) or **Sign in with Google** for your own daily allowance.
-4. **Ask:** Press **Win+I**, click Mate once and ask *"How do I make the text bigger?"* Or ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only apps or sites named in your own request, never names that appear only on a page or in a screenshot. Click him again, or just pause, when you are done. Or hold **Ctrl** (either one) alone while you speak; pressing any other key cancels. Prefer another key? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
+4. **Ask:** Click Mate once, ask *"How do I make the text bigger?"*, then click him again. Or hold **Ctrl** alone while you speak; pressing any other key cancels. You can also ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only apps or sites named in your own request, never names that appear only on a page or in a screenshot. Prefer another key? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
 5. **Or type:** Right-click the tray icon (or Mate) → **Chat with Mate**. Mate still points on screen.
 
 ## Links
 
 - [Website: meta-mate.stream](https://meta-mate.stream) (the installer downloads from there)
 - [Download the installer](https://meta-mate.stream/download/MetaMate-setup.exe) ([SHA-256](https://meta-mate.stream/download/SHA256.txt))
-- Demo video: TBD before Nov 4
+- Demo video: linked from the submission page
 - [Decisions log](docs/decisions.md)
 - [Architecture](docs/architecture.md)
 - [Submission notes](docs/submission.md)
@@ -27,6 +27,16 @@
 - [Changelog](CHANGELOG.md)
 
 ## What Mate does
+
+### New in 0.2
+
+- **Mate's brain:** Choose among three Meta models on Home.
+- **Voice bar:** See the words Mate hears as you speak.
+- **Sounds:** Cues and sound effects.
+- **"What's on this page?"** Mate describes the window.
+- **Automatic update check:** Checks for new versions automatically.
+- **Scam fire drill:** Practice spotting scams with fictional examples.
+- **Developer mode for judges** shows how Mate works under the hood.
 
 MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Click Mate or hold **Ctrl** (or another talk key chosen in Settings) and ask in English or Russian; Mate answers aloud with a live transcript in his bubble. While you speak, a bar at the bottom of the screen follows your voice and shows the words Mate heard. The core:
 
@@ -124,7 +134,7 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 
 **Does Mate click for me?** Only when you ask. Mate lights up the button and guides you step by step; say "do it for me" and he asks "Shall I press it?" before each click and presses only after you say yes. He never presses payment, purchase, delete, money transfer or password buttons.
 
-**Will Ctrl get in the way of my shortcuts?** Mate listens only after Ctrl is held alone for 300 ms, and any other key pressed with it (Ctrl+C, Ctrl+V) cancels quietly. You can also pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings, or simply click Mate to start and stop talking. You can also type in the chat window.
+**Will Ctrl get in the way of my shortcuts?** Mate listens only after Ctrl is held alone for 300 ms, and any other key pressed with it (Ctrl+C, Ctrl+V) cancels quietly. You can also pick Right Alt, Caps Lock, Insert, F9 or F10 in Settings, or simply click Mate once to start and again to stop talking. You can also type in the chat window.
 
 **Which Meta models?** Muse Voice Transcribe hears you while you talk, Muse Spark 1.3 answers and finds the button, Muse Wonder 1.0 plans a lesson's next step after two clicks away from the beam, SAM 3.1 outlines controls in apps without an accessibility tree, MMS-TTS (Meta open weights) speaks, and Muse Glimmer 30B with Muse Image make the keepsake lesson card.
 
@@ -198,4 +208,4 @@ The hackathon build runs from October 26 to November 4, 2026. Prior to kickoff, 
 
 ### License
 
-Project license: **TBD**. The MMS-TTS model weights are licensed **CC-BY-NC-4.0**; see [architecture notes](docs/architecture.md) for details.
+License: chosen before the repository goes public (see the Links). The MMS-TTS model weights are licensed **CC-BY-NC-4.0**; see [architecture notes](docs/architecture.md) for details.

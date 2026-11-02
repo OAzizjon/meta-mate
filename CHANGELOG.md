@@ -4,6 +4,21 @@ All notable changes to MetaMate are recorded in this file.
 
 This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-11-02
+
+### Added
+
+- Ask Mate "What is going on on this page?" and he describes the window (D80).
+- "Say that again" repeats Mate's last answer more slowly.
+- Sound cues accompany Mate's actions and answers.
+- MetaMate checks for updates automatically and offers a one-click update using `version.json` and SHA-256 verification.
+- Version 0.2.0 includes publisher metadata.
+- `mm release` can sign the installer with a certificate and writes `site/version.json`.
+- The website download block shows the version and SHA-256, with a three-step "Keep / More info / Run anyway" strip.
+- Copy was polished with feedback from Meta Muse Wonder.
+- A scam fire-drill practice window lets people rehearse spotting scams.
+- `docs/code-signing.md` explains code signing.
+
 ## [Unreleased]
 
 ### Added

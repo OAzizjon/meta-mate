@@ -10,12 +10,18 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### crates/mm-core
 
 - crates/mm-core/src/api/intent.rs — Intent routing as pure data, with an offline fallback.
-  wants_open:8^ Intent:18 intent_request:34 parse_intent:49 parse_yes_no:113 parse_yes_no_for_locale:118 asks_do_it:254 guess_intent:558
+  wants_open:8^ asks_repeat:22^ repeat_question:22^ Intent:25 intent_request:43 parse_intent:58 parse_yes_no:123 parse_yes_no_for_locale:128
+  asks_do_it:264 guess_intent:529
   tests: crates/mm-core/tests/intent.rs (15)
 - crates/mm-core/src/api/intent_about.rs — Questions about Mate alone need no screen.
   asks_about_mate:3
+- crates/mm-core/src/api/intent_describe.rs — "What is going on on this page?", "Что на этой странице?": the person asks Mate to look at the window in front and explain it, not to find one thing in it (D80).
+  asks_describe:6
 - crates/mm-core/src/api/intent_open.rs — Whole-app/site requests bypass screen capture; Settings subpages remain guidance.
   wants_open:7 asks_open:49
+- crates/mm-core/src/api/intent_repeat.rs — "Say that again", "slower please", "повтори": the person missed Mate's last answer.
+  asks_repeat:85 repeat_question:97
+  inline tests (3)
 - crates/mm-core/src/api/intent_safety.rs — "Is this email real?", "Это мошенники?": a verdict on trust with the thing on the screen (or the person it is aimed at) at most a few words either side of it.
   asks_safety:11
 - crates/mm-core/src/api/intent_tests.rs
@@ -25,13 +31,14 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Profile:8 Profile::sanitized:23 with_profile:69
   inline tests (3)
 - crates/mm-core/src/api/prompts.rs — The prompt texts (docs/prompts.md, D41) that the builders in api/request.rs send as `instructions`: model input, not UI text, so invariant 7 does not apply.
-  PERSONA_PROMPT:8 SCREEN_PROMPT:44 NO_SCREEN_PROMPT:53 SAFETY_PROMPT:60 EXAMPLES_PROMPT:68 SCREEN_EXAMPLE_PROMPT:81 SAFETY_CHECK_PROMPT:89 TEACHER_PROMPT:108
+  PERSONA_PROMPT:8 SCREEN_PROMPT:45 NO_SCREEN_PROMPT:54 SAFETY_PROMPT:63 EXAMPLES_PROMPT:71 SCREEN_EXAMPLE_PROMPT:84 SAFETY_CHECK_PROMPT:92 DESCRIBE_PROMPT:111
+  TEACHER_PROMPT:131
   inline tests (1)
 - crates/mm-core/src/api/request.rs — Building a Responses API request body (docs/prompts.md, D41).
   RedactedImage:18^ ModelChoice:27 ModelChoice::seeing:44 ReasoningEffort:56 SPOKEN_MAX_OUTPUT_TOKENS:78 SCREEN_MAX_OUTPUT_TOKENS:84 ComputerSession:91 must_hide:101
-  ElementList:108 ElementLine:121 ElementLine::new:137 render_element_list:209 chat_request:229 point_request:248 safety_request:269 computer_request:289
-  computer_followup:315
-  inline tests (15)
+  ElementList:108 ElementLine:121 ElementLine::new:137 render_element_list:209 chat_request:229 point_request:248 safety_request:269 describe_request:289
+  computer_request:309 computer_followup:335
+  inline tests (16)
 - crates/mm-core/src/api/response.rs — Reading a Responses API response: reasoning, the commentary line, computer calls (D41).
   ParsedResponse:9 ComputerCall:44 SafetyCheck:52 Usage:59 Action:67 ResponseError:144 parse_response:204 parse_response_value:209
   StreamText:320 StreamText::new:336 StreamText::text:340 StreamText::push:346
@@ -84,8 +91,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   SOUNDS:4 MOODS:48 AMBIENCE:57 closest:60
 - crates/mm-core/src/mic.rs — Pure microphone downmixing, streaming resampling and Muse realtime framing.
   OUTPUT_RATE:3 FRAME_SAMPLES:4 FRAME_BYTES:5 MicError:8 Framer:29 Framer::new:41 Framer::push:63 Framer::finish:106
-  level:118 StreamGain:139 StreamGain::apply:145
-  tests: crates/mm-core/tests/mic.rs (10)
+  level:118 MAX_GAIN:134 StreamGain:142 StreamGain::apply:148 STALL_MS:176 StallWatch:181 StallWatch::fed:187 StallWatch::stalled:192
+  tests: crates/mm-core/tests/mic.rs (11)
 - crates/mm-core/src/phrases.rs — Directory choice for cached speech, independent of filesystem and Tauri APIs.
   directory:7
   inline tests (2)
@@ -145,8 +152,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Step:6 immediate:13 supported:20 same_chord:43 wrong_chord:47 step_has_ctrl:62
   inline tests (3)
 - crates/mm-core/src/vad.rs — RMS-only end-of-speech detection.
-  SilenceEnd:9 SilenceDetector:17 SilenceDetector::new:30 SilenceDetector::heard:35 SilenceDetector::input:41
-  inline tests (7)
+  SilenceEnd:14 SilenceDetector:22 SilenceDetector::new:35 SilenceDetector::heard:40 SilenceDetector::input:46
+  inline tests (8)
 - crates/mm-core/src/wav.rs — In-memory RIFF/WAVE audio for recordings, proxy speech and canned phrases.
   Wav:3 WavError:20 read:147 pcm16_samples:177 write_pcm16:187
   tests: crates/mm-core/tests/wav.rs (8)
@@ -289,15 +296,15 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   warmth:242 miss:250 burst:294 scan:329
   inline tests (14)
 - src-tauri/src/home.rs — The Home window: instructions and sample questions, shown without taking focus.
-  TRY_QUESTIONS:6 open:10 open_home:49 home_try:87
+  TRY_QUESTIONS:6 open:10 open_home:49 open_practice:59 home_try:126
   inline tests (2)
 - src-tauri/src/lib.rs — MetaMate's Tauri shell: wiring only, no business logic (docs/project-structure.md).
-  run:59 show_tray_wake:298 refresh_tray_labels:417 refresh_tray_tooltip:443 locale_text:526
+  run:60 show_tray_wake:306 show_tray_update:317 refresh_tray_labels:463 refresh_tray_tooltip:490 locale_text:579
   inline tests (1)
 - src-tauri/src/main.rs
 - src-tauri/src/mic.rs — Microphone capture while push-to-talk is held (docs/architecture.md section 2).
-  MicError:29 Microphone:56 Microphone::start:73 Microphone::stop:105
-  inline tests (5)
+  MicError:29 Microphone:71 Microphone::start:91 Microphone::stop:133
+  inline tests (6)
 - src-tauri/src/opening.rs — Playback-triggered website/app opening.
   offer_installed:10 OpenResult:131 open_answer_target:137
 - src-tauri/src/overlay.rs — Mate's window and one highlight window per monitor: built hidden, made non-activating, then shown without taking focus (invariant 1; CLAUDE.md "Known pitfalls": never show a Tauri window before …
@@ -356,11 +363,17 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   pressable:4 PRAISE:60 line_key:67 targets_for:95 lesson_session:133 fell_back:145 outline_unlisted:151 wav_duration:207
   speak:214 finish:251
 - src-tauri/src/teacher/tests.rs
+- src-tauri/src/updater.rs — Minimal, safe self-update for Windows (NSIS installer in `currentUser` mode).
+  CURRENT_VERSION:20 DEFAULT_UPDATE_URL:21 ALLOWED_URL_PREFIX:22 MANIFEST_MAX_BYTES:23 INSTALLER_MAX_BYTES:24 NOTE_MAX_CHARS:25 UpdateNotes:37 UpdateManifest:46
+  UpdateStatus:58 Updater:65 Updater::available_version:80 Updater::status:89 parse_semver:100 is_newer_version:122 is_newer:133 is_valid_url:138
+  is_valid_sha256:147 parse_manifest:159 verify_file_sha256:202 installer_command_line:229 check:261 install:353 update_status:529 update_check:535
+  update_install:541
+  inline tests (4)
 - src-tauri/src/voice.rs — The live voice loop (docs/plan.md Day 2): push-to-talk → microphone → speech recognition (the socket opens at key-down, D44) → Muse Spark → MateScript timeline → MMS-TTS sentence by sentence, all …
-  Phrases:77 VoiceLoop:118 ask_text:139 ask_chat:150 ask_explain:161 chat_talk:167 remembered_target:172 show_line:182
-  start:190 ask:224 proxy_config:307 invalidate_overlays:1234 overlays_changed:1238 phrase:1294 say_line:1300 error_line:1338
-  voice_of:1346
-  inline tests (6)
+  Phrases:92 VoiceLoop:133 ask_text:154 ask_chat:165 ask_explain:176 chat_talk:182 remembered_target:187 show_line:197
+  start:205 ask:239 proxy_config:322 invalidate_overlays:1294 overlays_changed:1298 phrase:1354 say_line:1360 error_line:1409
+  voice_of:1417
+  inline tests (7)
 - src-tauri/src/voice_selftest.rs — `--voice-selftest FILE.wav [--proxy URL]`: the whole voice path against the dev proxy, unattended, with every latency measured.
   run_if_requested:26
 
@@ -368,6 +381,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 
 - src/audio/context.ts — AudioContext lifecycle and gesture-free unlock for the audio-owner WebView.
   AUDIO_SAMPLE_RATE:8 initAudioContext:21 ensureResumed:35 toResumeState:64 bindAutoResume:72
+- src/audio/cue-policy.ts — Pure sound-cue policy for Mate's window: maps answer, beam, lesson, presence, and menu events to cues.
+  CUE_COOLDOWN_MS:17 CueEvent:54 CueDecision:73 CuePolicyState:78 CuePolicyContext:93 CuePolicyOptions:101 CuePolicy:109 cueLevelForMode:117
+  cueGainForMode:122 isLessonLineKey:132 isLessonRefusalLineKey:137 isLessonItem:142 createCuePolicyState:154 decideCue:176 createCuePolicy:397
+  tests: src/audio/cue-policy.test.ts (7)
 - src/audio/idle.ts — Audio clock policy, independent of the DOM and the worklet for Node tests.
   AUDIO_IDLE_MS:2 PlaybackLease:4 AudioIdleController:11
   tests: src/audio/idle.test.ts (5)
@@ -378,7 +395,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   LEVEL_GAIN_TABLE:77^ levelGain:77^ LIMITER_ATTACK_SECONDS:77^ LIMITER_KNEE_DB:77^ LIMITER_RATIO:77^ LIMITER_RELEASE_SECONDS:77^ LIMITER_THRESHOLD_DB:77^ MAGIC_FADE_DURATION_SECONDS:77^
   MAGIC_FADE_START_SECONDS:77^ MAX_CUE_PAN:77^ panFromViewportX:77^ resolveEffectiveLevel:77^ RING_BUFFER_CAPACITY:77^ RING_BUFFER_SECONDS:77^ SFX_BANDPASS_HIGH_HZ:77^ SFX_BANDPASS_LOW_HZ:77^
   SOUND_CATALOG:77^ SoundBank:77^ SoundBankOptions:77^ SoundCatalogEntry:77^ SOUNDS_BASE_PATH:77^ toResumeState:77^ TTS_WORKLET_NAME:77^ TtsRingProcessor:77^
-  *:128^ AudioEngineOptions:130 AudioEngine:135 createAudioEngine:173
+  *:128^ *:129^ AudioEngineOptions:131 AudioEngine:136 createAudioEngine:174
   tests: src/audio/index.test.ts (1)
 - src/audio/mixer.ts — Master Web Audio graph: speech, sfx (300 Hz-3.2 kHz bandpass), cues, and ambience buses with ducking and brickwall limiter.
   SFX_BANDPASS_LOW_HZ:5 SFX_BANDPASS_HIGH_HZ:6 BUTTERWORTH_Q:7 DUCK_AMB_DB:9 DUCK_SFX_DB:10 DUCK_AMB_GAIN:11 DUCK_SFX_GAIN:12 DUCK_ATTACK_SECONDS:15
@@ -398,7 +415,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/audio/types.ts — Shared audio, bus, cue, worklet, and timeline types for the WebView audio engine.
   SoundMode:3 SoundLevel:5 SoundKind:7 CUE_NAMES:9 CueName:22 AMBIENCE_NAMES:24 AmbienceName:34 MOOD_NAMES:36
   MoodName:46 RobotState:48 AudioResumeState:61 AudioSettings:63 Sound:70 Point:76 Step:82 Bound:88
-  Say:95 Item:101 PcmChunk:117 WorkletInboundMsg:125 WorkletOutboundMsg:143 CueOptions:166 PlaybackHandle:171 PlayerCallbacks:176
+  Say:95 Item:101 PcmChunk:117 WorkletInboundMsg:125 WorkletOutboundMsg:143 CueOptions:166 PlayCueOptions:173 PlaybackHandle:175
+  PlayerCallbacks:180
 - src/bubble-timing.ts — How long Mate's speech bubble (src/mate.ts) stays on screen (WP85): long enough for an older person to read it at an easy pace, longer texts longer.
   BUBBLE_MIN_MS:5 BUBBLE_NOTICE_MS:7 BUBBLE_MS_PER_CHAR:9 BUBBLE_MAX_MS:11 BUBBLE_LINGER_MS:13 bubbleReadMs:16 bubbleLingerMs:27
   tests: src/bubble-timing.test.ts (6)
@@ -471,10 +489,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   HintsOptions:22 Hints:29 mountHints:42
 - src/home-page.ts — The Home window's entry (home.html): the locale lookup, Mate, then the page itself.
 - src/home.ts — Home window controller (WP89a): the friendly start page for older users.
-  setHomeI18n:25 HOME_TRY_COMMAND:31 OPEN_SETTINGS_COMMAND:33 HOME_TRY_KEYS:36 HomeTryKey:41 HOME_TRY_HINTS:44 HOME_NEVER_KEYS:51 HOME_STATUS_MS:58
-  HomeInvoke:61 isHomeTryKey:63 HomeTryOutcome:68 HomeTryRunner:70 createHomeTryRunner:81 tryStatusKey:108 openSettingsWindow:120 HomeSettings:132
-  startHomeSettings:161 HomeMate:243 MountHomeOptions:249 HomeController:256 mountHome:297
-  tests: src/home.test.ts (29)
+  setHomeI18n:26 HOME_TRY_COMMAND:32 OPEN_SETTINGS_COMMAND:34 HOME_TRY_KEYS:37 HomeTryKey:42 HOME_TRY_HINTS:45 HOME_NEVER_KEYS:52 HOME_WOW_CHIPS:59
+  HOME_STATUS_MS:66 HomeInvoke:69 isHomeTryKey:71 HomeTryOutcome:76 HomeTryRunner:78 createHomeTryRunner:89 tryStatusKey:116 openSettingsWindow:128
+  HomeSettings:140 startHomeSettings:169 HomeMate:251 MountHomeOptions:257 HomeController:264 mountHome:305
+  tests: src/home.test.ts (30)
 - src/home/dom.ts — The small DOM helpers Home's sections share (src/home/*.ts).
   Translate:7 el:9 button:23
 - src/home/guide.ts — Home's guide (owner request, 2026-11-01): what Mate can do as a strip of comic cards, one picture, a bold title, a short line and one example each.
@@ -505,30 +523,37 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   AnswerGenerations:4 HeldPresentation:47
   tests: src/ipc/answer-generation.test.ts (10)
 - src/ipc/answer-stream.ts — Rust → Mate's WebView: the one ordered Tauri channel of `src-tauri/src/answer_stream.rs` (`AnswerMsg`, serde internal tagging on `type`, camelCase fields).
-  ANSWER_STATES:13 AnswerState:14 ANSWER_MODELS:16 AnswerModel:19 ANSWER_LINE_KEYS:22 AnswerLineKey:61 AnswerMsg:64 parseAnswerMsg:107
-  decodePcm:174 AnswerConnect:197 subscribeAnswerStream:204 PlaybackReport:238 MateRect:248 pointAt:259 reportPlayback:278
+  ANSWER_STATES:13 AnswerState:14 ANSWER_MODELS:16 AnswerModel:19 ANSWER_LINE_KEYS:22 AnswerLineKey:68 AnswerMsg:71 parseAnswerMsg:114
+  decodePcm:181 AnswerConnect:204 subscribeAnswerStream:211 PlaybackReport:245 MateRect:255 pointAt:266 reportPlayback:285
   tests: src/ipc/answer-stream.test.ts (15)
 - src/ipc/timeline.ts — The MateScript timeline as it arrives from Rust: one `{"kind", "value"}` object per item (`crates/mm-core/src/matescript/timeline.rs`, serde adjacent tagging).
   Level:6 Sound:9 Point:16 Step:21 Bound:28 Say:36 TimelineItem:43 parseTimelineItem:66
 - src/mate-logic.ts — Mate's answer presentation policy, independent of the DOM, Tauri and the audio engine.
-  CANT_FIND_HOLD_MS:15 LOOK_CONSENT_MS:17 BubbleShape:19 BubbleHint:22 bubbleShape:25 Bubble:41 Stamp:56 createMateAnswerRouter:76
-  interruptLesson:271 awakeBubble:278 createMateWindowEvents:299 guestTrialView:331 signedIn:340
-  tests: src/mate-logic.test.ts (24)
+  LOOK_CONSENT_MS:17 BubbleShape:19 BubbleHint:22 bubbleShape:25 Bubble:41 Stamp:58 createMateAnswerRouter:79 interruptLesson:325
+  awakeBubble:332 createMateWindowEvents:355 guestTrialView:391 signedIn:400
+  tests: src/mate-logic.test.ts (29)
 - src/mate-menu.ts — Page controls in Mate's unfocusable WebView; never use a native popup or focus().
   MATE_MENU_ITEMS:4 guestUsageOf:15 hideReturnTime:22 mountMateMenu:29
   tests: src/mate-menu.test.ts (3)
 - src/mate.ts — Mate's window: mounts the robot (src/robot) idle and calm.
-  devHook:79· mountBubble:116· mountStamp:216· startLiveAnswers:262· createRouter:298·
+  devHook:80· mountBubble:123· mountStamp:228· startLiveAnswers:276· createRouter:335·
 - src/onboarding.ts — First-run onboarding in Mate's window (WP25).
-  setOnboardingPttKey:15 ONBOARDING_STORAGE_KEY:20 setOnboardingTranslator:25 ONBOARDING_STEP_MS:28 ONBOARDING_EXAMPLE_COUNT:29 ONBOARDING_EXAMPLE_KEYS:31 OnboardingExampleKey:40 StorageLike:43
-  OnboardingClock:49 OnboardingSink:58 OnboardingOptions:67 OnboardingController:84 resetOnboardingSession:100 claimFirstRun:120 pickExampleKeys:146 startOnboarding:176
-  mountOnboarding:293 stopOnboarding:353
-  tests: src/onboarding.test.ts (12)
+  setOnboardingPttKey:16 ONBOARDING_STORAGE_KEY:21 setOnboardingTranslator:26 ONBOARDING_STEP_MS:29 ONBOARDING_IDLE_MS:31 ONBOARDING_EXAMPLE_COUNT:32 ONBOARDING_EXAMPLE_KEYS:34 OnboardingExampleKey:43
+  StorageLike:46 OnboardingClock:52 OnboardingSink:61 OnboardingOptions:70 OnboardingController:91 resetOnboardingSession:107 claimFirstRun:127 pickExampleKeys:153
+  startOnboarding:185 mountOnboarding:328 stopOnboarding:388
+  tests: src/onboarding.test.ts (13)
 - src/player/index.ts — The timeline player's public face: `createTimelinePlayer` wires `<lang>` to the app's locale (src/i18n).
   TimelinePlayer:8^ CreateTimelinePlayerOptions:11 createTimelinePlayer:14
 - src/player/timeline-player.ts — Plays an answer's MateScript timeline (docs/matescript.md, "Timeline") on Mate and the audio engine.
   PlayerRobot:18 PlayerAudio:19 TimelinePlayerOptions:21 TimelinePlayer:66
   tests: src/player/timeline-player.test.ts (16)
+- src/practice.ts
+  part:42· line:72· pageShell:79· buildPrizePage:86· buildBankPage:99· buildVirusPage:114· buildControls:133· renderBadge:164·
+  render:196·
+- src/practice/logic.ts — Game logic for the "Scam fire drill" practice page (see practice.html).
+  RoundId:5 Target:8 RoundDef:16 FLAGS_PER_ROUND:22 ROUNDS:24 TOTAL_FLAGS:30 Phase:32 PracticeState:34
+  ClickResult:42 createState:44 currentRound:48 click:53 showMe:81 nextRound:89 score:100
+  tests: src/practice/logic.test.ts (14)
 - src/robot/beam.ts — The flashlight beam in CSS pixels: a light cone from the lens to the target, plus a soft glow and a contour on the target (docs/robot.md "pointing").
   BeamController:9 createBeamController:21
 - src/robot/flight.ts — Moves Mate's box across the page with Web Animations: he tilts toward where he is going and arrives with a small bounce (docs/robot.md "flying").
@@ -567,11 +592,12 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   SAFETY_CHECK_EVENT:9 SafetyVerdict:11 STAMP_KEYS:24 StampState:30 nextStamp:37 stampClearOf:53
   tests: src/safety-stamp.test.ts (5)
 - src/settings.ts — Settings window controller (WP24): renders accessible controls for every `Settings` field using localized labels (`src/i18n`, invariant 7), loads initial state with `invoke("load_settings")`, and …
-  AUTH_CHANGED_EVENT:89^ AUTH_PROVIDERS:89^ createAccountStore:89^ isAuthProvider:89^ isAuthStatus:89^ DEFAULT_SETTINGS:89^ MAX_VOICE_SPEED:89^ MIN_VOICE_SPEED:89^
-  MODEL_CHOICES:89^ PTT_MODES:89^ PTT_KEYS:89^ ROBOT_SIZES:89^ SETTINGS_CHANGED_EVENT:89^ SETTINGS_KEYS:89^ SOUND_MODES:89^ VOICE_SPEED_STEP:89^
-  createSettingsStore:89^ defaultSettings:89^ formatVoiceSpeed:89^ isModelChoice:89^ isPttMode:89^ isPttKey:89^ isRobotSize:89^ isSoundMode:89^
-  isValidVoiceSpeed:89^ parseSettings:89^ snapVoiceSpeed:89^ subscribeSettingsChanged:89^ updateSettings:89^ DEV_STATUS_DURATION_MS:89^ MATE_JUMP_CMD:89^ OPEN_UNDER_THE_HOOD_CMD:89^
-  buildDevSection:89^ devButtonsHidden:89^ loadSettings:183 saveSettings:188 MountSettingsOptions:192 SettingsController:199 mountSettings:214
+  AUTH_CHANGED_EVENT:103^ AUTH_PROVIDERS:103^ createAccountStore:103^ isAuthProvider:103^ isAuthStatus:103^ DEFAULT_SETTINGS:103^ MAX_VOICE_SPEED:103^ MIN_VOICE_SPEED:103^
+  MODEL_CHOICES:103^ PTT_MODES:103^ PTT_KEYS:103^ ROBOT_SIZES:103^ SETTINGS_CHANGED_EVENT:103^ SETTINGS_KEYS:103^ SOUND_MODES:103^ VOICE_SPEED_STEP:103^
+  createSettingsStore:103^ defaultSettings:103^ formatVoiceSpeed:103^ isModelChoice:103^ isPttMode:103^ isPttKey:103^ isRobotSize:103^ isSoundMode:103^
+  isValidVoiceSpeed:103^ parseSettings:103^ snapVoiceSpeed:103^ subscribeSettingsChanged:103^ updateSettings:103^ DEV_STATUS_DURATION_MS:103^ MATE_JUMP_CMD:103^ OPEN_UNDER_THE_HOOD_CMD:103^
+  buildDevSection:103^ devButtonsHidden:103^ UPDATE_INSTALL_CMD:103^ UPDATE_STATUS_CMD:103^ buildUpdateSection:103^ isValidSemver:103^ parseUpdateStatus:103^ resolveUpdateNote:103^
+  loadSettings:207 saveSettings:212 MountSettingsOptions:216 SettingsController:223 mountSettings:238
 - src/settings/account-view.ts — The Settings window's Account section (src/settings.ts): sign in with Google or GitHub, who is signed in, sign out, and the notice lines for screen readers.
   AccountSectionRefs:10 buildAccountSection:17
 - src/settings/account.ts — Pure account state machine, validation, and store (WP67b).
@@ -610,6 +636,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/settings/theme.ts — Shared by the page language subscription, Settings, and Mate's settings binding.
   ThemeTarget:5 applyTheme:9 followWindowSettings:16
   tests: src/settings/theme.test.ts (5)
+- src/settings/update-view.ts — The Settings window's Updates section (src/settings.ts): shows "MetaMate {version}", any localized release note for an available update, and a "Check for updates" / "Update to {version}" button …
+  UPDATE_STATUS_CMD:9 UPDATE_CHECK_CMD:10 UPDATE_INSTALL_CMD:11 DEFAULT_CURRENT_VERSION:12 UpdateNotes:14 UpdateStatus:19 UpdateNotice:25 isValidSemver:38
+  parseUpdateStatus:63 resolveUpdateNote:87 UpdateSectionRefs:94 buildUpdateSection:112
+  tests: src/settings/update-view.test.ts (4)
 - src/settings/voice-speed-view.ts — The Settings window's voice speed slider (src/settings.ts): the speed beside its label, and in words for screen readers.
   VoiceSpeedRefs:23 buildVoiceSpeedGroup:32
 - src/signin.ts — The sign-in window's entry (signin.html, src-tauri/src/signin.rs): signing in is required before Mate answers.
@@ -620,8 +650,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
   run:130 first_line:145 agent_mode_reason:149 say:161 cmd_doctor:198 plan_sections:267 cmd_plan:290 cmd_status:317
-  cmd_check:365 cmd_test:389 cmd_agent:432 cmd_tool:465 cmd_release:471 cmd_uia:577 cmd_art:611 cmd_sounds:659
-  cmd_phrases:701 cmd_agents:714 wanted_key_names:727 parse_env:735 cmd_keys:790 build_parser:869 cmd_probe:927 main:943
+  cmd_check:365 cmd_test:389 cmd_agent:432 cmd_tool:465 cmd_release:471 cmd_uia:599 cmd_art:633 cmd_sounds:681
+  cmd_phrases:723 cmd_agents:736 wanted_key_names:749 parse_env:757 cmd_keys:812 build_parser:891 cmd_probe:949 main:965
   tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
@@ -668,14 +698,13 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: tools/tests/test_mm_probe.py (25)
 - tools/mm_probe_chat.py — `mm probe chat` (loaded by tools/mm_probe.py like mm_probe_safety/mm_probe_point).
   add_parser:27 chat_request_body:66 matescript_items:80 kind_of:89 describe_items:96 format_table:105 cmd_chat:152
-  tests: tools/tests/test_mm_probe_chat.py (8)
 - tools/mm_probe_point.py — Pointing benchmark: synthetic fixtures, real app requests and MateScript parsing.
   PageParser:21 validate:38 load_pages:75 rust:107 prepare:116 score:138 evaluate:158 exchange:166
   aggregate:183 write_report:209 cmd_point:236 add_parser:244
   tests: tools/tests/test_mm_probe_point.py (12)
 - tools/mm_probe_safety.py — Synthetic-page safety benchmark; HTTP, secrets and ledger belong to mm_probe.
-  load_pages:21 classify:59 rule_violations:80 aggregate:106 write_report:128 render_page:154 request_body:174 exchange:186
-  cmd_safety:208 run_batch:223 add_parser:306
+  load_pages:21 classify:59 rule_violations:80 aggregate:106 write_report:128 render_page:154 request_body:174 exchange:188
+  cmd_safety:210 run_batch:225 add_parser:308
   tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
   expand:254 last_line:258 display_path:263 source_files:277 dist_stale:288 npm_cmd:295 build_dist:299 load_fixture:319
@@ -768,33 +797,37 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_send` src-tauri/src/chat.rs:427 <- src/chat.ts:293
 - `chat_subscribe` src-tauri/src/chat.rs:394 <- src/chat.ts:361
 - `chat_talk` src-tauri/src/chat.rs:409 <- src/chat.ts:308
-- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:578, src/signin.ts:104
+- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:650, src/signin.ts:104
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
-- `home_try` src-tauri/src/home.rs:87 <- src/home.ts:31
-- `load_settings` src-tauri/src/settings.rs:286 <- src/highlight.ts:589, src/home.ts:171, src/settings/model.ts:290, src/settings/theme.ts:31
-- `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:455
+- `home_try` src-tauri/src/home.rs:126 <- src/home.ts:32
+- `load_settings` src-tauri/src/settings.rs:286 <- src/highlight.ts:589, src/home.ts:179, src/settings/model.ts:290, src/settings/theme.ts:31
+- `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:517
 - `mate_jump` src-tauri/src/debug_view.rs:144 <- src/settings/dev-view.ts:13
-- `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:43,51
-- `open_answer_target` src-tauri/src/opening.rs:137 <- src/mate.ts:386
-- `open_chat` src-tauri/src/chat.rs:380 <- src/home.ts:473, src/mate-menu.ts:5
+- `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:44,52
+- `open_answer_target` src-tauri/src/opening.rs:137 <- src/mate.ts:442
+- `open_chat` src-tauri/src/chat.rs:380 <- src/home.ts:498, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
-- `open_settings_window` src-tauri/src/lib.rs:489 <- src/home.ts:33, src/mate-menu.ts:7
+- `open_practice` src-tauri/src/home.rs:59 <- src/home.ts:468
+- `open_settings_window` src-tauri/src/lib.rs:542 <- src/home.ts:34, src/mate-menu.ts:7
 - `open_under_the_hood` src-tauri/src/debug_view.rs:121 <- src/settings/dev-view.ts:12
-- `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:266
-- `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:491, src/mate-menu.ts:11
-- `report_playback` src-tauri/src/answer_stream.rs:397 <- src/ipc/answer-stream.ts:285
+- `point_at` src-tauri/src/pointing.rs:333 <- src/ipc/answer-stream.ts:273
+- `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:516, src/mate-menu.ts:11
+- `report_playback` src-tauri/src/answer_stream.rs:397 <- src/ipc/answer-stream.ts:292
 - `save_settings` src-tauri/src/settings.rs:293 <- src/settings/model.ts:304
 - `sign_in` src-tauri/src/auth.rs:177 <- src/settings/account.ts:254
 - `sign_out` src-tauri/src/auth.rs:278 <- src/settings/account.ts:275
-- `subscribe_answer_stream` src-tauri/src/answer_stream.rs:423 <- src/ipc/answer-stream.ts:295
+- `subscribe_answer_stream` src-tauri/src/answer_stream.rs:423 <- src/ipc/answer-stream.ts:302
 - `try_as_guest` src-tauri/src/signin.rs:214 <- src/signin.ts:101
+- `update_check` src-tauri/src/updater.rs:535 <- src/settings/update-view.ts:10
+- `update_install` src-tauri/src/updater.rs:541 <- src/settings/update-view.ts:11
+- `update_status` src-tauri/src/updater.rs:529 <- src/settings/update-view.ts:9
 
 ### Tauri Channels
 
 Commands accepting `Channel<...>` <- TypeScript `new Channel` bindings passed to them.
 
 - `chat_subscribe` src-tauri/src/chat.rs:394 <- src/chat.ts:353
-- `subscribe_answer_stream` src-tauri/src/answer_stream.rs:423 <- src/ipc/answer-stream.ts:293
+- `subscribe_answer_stream` src-tauri/src/answer_stream.rs:423 <- src/ipc/answer-stream.ts:300
 
 ### Files on disk
 
@@ -811,23 +844,23 @@ File names declared as Rust string constants (read or written by the app).
 
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
-- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:574, src/settings.ts:171, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
+- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:646, src/settings.ts:195, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:30; rs listen src-tauri/src/card.rs:68; const src-tauri/src/card.rs:37, src/card.ts:39
 - `chat-talk`: rs emit src-tauri/src/chat.rs:337,403; ts listen src/chat.ts:356; const src-tauri/src/chat.rs:17
 - `debug`: rs emit src-tauri/src/debug_view.rs:201; ts listen src/debug.ts:84; const src-tauri/src/debug_view.rs:17
-- `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:595; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:573, src/signin.ts:106; const src-tauri/src/signin.rs:18
-- `highlight`: rs emit src-tauri/src/highlight.rs:238,244,380, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:608, src/mate.ts:548; const src-tauri/src/highlight.rs:15
+- `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:667; const src-tauri/src/explain.rs:39
+- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:645, src/signin.ts:106; const src-tauri/src/signin.rs:18
+- `highlight`: rs emit src-tauri/src/highlight.rs:238,244,380, src-tauri/src/pointing.rs:453; ts listen src/highlight.ts:608, src/mate.ts:616; const src-tauri/src/highlight.rs:15
 - `highlight-burst`: rs emit src-tauri/src/highlight.rs:306; ts listen src/highlight.ts:613; const src-tauri/src/highlight.rs:16, src/highlight/geometry.ts:106
-- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:583
+- `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:655
 - `lesson-card`: rs emit src-tauri/src/card.rs:462; ts listen src/card-page.ts:26; const src-tauri/src/card.rs:36, src/card.ts:37
-- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:573; ts listen src/mate.ts:337; const src/mate.ts:40
-- `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:554
+- `lesson-interrupt`: rs emit src-tauri/src/voice.rs:588; ts listen src/mate.ts:382; const src/mate.ts:41
+- `mate-hiding`: rs emit src-tauri/src/presence.rs:59; ts listen src/mate.ts:626
 - `mate-jump`: rs emit src-tauri/src/highlight.rs:121; ts listen src/highlight.ts:603; const src-tauri/src/highlight.rs:55, src/highlight/jump.ts:6
-- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:553
-- `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:558
-- `safety-check`: rs emit src-tauri/src/voice.rs:981; ts listen src/mate.ts:365; const src-tauri/src/voice.rs:69, src/safety-stamp.ts:9
-- `settings-changed`: rs emit src-tauri/src/settings.rs:321,363; ts listen src/highlight.ts:594, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:59, src/settings.ts:159; const src-tauri/src/settings.rs:25, src/settings/model.ts:28
+- `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:625
+- `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:630
+- `safety-check`: rs emit src-tauri/src/voice.rs:1022; ts listen src/mate.ts:415; const src-tauri/src/voice.rs:70, src/safety-stamp.ts:9
+- `settings-changed`: rs emit src-tauri/src/settings.rs:321,363; ts listen src/highlight.ts:594, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:60, src/settings.ts:183; const src-tauri/src/settings.rs:25, src/settings/model.ts:28
 - `voice-bar`: rs emit src-tauri/src/highlight.rs:105,115; ts listen src/highlight.ts:598; const src-tauri/src/highlight.rs:53, src/highlight/voicebar.ts:7
 
 ### Proxy routes
@@ -852,7 +885,7 @@ Server route decorators <- Rust string literals (URLs, `format!` templates) that
 The header names the kind of a proxy call: server `CallKind` value (py) and the Rust `CallKind` variant that sends it (rs), then the Rust calls that use it.
 
 - header: rs src-tauri/src/proxy.rs:416; py server/metamate_proxy/responses_route.py:68
-- `answer`: py server/metamate_proxy/policy.py:74; rs src-tauri/src/proxy.rs:70; used src-tauri/src/voice.rs:1139,1149, src-tauri/src/voice_selftest.rs:179
+- `answer`: py server/metamate_proxy/policy.py:74; rs src-tauri/src/proxy.rs:70; used src-tauri/src/voice.rs:1199,1209, src-tauri/src/voice_selftest.rs:179
 - `computer`: py server/metamate_proxy/policy.py:75; rs src-tauri/src/proxy.rs:71; used src-tauri/src/teacher/lesson.rs:138
 - `intent`: py server/metamate_proxy/policy.py:72; rs src-tauri/src/proxy.rs:68
 - `sam`: py server/metamate_proxy/policy.py:76; rs src-tauri/src/proxy.rs:72; used src-tauri/src/sam.rs:108
@@ -886,46 +919,50 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `open.cancelled`: rs src-tauri/src/opening.rs:80
 - `open.confirm_installed`: rs src-tauri/src/opening.rs:52
 - `open.exact_name`: rs src-tauri/src/opening.rs:41
-- `open.failed`: rs src-tauri/src/opening.rs:77,164; ts src/mate.ts:388
-- `open.not_installed`: rs src-tauri/src/voice.rs:1021
+- `open.failed`: rs src-tauri/src/opening.rs:77,164; ts src/mate.ts:444
+- `open.not_installed`: rs src-tauri/src/voice.rs:1070
 - `open.remote_warning`: rs src-tauri/src/opening.rs:25
-- `robot.cant_find`: rs src-tauri/src/chat.rs:201, src-tauri/src/home.rs:98, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:372, src-tauri/src/teacher/lesson.rs:338, src-tauri/src/teacher/presentation.rs:78; ts src/audio/types.ts:185, src/ipc/answer-stream.ts:27, src/mate-logic.ts:243
-- `robot.cant_look`: rs src-tauri/src/screen.rs:379, src-tauri/src/teacher/lesson.rs:102; ts src/ipc/answer-stream.ts:30
-- `robot.checking_safety`: rs src-tauri/src/voice.rs:66
-- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:504,632,633; ts src/ipc/answer-stream.ts:41
-- `robot.click_stop`: rs src-tauri/src/chat.rs:206, src-tauri/src/voice.rs:634; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:28, src/mate-logic.ts:186,210
-- `robot.didnt_catch`: rs src-tauri/src/voice.rs:1331,1377; ts src/ipc/answer-stream.ts:25
-- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:387,395,605,611, src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:55
-- `robot.done`: rs src-tauri/src/teacher/presentation.rs:80; ts src/ipc/answer-stream.ts:50
-- `robot.double_click`: rs src-tauri/src/teacher/presentation.rs:71; ts src/ipc/answer-stream.ts:44
-- `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/ipc/answer-stream.ts:39
-- `robot.look_consent`: rs src-tauri/src/screen.rs:595; ts src/ipc/answer-stream.ts:35, src/mate-logic.ts:220,225
-- `robot.looking`: rs src-tauri/src/voice.rs:64
-- `robot.network_error`: rs src-tauri/src/chat.rs:448, src-tauri/src/teacher/presentation.rs:81, src-tauri/src/voice.rs:1342; ts src/ipc/answer-stream.ts:23
-- `robot.no_microphone`: rs src-tauri/src/voice.rs:677,693,1333,1376; ts src/ipc/answer-stream.ts:24
-- `robot.open_browser_first`: rs src-tauri/src/home.rs:103, src-tauri/src/voice.rs:1378; ts src/ipc/answer-stream.ts:26
-- `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:86; ts src/ipc/answer-stream.ts:57
-- `robot.press_failed`: rs src-tauri/src/teacher/presentation.rs:87; ts src/ipc/answer-stream.ts:58
-- `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:85; ts src/ipc/answer-stream.ts:56
-- `robot.private_window`: rs src-tauri/src/screen.rs:370; ts src/ipc/answer-stream.ts:33
-- `robot.protected_window`: rs src-tauri/src/screen.rs:373; ts src/ipc/answer-stream.ts:31
-- `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:328,329; ts src/ipc/answer-stream.ts:46
-- `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/ipc/answer-stream.ts:47
-- `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/ipc/answer-stream.ts:48
-- `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/ipc/answer-stream.ts:49
-- `robot.screen_changed`: rs src-tauri/src/teacher/presentation.rs:72; ts src/ipc/answer-stream.ts:45
-- `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:193, src-tauri/src/voice.rs:1340; ts src/ipc/answer-stream.ts:37
-- `robot.sign_in_first`: rs src-tauri/src/signin.rs:96; ts src/ipc/answer-stream.ts:38
-- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:484,566; ts src/ipc/answer-stream.ts:59
-- `robot.thinking`: rs src-tauri/src/voice.rs:63
-- `robot.thinking_2`: rs src-tauri/src/voice.rs:63
-- `robot.thinking_3`: rs src-tauri/src/voice.rs:63
-- `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:451,456; ts src/ipc/answer-stream.ts:53
-- `robot.too_many_turns`: rs src-tauri/src/teacher/presentation.rs:82; ts src/ipc/answer-stream.ts:51
-- `robot.window_closed`: rs src-tauri/src/pointing.rs:346; ts src/ipc/answer-stream.ts:32
-- `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:83; ts src/ipc/answer-stream.ts:52
-- `robot.wrong_keys`: rs src-tauri/src/teacher/presentation.rs:70; ts src/ipc/answer-stream.ts:43
-- `robot.wrong_place`: rs src-tauri/src/teacher/presentation.rs:69; ts src/ipc/answer-stream.ts:42
+- `practice.title`: rs src-tauri/src/home.rs:66; ts src/practice.ts:198,210
+- `robot.cant_find`: rs src-tauri/src/chat.rs:201, src-tauri/src/home.rs:137, src-tauri/src/pointing.rs:379, src-tauri/src/screen.rs:372, src-tauri/src/teacher/lesson.rs:338, src-tauri/src/teacher/presentation.rs:78; ts src/audio/cue-policy.ts:36, src/audio/types.ts:189, src/ipc/answer-stream.ts:33, src/mate-logic.ts:290,295
+- `robot.cant_look`: rs src-tauri/src/screen.rs:379, src-tauri/src/teacher/lesson.rs:102; ts src/audio/cue-policy.ts:37, src/ipc/answer-stream.ts:36
+- `robot.checking_safety`: rs src-tauri/src/voice.rs:67
+- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:504,632,633; ts src/ipc/answer-stream.ts:47
+- `robot.click_stop`: rs src-tauri/src/chat.rs:206, src-tauri/src/voice.rs:724; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:34, src/mate-logic.ts:206,236
+- `robot.didnt_catch`: rs src-tauri/src/voice.rs:1391,1448; ts src/ipc/answer-stream.ts:31
+- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:387,395,605,611, src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:61
+- `robot.done`: rs src-tauri/src/teacher/presentation.rs:80; ts src/audio/cue-policy.ts:32,248, src/ipc/answer-stream.ts:56
+- `robot.double_click`: rs src-tauri/src/teacher/presentation.rs:71; ts src/ipc/answer-stream.ts:50
+- `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/audio/cue-policy.ts:51, src/ipc/answer-stream.ts:45
+- `robot.look_consent`: rs src-tauri/src/screen.rs:595; ts src/ipc/answer-stream.ts:41, src/mate-logic.ts:251
+- `robot.looking`: rs src-tauri/src/voice.rs:65
+- `robot.mic_busy`: rs src-tauri/src/voice.rs:1401; ts src/ipc/answer-stream.ts:30
+- `robot.mic_denied`: rs src-tauri/src/voice.rs:1400; ts src/ipc/answer-stream.ts:26
+- `robot.network_error`: rs src-tauri/src/chat.rs:448, src-tauri/src/teacher/presentation.rs:81, src-tauri/src/voice.rs:1413; ts src/audio/cue-policy.ts:48, src/ipc/answer-stream.ts:23
+- `robot.no_microphone`: rs src-tauri/src/voice.rs:705,1393,1403,1447; ts src/ipc/answer-stream.ts:24
+- `robot.open_browser_first`: rs src-tauri/src/home.rs:142, src-tauri/src/voice.rs:1449; ts src/ipc/answer-stream.ts:32
+- `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:86; ts src/audio/cue-policy.ts:45, src/ipc/answer-stream.ts:63
+- `robot.press_failed`: rs src-tauri/src/teacher/presentation.rs:87; ts src/audio/cue-policy.ts:46, src/ipc/answer-stream.ts:64
+- `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:85; ts src/ipc/answer-stream.ts:62
+- `robot.private_window`: rs src-tauri/src/screen.rs:370; ts src/audio/cue-policy.ts:40, src/ipc/answer-stream.ts:39
+- `robot.protected_window`: rs src-tauri/src/screen.rs:373; ts src/audio/cue-policy.ts:38, src/ipc/answer-stream.ts:37
+- `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:328,329; ts src/audio/cue-policy.ts:20,27, src/ipc/answer-stream.ts:52
+- `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/audio/cue-policy.ts:21,28, src/ipc/answer-stream.ts:53
+- `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/audio/cue-policy.ts:22,29, src/ipc/answer-stream.ts:54
+- `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/audio/cue-policy.ts:23,30, src/ipc/answer-stream.ts:55
+- `robot.screen_changed`: rs src-tauri/src/teacher/presentation.rs:72; ts src/ipc/answer-stream.ts:51
+- `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:193, src-tauri/src/voice.rs:1411; ts src/audio/cue-policy.ts:49, src/ipc/answer-stream.ts:43
+- `robot.sign_in_first`: rs src-tauri/src/signin.rs:96; ts src/audio/cue-policy.ts:50, src/ipc/answer-stream.ts:44
+- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:484,566; ts src/audio/cue-policy.ts:47, src/ipc/answer-stream.ts:65
+- `robot.thinking`: rs src-tauri/src/voice.rs:64
+- `robot.thinking_2`: rs src-tauri/src/voice.rs:64
+- `robot.thinking_3`: rs src-tauri/src/voice.rs:64
+- `robot.thinking_harder`: rs src-tauri/src/teacher/lesson.rs:451,456; ts src/ipc/answer-stream.ts:59
+- `robot.too_many_turns`: rs src-tauri/src/teacher/presentation.rs:82; ts src/audio/cue-policy.ts:43, src/ipc/answer-stream.ts:57
+- `robot.update_failed`: rs src-tauri/src/updater.rs:382,395,411,417,422; ts src/ipc/answer-stream.ts:66
+- `robot.window_closed`: rs src-tauri/src/pointing.rs:346; ts src/audio/cue-policy.ts:39, src/ipc/answer-stream.ts:38
+- `robot.wont_press`: rs src-tauri/src/teacher/presentation.rs:83; ts src/audio/cue-policy.ts:44, src/ipc/answer-stream.ts:58
+- `robot.wrong_keys`: rs src-tauri/src/teacher/presentation.rs:70; ts src/ipc/answer-stream.ts:49
+- `robot.wrong_place`: rs src-tauri/src/teacher/presentation.rs:69; ts src/audio/cue-policy.ts:31,246, src/ipc/answer-stream.ts:48
 - `settings.key_capsLock`: rs src-tauri/src/settings.rs:143; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.key_f10`: rs src-tauri/src/settings.rs:146; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.key_f9`: rs src-tauri/src/settings.rs:145; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
@@ -933,33 +970,38 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:142; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.keycap_ctrl`: rs src-tauri/src/settings.rs:141; ts src/settings/ptt-key.ts:11
 - `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:96
-- `tray.chat`: rs src-tauri/src/lib.rs:281; ts src/mate-menu.ts:5
-- `tray.hide_hour`: rs src-tauri/src/lib.rs:347,400; ts src/mate-menu.ts:9
-- `tray.open_home`: rs src-tauri/src/lib.rs:280
-- `tray.quit`: rs src-tauri/src/lib.rs:340,402
-- `tray.settings`: rs src-tauri/src/lib.rs:333,399,509; ts src/home.ts:475, src/mate-menu.ts:7, src/settings.ts:365,367
-- `tray.tooltip`: rs src-tauri/src/lib.rs:438
-- `tray.try_bigger`: rs src-tauri/src/home.rs:6,74; ts src/home.ts:39,47
-- `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:38,46
-- `tray.try_search`: rs src-tauri/src/home.rs:6; ts src/home.ts:37,45
-- `tray.try_title`: rs src-tauri/src/lib.rs:364,426
-- `tray.wake`: rs src-tauri/src/lib.rs:354,401
+- `tray.chat`: rs src-tauri/src/lib.rs:288; ts src/mate-menu.ts:5
+- `tray.hide_hour`: rs src-tauri/src/lib.rs:375,443; ts src/mate-menu.ts:9
+- `tray.open_home`: rs src-tauri/src/lib.rs:287
+- `tray.quit`: rs src-tauri/src/lib.rs:368,445
+- `tray.settings`: rs src-tauri/src/lib.rs:361,442,562; ts src/home.ts:500, src/mate-menu.ts:7, src/settings.ts:391,393
+- `tray.tooltip`: rs src-tauri/src/lib.rs:485
+- `tray.try_bigger`: rs src-tauri/src/home.rs:6,113; ts src/home.ts:40,48
+- `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:39,47
+- `tray.try_search`: rs src-tauri/src/home.rs:6; ts src/home.ts:38,46
+- `tray.try_title`: rs src-tauri/src/lib.rs:403,473
+- `tray.update`: rs src-tauri/src/lib.rs:289
+- `tray.wake`: rs src-tauri/src/lib.rs:382,444
 - `auth.*` (10 keys): src/settings/account-view.ts, src/settings/account.ts, src/signin.ts
 - `card.*` (11 keys): src/card.ts
 - `chat.*` (30 keys): src/chat.ts
 - `highlight.*` (5 keys): src/highlight.ts, src/highlight/jump-view.ts
 - `hints.*` (7 keys): src/hints/logic.ts, src/hints/view.ts
-- `home.*` (91 keys): src/home.ts, src/home/guide.ts, src/home/lessons-view.ts, src/home/model-picker.ts, src/home/profile.ts, src/mate-menu.ts, src/mate.ts
+- `home.*` (100 keys): src/home.ts, src/home/guide.ts, src/home/lessons-view.ts, src/home/model-picker.ts, src/home/profile.ts, src/mate-menu.ts, src/mate.ts
 - `mate.*` (6 keys): src/mate-menu.ts, src/mate.ts, src/safety-stamp.ts
 - `model.*` (5 keys): src/mate.ts
 - `onboarding.*` (7 keys): src/onboarding.ts
 - `open.*` (1 keys): src/mate.ts
-- `robot.*` (1 keys): src/onboarding.ts
-- `settings.*` (49 keys): src/home.ts, src/settings.ts, src/settings/choices-view.ts, src/settings/dev-view.ts, src/settings/ptt-key.ts, src/settings/voice-speed-view.ts
+- `practice.*` (41 keys): src/practice.ts
+- `robot.*` (3 keys): src/audio/cue-policy.ts, src/ipc/answer-stream.ts, src/mate-logic.ts, src/mate.ts, src/onboarding.ts
+- `settings.*` (55 keys): src/home.ts, src/settings.ts, src/settings/choices-view.ts, src/settings/dev-view.ts, src/settings/ptt-key.ts, src/settings/update-view.ts, src/settings/voice-speed-view.ts
 - `signin.*` (6 keys): src/signin.ts
 - `tray.*` (2 keys): src/settings/choices-view.ts
-- no literal use (9 keys); prefixes: `card.*`, `robot.*`
+- no literal use (13 keys); prefixes: `card.*`, `practice.*`, `robot.*`
 - `card.window_title`: no literal use
+- `practice.foundCount`: no literal use
+- `practice.page.prize.timerLabel`: no literal use
+- `practice.progress`: no literal use
 - `robot.calm_mode`: no literal use
 - `robot.found_it`: no literal use
 - `robot.fun_mode`: no literal use
@@ -967,6 +1009,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.login_page`: no literal use
 - `robot.password_covered`: no literal use
 - `robot.security_prompt`: no literal use
+- `robot.update_ready`: no literal use
 - `robot.wake`: no literal use
 
 ## Tests
@@ -975,11 +1018,11 @@ Counts include standalone test files and source files with inline tests. Rust `#
 
 | Area | Tests | Files |
 |---|---:|---:|
-| crates/mm-core | 302 | 37 |
+| crates/mm-core | 309 | 38 |
 | crates/mm-platform | 46 | 7 |
 | crates/mm-win32 | 63 | 12 |
-| src-tauri | 207 | 20 |
-| src | 367 | 37 |
-| tools | 447 | 26 |
+| src-tauri | 213 | 21 |
+| src | 399 | 40 |
+| tools | 439 | 25 |
 | server | 105 | 5 |
 | tts | 27 | 2 |

@@ -176,6 +176,8 @@ def request_body(png: Path, lang: str, model: str, args) -> dict:
                '--image', str(png), '--lang', lang, '--model', model, '--max-edge', str(args.max_edge)]
     if args.reasoning:
         command += ['--reasoning', args.reasoning]
+    if getattr(args, 'kind', 'safety') != 'safety':
+        command += ['--kind', args.kind]
     result = subprocess.run(command, cwd=probe.ROOT, stdin=subprocess.DEVNULL,
                             capture_output=True, text=True, encoding='utf-8', timeout=180)
     if result.returncode:
@@ -311,6 +313,8 @@ def add_parser(sub, name='safety', func=cmd_safety) -> None:
     parser.add_argument('--jobs', type=int, default=4)
     parser.add_argument('--max-edge', type=int, default=1280)
     parser.add_argument('--reasoning', choices=('minimal', 'low', 'medium', 'high'))
+    parser.add_argument('--kind', choices=('safety', 'describe'), default='safety',
+                        help="describe: the same pages with D80's 'What is going on on this page?'")
     parser.add_argument('--budget', type=float, default=probe.DEFAULT_BUDGET_USD)
     parser.add_argument('--max-unpriced', type=int, default=30)
     parser.add_argument('--out', default=f'{name}-report')

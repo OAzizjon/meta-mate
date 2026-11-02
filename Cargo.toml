@@ -5,7 +5,7 @@ members = ["crates/mm-core", "crates/mm-platform", "crates/mm-win32", "src-tauri
 default-members = ["crates/mm-core", "crates/mm-platform"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.99"
 publish = false

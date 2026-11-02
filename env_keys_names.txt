@@ -69,3 +69,8 @@ DEEP_SEEK
 MM_REQUIRE_SIGN_IN
 # Video clip renderer (tools/render_clips.mjs): the browser executable
 CLIPS_BROWSER
+# mm release: the owner's code-signing certificate (docs/code-signing.md) and its password
+MM_SIGN_PFX
+MM_SIGN_PASSWORD
+# Development builds: override the update manifest URL and enable update checks (src-tauri/src/updater.rs)
+MM_UPDATE_URL
