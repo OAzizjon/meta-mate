@@ -698,6 +698,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: tools/tests/test_mm_probe.py (25)
 - tools/mm_probe_chat.py — `mm probe chat` (loaded by tools/mm_probe.py like mm_probe_safety/mm_probe_point).
   add_parser:27 chat_request_body:66 matescript_items:80 kind_of:89 describe_items:96 format_table:105 cmd_chat:152
+  tests: tools/tests/test_mm_probe_chat.py (8)
 - tools/mm_probe_point.py — Pointing benchmark: synthetic fixtures, real app requests and MateScript parsing.
   PageParser:21 validate:38 load_pages:75 rust:107 prepare:116 score:138 evaluate:158 exchange:166
   aggregate:183 write_report:209 cmd_point:236 add_parser:244
@@ -1023,6 +1024,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 213 | 21 |
 | src | 399 | 40 |
-| tools | 439 | 25 |
+| tools | 447 | 26 |
 | server | 105 | 5 |
 | tts | 27 | 2 |
