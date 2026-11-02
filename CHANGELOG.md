@@ -8,6 +8,8 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Added
 
+- Muse Glimmer 30B answers chat with Muse Spark fallback; choose the brain on Home; judge Developer mode adds "Under the hood" and "Mate's surprise entrance"; a voice bar follows speech and shows the words heard, with GPU warm-up; Chat adds suggestions, a model chip, copy, and a new-answer button (D77, D78, D79; owner, 2026-11-02).
+
 <!-- Hackathon build: 2026-10-26 .. 2026-11-04 -->
 
 - `mm legacy` reports legacy and dead-code candidates across Rust, TypeScript, Python, locales, docs and optional external tools.

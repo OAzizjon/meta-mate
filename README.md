@@ -1,6 +1,6 @@
 # MetaMate
 
-**Ask out loud how to do something on your PC. Mate, a small light bulb on your desktop, answers aloud and shines his beam on the exact button. You click it yourself, step by step; he never presses Pay, Delete, money-transfer or password buttons.** Made for older people and anyone lost in an unfamiliar app. Meta's models do the work: Muse Voice Transcribe listens, Muse Spark 1.3 and Muse Wonder 1.0 find the button and teach, MMS-TTS speaks; Muse Glimmer 30B and Muse Image make a printable card of each lesson, and SAM 3.1 outlines controls in apps Windows cannot read.
+**Ask out loud how to do something on your PC. Mate, a small light bulb on your desktop, answers aloud and shines his beam on the exact button. You click it yourself, step by step, or say "do it for me" and he presses an ordinary button only after your yes; he never presses Pay, Delete, money-transfer or password buttons.** Made for older people and anyone lost in an unfamiliar app. Meta's models do the work: Muse Voice Transcribe listens, Muse Spark 1.3 and Muse Wonder 1.0 find the button and teach, MMS-TTS speaks; Muse Glimmer 30B and Muse Image make a printable card of each lesson, and SAM 3.1 outlines controls in apps Windows cannot read.
 
 ![Mate points right here](assets/art/meme-right-here.png)
 
@@ -28,7 +28,7 @@
 
 ## What Mate does
 
-MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Click Mate or hold **Ctrl** (or another talk key chosen in Settings) and ask in English or Russian; Mate answers aloud with a live transcript in his bubble. The core:
+MetaMate is Mate, a small light-bulb companion living on the Windows desktop designed to help older adults and anyone navigating unfamiliar interfaces. Click Mate or hold **Ctrl** (or another talk key chosen in Settings) and ask in English or Russian; Mate answers aloud with a live transcript in his bubble. While you speak, a bar at the bottom of the screen follows your voice and shows the words Mate heard. The core:
 
 - **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it. With the accessibility element list he named the right control in all 610 measured answers (below); where it cannot read the window, he says he can't find it rather than guess.
 - **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and if the person clicks away from the beam twice on Quick, Muse Wonder 1.0 automatically plans the next step.
@@ -54,13 +54,15 @@ Also inside:
 
 | Meta model | Role in MetaMate | Measured performance |
 |---|---|---|
-| **Muse Spark 1.3** | Spoken answers, pointing beam, step-by-step lessons, and "Is this safe?" scam check | First token in 1.4–2.6 s at reasoning effort `minimal` (D41, D45) |
+| **Muse Spark 1.3** | Quick answers (the default), pointing beam, step-by-step lessons, and "Is this safe?" scam check | First token in 1.4–2.6 s at reasoning effort `minimal` (D41, D45) |
 | **Muse Wonder 1.0** | Thorough answers; on Quick, a lesson's next step after two clicks away from the beam | High-reasoning model for complex guidance and fallback escalation (D56) |
 | **Muse Voice Transcribe** | Realtime push-to-talk speech recognition (Ctrl) | Final transcript 250–360 ms after key-up (socket opens at key-down) (D44, D45) |
 | **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal GPU) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
-| **Muse Glimmer 30B** | Keepsake lesson card text: rewrites lesson steps in simple words (Meta open weights on Modal GPU) | Q4_K_M ~15 tokens/s on a Modal L4 / A10G GPU (D53, D57) |
+| **Muse Glimmer 30B** | Chat answers and keepsake lesson card text (Meta open weights on our own Modal GPU) | Q4_K_M ~15 tokens/s on a Modal L4 / A10G GPU (D53, D57) |
 | **Muse Image** | Keepsake lesson card illustration (soft gouache art with Mate, without text; printable) | Generates custom scene illustration for completed lessons (D55) |
 | **SAM 3.1** | Experimental: outlines what lies under a point where the accessibility tree has nothing (canvas, Qt apps, games) | Target segmentation masks and boundary guidance |
+
+Choose Mate's brain on the Home screen: Muse Spark 1.3 (quick, default), Muse Wonder 1.0 (thorough), or Muse Glimmer 30B. Screen questions still use Muse Spark because only Spark sees the screenshot.
 
 ### Measured: "Is this safe?"
 
@@ -113,6 +115,8 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 - **Backend proxy:** A FastAPI service deployed on Modal manages daily allowance ledgers, streams model responses, and handles Google/GitHub OAuth with PKCE and Windows DPAPI credential sealing.
 
 ## FAQ for judges
+
+**For judges: under the hood.** In Settings → "For judges and developers" → Developer mode, "Under the hood" shows each answer's model, timings from key-up, the parsed MateScript timeline, and how many fields were blacked out—never your words or the screenshot. The same menu offers "Mate's surprise entrance."
 
 **Do I need an account?** No. You can try MetaMate right away with 12 messages an hour as a guest (the count shows under Mate); sign in with Google for your own daily allowance.
 
