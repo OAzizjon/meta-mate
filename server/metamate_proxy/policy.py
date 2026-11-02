@@ -757,3 +757,11 @@ def charge_glimmer(ledger: Ledger, invite: str, today: date) -> None:
     day.glimmer[invite] = day.glimmer.get(invite, 0) + 1
     ledger.save()
 
+
+def refund_glimmer(ledger: Ledger, invite: str, today: date) -> None:
+    """Gives back a call charged before a Glimmer that never answered (D77)."""
+    day = ledger.days.get(today)
+    if day is not None and day.glimmer.get(invite, 0) > 0:
+        day.glimmer[invite] -= 1
+        ledger.save()
+

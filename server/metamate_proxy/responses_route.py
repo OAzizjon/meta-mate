@@ -11,7 +11,7 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from . import auth, policy
+from . import auth, glimmer_chat, policy
 from .common import State, error, invite_of, read_body, scrub, scrub_key, today, upstream_error
 
 if TYPE_CHECKING:
@@ -131,6 +131,26 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
             body = json.loads(raw)
             if not isinstance(body, dict):
                 raise ValueError('body must be an object')
+        except (ValueError, RecursionError) as problem:
+            release()
+            return error(400, str(problem) if isinstance(problem, ValueError) else 'request nests too deeply')
+        fallback = None
+        if body.get('model') == glimmer_chat.GLIMMER:
+            # The same limits as any answer first (size, images, tokens): a body Spark
+            # would refuse is refused here too.
+            try:
+                policy.clamp_request(dict(body, model=policy.SPARK), kind, policy.SPARK)
+            except (ValueError, RecursionError) as problem:
+                release()
+                return error(400, str(problem) if isinstance(problem, ValueError) else 'request nests too deeply')
+            # Muse Glimmer answers plain chat on our GPU (D77); anything else, a cold or
+            # failing Glimmer, or a used-up day goes to Spark like a Wonder fallback.
+            served = await glimmer(body, invite, limits, kind, release)
+            if served is not None:
+                return served
+            body = dict(body, model=policy.SPARK)
+            fallback = 'glimmer_unavailable'
+        try:
             clamped = policy.clamp_request(body, kind, str(body.get('model', policy.SPARK)))
         except (ValueError, RecursionError) as problem:
             release()
@@ -164,8 +184,8 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
         headers = {'Authorization': 'Bearer ' + settings.meta_key, 'Content-Type': 'application/json'}
         url = settings.meta_base + '/responses'
         answered = {'X-MetaMate-Model': reservation.model}
-        if reservation.reason:
-            answered['X-MetaMate-Fallback-Reason'] = reservation.reason
+        if reservation.reason or fallback:
+            answered['X-MetaMate-Fallback-Reason'] = reservation.reason or fallback
         settled = False
 
         def settle_once(usage: dict | None, model: str | None, *, refused: bool = False) -> None:
@@ -275,6 +295,43 @@ def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.Async
             await upstream.aclose()
 
         return Relay(relay(), cleanup, media_type='text/event-stream', headers=answered)
+
+
+    async def glimmer(body: dict, invite: str, limits: policy.InviteLimits,
+                      kind: policy.CallKind, release) -> Response | None:
+        """Glimmer's streamed answer, or None for the Spark path (the slot stays held)."""
+        if kind is not policy.CallKind.ANSWER or not settings.glimmer_url or not body.get('stream'):
+            return None
+        if policy._image_count(body) or policy.glimmer_allowance(state.ledger, invite, limits, today()) < 1:
+            return None
+        messages = glimmer_chat.chat_messages(body)
+        if messages is None:
+            return None
+        tokens = body.get('max_output_tokens', glimmer_chat.MAX_TOKENS)
+        # Charged before the wait, so answers started at once cannot all pass the check.
+        day = today()
+        policy.charge_glimmer(state.ledger, invite, day)
+        try:
+            started = await glimmer_chat.start(http, settings.glimmer_url, settings.tts_secret, messages,
+                                               tokens if type(tokens) is int else glimmer_chat.MAX_TOKENS)
+        except BaseException:
+            policy.refund_glimmer(state.ledger, invite, day)
+            raise
+        if started is None:
+            policy.refund_glimmer(state.ledger, invite, day)
+            return None
+        events, close = started
+
+        async def cleanup() -> None:
+            release()
+            try:
+                await events.aclose()
+            finally:
+                # Also when the client left before the first byte: the generator never ran.
+                await close()
+
+        return Relay(events, cleanup, media_type='text/event-stream',
+                     headers={'X-MetaMate-Model': glimmer_chat.GLIMMER})
 
 
 def final_response(event: bytes) -> dict | None:

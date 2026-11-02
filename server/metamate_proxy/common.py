@@ -31,6 +31,10 @@ class State:
     guest_hits: dict[str, list[float]] = field(default_factory=dict)
     guest_issued: dict[str, list[float]] = field(default_factory=dict)
     guest_steps: dict[str, list[float]] = field(default_factory=dict)
+    # /v1/warm: when each GPU service was last woken, and the pings still running.
+    warmed: dict[str, float] = field(default_factory=dict)
+    warming: set = field(default_factory=set)
+    warm_count: dict = field(default_factory=dict)
 
 
 def today() -> 'datetime.date':

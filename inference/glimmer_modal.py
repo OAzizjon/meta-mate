@@ -65,8 +65,10 @@ def serve() -> None:
         '--mmproj', f'{WEIGHTS}/{PROJECTOR_FILE}',
         '--alias', 'muse-glimmer-30b',
         '--n-gpu-layers', '999',
+        # Each slot gets ctx-size / parallel tokens: Mate's chat prompt is ~1.6k tokens
+        # plus up to 1000 of answer (D77), so two slots of 4096, same KV memory as before.
         '--ctx-size', '8192',
-        '--parallel', '4',
+        '--parallel', '2',
         # Glimmer reasons before it answers (like Spark); MetaMate's uses are short and fast,
         # and at ~15 tokens/s on an L4 the reasoning alone would take seconds.
         '--reasoning-budget', '0',

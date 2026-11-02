@@ -1,9 +1,11 @@
 """One call each behind the invite and a daily allowance, taken before the call: `/v1/tts`
 (MMS-TTS, tts/), `/v1/image` (Muse Image) and `/v1/glimmer` (Muse Glimmer on Modal)."""
 
+import asyncio
 import base64
 import binascii
 import json
+import time
 from typing import TYPE_CHECKING
 
 import httpx
@@ -19,9 +21,47 @@ if TYPE_CHECKING:
 TTS_MAX_BODY_BYTES = 4096
 TTS_IN_FLIGHT_PER_INVITE = 2
 TTS_SECONDS = 30
+# A ping wakes a scaled-to-zero GPU container; one per service per minute is plenty.
+WARM_EVERY_SECONDS = 60
+WARM_TIMEOUT_SECONDS = 180
+# At most this many wake-ups per service a day: pings cannot keep a paid GPU up all day.
+WARM_PER_DAY = 48
 
 
 def register(app: FastAPI, settings: 'Settings', state: State, http: httpx.AsyncClient) -> None:
+    @app.post('/v1/warm')
+    async def warm(request: Request) -> Response:
+        """Wakes MMS-TTS (and Muse Glimmer with `{"glimmer": true}`) while the person is
+        still talking, so the first answer is not lost to a cold start. Answers at once;
+        the pings run on and cost nothing but a container start."""
+        if invite_of(request.headers.get('authorization'), settings) is None:
+            return error(401, 'unknown invite code')
+        body = await json_body(request, 256)
+        targets = [('tts', settings.tts_url, '/healthz')]
+        if isinstance(body, dict) and body.get('glimmer') is True:
+            targets.append(('glimmer', settings.glimmer_url, '/health'))
+        now = time.monotonic()
+        day = today()
+        for name, url, path in targets:
+            if not url or now - state.warmed.get(name, -WARM_EVERY_SECONDS) < WARM_EVERY_SECONDS:
+                continue
+            count = state.warm_count.get((name, day), 0)
+            if count >= WARM_PER_DAY:
+                continue
+            state.warm_count = {(name, day): count + 1, **{
+                key: value for key, value in state.warm_count.items() if key[1] == day and key[0] != name}}
+            state.warmed[name] = now
+            task = asyncio.create_task(ping(url + path))
+            state.warming.add(task)
+            task.add_done_callback(state.warming.discard)
+        return Response(status_code=204)
+
+    async def ping(url: str) -> None:
+        try:
+            await http.get(url, timeout=WARM_TIMEOUT_SECONDS)
+        except httpx.HTTPError:
+            pass
+
     @app.post('/v1/tts')
     async def tts(request: Request) -> Response:
         """One sentence in Mate's voice: MMS-TTS behind the invite and a daily character
