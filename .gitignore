@@ -50,3 +50,4 @@ desktop.ini
 # Raw research notes with other people's comments (summary lives in docs/research-reddit.md)
 /human_opinion.txt
 /site-dist/
+/site-dist.new/
