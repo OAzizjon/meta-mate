@@ -4,6 +4,17 @@ All notable changes to MetaMate are recorded in this file.
 
 This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-11-05
+
+### Fixed
+
+- On web pages Mate refused almost every "where is" question with "I can't see that here". Pages often expose their buttons and boxes as plain text: the model named them correctly, then the app rejected the point because it was not a control. The beam may now shine on a small visible label or icon; pressing stays controls only (D89).
+- "What can you see on this page?" and similar questions look at the window instead of answering without it; a question about the world ("what do you see in a dream?") stays a chat.
+
+### Added
+
+- `MM_TRACE=1` prints the element list and the model's words to stderr on this PC, for diagnosis.
+
 ## [0.2.1] - 2026-11-04
 
 ### Added

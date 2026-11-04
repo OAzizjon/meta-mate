@@ -19,6 +19,8 @@ use mm_platform::{CapturedImage, UiElement, UiSnapshot};
 
 /// The long edge of the image the model gets (S4 measured ~3.7k tokens at 1280 px).
 pub const MAX_EDGE: u32 = 1280;
+/// A label the beam may shine on covers at most one eighth of the window.
+const LABEL_SHARE_OF_FRAME: i128 = 8;
 /// Elements listed in the prompt: interactive ones first (render_element_list).
 pub const MAX_LISTED: usize = 60;
 
@@ -299,14 +301,8 @@ impl Look {
                 if !self.list.ids.iter().any(|listed| listed == id) {
                     return None;
                 }
-                // Only something a person can act on: never the window itself, static
-                // text or a disabled or hidden control (the same rule as `target_at`).
                 let element = self.snapshot.element(id)?;
-                let pointable = element.interactive
-                    && element.parent.is_some()
-                    && element.enabled
-                    && !element.offscreen;
-                if !pointable {
+                if !shinable(element, self.snapshot.frame) {
                     return None;
                 }
                 element.rect?
@@ -317,7 +313,15 @@ impl Look {
                 if point_in_any(phys, &self.painted) {
                     return None;
                 }
-                self.snapshot.target_at(phys)?.rect?
+                let frame = self.snapshot.frame;
+                self.snapshot
+                    .target_at(phys)
+                    .or_else(|| {
+                        self.snapshot
+                            .element_at(phys)
+                            .filter(|element| shinable(element, frame))
+                    })?
+                    .rect?
             }
         };
         // Partly under a painted area: what the model saw there was black.
@@ -326,6 +330,34 @@ impl Look {
         }
         clip(rect, self.snapshot.frame)
     }
+}
+
+/// Where the beam may shine: a control, or, because web pages often expose their buttons
+/// and boxes as plain text and pictures (D89), a small visible label or icon. Never the
+/// window, a hidden or disabled control, or a large block of text. Pressing never uses this:
+/// `resolve_live` and the teacher's `pressable` stay controls only (invariant 4).
+fn shinable(element: &UiElement, frame: PhysRect) -> bool {
+    if element.parent.is_none() || !element.enabled || element.offscreen {
+        return false;
+    }
+    if element.interactive {
+        return true;
+    }
+    if element.is_password || element.password_like {
+        return false;
+    }
+    let Some(rect) = element.rect else {
+        return false;
+    };
+    let area = |r: PhysRect| {
+        (i128::from(r.right) - i128::from(r.left)) * (i128::from(r.bottom) - i128::from(r.top))
+    };
+    let label = match element.control_type.as_str() {
+        "Image" => true,
+        "Text" | "Group" | "Custom" => !element.name.trim().is_empty(),
+        _ => false,
+    };
+    label && area(rect) > 0 && area(rect) * LABEL_SHARE_OF_FRAME <= area(frame)
 }
 
 /// Why there is no look; each maps to the line Mate says instead.
@@ -787,6 +819,9 @@ fn look_once(
             return Err(LookFailure::Cancelled);
         }
         if target_now().as_ref() != Some(&target) {
+            if crate::voice::trace_on() {
+                eprintln!("look: changed at screen.rs:{}", line!());
+            }
             return Err(LookFailure::Changed);
         }
         snapshot = walk()?;
@@ -801,6 +836,9 @@ fn look_once(
             return Err(LookFailure::Cancelled);
         }
         if target_now().as_ref() != Some(&target) {
+            if crate::voice::trace_on() {
+                eprintln!("look: changed at screen.rs:{}", line!());
+            }
             return Err(LookFailure::Changed);
         }
         // Rewalk after the answer: permission never makes an old mask current.
@@ -820,6 +858,9 @@ fn look_once(
     if granted_now
         && !window::foreground_target(own).is_some_and(|front| front.window == target.window)
     {
+        if crate::voice::trace_on() {
+            eprintln!("look: changed at screen.rs:{}", line!());
+        }
         return Err(LookFailure::Changed);
     }
     let copied = {
@@ -837,6 +878,9 @@ fn look_once(
         overlay::wait_for_composition();
         let copied = capture::capture_region(target.region);
         if !same_areas(&around, &window::occluders(&target, own)) {
+            if crate::voice::trace_on() {
+                eprintln!("look: changed at screen.rs:{}", line!());
+            }
             return Err(LookFailure::Changed);
         }
         copied.map(|capture| (capture, around))
@@ -860,6 +904,9 @@ fn look_once(
             after.popups.len(),
             after.region == target.region,
         );
+        if crate::voice::trace_on() {
+            eprintln!("look: changed at screen.rs:{}", line!());
+        }
         return Err(LookFailure::Changed);
     }
     // Windows above the target before, around and after the copy are all painted: the
@@ -892,6 +939,9 @@ fn look_once(
     if !unchanged {
         #[cfg(debug_assertions)]
         eprintln!("look: changed: hidden fields differ between the walks");
+        if crate::voice::trace_on() {
+            eprintln!("look: changed at screen.rs:{}", line!());
+        }
         return Err(LookFailure::Changed);
     }
     let painted = painted_areas(target.region, target.frame, &target.popups, &occluders);
@@ -1816,11 +1866,59 @@ mod tests {
     }
 
     #[test]
-    fn only_pointable_elements_resolve_by_id() {
+    fn the_window_is_never_a_target_and_a_small_label_is() {
         let look = prepare(snapshot(), &capture(), &[]).unwrap();
-        // The window itself and static text are listed, but never targets.
         assert_eq!(look.resolve(&Point::Id("e0".into())), None);
-        assert_eq!(look.resolve(&Point::Id("e2".into())), None);
+        // A web page's search box is often only the text "Search": the answer stands (D89).
+        assert!(look.resolve(&Point::Id("e2".into())).is_some());
+    }
+
+    #[test]
+    fn the_beam_takes_small_labels_and_icons_but_nothing_else_that_is_not_a_control() {
+        let frame = PhysRect {
+            left: 0,
+            top: 0,
+            right: 1000,
+            bottom: 800,
+        };
+        let small = PhysRect {
+            left: 10,
+            top: 10,
+            right: 110,
+            bottom: 40,
+        };
+        let element = |control_type: &str, name: &str, rect: PhysRect| UiElement {
+            id: "e9".into(),
+            parent: Some("e0".into()),
+            control_type: control_type.into(),
+            name: name.into(),
+            rect: Some(rect),
+            interactive: false,
+            enabled: true,
+            offscreen: false,
+            is_password: false,
+            password_like: false,
+        };
+        assert!(shinable(&element("Text", "Search", small), frame));
+        assert!(shinable(&element("Image", "", small), frame));
+        assert!(shinable(&element("Group", "Search", small), frame));
+        // An empty frame around other things, and an unnamed text: nothing to show.
+        assert!(!shinable(&element("Pane", "Search", small), frame));
+        assert!(!shinable(&element("Text", "  ", small), frame));
+        // A long article is not a button.
+        assert!(!shinable(&element("Text", "A long article", frame), frame));
+        let mut hidden = element("Text", "Search", small);
+        hidden.offscreen = true;
+        assert!(!shinable(&hidden, frame));
+        let mut disabled = element("Text", "Search", small);
+        disabled.enabled = false;
+        assert!(!shinable(&disabled, frame));
+        let mut password = element("Text", "Search", small);
+        password.password_like = true;
+        assert!(!shinable(&password, frame));
+        let mut window = element("Text", "Search", small);
+        window.parent = None;
+        assert!(!shinable(&window, frame));
     }
 
     #[test]

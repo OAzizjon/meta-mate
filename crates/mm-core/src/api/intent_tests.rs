@@ -366,6 +366,19 @@ fn questions_about_the_whole_window_are_described() {
     let mut failures = Vec::new();
     for (text, expected) in [
         ("What is going on on this page?", Intent::Describe),
+        // Said to the real app on 2026-11-05, in a second language.
+        ("What you can see on this page.", Intent::Describe),
+        ("What you can see on this page?", Intent::Describe),
+        ("Hi mate, what can you see on this page?", Intent::Describe),
+        ("What can you see?", Intent::Describe),
+        ("What do you see here?", Intent::Describe),
+        ("Show me", Intent::Where),
+        ("Что ты видишь?", Intent::Describe),
+        ("Что ты видишь на этой странице?", Intent::Describe),
+        // About the world, not the window: no look.
+        ("What do you see in a dream?", Intent::Chat),
+        ("What can you see from the moon?", Intent::Chat),
+        ("Что ты видишь во сне?", Intent::Chat),
         ("What's going on on this page?", Intent::Describe),
         ("What is going on this page?", Intent::Describe),
         ("What’s happening on my screen?", Intent::Describe),

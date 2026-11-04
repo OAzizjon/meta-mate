@@ -74,3 +74,4 @@ MM_SIGN_PFX
 MM_SIGN_PASSWORD
 # Development builds: override the update manifest URL and enable update checks (src-tauri/src/updater.rs)
 MM_UPDATE_URL
+MM_TRACE

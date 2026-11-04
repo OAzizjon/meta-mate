@@ -47,26 +47,21 @@ leaves the PC.
 **TH3 (12 s).** One installer. No account to try. English and Russian today. Try it at meta-mate dot
 stream. Mate lights the button. Your parent clicks it.
 
-## 3. Voice-over (same microphone, quiet room)
+## 3. Voice-over: Mate narrates himself
 
-**V1, over the card (9 s).** After each lesson, a card to keep. Muse Glimmer, Meta's open model on
-our own GPU, writes the steps. Muse Image draws the picture.
+Generated, not read aloud: Mate's own MMS-TTS voice through the live proxy (`video/voice/V1.wav` to `V6.wav`). The voice in the video is the model named in it.
 
-**V2, over take D (4 s).** And when it isn't there, he says so.
+**V1, over the card (10 s).** After each lesson, a card to keep. Muse Glimmer, Meta's open model on our own GPU, writes the steps. Muse Image draws the picture.
 
-**V3, over take F (16 s).** This is how it really works. Muse Voice Transcribe hears you while you
-talk. Muse Spark finds the button in the list Windows gives us. MMS-TTS speaks. Every answer shows
-its model, its timing, and what was blacked out.
+**V2, over take D (3 s).** And when it isn't there, I say so.
 
-**V4, over `seven-models` and take G (13 s).** Seven Meta models. Each one has a job. You choose
-Mate's brain: quick, careful, or open weights on our own GPU.
+**V3, over take F (20 s).** This is how I really work. Muse Voice Transcribe hears you while you talk. Muse Spark finds the button in the list Windows gives us. MMS-TTS speaks. That is this voice. Every answer shows its model, its timing, and what was blacked out.
 
-**V5, over `scam-stamp` and `pointing-610` (17 s).** We measured it. On forty made-up pages, he
-caught every scam. When the button was on the screen and Windows listed it, he was right all six
-hundred ten times. Without that list, less than half. We report both numbers.
+**V4, over `seven-models` and take G (9 s).** Seven Meta models. Each one has a job. You choose my brain: quick, careful, or open weights on our own GPU.
 
-**V6, over `scale` (10 s).** A son or daughter installs it once. A new app needs no new code where
-Windows lists its buttons. Where it doesn't, Mate says so.
+**V5, over `scam-stamp` and `pointing-610` (18 s).** We measured it. On forty made-up pages, I caught every scam. When the button was on the screen and Windows listed it, I was right all six hundred ten times. Without that list, less than half. We report both numbers.
+
+**V6, over `scale` (11 s).** A son or daughter installs me once. A new app needs no new code where Windows lists its buttons. Where it doesn't, I say so.
 
 ## 4. The cut
 

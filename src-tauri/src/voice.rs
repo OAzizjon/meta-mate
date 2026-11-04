@@ -1017,6 +1017,16 @@ async fn answer(
                 let _ = crate::highlight::scan(&app, &look);
                 let model = ModelChoice::from(crate::settings::model(&app));
                 let (list, image) = (&look.list, &look.redacted.image);
+                if trace_on() {
+                    eprintln!(
+                        "trace: intent {intent:?}, elements {}, listed {}, painted {}, truncated {}\n{}",
+                        look.snapshot.elements.len(),
+                        list.ids.len(),
+                        look.redacted.painted,
+                        look.snapshot.truncated,
+                        list.text,
+                    );
+                }
                 let (body, wait_phrase) = if intent == Intent::Safety {
                     let effort = ReasoningEffort::SAFETY_CHECK;
                     if app.emit_to("mate", SAFETY_EVENT, generation).is_err() {
@@ -1147,6 +1157,9 @@ async fn answer(
                                 .retain(|bound| !matches!(bound, Bound::Point(_) | Bound::Step(_)));
                             Item::Say(say)
                         } else {
+                            if let Some(look) = look.as_ref() {
+                                eprintln!("voice: point rejected: {}", why_rejected(look, &say));
+                            }
                             stream.send(AnswerMsg::Item {
                                 generation,
                                 item: Item::PointRejected,
@@ -1201,7 +1214,12 @@ async fn answer(
             }
         };
         let mut result = proxy
-            .respond(CallKind::Answer, &body, |delta| emit(parser.push(delta)))
+            .respond(CallKind::Answer, &body, |delta| {
+                if trace_on() {
+                    eprint!("{delta}");
+                }
+                emit(parser.push(delta))
+            })
             .await;
         // A proxy from before D77 refuses Glimmer's id outright, before any text: the same
         // question goes to Spark, and the chip says who answered.
@@ -1256,6 +1274,47 @@ async fn answer(
             }
         });
     }
+}
+
+/// `MM_TRACE=1`: the element list and the model's words go to stderr on this PC only.
+pub(crate) fn trace_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("MM_TRACE").is_ok_and(|value| value == "1"))
+}
+
+/// Why each point of `say` failed, in ids and flags only: never a name from the window.
+fn why_rejected(look: &crate::screen::Look, say: &mm_core::matescript::Say) -> String {
+    let describe = |point: &Point| match point {
+        Point::Id(id) => {
+            let listed = look.list.ids.iter().any(|listed| listed == id);
+            match look.snapshot.element(id) {
+                Some(element) => format!(
+                    "{id}: listed {listed}, interactive {}, enabled {}, offscreen {}, has parent {}, has rect {}",
+                    element.interactive,
+                    element.enabled,
+                    element.offscreen,
+                    element.parent.is_some(),
+                    element.rect.is_some(),
+                ),
+                None => format!("{id}: listed {listed}, not in the snapshot"),
+            }
+        }
+        Point::Pixel(x, y) => format!(
+            "pixel {x},{y}: elements {}, listed {}, outline allowed {}",
+            look.snapshot.elements.len(),
+            look.list.ids.len(),
+            crate::sam::outline_allowed(look, *x, *y),
+        ),
+    };
+    say.bound
+        .iter()
+        .filter_map(|bound| match bound {
+            Bound::Point(point) => Some(describe(point)),
+            Bound::Step(step) => Some(describe(&step.target)),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 /// Keep the sentence's audio slot, but never speak or execute its rejected instruction.

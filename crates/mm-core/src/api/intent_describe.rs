@@ -27,6 +27,19 @@ fn names_view(words: &[&str]) -> bool {
         .any(|pair| matches!(pair[0], "this" | "that" | "the" | "my") && view(pair[1]))
 }
 
+/// "What can you see on this page?": the same words with the window named.
+fn saw_named(words: &[&str]) -> bool {
+    contains_spoken(
+        words,
+        &[
+            "what can you see",
+            "what you can see",
+            "what do you see",
+            "what you see",
+        ],
+    )
+}
+
 fn english(words: &[&str]) -> bool {
     // "What is going on with my back?" names no window: a chat.
     let happening = contains_spoken(
@@ -38,7 +51,23 @@ fn english(words: &[&str]) -> bool {
             "whats happening",
         ],
     );
+    // "What can you see?" is said to Mate, not about the world: "what do you see in a dream?"
+    // and "what can you see from the moon?" stay a chat, with no look.
+    let seeing = contains_spoken(
+        words,
+        &[
+            "what can you see",
+            "what you can see",
+            "what do you see",
+            "what you see",
+        ],
+    ) && matches!(
+        words.last(),
+        Some(&("see" | "here" | "now" | "please" | "mate"))
+    );
     (happening && names_view(words))
+        || seeing
+        || (saw_named(words) && names_view(words))
         || contains_spoken(
             words,
             &[
@@ -160,7 +189,22 @@ fn russian(words: &[&str]) -> bool {
             "зачитайте",
         ],
     );
-    (contains_spoken(words, &["происходит", "творится"]) && shown)
+    // "Что ты видишь во сне?" stays a chat, with no look.
+    let seeing = contains_spoken(
+        words,
+        &[
+            "что ты видишь",
+            "что видишь",
+            "что ты тут видишь",
+            "что ты здесь видишь",
+        ],
+    ) && (shown
+        || matches!(
+            words.last(),
+            Some(&("видишь" | "тут" | "здесь" | "сейчас" | "пожалуйста"))
+        ));
+    seeing
+        || (contains_spoken(words, &["происходит", "творится"]) && shown)
         || (contains_spoken(words, &["объясни", "объясните", "поясни", "поясните"]) && here)
         || (reading && (here || contains_spoken(words, &["это", "написано"])))
         || (words.contains(&"написано") && here)
