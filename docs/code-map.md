@@ -675,7 +675,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: tools/tests/test_mm_cover.py (9)
 - tools/mm_cut.py — Assemble the demo with the standard library and ffmpeg only.
   media_path:27 load_list:36 resolve_sources:80 number:97 start_times:103 validate:127 warnings:145 drawtext_escape:172
-  look_filters:178 subtitle_lines:192 write_srt:214 build_graph:222 srt:292 probe:306 web_command:314 main:322
+  look_filters:178 subtitle_lines:192 write_srt:214 build_graph:222 srt:292 probe:306 web_command:314 main:324
   tests: tools/tests/test_mm_cut.py (31)
 - tools/mm_difflint.py — mm difflint [PATCH|-]
   AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284
@@ -720,8 +720,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   cmd_safety:210 run_batch:225 add_parser:308
   tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_ship.py — mm ship: the owner's night-of-submission steps, in order, each asked first.
-  app_version:30 installer_path:34 sha256:39 build_site:47 release_notes:71 Runner:83 tool:110 proxy_link:117
-  step_glimmer:126 step_proxy:134 step_site:144 step_release:156 step_repo:178 step_check:188 main:197
+  app_version:30 installer_path:34 sha256:39 build_site:47 release_notes:73 Runner:85 tool:112 proxy_link:119
+  step_glimmer:128 step_proxy:136 step_site:146 step_release:158 step_repo:180 step_check:190 main:199
   tests: tools/tests/test_mm_ship.py (14)
 - tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
   expand:254 last_line:258 display_path:263 source_files:277 dist_stale:288 npm_cmd:295 build_dist:299 load_fixture:319

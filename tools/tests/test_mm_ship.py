@@ -36,6 +36,9 @@ class BuildSite(unittest.TestCase):
         out = self.root / 'dist'
         mm_ship.build_site(self.root, out, self.installer)
         self.assertFalse((out / 'media').exists())
+        (self.root / 'site/video.html').write_text('<video>', encoding='utf-8')
+        with self.assertRaises(SystemExit):
+            mm_ship.build_site(self.root, out, self.installer)
         demo = self.root / 'video/out/metamate-demo.mp4'
         demo.parent.mkdir(parents=True)
         demo.write_bytes(b'video')

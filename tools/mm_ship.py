@@ -59,8 +59,10 @@ def build_site(root: Path, out: Path, installer: Path) -> str:
     # The demo video lives outside git (video/out/, `mm cut --web`); the page plays it from here.
     demo = root / 'video/out/metamate-demo.mp4'
     if demo.is_file():
-        (out / 'media').mkdir()
+        (out / 'media').mkdir(exist_ok=True)
         shutil.copy2(demo, out / 'media' / demo.name)
+    elif (root / 'site/video.html').is_file():
+        raise SystemExit('site/video.html plays a video that is missing: run mm cut --web first')
     download = out / 'download'
     download.mkdir()
     shutil.copy2(installer, download / 'MetaMate-setup.exe')

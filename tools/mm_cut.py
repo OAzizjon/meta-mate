@@ -314,6 +314,8 @@ def probe(path):
 def web_command(source, target, seconds):
     """A copy for the site, whose host refuses a file over 25 MiB; the bitrate follows the length."""
     rate = int(WEB_TARGET_BYTES * 8 / seconds) - WEB_AUDIO_BITRATE
+    if rate < WEB_AUDIO_BITRATE:
+        raise ValueError(f'{seconds:.0f} s is too long for a web copy under the host limit')
     return ['ffmpeg', '-nostdin', '-y', '-i', str(source), '-c:v', 'libx264', '-preset', 'slow',
             '-b:v', str(rate), '-maxrate', str(rate * 3 // 2), '-bufsize', str(rate * 2), '-pix_fmt', 'yuv420p',
             '-c:a', 'aac', '-b:a', str(WEB_AUDIO_BITRATE), '-movflags', '+faststart', str(target)]
