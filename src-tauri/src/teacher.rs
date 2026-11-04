@@ -21,7 +21,7 @@ use mm_core::api::request::{
 };
 use mm_core::api::response::{Action, ParsedResponse};
 use mm_core::geom::{PhysRect, ShotPoint};
-use mm_core::matescript::{Item, Say};
+use mm_core::matescript::{Bound, Item, Say};
 use mm_core::redaction::{overlaps_any, point_in_any};
 use mm_core::teacher::{
     ChordRecognizer, ClickRecognizer, LineKey, RefusalReason, Teacher, TeacherCommand,

@@ -492,6 +492,44 @@ test("computeKeepsakeLayout fits 1..6 steps inside 1200x1600 without overlap and
   assert.equal(computeKeepsakeLayout(0).steps.length, 0);
 });
 
+test("computeKeepsakeLayout reserves the family note's band only when there is a note", () => {
+  for (const requested of [1, 2, 3, 4, 5, 6, 8]) {
+    // No note: no band and not a pixel taken from the steps.
+    const plain = computeKeepsakeLayout(requested);
+    assert.equal(plain.note, null);
+    assert.deepEqual(computeKeepsakeLayout(requested, false), plain);
+
+    const noted = computeKeepsakeLayout(requested, true);
+    const note = noted.note;
+    assert.ok(note, `no note band for ${requested}`);
+    assert.deepEqual(noted.picturePanel, plain.picturePanel);
+    assert.deepEqual(noted.titleBanner, plain.titleBanner);
+    assert.deepEqual(noted.footer, plain.footer);
+    assert.equal(noted.steps.length, plain.steps.length);
+    const lastBubble = noted.steps[noted.steps.length - 1].bubble;
+    assert.ok(lastBubble.y + lastBubble.height < note.y, `step overlaps note for ${requested}`);
+    assert.ok(note.y + note.height < noted.footer.y, `note overlaps footer for ${requested}`);
+    assert.ok(note.x >= noted.pageFrame.x && note.x + note.width <= noted.pageFrame.x + noted.pageFrame.width);
+    for (let i = 0; i < noted.steps.length; i += 1) {
+      assert.ok(noted.steps[i].bubble.height <= plain.steps[i].bubble.height);
+      assert.ok(noted.steps[i].textBox.height > 0);
+    }
+  }
+});
+
+test("parseLessonCard keeps a family note on one line and drops an empty or malformed one", () => {
+  assert.equal(
+    parseLessonCard({ ...VALID_CARD, familyNote: "  We are\n proud of you!  " })?.familyNote,
+    "We are proud of you!",
+  );
+  for (const familyNote of [undefined, null, "", "   ", 42, {}, ["Hi"]]) {
+    const parsed = parseLessonCard({ ...VALID_CARD, familyNote });
+    assert.ok(parsed !== null, inspect(familyNote));
+    assert.equal("familyNote" in parsed, false, inspect(familyNote));
+    assert.deepEqual(parsed, VALID_CARD);
+  }
+});
+
 test("containImageRect preserves aspect ratio inside the panel without cropping", () => {
   const box = { x: 78, y: 78, width: 1044, height: 514 };
   const square = containImageRect(1024, 1024, box);

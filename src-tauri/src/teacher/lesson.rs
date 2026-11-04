@@ -556,6 +556,22 @@ pub(crate) async fn teach(
                         question.clone(),
                         std::mem::take(&mut card_steps),
                     ));
+                    // Once, after "All done": the note the family left. The card is on its
+                    // way already, so a slow or failed speech call cannot hold it up.
+                    if let Some(line) =
+                        family_note_line(&stream.locale(), &crate::settings::family_note(&app))
+                    {
+                        sentence += 1;
+                        speak_family_note(
+                            &stream,
+                            &proxy,
+                            generation,
+                            sentence,
+                            line,
+                            &speech_epoch,
+                        )
+                        .await;
+                    }
                 }
                 finish(&app, &stream, generation);
                 return;

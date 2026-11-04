@@ -1,7 +1,8 @@
 // Lesson card window controller (WP62): Muse Image recap for older users.
 // Displays a comic-page keepsake card after a lesson ends well.
 // Listens for the "lesson-card" Tauri event from Rust with payload
-// `{ id?: string, title: string, steps: string[], imagePath: string, wordsBy?: "glimmer" | "lesson" }`.
+// `{ id?: string, title: string, steps: string[], imagePath: string, wordsBy?: "glimmer" | "lesson",
+// familyNote?: string }`; the family's note (Settings) comes only when there is one.
 // Composes a 1200x1600 captioned keepsake PNG on a canvas, saves it once via
 // `card_save_captioned`, and displays it in the window.
 // All user-facing strings come from `src/i18n` (invariant 7).
@@ -31,6 +32,8 @@ export interface LessonCard {
   readonly steps: readonly string[];
   readonly imagePath: string;
   readonly wordsBy: CardWordsBy;
+  /** The family's note, printed at the card's bottom; absent without one. */
+  readonly familyNote?: string;
 }
 
 /** Name of the Tauri event carrying a new lesson card. */
@@ -42,14 +45,15 @@ export const CARD_READY_EVENT = "card-ready";
  * Validates and parses an untrusted event payload into a `LessonCard`.
  * Returns `null` for malformed text; a missing or empty image is a text-only card.
  * `wordsBy` is optional: anything but `"glimmer"` is `"lesson"` (older payloads have none).
- * Never throws.
+ * `familyNote` is optional too: kept on one line when it is a non-empty string, else left out
+ * (a bad note never costs the card). Never throws.
  */
 export function parseLessonCard(raw: unknown): LessonCard | null {
   try {
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
       return null;
     }
-    const { id, title, steps, imagePath, wordsBy } = raw as Record<string, unknown>;
+    const { id, title, steps, imagePath, wordsBy, familyNote } = raw as Record<string, unknown>;
 
     if (id != null && typeof id !== "string") {
       return null;
@@ -73,12 +77,14 @@ export function parseLessonCard(raw: unknown): LessonCard | null {
     }
 
     const cleanId = typeof id === "string" ? id.trim() : "";
+    const note = typeof familyNote === "string" ? familyNote.replace(/\s+/g, " ").trim() : "";
     return {
       ...(cleanId ? { id: cleanId } : {}),
       title: title.trim(),
       steps: cleanSteps,
       imagePath: typeof imagePath === "string" ? imagePath.trim() : "",
       wordsBy: wordsBy === "glimmer" ? "glimmer" : "lesson",
+      ...(note ? { familyNote: note } : {}),
     };
   } catch {
     return null;
@@ -374,6 +380,12 @@ export function mountLessonCard(
   credits.className = "card-credits";
   credits.hidden = true;
 
+  // The family's note at the bottom, in the card's handwritten face; no note, no line.
+  const familyNote = document.createElement("p");
+  familyNote.id = "card-family-note";
+  familyNote.className = "card-family-note";
+  familyNote.hidden = true;
+
   // Actions footer: Print and Close buttons (kept in view while the steps scroll, never printed)
   const actions = document.createElement("footer");
   actions.className = "card-actions";
@@ -397,7 +409,7 @@ export function mountLessonCard(
   });
 
   actions.append(printBtn, closeBtn);
-  layout.append(header, stepsList, credits, actions);
+  layout.append(header, stepsList, credits, familyNote, actions);
   container.replaceChildren(layout);
 
   // Apply card state (composing captioned keepsake canvas and updating text)
@@ -413,6 +425,8 @@ export function mountLessonCard(
     titleEl.textContent = card.title;
     renderSteps(card.steps);
     credits.textContent = t(creditsKey(card.wordsBy));
+    familyNote.textContent = card.familyNote ?? "";
+    familyNote.hidden = !card.familyNote;
 
     layout.className = "card-layout";
     imgCreditsMuse = false;
@@ -433,6 +447,7 @@ export function mountLessonCard(
         imageUrl: resolvedUrl,
         locale: getLocale(),
         madeWithLabel: t("card.made_with"),
+        familyNote: card.familyNote ?? "",
       });
       if (destroyed || generation !== renderGeneration) {
         return;

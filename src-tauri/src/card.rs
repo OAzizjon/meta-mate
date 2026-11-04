@@ -10,8 +10,10 @@
 //! The page gets `lesson-card` with `{ id, title, steps, imagePath, locale, wordsBy }`, where
 //! `imagePath` is the picture as a `data:` URL (the WebView needs no asset protocol and no
 //! file scope) and `wordsBy` (`glimmer` or `lesson`) tells whose words the steps are, for
-//! the card's credit line. A new window's page does not listen yet, so the card is sent
-//! on `card-ready`, from managed state retained even when the page loads slowly.
+//! the card's credit line. `familyNote`, only when the family left one in Settings, is
+//! printed at the card's bottom; it is never part of Glimmer's message. A new window's page
+//! does not listen yet, so the card is sent on `card-ready`, from managed state retained
+//! even when the page loads slowly.
 
 use std::io;
 use std::path::PathBuf;
@@ -87,6 +89,9 @@ struct LessonCard {
     locale: String,
     #[serde(rename = "wordsBy")]
     words_by: WordsBy,
+    /// The family's note (settings.rs), sent only when there is one.
+    #[serde(rename = "familyNote", skip_serializing_if = "String::is_empty")]
+    family_note: String,
 }
 
 /// Whose words a card's title and steps are: the page credits Muse Glimmer for its own.
@@ -110,6 +115,8 @@ struct Wording {
 /// it, `steps` are the lesson's commentary lines in order (the first `MAX_STEPS` are kept).
 pub(crate) async fn make(app: AppHandle, question: String, steps: Vec<String>) {
     let ended = SystemTime::now();
+    // The note of the lesson's end, for the page only: Glimmer never gets it.
+    let family_note = crate::settings::family_note(&app);
     let title = one_line(&question, TITLE_CHARS);
     let steps: Vec<String> = steps
         .iter()
@@ -190,6 +197,7 @@ pub(crate) async fn make(app: AppHandle, question: String, steps: Vec<String>) {
             image,
             locale,
             words_by,
+            family_note,
         },
     )
     .await;
@@ -511,6 +519,8 @@ pub async fn card_show(app: AppHandle, id: String) -> Result<(), String> {
             image,
             locale: card_locale(&app),
             words_by: WordsBy::Lesson,
+            // A reopened card stays as it was saved: its sidecar keeps no note.
+            family_note: String::new(),
         },
     )
     .await

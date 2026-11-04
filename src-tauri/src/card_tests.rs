@@ -29,6 +29,7 @@ fn a_text_only_card_retains_the_steps_in_the_page_payload() {
         image: String::new(),
         locale: "en".into(),
         words_by: WordsBy::Lesson,
+        family_note: String::new(),
     };
     let pending = PendingCard::default();
     *pending.0.lock().unwrap() = Some(card);
@@ -279,7 +280,9 @@ fn the_card_has_the_shape_the_page_expects() {
         image: png_data_url(b"\x89PNG"),
         locale: "ru".into(),
         words_by: WordsBy::Glimmer,
+        family_note: String::new(),
     };
+    // No note: no `familyNote` at all, the payload of before.
     assert_eq!(
         serde_json::to_value(&card).ok(),
         Some(json!({
@@ -294,6 +297,14 @@ fn the_card_has_the_shape_the_page_expects() {
     assert_eq!(
         serde_json::to_value(WordsBy::Lesson).ok(),
         Some(json!("lesson"))
+    );
+    let noted = LessonCard {
+        family_note: "We are proud of you!".into(),
+        ..card
+    };
+    assert_eq!(
+        serde_json::to_value(&noted).unwrap()["familyNote"],
+        "We are proud of you!"
     );
 }
 

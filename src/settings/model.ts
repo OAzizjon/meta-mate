@@ -44,10 +44,17 @@ export interface Profile {
 /** Character limits of the profile, as in `src-tauri/src/settings.rs` and mm-core's profile. */
 export const PROFILE_NAME_MAX = 40;
 export const PROFILE_ABOUT_MAX = 300;
+/** The family note's character limit, as `FAMILY_NOTE_MAX` in `src-tauri/src/settings.rs`. */
+export const FAMILY_NOTE_MAX = 120;
 
 export interface Settings {
   profile: Profile;
   profileAsked: boolean;
+  /**
+   * The line the family left: spoken after a finished lesson and printed on its card, never
+   * part of a question. Present only when there is one (Rust sends it the same way).
+   */
+  familyNote?: string;
   language: Language;
   theme: Theme;
   model: "quick" | "thorough" | "open";
@@ -64,6 +71,7 @@ export interface Settings {
   developerMode: boolean;
 }
 
+// The keys every parsed `Settings` has; the optional `familyNote` comes only with a note.
 export const SETTINGS_KEYS = [
   "profile",
   "profileAsked",
@@ -177,6 +185,7 @@ export function parseSettings(raw: unknown): Settings {
     const language = readOwnField(raw, "language");
     const profile = readOwnField(raw, "profile");
     const profileAsked = readOwnField(raw, "profileAsked");
+    const familyNote = profileText(readOwnField(raw, "familyNote"), FAMILY_NOTE_MAX);
     const theme = readOwnField(raw, "theme");
     const model = readOwnField(raw, "model");
     const ptt = readOwnField(raw, "ptt");
@@ -196,6 +205,7 @@ export function parseSettings(raw: unknown): Settings {
         about: profileText(isPlainObject(profile) ? readOwnField(profile, "about") : undefined, PROFILE_ABOUT_MAX),
       },
       profileAsked: typeof profileAsked === "boolean" ? profileAsked : false,
+      ...(familyNote ? { familyNote } : {}),
       language: language === "en" || language === "ru" ? language : "auto",
       theme: isTheme(theme) ? theme : DEFAULT_SETTINGS.theme,
       model: isModelChoice(model) ? model : DEFAULT_SETTINGS.model,

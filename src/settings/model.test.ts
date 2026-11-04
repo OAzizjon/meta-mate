@@ -6,6 +6,7 @@ import { inspect } from "node:util";
 
 import {
   DEFAULT_SETTINGS,
+  FAMILY_NOTE_MAX,
   MAX_VOICE_SPEED,
   MIN_VOICE_SPEED,
   MODEL_CHOICES,
@@ -60,6 +61,24 @@ test("profiles default, sanitize Unicode data and survive unrelated saves", asyn
   const loaded = await store.load();
   loaded.profile.name = "Changed";
   assert.equal(store.get().profile.name, "Анна Мария");
+});
+
+test("the family note is optional, cleaned like Rust's, capped and survives unrelated saves", async () => {
+  // No note: no key at all, the settings of before.
+  assert.equal("familyNote" in parseSettings({ sound: "fun" }), false);
+  for (const familyNote of ["", "  \t ", 42, null, ["Hi"]]) {
+    const parsed = parseSettings({ familyNote, sound: "fun" });
+    assert.equal("familyNote" in parsed, false, inspect(familyNote));
+    assert.equal(parsed.sound, "fun");
+  }
+  // The case of the_family_note_is_cleaned_capped_and_written_only_when_there_is_one.
+  const note = parseSettings({ familyNote: `  Love you,\n Mom! <3 ${"ж".repeat(200)}` }).familyNote;
+  assert.ok(note?.startsWith("Love you, Mom! 3 жж"), note);
+  assert.equal(Array.from(note ?? "").length, FAMILY_NOTE_MAX);
+  const store = createSettingsStore();
+  await store.update({ familyNote: " We are proud of you! " });
+  assert.equal((await store.update({ sound: "fun" })).familyNote, "We are proud of you!");
+  assert.equal("familyNote" in (await store.update({ familyNote: "" })), false);
 });
 
 test("talk keys parse independently and older settings retain their preferences", () => {

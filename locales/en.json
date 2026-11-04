@@ -391,5 +391,8 @@
   "signin.guest_checking": "Checking your free messages...",
   "signin.guest_slow": "Mate's server isn't answering yet. Check your internet connection; I'll keep trying.",
   "home.chat_open_failed": "I couldn't open the chat. Please try again.",
-  "home.practice_open_failed": "I couldn't open the practice. Please try again."
+  "home.practice_open_failed": "I couldn't open the practice. Please try again.",
+  "home.family_note_label": "A note from your family",
+  "home.family_note_hint": "{name} says it when a lesson is finished and prints it on the lesson card. Only {name}'s voice service hears it; it is never part of a question.",
+  "teacher.family_note": "Your family left you a note: {note}"
 }

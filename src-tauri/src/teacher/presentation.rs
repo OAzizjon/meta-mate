@@ -250,6 +250,32 @@ pub(super) async fn speak(
     }
 }
 
+/// What Mate says after a finished lesson's "All done" when the family left a note in
+/// Settings: `teacher.family_note` in `locale` with the note in it; None without a note.
+/// The note is data the family typed: it is spoken and printed, never a model's input.
+pub(super) fn family_note_line(locale: &str, note: &str) -> Option<String> {
+    let note = note.trim();
+    (!note.is_empty())
+        .then(|| crate::locale_text(locale, "teacher.family_note").replace("{note}", note))
+}
+
+/// The family's note as the lesson's next sentence, said happily. A failed speech call only
+/// leaves it unspoken (`speak` logs the error, never the words).
+pub(super) async fn speak_family_note(
+    stream: &AnswerStream,
+    proxy: &Proxy,
+    generation: u64,
+    id: u64,
+    line: String,
+    speech_epoch: &AtomicU64,
+) {
+    stream.send(AnswerMsg::Item {
+        generation,
+        item: Item::Bound(Bound::Mood("happy".into())),
+    });
+    let _ = speak(stream, proxy, "", generation, id, line, speech_epoch).await;
+}
+
 /// The lesson's timeline ends and the beam goes out (unless a newer press took over).
 pub(super) fn finish(app: &AppHandle, stream: &AnswerStream, generation: u64) {
     if stream.is_cancelled(generation) {

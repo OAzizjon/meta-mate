@@ -34,6 +34,8 @@ export interface KeepsakeLayout {
   readonly titleBanner: Rect;
   readonly titleTextBox: Rect;
   readonly steps: readonly KeepsakeStepSlot[];
+  /** The family's note between the steps and the footer; `null` without a note. */
+  readonly note: Rect | null;
   readonly footer: Rect;
 }
 
@@ -267,10 +269,15 @@ export function containImageRect(srcWidth: number, srcHeight: number, box: Rect)
   return { x, y, width, height };
 }
 
+/** The family note's band above the footer, and its gap to the last step. */
+const NOTE_HEIGHT = 96;
+const NOTE_GAP = 18;
+
 /**
- * Computes the 1200x1600 comic-page layout rectangles for up to 6 steps.
+ * Computes the 1200x1600 comic-page layout rectangles for up to 6 steps. With `hasNote`, the
+ * steps make room for the family's note above the footer; without one, nothing is reserved.
  */
-export function computeKeepsakeLayout(stepCount: number): KeepsakeLayout {
+export function computeKeepsakeLayout(stepCount: number, hasNote = false): KeepsakeLayout {
   const clampedCount =
     stepCount <= 0
       ? 0
@@ -323,10 +330,14 @@ export function computeKeepsakeLayout(stepCount: number): KeepsakeLayout {
     height: 54,
   };
 
+  const note: Rect | null = hasNote
+    ? { x: contentX, y: footer.y - 22 - NOTE_HEIGHT, width: contentWidth, height: NOTE_HEIGHT }
+    : null;
+
   const steps: KeepsakeStepSlot[] = [];
   if (clampedCount > 0) {
     const stepsTop = titleBanner.y + titleBanner.height + 24;
-    const stepsBottom = footer.y - 22;
+    const stepsBottom = note ? note.y - NOTE_GAP : footer.y - 22;
     const availableHeight = stepsBottom - stepsTop;
     const gap = clampedCount <= 4 ? 18 : 14;
     const rawBubbleHeight = Math.floor(
@@ -371,6 +382,7 @@ export function computeKeepsakeLayout(stepCount: number): KeepsakeLayout {
     titleBanner,
     titleTextBox,
     steps,
+    note,
     footer,
   };
 }

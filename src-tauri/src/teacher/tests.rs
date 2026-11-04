@@ -316,6 +316,27 @@ fn every_line_the_teacher_says_has_a_locale_key_or_its_commentary() {
 }
 
 #[test]
+fn the_family_note_is_said_only_when_there_is_one_in_both_languages() {
+    for note in ["", "   ", "\t\n"] {
+        assert_eq!(family_note_line("en", note), None, "{note:?}");
+        assert_eq!(family_note_line("ru", note), None, "{note:?}");
+    }
+    assert_eq!(
+        family_note_line("en", "  We are proud of you! "),
+        Some("Your family left you a note: We are proud of you!".into())
+    );
+    assert_eq!(
+        family_note_line("ru", "Мы тобой гордимся!"),
+        Some("Вам оставили записку: Мы тобой гордимся!".into())
+    );
+    // The note is only data: a placeholder inside it stays as typed.
+    assert_eq!(
+        family_note_line("en", "{note} {name}"),
+        Some("Your family left you a note: {note} {name}".into())
+    );
+}
+
+#[test]
 fn praise_rotates_through_every_line_in_both_languages() {
     let en: serde_json::Value =
         serde_json::from_str(include_str!("../../../locales/en.json")).unwrap();

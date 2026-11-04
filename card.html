@@ -259,6 +259,22 @@
         color: var(--text-muted);
       }
 
+      /* The family's note in the keepsake's handwritten face. No display here either. */
+      .card-family-note {
+        margin: 0;
+        padding: 12px clamp(12px, 2.5vw, 18px);
+        border: 2.5px dashed var(--comic-ink);
+        border-radius: var(--radius);
+        background: var(--accent-soft);
+        font-family: "Segoe Print", var(--font);
+        font-size: clamp(20px, 3vw, 22px);
+        font-weight: 700;
+        line-height: 1.5;
+        text-align: center;
+        color: var(--text);
+        overflow-wrap: break-word;
+      }
+
       /* Kept in view at the window's bottom while long steps scroll under it. */
       .card-actions {
         position: sticky;
@@ -363,7 +379,8 @@
         }
 
         .card-layout.has-captioned .card-heading,
-        .card-layout.has-captioned .card-steps {
+        .card-layout.has-captioned .card-steps,
+        .card-layout.has-captioned .card-family-note {
           display: none;
         }
 
@@ -442,6 +459,15 @@
         .card-credits {
           font-size: 10pt;
           text-align: center;
+          break-inside: avoid;
+        }
+
+        .card-family-note {
+          padding: 2.5mm 4mm;
+          border-width: 1pt;
+          border-radius: 3mm;
+          background: #ffffff;
+          font-size: 15pt;
           break-inside: avoid;
         }
 

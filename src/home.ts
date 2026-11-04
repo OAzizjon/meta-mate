@@ -149,10 +149,11 @@ export interface HomeSettings {
   /** Saves `showHomeAtStart` over the current settings; does nothing until `canSave()`. */
   setShowAtStart(show: boolean): Promise<Settings>;
   /**
-   * Saves `profile` (`null`: Skip, keeps the saved one) and marks it asked, over the current
-   * settings. Rejects until `canSave()`: the person would believe it saved.
+   * Saves `profile` and, when given, `familyNote` (`null`: Skip, keeps the saved ones) and
+   * marks it asked, over the current settings. Rejects until `canSave()`: the person would
+   * believe it saved.
    */
-  saveProfile(profile: Profile | null): Promise<Settings>;
+  saveProfile(profile: Profile | null, familyNote?: string): Promise<Settings>;
   /** Saves `model` over the current settings; rejects until `canSave()`. */
   setModel(model: ModelChoice): Promise<Settings>;
   /** Resolves once the first `load_settings` call has finished (or failed). */
@@ -212,12 +213,14 @@ export function startHomeSettings(
         }
       }
     },
-    async saveProfile(profile: Profile | null): Promise<Settings> {
+    async saveProfile(profile: Profile | null, familyNote?: string): Promise<Settings> {
       if (!known) {
         throw new Error("home: the settings are not in yet");
       }
+      // An empty note clears it (parseSettings drops it); no note given keeps the saved one.
+      const note = profile && familyNote !== undefined ? { familyNote } : {};
       try {
-        return await store.update(profile ? { profile, profileAsked: true } : { profileAsked: true });
+        return await store.update(profile ? { profile, ...note, profileAsked: true } : { profileAsked: true });
       } finally {
         if (!destroyed) {
           onChange(store.get(), known);
@@ -316,9 +319,9 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
 
   // First open: "What should I call you?" above everything (shown by the settings below).
   const profilePanel = createProfilePanel(t, {
-    async submit(profile) {
+    async submit(profile, familyNote) {
       try {
-        await settings.saveProfile(profile);
+        await settings.saveProfile(profile, familyNote);
         return true;
       } catch {
         return false;
@@ -348,7 +351,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   editBtn.setAttribute("aria-describedby", title.id);
   editBtn.hidden = true;
   editBtn.addEventListener("click", () => {
-    profilePanel.show(settings.get().profile, true);
+    profilePanel.show(settings.get(), true);
   });
   const guideBtn = el("button", "btn btn-soft home-guide-btn", t("home.guide_button"));
   guideBtn.type = "button";
@@ -601,7 +604,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
     editBtn.textContent = t(updated.profile.name ? "home.profile_edit" : "home.profile_add");
     editBtn.hidden = !canSave;
     if (shouldAskProfile(updated, canSave) && !profilePanel.isShown()) {
-      profilePanel.show(updated.profile, false);
+      profilePanel.show(updated, false);
     }
     modelPicker.setSelected(updated.model);
     reduceSetting = updated.reduceMotion;

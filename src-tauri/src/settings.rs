@@ -29,6 +29,8 @@ pub const MAX_VOICE_SPEED: f64 = 1.3;
 pub const DEFAULT_VOICE_SPEED: f64 = 1.0;
 /// The steps of the window's range input (`VOICE_SPEED_STEP` in src/settings/model.ts).
 pub const VOICE_SPEED_STEP: f64 = 0.05;
+/// The longest family note, in characters (`FAMILY_NOTE_MAX` in src/settings/model.ts).
+pub const FAMILY_NOTE_MAX: usize = 120;
 
 /// The store's voice speed as `f64` bits, for the TTS call (proxy.rs), which holds no app
 /// handle. Kept in step with the store.
@@ -155,6 +157,31 @@ fn deserialize_ptt_key<'de, D: serde::Deserializer<'de>>(
     Ok(serde_json::from_value(value).unwrap_or_default())
 }
 
+/// A family note that is no string is no note: it never resets the other preferences.
+fn deserialize_family_note<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<String, D::Error> {
+    let value = serde_json::Value::deserialize(deserializer)?;
+    Ok(value.as_str().map(str::to_owned).unwrap_or_default())
+}
+
+/// The family note as `parseSettings` keeps it (src/settings/model.ts): one line without
+/// control characters or tag brackets, at most `FAMILY_NOTE_MAX` characters, trimmed.
+fn family_note_text(text: &str) -> String {
+    let text: String = text
+        .chars()
+        .filter(|c| !c.is_control() && !matches!(c, '<' | '>'))
+        .collect();
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(FAMILY_NOTE_MAX)
+        .collect::<String>()
+        .trim()
+        .to_owned()
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum Sound {
@@ -188,6 +215,14 @@ pub struct Settings {
     pub profile: Profile,
     #[serde(default)]
     pub profile_asked: bool,
+    /// The line the family left (Home's profile panel): spoken after a finished lesson and
+    /// printed on its card, never part of a model's request. Written only when there is one.
+    #[serde(
+        default,
+        deserialize_with = "deserialize_family_note",
+        skip_serializing_if = "String::is_empty"
+    )]
+    pub family_note: String,
     #[serde(default, deserialize_with = "deserialize_language")]
     pub language: Language,
     #[serde(default, deserialize_with = "deserialize_theme")]
@@ -216,6 +251,7 @@ impl Default for Settings {
         Self {
             profile: Profile::default(),
             profile_asked: false,
+            family_note: String::new(),
             language: Language::Auto,
             theme: Theme::Light,
             model: Model::Quick,
@@ -237,8 +273,9 @@ impl Default for Settings {
 impl Settings {
     /// The rules of `parseSettings` (src/settings/model.ts): a voice speed outside
     /// `MIN_VOICE_SPEED..=MAX_VOICE_SPEED` (NaN and infinities too) becomes the default; one
-    /// inside snaps to the nearest `VOICE_SPEED_STEP`, rounded to 2 decimals. The other
-    /// fields cannot be out of range once deserialized.
+    /// inside snaps to the nearest `VOICE_SPEED_STEP`, rounded to 2 decimals. The profile and
+    /// the family note are cleaned and capped; the other fields cannot be out of range once
+    /// deserialized.
     pub fn sanitized(self) -> Settings {
         let voice_speed = if (MIN_VOICE_SPEED..=MAX_VOICE_SPEED).contains(&self.voice_speed) {
             let stepped = (self.voice_speed / VOICE_SPEED_STEP).round() * VOICE_SPEED_STEP;
@@ -248,6 +285,7 @@ impl Settings {
         };
         Settings {
             profile: self.profile.sanitized(),
+            family_note: family_note_text(&self.family_note),
             voice_speed,
             ..self
         }
@@ -345,6 +383,13 @@ pub fn profile(app: &AppHandle) -> Profile {
         .map_or_else(Profile::default, |store| store.get().profile)
 }
 
+/// The family's note at this moment (empty before the store exists): only spoken and
+/// printed (teacher/presentation.rs, card.rs), never added to a model's request.
+pub fn family_note(app: &AppHandle) -> String {
+    app.try_state::<SettingsStore>()
+        .map_or_else(String::new, |store| store.get().family_note)
+}
+
 /// Persists a drag release under the same lock as preference saves.
 #[cfg(windows)]
 pub fn save_mate_home(app: &AppHandle, rect: mm_core::geom::PhysRect) {
@@ -428,6 +473,7 @@ mod tests {
         Settings {
             profile: Profile::default(),
             profile_asked: false,
+            family_note: String::new(),
             language: Language::Auto,
             theme: Theme::Light,
             model: Model::Thorough,
@@ -562,6 +608,37 @@ mod tests {
         assert!(settings.profile.about.chars().count() <= 300);
         assert!(settings.profile_asked);
         assert_eq!(parse(&serde_json::to_string(&settings).unwrap()), settings);
+    }
+
+    #[test]
+    fn the_family_note_is_cleaned_capped_and_written_only_when_there_is_one() {
+        // No note: the file and the window payload stay exactly as before.
+        let defaults = serde_json::to_value(Settings::default()).unwrap();
+        assert!(defaults.get("familyNote").is_none());
+        assert_eq!(parse(r#"{"sound":"fun"}"#).family_note, "");
+        let long = format!("  Love you,\n Mom! <3 {}", "ж".repeat(200));
+        let settings = parse(&json!({"familyNote": long, "sound": "fun"}).to_string());
+        assert!(
+            settings.family_note.starts_with("Love you, Mom! 3 жж"),
+            "{settings:?}"
+        );
+        assert_eq!(settings.family_note.chars().count(), FAMILY_NOTE_MAX);
+        assert_eq!(settings.sound, Sound::Fun);
+        let text = serde_json::to_string(&settings).unwrap();
+        assert_eq!(parse(&text), settings);
+        assert_eq!(settings.clone().sanitized(), settings);
+        // Only spaces, or not a string at all: no note, and the other preferences stay.
+        for value in [json!("  \t "), json!(42), json!(null), json!(["Hi"])] {
+            let settings = parse(&json!({"familyNote": value, "sound": "fun"}).to_string());
+            assert_eq!(settings.family_note, "");
+            assert_eq!(settings.sound, Sound::Fun);
+            assert!(
+                serde_json::to_value(&settings)
+                    .unwrap()
+                    .get("familyNote")
+                    .is_none()
+            );
+        }
     }
 
     #[test]

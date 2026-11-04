@@ -1,7 +1,8 @@
 // 1200x1600 comic-page keepsake renderer for the lesson card window (src/card.ts).
 // Waits for document.fonts.ready and image load (with timeouts), then draws the
 // picture panel (or Mate's bulb placeholder), bold title banner, speech-bubble
-// steps, local date, and "Made with Mate" mark using system fonts only.
+// steps, the family's note when there is one, local date, and "Made with Mate" mark
+// using system fonts only.
 
 import {
   KEEPSAKE_FONT_COMIC,
@@ -35,6 +36,8 @@ export interface KeepsakeRenderInput {
   readonly locale: string;
   readonly madeWithLabel: string;
   readonly date?: Date;
+  /** The family's note (Settings), printed above the footer; empty or absent: none. */
+  readonly familyNote?: string;
 }
 
 export interface KeepsakeRenderResult {
@@ -400,7 +403,8 @@ function drawKeepsakeScene(
   loadedImage: HTMLImageElement | null,
 ): void {
   const visibleSteps = input.steps.slice(0, MAX_KEEPSAKE_STEPS);
-  const layout = computeKeepsakeLayout(visibleSteps.length);
+  const familyNote = input.familyNote?.trim() ?? "";
+  const layout = computeKeepsakeLayout(visibleSteps.length, familyNote.length > 0);
 
   // 1. Outer comic paper + halftone margin
   ctx.fillStyle = PAPER_BG;
@@ -606,7 +610,44 @@ function drawKeepsakeScene(
     }
   }
 
-  // 5. Footer: local date on the left, "Made with Mate" bulb mark on the right
+  // 5. The family's note in the handwritten comic face, on a warm panel above the footer
+  if (layout.note) {
+    const box = layout.note;
+    traceRoundedRect(ctx, box, 14);
+    ctx.fillStyle = PANEL_WARM;
+    ctx.fill();
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+
+    const fittedNote = fitTextBlock(
+      familyNote,
+      {
+        maxWidth: box.width - 56,
+        maxHeight: box.height - 20,
+        maxFontSize: 32,
+        minFontSize: 22,
+        fontStep: 2,
+        lineHeightRatio: 1.25,
+        maxLines: 2,
+      },
+      (sample, fontSize) => {
+        ctx.font = `700 ${fontSize}px ${KEEPSAKE_FONT_COMIC}`;
+        return ctx.measureText(sample).width;
+      },
+    );
+    ctx.font = `700 ${fittedNote.fontSize}px ${KEEPSAKE_FONT_COMIC}`;
+    ctx.fillStyle = INK;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const noteBlockHeight = fittedNote.lines.length * fittedNote.lineHeight;
+    const noteStartY = box.y + (box.height - noteBlockHeight) / 2 + fittedNote.lineHeight / 2;
+    for (let i = 0; i < fittedNote.lines.length; i += 1) {
+      ctx.fillText(fittedNote.lines[i], box.x + box.width / 2, noteStartY + i * fittedNote.lineHeight);
+    }
+  }
+
+  // 6. Footer: local date on the left, "Made with Mate" bulb mark on the right
   ctx.beginPath();
   ctx.moveTo(layout.footer.x, layout.footer.y - 6);
   ctx.lineTo(layout.footer.x + layout.footer.width, layout.footer.y - 6);
