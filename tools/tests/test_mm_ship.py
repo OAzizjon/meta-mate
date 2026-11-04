@@ -108,6 +108,17 @@ class Main(unittest.TestCase):
                         mm_ship.step_repo(run)
         called.assert_not_called()
 
+    def test_yes_never_answers_for_going_public(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'LICENSE').write_text('x', encoding='utf-8')
+            with mock.patch.object(mm_ship, 'ROOT', root), mock.patch.object(mm_ship.Runner, 'run') as ran:
+                with mock.patch('builtins.input', return_value='n') as asked:
+                    with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit):
+                        mm_ship.step_repo(mm_ship.Runner(False, True))
+        asked.assert_called_once()
+        self.assertFalse([call for call in ran.call_args_list if 'edit' in call.args[0]])
+
     def test_a_no_on_an_early_step_never_reaches_the_public_one(self):
         with mock.patch.dict(os.environ, {'MM_AGENT': ''}), mock.patch('builtins.input', return_value='n'):
             with mock.patch.object(mm_ship, 'tool', side_effect=lambda name: name):

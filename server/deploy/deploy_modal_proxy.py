@@ -151,9 +151,7 @@ def main() -> int:
         return 1
     # The always-warm container keeps the secret it started with (2026-10-29: it went on
     # sending Google the old URL); a fresh one reads the new secret.
-    if not restart_containers():
-        print('!! could not restart the proxy container: it may still use the old secret '
-              '(modal container list / modal container stop -y ID)')
+    restarted = restart_containers()
     # Only a deployment whose secret names its own URL is linked for `mm release`.
     link['url'] = url
     save_link(link)
@@ -161,6 +159,11 @@ def main() -> int:
     print('OAuth redirect URIs to register:')
     for provider in ('google', 'github') if args.github else ('google',):
         print(f'  {url}/auth/{provider}/callback')
+    if not restarted:
+        # A failure, so `mm ship` stops here instead of publishing against an old container.
+        print('!! could not restart the proxy container: it may still use the old secret '
+              '(modal container list / modal container stop -y ID)')
+        return 1
     return 0
 
 

@@ -88,11 +88,7 @@ class PreflightBase(unittest.TestCase):
                 ("git", "rev-parse", "origin/main"): (0, "deadbeef\n", ""),
                 (
                     "gh",
-                    "release",
-                    "view",
-                    "--json",
-                    "tagName",
-                    "isDraft",
+                    "release", "view", f"v{VERSION}", "--json", "tagName,isDraft",
                 ): (0, '{"tagName": "v1.2.3", "isDraft": false}', ""),
             }
         )
@@ -332,7 +328,7 @@ class TestFailures(PreflightBase):
 
     def test_release_draft_fails(self):
         self.runner.routes[
-            ("gh", "release", "view", "--json", "tagName", "isDraft")
+            ("gh", "release", "view", f"v{VERSION}", "--json", "tagName,isDraft")
         ] = (0, '{"tagName": "v1.2.3", "isDraft": true}', "")
         check = self.by_name(self.run_preflight(), "github-release")
         self.assertEqual(check.status, pf.FAIL)
@@ -340,7 +336,7 @@ class TestFailures(PreflightBase):
 
     def test_release_absent_fails(self):
         self.runner.routes[
-            ("gh", "release", "view", "--json", "tagName", "isDraft")
+            ("gh", "release", "view", f"v{VERSION}", "--json", "tagName,isDraft")
         ] = (1, "", "no releases found")
         self.assertEqual(
             self.by_name(self.run_preflight(), "github-release").status,
@@ -349,7 +345,7 @@ class TestFailures(PreflightBase):
 
     def test_release_gh_failure_is_warn(self):
         self.runner.routes[
-            ("gh", "release", "view", "--json", "tagName", "isDraft")
+            ("gh", "release", "view", f"v{VERSION}", "--json", "tagName,isDraft")
         ] = (1, "", "authentication failed")
         self.assertEqual(
             self.by_name(self.run_preflight(), "github-release").status,

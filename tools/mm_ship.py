@@ -146,9 +146,9 @@ def step_site(run: Runner) -> None:
     if not installer.exists() and not run.dry_run:
         raise SystemExit(f'{installer} is not there: mm release first')
     out = ROOT / 'site-dist'
+    run.ask('Deploy the site to Cloudflare (Worker meta-mate-site)?')
     if not run.dry_run:
         print(f'  SHA-256 {build_site(ROOT, out, installer)}')
-    run.ask('Deploy the site to Cloudflare (Worker meta-mate-site)?')
     run.run([tool('npx'), '--yes', 'wrangler@4', 'deploy', '--config', 'wrangler.jsonc'], cwd=ROOT / 'server/deploy/site')
 
 
@@ -179,7 +179,8 @@ def step_repo(run: Runner) -> None:
     if not (ROOT / 'LICENSE').exists() and not run.dry_run:
         raise SystemExit('No LICENSE file yet: ask the lead to add it first.')
     run.run([sys.executable, 'tools/mm.py', 'check'])
-    run.ask(f'Make {REPO} PUBLIC now? This cannot be taken back: copies may stay.')
+    # The one step that cannot be undone: a person answers even under --yes.
+    Runner(run.dry_run, False).ask(f'Make {REPO} PUBLIC now? This cannot be taken back: copies may stay.')
     run.run([tool('gh'), 'repo', 'edit', REPO, '--visibility', 'public', '--accept-visibility-change-consequences'])
 
 

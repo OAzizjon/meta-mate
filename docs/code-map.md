@@ -717,8 +717,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_ship.py — mm ship: the owner's night-of-submission steps, in order, each asked first.
   app_version:30 installer_path:34 sha256:39 build_site:47 release_notes:70 Runner:82 tool:109 proxy_link:116
-  step_glimmer:125 step_proxy:133 step_site:143 step_release:155 step_repo:177 step_check:186 main:195
-  tests: tools/tests/test_mm_ship.py (12)
+  step_glimmer:125 step_proxy:133 step_site:143 step_release:155 step_repo:177 step_check:187 main:196
+  tests: tools/tests/test_mm_ship.py (13)
 - tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
   expand:254 last_line:258 display_path:263 source_files:277 dist_stale:288 npm_cmd:295 build_dist:299 load_fixture:319
   mock_context:343 render_mock_js:374 inject_mock:385 make_handler:410 start_server:516 find_edge:525 png_size:536 run_edge:544
@@ -1037,6 +1037,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 219 | 21 |
 | src | 405 | 40 |
-| tools | 521 | 30 |
+| tools | 522 | 30 |
 | server | 105 | 5 |
 | tts | 27 | 2 |
