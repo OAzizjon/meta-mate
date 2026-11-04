@@ -33,7 +33,7 @@ Mate lights the button. Your parent clicks it.
 Install from the site or the GitHub release, then click "Try without signing in" (12 messages an hour). Sign in with Google to see the full keepsake card. Developer mode in Settings, under "For judges and developers", opens "Under the hood".
 
 **Links**
-- Video: <VIDEO_URL>
+- Video: https://meta-mate.stream/video
 - Repository: https://github.com/OAzizjon/meta-mate
 - Website: https://meta-mate.stream
 

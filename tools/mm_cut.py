@@ -18,6 +18,12 @@ BURN_STYLE = ('FontName=Arial,FontSize=12,Bold=1,PrimaryColour=&H00FFFFFF,BackCo
               'BorderStyle=3,Outline=1,Shadow=0,MarginV=18')
 
 
+WEB_NAME = 'metamate-demo.mp4'
+WEB_LIMIT_BYTES = 25 * 1024 * 1024
+WEB_TARGET_BYTES = 23 * 1024 * 1024
+WEB_AUDIO_BITRATE = 96_000
+
+
 def media_path(base, name):
     if not isinstance(name, str) or not name:
         raise ValueError('Media paths must be relative')
@@ -55,6 +61,8 @@ def load_list(text):
                 raise ValueError(row['id'] + ': crop must be [width, height, x, y]')
             for part in crop:
                 number(part, row['id'] + ': crop')
+        if 'strip' in row and not re.fullmatch(r'0x[0-9A-Fa-f]{6}', str(row['strip'])):
+            raise ValueError(row['id'] + ': strip must be a colour like 0xFBF4E3')
         if 'subtitle' in row and not isinstance(row['subtitle'], str):
             raise ValueError(row['id'] + ': subtitle must be text')
         if not isinstance(row.get('captions', []), list):
@@ -175,6 +183,9 @@ def look_filters(row):
         parts.append(f'crop={width}:{height}:{x}:{y}')
     if row.get('look') == 'camera':
         parts.append(CAMERA_LOOK)
+    if row.get('strip'):
+        # A band under the picture, so a subtitle never covers a clip's own bottom line.
+        parts.append(f'scale=iw*0.9:ih*0.9,pad=iw/0.9:ih/0.9:(ow-iw)/2:0:color={row["strip"]}')
     return ''.join(part + ',' for part in parts)
 
 
@@ -300,6 +311,14 @@ def probe(path):
     return {'duration': duration, 'audio': bool(re.search(r'Stream .*Audio:', result.stderr))}
 
 
+def web_command(source, target, seconds):
+    """A copy for the site, whose host refuses a file over 25 MiB; the bitrate follows the length."""
+    rate = int(WEB_TARGET_BYTES * 8 / seconds) - WEB_AUDIO_BITRATE
+    return ['ffmpeg', '-nostdin', '-y', '-i', str(source), '-c:v', 'libx264', '-preset', 'slow',
+            '-b:v', str(rate), '-maxrate', str(rate * 3 // 2), '-bufsize', str(rate * 2), '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-b:a', str(WEB_AUDIO_BITRATE), '-movflags', '+faststart', str(target)]
+
+
 def main(argv=None, root=ROOT):
     parser = argparse.ArgumentParser(prog='mm cut', description=__doc__)
     parser.add_argument('--draft', action='store_true')
@@ -307,6 +326,7 @@ def main(argv=None, root=ROOT):
     parser.add_argument('--list', type=Path, default=root / 'video/cut.json')
     parser.add_argument('--music', type=Path)
     parser.add_argument('--no-burn', action='store_true', help='leave the subtitles out of the picture')
+    parser.add_argument('--web', action='store_true', help='also write out/metamate-demo.mp4, small enough for the site')
     args = parser.parse_args(argv)
     video = root / 'video'
     try:
@@ -352,7 +372,19 @@ def main(argv=None, root=ROOT):
         script.write_text(graph, encoding='utf-8')
         (out / 'final.srt').write_text(srt(timeline), encoding='utf-8')
         (out / BURN_NAME).write_text(write_srt(lines), encoding='utf-8')
-        return subprocess.call(command, cwd=out)
+        code = subprocess.call(command, cwd=out)
+        if code or not args.web:
+            return code
+        web = out / WEB_NAME
+        code = subprocess.call(web_command(out / 'final.mp4', web, total), cwd=out)
+        if code:
+            return code
+        size = web.stat().st_size
+        print(f'{WEB_NAME}: {size} bytes')
+        if size > WEB_LIMIT_BYTES:
+            print(f'mm cut: {WEB_NAME} is over the host limit of {WEB_LIMIT_BYTES} bytes')
+            return 1
+        return 0
     except (OSError, ValueError, TypeError, subprocess.TimeoutExpired) as error:
         print('mm cut: ' + str(error))
         return 1

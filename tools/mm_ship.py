@@ -56,6 +56,11 @@ def build_site(root: Path, out: Path, installer: Path) -> str:
     if out.exists():
         shutil.rmtree(out)
     shutil.copytree(root / 'site', out, ignore=lambda _dir, names: [n for n in names if n in SITE_SKIP])
+    # The demo video lives outside git (video/out/, `mm cut --web`); the page plays it from here.
+    demo = root / 'video/out/metamate-demo.mp4'
+    if demo.is_file():
+        (out / 'media').mkdir()
+        shutil.copy2(demo, out / 'media' / demo.name)
     download = out / 'download'
     download.mkdir()
     shutil.copy2(installer, download / 'MetaMate-setup.exe')

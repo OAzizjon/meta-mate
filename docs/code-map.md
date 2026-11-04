@@ -674,9 +674,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   dotted:253 py_imports_module:257 py_entries:275 cover:304 render:324 no_tests_text:333 main:342
   tests: tools/tests/test_mm_cover.py (9)
 - tools/mm_cut.py — Assemble the demo with the standard library and ffmpeg only.
-  media_path:21 load_list:30 resolve_sources:72 number:89 start_times:95 validate:119 warnings:137 drawtext_escape:164
-  look_filters:170 subtitle_lines:181 write_srt:203 build_graph:211 srt:281 probe:295 main:303
-  tests: tools/tests/test_mm_cut.py (29)
+  media_path:27 load_list:36 resolve_sources:80 number:97 start_times:103 validate:127 warnings:145 drawtext_escape:172
+  look_filters:178 subtitle_lines:192 write_srt:214 build_graph:222 srt:292 probe:306 web_command:314 main:322
+  tests: tools/tests/test_mm_cut.py (31)
 - tools/mm_difflint.py — mm difflint [PATCH|-]
   AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284
   tests: tools/tests/test_mm_difflint.py (18)
@@ -720,9 +720,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   cmd_safety:210 run_batch:225 add_parser:308
   tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_ship.py — mm ship: the owner's night-of-submission steps, in order, each asked first.
-  app_version:30 installer_path:34 sha256:39 build_site:47 release_notes:66 Runner:78 tool:105 proxy_link:112
-  step_glimmer:121 step_proxy:129 step_site:139 step_release:151 step_repo:173 step_check:183 main:192
-  tests: tools/tests/test_mm_ship.py (13)
+  app_version:30 installer_path:34 sha256:39 build_site:47 release_notes:71 Runner:83 tool:110 proxy_link:117
+  step_glimmer:126 step_proxy:134 step_site:144 step_release:156 step_repo:178 step_check:188 main:197
+  tests: tools/tests/test_mm_ship.py (14)
 - tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
   expand:254 last_line:258 display_path:263 source_files:277 dist_stale:288 npm_cmd:295 build_dist:299 load_fixture:319
   mock_context:343 render_mock_js:374 inject_mock:385 make_handler:410 start_server:516 find_edge:525 png_size:536 run_edge:544
@@ -1041,6 +1041,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 220 | 21 |
 | src | 405 | 40 |
-| tools | 551 | 31 |
+| tools | 554 | 31 |
 | server | 105 | 5 |
 | tts | 27 | 2 |

@@ -18,7 +18,7 @@
 
 - [Website: meta-mate.stream](https://meta-mate.stream) (the installer downloads from there)
 - [Download the installer](https://meta-mate.stream/download/MetaMate-setup.exe) ([SHA-256](https://meta-mate.stream/download/SHA256.txt))
-- Demo video: linked from the submission page
+- Demo video: <https://meta-mate.stream/video>
 - [Decisions log](docs/decisions.md)
 - [Architecture](docs/architecture.md)
 - [Submission notes](docs/submission.md)

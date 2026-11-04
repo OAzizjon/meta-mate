@@ -31,6 +31,17 @@ class BuildSite(unittest.TestCase):
     def manifest(self, digest):
         (self.root / 'site/version.json').write_text(json.dumps({'version': '1.0.0', 'sha256': digest}), encoding='utf-8')
 
+    def test_carries_the_demo_video_when_it_exists(self):
+        self.manifest(self.digest)
+        out = self.root / 'dist'
+        mm_ship.build_site(self.root, out, self.installer)
+        self.assertFalse((out / 'media').exists())
+        demo = self.root / 'video/out/metamate-demo.mp4'
+        demo.parent.mkdir(parents=True)
+        demo.write_bytes(b'video')
+        mm_ship.build_site(self.root, out, self.installer)
+        self.assertEqual((out / 'media/metamate-demo.mp4').read_bytes(), b'video')
+
     def test_copies_the_site_and_the_installer(self):
         self.manifest(self.digest)
         out = self.root / 'dist'

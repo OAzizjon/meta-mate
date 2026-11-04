@@ -109,15 +109,30 @@ class CutTests(unittest.TestCase):
                          '1\n00:00:05,000 --> 00:00:08,000\nSpeech\n\n'
                          '2\n00:00:05,125 --> 00:00:06,625\nCaption\n')
 
+    def test_strip_leaves_a_band_under_the_picture(self):
+        self.assertIn('pad=iw/0.9:ih/0.9:(ow-iw)/2:0:color=0xFBF4E3', cut.look_filters({'strip': '0xFBF4E3'}))
+        self.assertEqual(cut.look_filters({}), '')
+        for bad in ('white', '0xFFF', "0xFFFFFF:x=1", 7):
+            with self.assertRaises(ValueError):
+                cut.load_list(json.dumps([{'id': 'a', 'src': 'out/a.mp4', 'seconds': 1, 'strip': bad}]))
+
+    def test_web_copy_fits_the_host_limit_at_any_length(self):
+        for seconds in (60, 149, 180):
+            command = cut.web_command('in.mp4', 'out.mp4', seconds)
+            rate = int(command[command.index('-b:v') + 1]) + cut.WEB_AUDIO_BITRATE
+            self.assertLess(rate * seconds / 8, cut.WEB_LIMIT_BYTES)
+        self.assertEqual(command[-1], 'out.mp4')
+        self.assertIn('+faststart', command)
+
     def test_default_cut_row_boundaries(self):
         rows = cut.load_list((cut.ROOT / 'video/cut.json').read_text(encoding='utf-8'))
         timeline = cut.start_times(rows)
         starts = {r['id']: s for r, s, _ in timeline}
-        order = [starts[n] for n in ('A', 'TH1', 'B-lesson', 'NOTE', 'D', 'E', 'TH2', 'passwords-black', 'F',
-                                     'seven-models', 'scam-stamp', 'scale', 'TH3')]
+        order = [starts[n] for n in ('A', 'TH1', 'D', 'TH2', 'passwords-black',
+                                     'seven-models', 'scam-stamp', 'scale', 'end')]
         self.assertEqual(order, sorted(order))
         self.assertLessEqual(sum(d for _, _, d in timeline), 180)
-        self.assertEqual({r['voice'] for r in rows if 'voice' in r}, {f'V{i}.wav' for i in range(1, 7)})
+        self.assertLessEqual({r['voice'] for r in rows if 'voice' in r}, {f'V{i}.wav' for i in range(1, 8)})
 
     def test_dry_run_no_processes_or_outputs(self):
         with tempfile.TemporaryDirectory() as directory:
