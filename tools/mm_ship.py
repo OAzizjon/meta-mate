@@ -18,7 +18,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,18 +44,6 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def rename_when_free(source: Path, target: Path, tries: int = 45) -> None:
-    """Defender holds a fresh .exe open while it scans, and Windows then refuses the rename."""
-    for attempt in range(tries):
-        try:
-            source.rename(target)
-            return
-        except PermissionError:
-            if attempt == tries - 1:
-                raise
-            time.sleep(2)
-
-
 def build_site(root: Path, out: Path, installer: Path) -> str:
     """site/ plus the installer into out/, as the Worker serves them. Refuses an installer
     whose hash differs from site/version.json: the updater would reject it for every user."""
@@ -65,18 +52,14 @@ def build_site(root: Path, out: Path, installer: Path) -> str:
     if manifest.get('sha256') != digest:
         raise SystemExit(f'site/version.json has sha256 {manifest.get("sha256")}, the installer has {digest}: '
                          'run mm release again and commit site/version.json')
-    # Built beside the old one and swapped last: a failed copy leaves the last good build.
-    fresh = out.with_name(out.name + '.new')
-    if fresh.exists():
-        shutil.rmtree(fresh)
-    shutil.copytree(root / 'site', fresh, ignore=lambda _dir, names: [n for n in names if n in SITE_SKIP])
-    download = fresh / 'download'
+    # In place: a copy that fails raises here, before anything is deployed.
+    if out.exists():
+        shutil.rmtree(out)
+    shutil.copytree(root / 'site', out, ignore=lambda _dir, names: [n for n in names if n in SITE_SKIP])
+    download = out / 'download'
     download.mkdir()
     shutil.copy2(installer, download / 'MetaMate-setup.exe')
     (download / 'SHA256.txt').write_text(f'{digest}  MetaMate-setup.exe\n', encoding='utf-8')
-    if out.exists():
-        shutil.rmtree(out)
-    rename_when_free(fresh, out)
     return digest
 
 

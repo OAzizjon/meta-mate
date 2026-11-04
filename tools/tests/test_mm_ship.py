@@ -42,23 +42,6 @@ class BuildSite(unittest.TestCase):
         self.assertEqual((out / 'download/MetaMate-setup.exe').read_bytes(), b'installer')
         self.assertEqual((out / 'download/SHA256.txt').read_text(encoding='utf-8'), f'{self.digest}  MetaMate-setup.exe\n')
 
-    def test_waits_for_a_scanner_to_let_go_of_the_folder(self):
-        source, target = self.root / 'a', self.root / 'b'
-        source.mkdir()
-        real = Path.rename
-        calls = []
-
-        def busy_once(path, to):
-            calls.append(to)
-            if len(calls) == 1:
-                raise PermissionError('held by a scanner')
-            return real(path, to)
-
-        with mock.patch.object(Path, 'rename', busy_once), mock.patch.object(mm_ship.time, 'sleep'):
-            mm_ship.rename_when_free(source, target)
-        self.assertEqual(len(calls), 2)
-        self.assertTrue(target.exists())
-
     def test_replaces_an_older_build(self):
         self.manifest(self.digest)
         out = self.root / 'dist'
