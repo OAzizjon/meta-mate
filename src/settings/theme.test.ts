@@ -46,7 +46,7 @@ test("window subscription applies the stored theme and live validated changes", 
   const refreshed: Settings[] = [];
   await followWindowSettings(root, async (cmd) => {
     assert.equal(cmd, "load_settings");
-    assert.equal(root.dataset.theme, "");
+    assert.equal(root.dataset.theme, "light");
     return { theme: "dark", language: "ru" };
   }, async (onChanged) => {
     emit = onChanged;
@@ -59,23 +59,6 @@ test("window subscription applies the stored theme and live validated changes", 
   assert.equal(refreshed.at(-1)?.language, "en");
   emit({ theme: "unknown" });
   assert.equal(root.dataset.theme, "light");
-});
-
-test("a failed initial load releases the default palette", async () => {
-  const root = { dataset: {} as { theme?: string } };
-  await followWindowSettings(root, async () => {
-    assert.equal(root.dataset.theme, undefined);
-    throw new Error("unavailable");
-  }, async () => () => {}, () => {});
-  assert.equal(root.dataset.theme, "light");
-});
-
-test("a failed subscription still loads the saved palette", async () => {
-  const root = { dataset: {} as { theme?: string } };
-  await followWindowSettings(root, async () => ({ theme: "dark" }), async () => {
-    throw new Error("unavailable");
-  }, () => {});
-  assert.equal(root.dataset.theme, "dark");
 });
 
 test("a change during loading wins over the stale initial window theme", async () => {

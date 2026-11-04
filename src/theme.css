@@ -16,16 +16,6 @@
    - No decorative motion under reduced motion.
    - One burst or onomatopoeia per view at most. */
 
-/* Until the saved palette arrives, paint a dark canvas without light controls. */
-:root:not([data-theme]) {
-  color-scheme: dark;
-  background: #14161d !important;
-}
-
-:root:not([data-theme]) body {
-  visibility: hidden;
-}
-
 :root {
   color-scheme: light;
   --bg: #fcf9f1;

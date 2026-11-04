@@ -441,8 +441,8 @@ export function mountSettings(
     devGroup.syncText(t);
   };
 
-  const syncControls = (settings: Settings, loaded = true): void => {
-    if (loaded) applyTheme(settings, document.documentElement);
+  const syncControls = (settings: Settings): void => {
+    applyTheme(settings, document.documentElement);
     setLocale(settings.language);
     syncText();
     syncRadioSelection(languageGroup, settings.language);
@@ -465,7 +465,7 @@ export function mountSettings(
   };
 
   syncText();
-  syncControls(store.get(), false);
+  syncControls(store.get());
 
   const settingsActions = createSettingsActions(store, syncControls, () => !destroyed, (failed) => {
     saveFailed = failed;

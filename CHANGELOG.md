@@ -21,7 +21,6 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 - The guest line admits a long wait instead of "Checking..." for ever when the server does not answer.
 - Home's Write to Mate and Practice buttons show a message when their window cannot open.
 - Mate speaks "I can't find it" instead of only showing it.
-- Dark windows no longer flash light before their settings load.
 - README and submission text: Muse Wonder does see the screen (only Muse Glimmer hands such questions to Spark), transcription starts when listening starts, and the setting's real names.
 
 ## [0.2.0] - 2026-11-02

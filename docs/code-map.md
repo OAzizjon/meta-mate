@@ -444,7 +444,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   Message:20 canSend:28 sendsOnKey:32 parseHistory:37
   tests: src/chat/model.test.ts (5)
 - src/debug.ts — "Under the hood" debug window controller (WP14, D78).
-  DebugController:15 mountDebug:30
+  DebugController:12 mountDebug:27
 - src/debug/view.ts — Pure formatting and wire validation for the "Under the hood" debug window (WP14, D78).
   MAX_GENERATIONS:12 PRIVACY_NOTE:14 DEBUG_ANSWER_MODELS:17 DebugAnswerModel:23 MODEL_FULL_NAMES:25 isDebugAnswerModel:33 isAnswerModel:37 formatModelName:41
   PipelineStepView:45 PIPELINE_STEPS:51 PIPELINE_MODEL_LABELS:59 activePipelineModel:66 renderPipelineStripHtml:80 DebugPcmMsg:102 DebugAnswerMsg:111 DebugTimingMsg:119
@@ -637,7 +637,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   SettingsSectionId:10 SettingsSectionRefs:46 buildSettingsSection:53 PrivacyNoteRefs:89 buildPrivacyNote:95
 - src/settings/theme.ts — Shared by the page language subscription, Settings, and Mate's settings binding.
   ThemeTarget:5 applyTheme:9 followWindowSettings:16
-  tests: src/settings/theme.test.ts (7)
+  tests: src/settings/theme.test.ts (5)
 - src/settings/update-view.ts — The Settings window's Updates section (src/settings.ts): shows "MetaMate {version}", any localized release note for an available update, and a "Check for updates" / "Update to {version}" button …
   UPDATE_STATUS_CMD:9 UPDATE_CHECK_CMD:10 UPDATE_INSTALL_CMD:11 DEFAULT_CURRENT_VERSION:12 UpdateNotes:14 UpdateStatus:19 UpdateNotice:25 isValidSemver:38
   parseUpdateStatus:63 resolveUpdateNote:87 UpdateSectionRefs:94 buildUpdateSection:112
@@ -813,7 +813,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:650, src/signin.ts:125
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:126 <- src/home.ts:32
-- `load_settings` src-tauri/src/settings.rs:324 <- src/highlight.ts:589, src/home.ts:181, src/settings/model.ts:300, src/settings/theme.ts:35
+- `load_settings` src-tauri/src/settings.rs:324 <- src/highlight.ts:589, src/home.ts:181, src/settings/model.ts:300, src/settings/theme.ts:31
 - `mate_drag_start` src-tauri/src/drag.rs:16 <- src/mate.ts:517
 - `mate_jump` src-tauri/src/debug_view.rs:144 <- src/settings/dev-view.ts:13
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:44,52
@@ -860,7 +860,7 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:646, src/settings.ts:196, src/signin.ts:30; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:30; rs listen src-tauri/src/card.rs:70; const src-tauri/src/card.rs:39, src/card.ts:42
 - `chat-talk`: rs emit src-tauri/src/chat.rs:337,403; ts listen src/chat.ts:366; const src-tauri/src/chat.rs:17
-- `debug`: rs emit src-tauri/src/debug_view.rs:201; ts listen src/debug.ts:87; const src-tauri/src/debug_view.rs:17
+- `debug`: rs emit src-tauri/src/debug_view.rs:201; ts listen src/debug.ts:84; const src-tauri/src/debug_view.rs:17
 - `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:667; const src-tauri/src/explain.rs:39
 - `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:645, src/signin.ts:127; const src-tauri/src/signin.rs:18
 - `highlight`: rs emit src-tauri/src/highlight.rs:238,244,380, src-tauri/src/pointing.rs:492; ts listen src/highlight.ts:608, src/mate.ts:616; const src-tauri/src/highlight.rs:15
@@ -873,7 +873,7 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 - `mate-menu-outside`: rs emit src-tauri/src/presence.rs:206; ts listen src/mate.ts:625
 - `mate-woke`: rs emit src-tauri/src/presence.rs:108; ts listen src/mate.ts:630
 - `safety-check`: rs emit src-tauri/src/voice.rs:1022; ts listen src/mate.ts:415; const src-tauri/src/voice.rs:70, src/safety-stamp.ts:9
-- `settings-changed`: rs emit src-tauri/src/settings.rs:359,408; ts listen src/highlight.ts:594, src/home-page.ts:19, src/i18n/settings.ts:15, src/mate.ts:60, src/settings.ts:184; const src-tauri/src/settings.rs:25, src/settings/model.ts:28
+- `settings-changed`: rs emit src-tauri/src/settings.rs:359,408; ts listen src/highlight.ts:594, src/home-page.ts:19, src/i18n/settings.ts:13, src/mate.ts:60, src/settings.ts:184; const src-tauri/src/settings.rs:25, src/settings/model.ts:28
 - `voice-bar`: rs emit src-tauri/src/highlight.rs:105,115; ts listen src/highlight.ts:598; const src-tauri/src/highlight.rs:53, src/highlight/voicebar.ts:7
 
 ### Proxy routes
@@ -1036,7 +1036,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-platform | 46 | 7 |
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 219 | 21 |
-| src | 407 | 40 |
-| tools | 518 | 30 |
+| src | 405 | 40 |
+| tools | 517 | 30 |
 | server | 105 | 5 |
 | tts | 27 | 2 |
