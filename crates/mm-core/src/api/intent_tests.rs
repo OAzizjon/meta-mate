@@ -375,6 +375,8 @@ fn questions_about_the_whole_window_are_described() {
         ("Show me", Intent::Where),
         ("Что ты видишь?", Intent::Describe),
         ("Что ты видишь на этой странице?", Intent::Describe),
+        ("Что вы видите на этой странице?", Intent::Describe),
+        ("Что вы видите?", Intent::Describe),
         // About the world, not the window: no look.
         ("What do you see in a dream?", Intent::Chat),
         ("What can you see from the moon?", Intent::Chat),

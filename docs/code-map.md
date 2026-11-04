@@ -339,7 +339,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   inline tests (3)
 - src-tauri/src/screen.rs — "Where's the button?" (docs/plan.md Day 4), the part between the platform and the model: one look at the target window turned into what the model may see and point at, and its answer turned back into …
   MAX_EDGE:21 MAX_LISTED:25 Look:28 LookError:56 Look::resolve_live:190 Look::scan:230 Look::parser_settings:284 Look::resolve:298
-  LookFailure:365 LookFailure::line:399 take_look_at:540 consent_clicked:608 confirm_look:616 confirm_question:634 probe:1034
+  LookFailure:361 LookFailure::line:395 take_look_at:536 consent_clicked:604 confirm_look:612 confirm_question:630 probe:1030
   inline tests (32)
 - src-tauri/src/selftest.rs — Spike S1 without a person at the desk: run with `--s1-selftest`.
   spawn:41 spawn_control:151
@@ -940,8 +940,8 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `open.not_installed`: rs src-tauri/src/voice.rs:1080
 - `open.remote_warning`: rs src-tauri/src/opening.rs:25
 - `practice.title`: rs src-tauri/src/home.rs:66; ts src/practice.ts:198,210
-- `robot.cant_find`: rs src-tauri/src/chat.rs:201, src-tauri/src/home.rs:137, src-tauri/src/pointing.rs:417, src-tauri/src/screen.rs:404, src-tauri/src/teacher/lesson.rs:340, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1322; ts src/audio/cue-policy.ts:36, src/audio/types.ts:189, src/ipc/answer-stream.ts:33, src/mate-logic.ts:290,295
-- `robot.cant_look`: rs src-tauri/src/screen.rs:411, src-tauri/src/teacher/lesson.rs:102; ts src/audio/cue-policy.ts:37, src/ipc/answer-stream.ts:36
+- `robot.cant_find`: rs src-tauri/src/chat.rs:201, src-tauri/src/home.rs:137, src-tauri/src/pointing.rs:417, src-tauri/src/screen.rs:400, src-tauri/src/teacher/lesson.rs:340, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1322; ts src/audio/cue-policy.ts:36, src/audio/types.ts:189, src/ipc/answer-stream.ts:33, src/mate-logic.ts:290,295
+- `robot.cant_look`: rs src-tauri/src/screen.rs:407, src-tauri/src/teacher/lesson.rs:102; ts src/audio/cue-policy.ts:37, src/ipc/answer-stream.ts:36
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:67
 - `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:506,650,651; ts src/ipc/answer-stream.ts:47
 - `robot.click_stop`: rs src-tauri/src/chat.rs:206, src-tauri/src/voice.rs:724; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:34, src/mate-logic.ts:206,236
@@ -950,7 +950,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:80; ts src/audio/cue-policy.ts:32,248, src/ipc/answer-stream.ts:56
 - `robot.double_click`: rs src-tauri/src/teacher/presentation.rs:71; ts src/ipc/answer-stream.ts:50
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/audio/cue-policy.ts:51, src/ipc/answer-stream.ts:45
-- `robot.look_consent`: rs src-tauri/src/screen.rs:627; ts src/ipc/answer-stream.ts:41, src/mate-logic.ts:251
+- `robot.look_consent`: rs src-tauri/src/screen.rs:623; ts src/ipc/answer-stream.ts:41, src/mate-logic.ts:251
 - `robot.looking`: rs src-tauri/src/voice.rs:65
 - `robot.mic_busy`: rs src-tauri/src/voice.rs:1472; ts src/ipc/answer-stream.ts:30
 - `robot.mic_denied`: rs src-tauri/src/voice.rs:1471; ts src/ipc/answer-stream.ts:26
@@ -960,8 +960,8 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.press_cancelled`: rs src-tauri/src/teacher/presentation.rs:86; ts src/audio/cue-policy.ts:45, src/ipc/answer-stream.ts:63
 - `robot.press_failed`: rs src-tauri/src/teacher/presentation.rs:87; ts src/audio/cue-policy.ts:46, src/ipc/answer-stream.ts:64
 - `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:85; ts src/ipc/answer-stream.ts:62
-- `robot.private_window`: rs src-tauri/src/screen.rs:402; ts src/audio/cue-policy.ts:40, src/ipc/answer-stream.ts:39
-- `robot.protected_window`: rs src-tauri/src/screen.rs:405; ts src/audio/cue-policy.ts:38, src/ipc/answer-stream.ts:37
+- `robot.private_window`: rs src-tauri/src/screen.rs:398; ts src/audio/cue-policy.ts:40, src/ipc/answer-stream.ts:39
+- `robot.protected_window`: rs src-tauri/src/screen.rs:401; ts src/audio/cue-policy.ts:38, src/ipc/answer-stream.ts:37
 - `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:349,350; ts src/audio/cue-policy.ts:20,27, src/ipc/answer-stream.ts:52
 - `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/audio/cue-policy.ts:21,28, src/ipc/answer-stream.ts:53
 - `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/audio/cue-policy.ts:22,29, src/ipc/answer-stream.ts:54

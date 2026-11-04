@@ -305,6 +305,10 @@ impl Look {
                 if !shinable(element, self.snapshot.frame) {
                     return None;
                 }
+                // What redaction painted is not there to point at, whatever its type.
+                if !element.interactive && self.snapshot.hidden_ids().contains(id) {
+                    return None;
+                }
                 element.rect?
             }
             Point::Pixel(x, y) => {
@@ -313,15 +317,7 @@ impl Look {
                 if point_in_any(phys, &self.painted) {
                     return None;
                 }
-                let frame = self.snapshot.frame;
-                self.snapshot
-                    .target_at(phys)
-                    .or_else(|| {
-                        self.snapshot
-                            .element_at(phys)
-                            .filter(|element| shinable(element, frame))
-                    })?
-                    .rect?
+                self.snapshot.target_at(phys)?.rect?
             }
         };
         // Partly under a painted area: what the model saw there was black.
