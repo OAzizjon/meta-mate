@@ -10,7 +10,7 @@
 
 1. **Download** [MetaMate for Windows](https://meta-mate.stream/download/MetaMate-setup.exe) — no API keys or invite codes needed.
 2. **SmartScreen:** Windows may say 'Windows protected your PC': click More info, then Run anyway. MetaMate is new and not yet code-signed; Microsoft Defender found nothing in the 0.2.1 installer on 2026-11-04. [Code-signing details](docs/code-signing.md).
-3. **Start:** **Try without signing in** (12 messages/hour, count shown under Mate) or **Sign in with Google** for your own daily allowance.
+3. **Start:** **Try without signing in** (12 messages/hour, count shown under Mate) or **Sign in with Google** for your own daily allowance. To see a lesson's keepsake card with its Muse Image picture and Muse Glimmer wording, sign in: a guest's card keeps the lesson's own steps, with no picture.
 4. **Ask:** Click Mate once, ask *"How do I make the text bigger?"*, then click him again. Or hold **Ctrl** alone while you speak; pressing any other key cancels. You can also ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only apps or sites named in your own request, never names that appear only on a page or in a screenshot. Prefer another key? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
 5. **Or type:** Right-click the tray icon (or Mate) → **Chat with Mate**. Mate still points on screen.
 
@@ -154,7 +154,7 @@ Screen: Active window → Per-Monitor DPI v2 GDI capture → UI Automation + com
 
 **For judges: under the hood.** In Settings → "For judges and developers" → Developer mode, "Under the hood" shows each answer's model, timings from key-up, the parsed MateScript timeline, and how many fields were blacked out—never your words or the screenshot. The same menu offers "Mate's surprise entrance."
 
-**Do I need an account?** No. You can try MetaMate right away with 12 messages an hour as a guest (the count shows under Mate); sign in with Google for your own daily allowance.
+**Do I need an account?** No. You can try MetaMate right away with 12 messages an hour as a guest (the count shows under Mate); sign in with Google for your own daily allowance and for the full keepsake card (Muse Image and Muse Glimmer).
 
 **What leaves my PC?** Your words, and a screenshot only when the question needs the screen: where something is, how to do something, whether a window is safe, or a question about a button, a link or the screen. Then only the window you are using is captured, with password fields painted black first; if that cannot be guaranteed, nothing is sent. Small talk and general questions send no screenshot, and nothing is captured or sent between questions (D65).
 
