@@ -399,14 +399,16 @@ def check_git_state(runner: Runner) -> Check:
     return Check("git-state", PASS, "working tree clean, HEAD == origin/main")
 
 
-def check_github_release(runner: Runner) -> Check:
-    rc, out, err = runner(["gh", "release", "view", "--json", "tagName", "isDraft"])
+def check_github_release(runner: Runner, version: str | None = None) -> Check:
+    # This version's release, not whatever is latest: an older release must not pass.
+    tag_args = [f"v{version}"] if version else []
+    rc, out, err = runner(["gh", "release", "view", *tag_args, "--json", "tagName,isDraft"])
     if rc != 0:
-        if "no release" in err.lower():
+        if "no release" in err.lower() or "not found" in err.lower():
             return Check(
                 "github-release",
                 FAIL,
-                "no GitHub release exists; fix: create one with `gh release create`",
+                f"no GitHub release {tag_args[0] if tag_args else ''} yet; fix: mm ship release",
             )
         return Check(
             "github-release",
@@ -478,7 +480,7 @@ def run_checks(
         check_download_size(base, do_fetch),
         check_proxy_health(do_fetch, proxy_url),
         check_git_state(do_runner),
-        check_github_release(do_runner),
+        check_github_release(do_runner, _tauri_version(base)),
         check_submission_doc(base),
     ]
 

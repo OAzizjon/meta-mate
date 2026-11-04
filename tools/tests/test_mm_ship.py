@@ -104,8 +104,35 @@ class Main(unittest.TestCase):
                 root = Path(folder)
                 (root / 'LICENSE').write_text('x', encoding='utf-8')
                 with mock.patch.object(mm_ship, 'ROOT', root), mock.patch.object(mm_ship.Runner, 'run'):
-                    mm_ship.step_repo(run)
+                    with self.assertRaises(SystemExit):
+                        mm_ship.step_repo(run)
         called.assert_not_called()
+
+    def test_a_no_on_an_early_step_never_reaches_the_public_one(self):
+        with mock.patch.dict(os.environ, {'MM_AGENT': ''}), mock.patch('builtins.input', return_value='n'):
+            with mock.patch.object(mm_ship, 'tool', side_effect=lambda name: name):
+                with mock.patch.object(mm_ship.subprocess, 'run') as called, self.assertRaises(SystemExit):
+                    self.quiet(['glimmer', 'repo'])
+        called.assert_not_called()
+
+    def test_a_failed_preflight_fails_the_run(self):
+        result = mock.Mock(returncode=1)
+        with mock.patch.dict(os.environ, {'MM_AGENT': ''}), mock.patch.object(mm_ship.subprocess, 'run', return_value=result):
+            with self.assertRaises(SystemExit):
+                self.quiet(['check'])
+
+    def test_a_changed_proxy_link_stops_before_the_site(self):
+        links = iter([{'url': 'a', 'invite': 'b'}, {'url': 'c', 'invite': 'b'}])
+        run = mm_ship.Runner(False, True)
+        with mock.patch.object(mm_ship, 'proxy_link', side_effect=lambda: next(links)), mock.patch.object(mm_ship.Runner, 'run'):
+            with contextlib.redirect_stdout(io.StringIO()), self.assertRaises(SystemExit) as raised:
+                mm_ship.step_proxy(run)
+        self.assertIn('mm release', str(raised.exception))
+
+    def test_a_missing_tool_is_named(self):
+        with mock.patch.object(mm_ship.shutil, 'which', return_value=None), self.assertRaises(SystemExit) as raised:
+            mm_ship.tool('gh')
+        self.assertIn('gh', str(raised.exception))
 
 
 if __name__ == '__main__':

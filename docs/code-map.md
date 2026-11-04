@@ -695,7 +695,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: tools/tests/test_mm_map.py (21)
 - tools/mm_preflight.py — Preflight: can we submit right now?
   Response:40 Check:47 check_license:102 check_repo_visibility:113 check_readme:141 check_site_version:186 check_installer_sha256:226 check_download_size:276
-  check_proxy_health:328 check_git_state:367 check_github_release:402 check_submission_doc:443 run_checks:463 format_text:494 main:498
+  check_proxy_health:328 check_git_state:367 check_github_release:402 check_submission_doc:445 run_checks:465 format_text:496 main:500
   tests: tools/tests/test_mm_preflight.py (36)
 - tools/mm_probe.py — mm probe models|stream|chat|click|sam|asr|safety|point|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe …
   ProbeError:121 is_plain_file:138 read_secret:149 scrub:165 provider_config:178 iter_sse:252 output_text:271 computer_actions:281
@@ -716,9 +716,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   cmd_safety:210 run_batch:225 add_parser:308
   tests: tools/tests/test_mm_probe_safety.py (14)
 - tools/mm_ship.py — mm ship: the owner's night-of-submission steps, in order, each asked first.
-  app_version:30 installer_path:34 sha256:39 build_site:47 release_notes:65 Runner:77 tool:98 step_glimmer:102
-  step_proxy:108 step_site:114 step_release:126 step_repo:142 step_check:151 main:163
-  tests: tools/tests/test_mm_ship.py (8)
+  app_version:30 installer_path:34 sha256:39 build_site:47 release_notes:70 Runner:82 tool:109 proxy_link:116
+  step_glimmer:125 step_proxy:133 step_site:143 step_release:155 step_repo:177 step_check:186 main:195
+  tests: tools/tests/test_mm_ship.py (12)
 - tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
   expand:254 last_line:258 display_path:263 source_files:277 dist_stale:288 npm_cmd:295 build_dist:299 load_fixture:319
   mock_context:343 render_mock_js:374 inject_mock:385 make_handler:410 start_server:516 find_edge:525 png_size:536 run_edge:544
@@ -1037,6 +1037,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 219 | 21 |
 | src | 405 | 40 |
-| tools | 517 | 30 |
+| tools | 521 | 30 |
 | server | 105 | 5 |
 | tts | 27 | 2 |

@@ -52,13 +52,18 @@ def build_site(root: Path, out: Path, installer: Path) -> str:
     if manifest.get('sha256') != digest:
         raise SystemExit(f'site/version.json has sha256 {manifest.get("sha256")}, the installer has {digest}: '
                          'run mm release again and commit site/version.json')
-    if out.exists():
-        shutil.rmtree(out)
-    shutil.copytree(root / 'site', out, ignore=lambda _dir, names: [n for n in names if n in SITE_SKIP])
-    download = out / 'download'
+    # Built beside the old one and swapped last: a failed copy leaves the last good build.
+    fresh = out.with_name(out.name + '.new')
+    if fresh.exists():
+        shutil.rmtree(fresh)
+    shutil.copytree(root / 'site', fresh, ignore=lambda _dir, names: [n for n in names if n in SITE_SKIP])
+    download = fresh / 'download'
     download.mkdir()
     shutil.copy2(installer, download / 'MetaMate-setup.exe')
     (download / 'SHA256.txt').write_text(f'{digest}  MetaMate-setup.exe\n', encoding='utf-8')
+    if out.exists():
+        shutil.rmtree(out)
+    fresh.rename(out)
     return digest
 
 
@@ -79,36 +84,60 @@ class Runner:
         self.dry_run = dry_run
         self.yes = yes
 
-    def ask(self, question: str) -> bool:
+    def ask(self, question: str) -> None:
+        """A no ends the whole run, so a skipped step can never lead into a later, public one."""
         if self.dry_run or self.yes:
             print(f'  {question} yes')
-            return True
-        return input(f'  {question} [y/N] ').strip().lower() in ('y', 'yes', 'д', 'да')
+            return
+        if input(f'  {question} [y/N] ').strip().lower() not in ('y', 'yes', 'д', 'да'):
+            raise SystemExit('Stopped here; nothing after this step ran. To skip a step, name the others, '
+                             'for example: mm ship site release repo check')
 
-    def run(self, cmd: list[str], cwd: Path = ROOT) -> None:
+    def run(self, cmd: list[str], cwd: Path = ROOT, env: dict[str, str] | None = None) -> None:
         print('  > ' + subprocess.list2cmdline(cmd), flush=True)
         if self.dry_run:
             return
-        code = subprocess.run(cmd, cwd=cwd).returncode
+        try:
+            code = subprocess.run(cmd, cwd=cwd, env=env).returncode
+        except OSError as error:
+            raise SystemExit(f'Could not start {cmd[0]}: {error}. Nothing after it ran.') from error
         if code != 0:
             raise SystemExit(f'That command failed with exit {code}. Nothing after it ran. '
                              f'Fix it, then run mm ship again from this step.')
 
 
 def tool(name: str) -> str:
-    return shutil.which(name) or name
+    found = shutil.which(name)
+    if not found:
+        raise SystemExit(f'{name} is not on PATH. Nothing after this ran.')
+    return found
+
+
+def proxy_link() -> dict[str, str]:
+    """What the installer was built against; only ever compared, never printed."""
+    try:
+        link = json.loads((ROOT / 'server/.prod-proxy.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    return {key: link.get(key, '') for key in ('url', 'invite')}
 
 
 def step_glimmer(run: Runner) -> None:
     print('Glimmer: Meta open weights on our own Modal GPU (the weights are already on the volume).')
-    if run.ask('Deploy inference/glimmer_modal.py?'):
-        run.run([tool('modal'), 'deploy', 'inference/glimmer_modal.py'])
+    run.ask('Deploy inference/glimmer_modal.py?')
+    # Modal's console output breaks on a cp1251 console without UTF-8 (deploy_modal_proxy.py too).
+    env = {**os.environ, 'PYTHONIOENCODING': 'utf-8', 'PYTHONUTF8': '1'}
+    run.run([tool('modal'), 'deploy', 'inference/glimmer_modal.py'], env=env)
 
 
 def step_proxy(run: Runner) -> None:
     print('Proxy: the judges\' server on Modal. Earlier sign-ins end; guests and the app recover by themselves.')
-    if run.ask('Deploy the proxy (server/deploy/deploy_modal_proxy.py)?'):
-        run.run([sys.executable, 'server/deploy/deploy_modal_proxy.py'])
+    run.ask('Deploy the proxy (server/deploy/deploy_modal_proxy.py)?')
+    before = proxy_link()
+    run.run([sys.executable, 'server/deploy/deploy_modal_proxy.py'])
+    if not run.dry_run and before and proxy_link() != before:
+        raise SystemExit('The proxy address or invite changed, so the installer points at the old one. '
+                         'Run mm release again, commit site/version.json, then: mm ship site release repo check')
 
 
 def step_site(run: Runner) -> None:
@@ -119,8 +148,8 @@ def step_site(run: Runner) -> None:
     out = ROOT / 'site-dist'
     if not run.dry_run:
         print(f'  SHA-256 {build_site(ROOT, out, installer)}')
-    if run.ask('Deploy the site to Cloudflare (Worker meta-mate-site)?'):
-        run.run([tool('npx'), '--yes', 'wrangler@4', 'deploy', '--config', 'wrangler.jsonc'], cwd=ROOT / 'server/deploy/site')
+    run.ask('Deploy the site to Cloudflare (Worker meta-mate-site)?')
+    run.run([tool('npx'), '--yes', 'wrangler@4', 'deploy', '--config', 'wrangler.jsonc'], cwd=ROOT / 'server/deploy/site')
 
 
 def step_release(run: Runner) -> None:
@@ -130,12 +159,18 @@ def step_release(run: Runner) -> None:
     print(f'GitHub release {tag} with the installer.')
     if not installer.exists() and not run.dry_run:
         raise SystemExit(f'{installer} is not there: mm release first')
-    if not run.ask(f'Publish release {tag}?'):
+    run.ask(f'Publish release {tag}?')
+    gh = tool('gh')
+    # A second run after a failure further on: replace the asset, do not fail on the tag.
+    exists = not run.dry_run and subprocess.run([gh, 'release', 'view', tag, '--repo', REPO],
+                                                capture_output=True, cwd=ROOT).returncode == 0
+    if exists:
+        run.run([gh, 'release', 'upload', tag, f'{installer}#MetaMate-setup.exe', '--repo', REPO, '--clobber'])
         return
     with tempfile.TemporaryDirectory() as folder:
         notes = Path(folder, 'notes.md')
         notes.write_text(release_notes(ROOT, version), encoding='utf-8')
-        run.run([tool('gh'), 'release', 'create', tag, f'{installer}#MetaMate-setup.exe', '--repo', REPO,
+        run.run([gh, 'release', 'create', tag, f'{installer}#MetaMate-setup.exe', '--repo', REPO,
                  '--title', f'MetaMate {version}', '--notes-file', str(notes), '--latest'])
 
 
@@ -144,16 +179,13 @@ def step_repo(run: Runner) -> None:
     if not (ROOT / 'LICENSE').exists() and not run.dry_run:
         raise SystemExit('No LICENSE file yet: ask the lead to add it first.')
     run.run([sys.executable, 'tools/mm.py', 'check'])
-    if run.ask(f'Make {REPO} PUBLIC now? This cannot be taken back: copies may stay.'):
-        run.run([tool('gh'), 'repo', 'edit', REPO, '--visibility', 'public', '--accept-visibility-change-consequences'])
+    run.ask(f'Make {REPO} PUBLIC now? This cannot be taken back: copies may stay.')
+    run.run([tool('gh'), 'repo', 'edit', REPO, '--visibility', 'public', '--accept-visibility-change-consequences'])
 
 
 def step_check(run: Runner) -> None:
     print('Check: can we submit right now?')
-    if run.dry_run:
-        print('  > mm preflight')
-        return
-    subprocess.run([sys.executable, 'tools/mm.py', 'preflight'], cwd=ROOT)
+    run.run([sys.executable, 'tools/mm.py', 'preflight'])
 
 
 ACTIONS = {'glimmer': step_glimmer, 'proxy': step_proxy, 'site': step_site, 'release': step_release,

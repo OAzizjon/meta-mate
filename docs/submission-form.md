@@ -42,3 +42,5 @@ Mate lights the button. Your parent clicks it.
 **X posts**
 1. MetaMate helps you find the right button without taking over. Ask aloud in English or Russian; Mate answers, points, and guides one step at a time. Built with Meta's Muse models. https://meta-mate.stream
 2. Every completed MetaMate lesson can become a printable keepsake card: Muse Glimmer 30B rewrites the steps, and Muse Image illustrates them. A little help you can keep. https://meta-mate.stream
+3. Your mum can find the right button without guessing. Mate shines a beam on it on her screen; she clicks it herself. He won't press Pay, Delete or password buttons. https://meta-mate.stream
+4. After a lesson, Mate reads the note the family left and prints it on a keepsake card for your parent. They hear your words and can hold them. https://meta-mate.stream

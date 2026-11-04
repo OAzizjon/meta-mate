@@ -648,6 +648,10 @@
       /* Windows contrast themes drop the fills: the cards, the keycap and the marks keep a
          ring, the icons take the text colour. */
       @media (forced-colors: active) {
+        .home-model-card[aria-checked="true"] .home-icon :is(.i-fill, .i-paper, .i-line) {
+          stroke: CanvasText;
+        }
+
         .home-hero,
         .home-talk,
         .home-model,
