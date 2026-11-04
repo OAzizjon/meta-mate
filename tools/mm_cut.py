@@ -62,12 +62,7 @@ def load_list(text):
             raise ValueError(row['id'] + ': seconds must be positive')
         if 'seconds' in row and 'out' in row:
             raise ValueError(row['id'] + ': use either out or seconds, not both')
-        if 'crop' in row:
-            crop = row['crop']
-            if not isinstance(crop, list) or len(crop) != 4:
-                raise ValueError(row['id'] + ': crop must be [width, height, x, y]')
-            for part in crop:
-                number(part, row['id'] + ': crop')
+        check_crop(row, row['id'])
         if 'strip' in row and not re.fullmatch(r'0x[0-9A-Fa-f]{6}', str(row['strip'])):
             raise ValueError(row['id'] + ': strip must be a colour like 0xFBF4E3')
         if 'gain' in row:
@@ -93,6 +88,10 @@ def load_list(text):
                 if item['seconds'] <= 0:
                     raise ValueError(row['id'] + ': beside seconds must be positive')
                 number(item.get('in', 0), row['id'] + ': beside in')
+                check_crop(item, row['id'])
+                # Only these reach the graph: a stray key must not pass for a working one.
+                if set(item) - {'src', 'seconds', 'in', 'crop'}:
+                    raise ValueError(row['id'] + ': beside takes only src, seconds, in and crop')
         if 'subtitle' in row and not isinstance(row['subtitle'], str):
             raise ValueError(row['id'] + ': subtitle must be text')
         if not isinstance(row.get('captions', []), list):
@@ -102,11 +101,21 @@ def load_list(text):
                 raise ValueError(row['id'] + ': caption needs text')
             number(cap.get('at'), 'caption at')
             number(cap.get('for'), 'caption for')
+            # number() refuses a negative height, which would draw the caption off the picture.
             if 'y' in cap and (number(cap['y'], 'caption y') > 1):
                 raise ValueError('caption y is a share of the height, 0 to 1')
             if cap['for'] <= 0:
                 raise ValueError('caption for must be positive')
     return rows
+
+
+def check_crop(row, label):
+    if 'crop' in row:
+        crop = row['crop']
+        if not isinstance(crop, list) or len(crop) != 4:
+            raise ValueError(label + ': crop must be [width, height, x, y]')
+        for part in crop:
+            number(part, label + ': crop')
 
 
 def resolve_sources(rows, video):

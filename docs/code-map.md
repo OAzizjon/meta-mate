@@ -674,9 +674,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   dotted:253 py_imports_module:257 py_entries:275 cover:304 render:324 no_tests_text:333 main:342
   tests: tools/tests/test_mm_cover.py (9)
 - tools/mm_cut.py — Assemble the demo with the standard library and ffmpeg only.
-  media_path:34 load_list:43 resolve_sources:112 number:129 start_times:135 validate:159 warnings:178 drawtext_escape:205
-  look_filters:211 after_filters:222 clip_chain:237 subtitle_lines:245 write_srt:267 build_graph:275 srt:369 probe:383
-  web_command:391 main:401
+  media_path:34 load_list:43 check_crop:112 resolve_sources:121 number:138 start_times:144 validate:168 warnings:187
+  drawtext_escape:214 look_filters:220 after_filters:231 clip_chain:246 subtitle_lines:254 write_srt:276 build_graph:284 srt:378
+  probe:392 web_command:400 main:410
   tests: tools/tests/test_mm_cut.py (37)
 - tools/mm_difflint.py — mm difflint [PATCH|-]
   AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284

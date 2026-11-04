@@ -151,6 +151,10 @@ class CutTests(unittest.TestCase):
         for bad in ({'gain': 'loud'}, {'gain': 99}, {'zoom': -1}, {'zoom': 0.1, 'zoom_at': [2, 0]}, {'face': 2},
                     {'beside': []}, {'beside': ['x']}, {'beside': [{'src': '../x.mp4', 'seconds': 1}]},
                     {'beside': [{'src': 'out/b.mp4', 'seconds': 0}]},
+                    {'beside': [{'src': 'out/b.mp4', 'seconds': 1, 'crop': ['1:1,evil', 1, 0, 0]}]},
+                    {'beside': [{'src': 'out/b.mp4', 'seconds': 1, 'crop': [1, 1]}]},
+                    {'beside': [{'src': 'out/b.mp4', 'seconds': 1, 'look': 'camera'}]},
+                    {'captions': [{'text': 'x', 'at': 0, 'for': 1, 'y': -0.5}]},
                     {'captions': [{'text': 'x', 'at': 0, 'for': 1, 'y': 2}]}):
             with self.assertRaises(ValueError, msg=str(bad)):
                 cut.load_list(json.dumps([{**base, **bad}]))

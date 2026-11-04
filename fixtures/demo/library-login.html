@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>City Library - Sign in</title>
+    <style>
+      :root { font-family: "Segoe UI", Arial, sans-serif; color: #1f2a44; }
+      body { margin: 0; background: #f4f1ea; }
+      header { display: flex; align-items: center; gap: 32px; padding: 20px 48px; background: #24476b; color: #fff; }
+      header h1 { margin: 0; font-size: 28px; font-weight: 600; }
+      header input { flex: 1; max-width: 560px; padding: 12px 16px; font-size: 18px; border: 0; border-radius: 8px; }
+      header button { padding: 12px 20px; font-size: 18px; border: 0; border-radius: 8px; background: #f2c14e; color: #1f2a44; cursor: pointer; }
+      main { display: flex; justify-content: center; padding: 64px 24px; }
+      form { width: 460px; padding: 36px; background: #fff; border-radius: 14px; box-shadow: 0 8px 30px rgba(31, 42, 68, .14); }
+      form h2 { margin: 0 0 24px; font-size: 28px; }
+      label { display: block; margin: 18px 0 6px; font-size: 18px; font-weight: 600; }
+      form input { box-sizing: border-box; width: 100%; padding: 14px; font-size: 18px; border: 1px solid #9aa3b5; border-radius: 8px; }
+      form button { width: 100%; margin-top: 28px; padding: 14px; font-size: 20px; border: 0; border-radius: 8px; background: #24476b; color: #fff; cursor: pointer; }
+      footer { text-align: center; color: #6b7280; font-size: 15px; padding-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>City Library</h1>
+      <input type="search" aria-label="Search the catalogue" placeholder="Search the catalogue" />
+      <button type="button">Search</button>
+    </header>
+    <main>
+      <form onsubmit="return false">
+        <h2>Sign in to your account</h2>
+        <label for="card">Library card number</label>
+        <input id="card" type="text" value="2041 7763 9120" />
+        <label for="pin">Password</label>
+        <input id="pin" type="password" value="made-up-password" />
+        <button type="submit">Sign in</button>
+      </form>
+    </main>
+    <footer>Demo page for MetaMate. Not a real library.</footer>
+  </body>
+</html>
