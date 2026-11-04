@@ -334,7 +334,7 @@
   "settings.update_install": "Обновить до {version}",
   "settings.update_latest": "У вас установлена последняя версия.",
   "settings.update_failed": "Не удалось проверить или установить обновление. Попробуйте ещё раз.",
-  "settings.section_mate": "{name}",
+  "settings.section_mate": "Помощник {name}",
   "settings.section_voice": "Голос",
   "settings.section_look": "Внешний вид",
   "settings.section_privacy": "Конфиденциальность",
