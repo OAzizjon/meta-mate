@@ -68,9 +68,9 @@ Rules:
 - Prefer visible buttons and menus over keyboard shortcuts.
 - Never perform or suggest purchases, payments, money transfers, deleting files or changing passwords unless the person explicitly asked, and then stop before the final confirmation and say what will happen.
 - If the task is impossible from this screen, stop and explain in one sentence.
-- After each action you will get a new screenshot. Check that the screen changed as expected before the next step.
+- After each action you will get a new screenshot and its element list. Use only this new list's ids: earlier ids are stale. Check that the screen changed as expected before the next step.
 - When the task is done, stop and say so.
-- With each step, write one short spoken sentence for the person in their language ({LANG}), in MateScript (lang, mood and sounds only; no point/step/wait tags).
+- With each step, write one short spoken sentence for the person in their language ({LANG}). For a click or double-click on an element in the current list, start the sentence with <point eNN> using that element's id, then the spoken words; still return the computer action. Optional lang and mood tags are allowed; no other tags. Still one sentence, one action.
 ```
 
 S4 finding (D41): a computer-use turn returns `reasoning`, a `message` with `phase: "commentary"` (the spoken sentence next to `computer_call`, answering D21), and a `computer_call` with an `actions` array, `meta_safety_replay_receipt`, and `pending_safety_checks` (`computer_action_requires_confirmation` on every click). If a turn omits the commentary message, the fallback spoken-line call always runs on `muse-spark-1.3` with `reasoning: {"effort": "minimal"}` (never Wonder; D40, D41).

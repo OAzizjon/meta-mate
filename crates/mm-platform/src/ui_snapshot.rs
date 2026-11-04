@@ -258,12 +258,19 @@ impl UiSnapshot {
                         && matches!(e.control_type.as_str(), "Text" | "Hyperlink" | "Heading")
                         && !e.name.trim().is_empty()))
         });
-        // A large opaque surface can sit beside a perfectly accessible toolbar.
+        // A large opaque surface can sit beside a perfectly accessible toolbar. Chromium
+        // keeps empty, nameless helper panes (scrims, overlay views) the size of the page
+        // beside the page itself: with the page read out, those hide nothing. A canvas or
+        // plugin inside the page, or any named pane, still counts.
         let opaque = self.elements.iter().any(|e| {
             !e.offscreen
                 && matches!(e.control_type.as_str(), "Custom" | "Pane" | "Image")
                 && !parents.contains(e.id.as_str())
                 && e.rect.is_some_and(|r| mostly_inside(self.frame, r))
+                && !(reads_content
+                    && e.control_type == "Pane"
+                    && e.name.trim().is_empty()
+                    && !page.contains(e.id.as_str()))
         });
         opaque || (content < 8 && !reads_content)
     }
@@ -582,6 +589,54 @@ mod tests {
         assert!(snapshot.unclassifiable());
         snapshot.elements.last_mut().unwrap().rect = Some(rect(301, 0, 400, 100));
         assert!(!snapshot.unclassifiable());
+    }
+
+    #[test]
+    fn chromium_helper_panes_beside_a_readable_page_are_not_opaque() {
+        let full = rect(0, 0, 100, 100);
+        let page = || {
+            vec![
+                element("root", "Window", full),
+                child_at("doc", "root", "Document", full),
+                named_child("text", "doc", "Text", "Out for delivery"),
+            ]
+        };
+        // Chrome's scrims and overlay views: nameless leaf panes as large as the page.
+        let mut nodes = page();
+        nodes.push(child_at("scrim", "root", "Pane", full));
+        assert!(!snapshot(nodes).flat());
+        // A canvas inside the page still hides what it draws.
+        let mut nodes = page();
+        nodes.push(child_at("canvas", "doc", "Image", full));
+        assert!(snapshot(nodes).flat());
+        let mut nodes = page();
+        nodes.push(child_at("canvas", "doc", "Pane", full));
+        assert!(snapshot(nodes).flat());
+        // A named pane beside the page is a real surface, not a helper.
+        let mut nodes = page();
+        let mut plugin = child_at("plugin", "root", "Pane", full);
+        plugin.name = "Remote session".into();
+        nodes.push(plugin);
+        assert!(snapshot(nodes).flat());
+        // Without a page read out, the nameless pane stays opaque: fail closed.
+        let nodes = vec![
+            element("root", "Window", full),
+            child_at("scrim", "root", "Pane", full),
+        ];
+        assert!(snapshot(nodes).flat());
+    }
+
+    fn child_at(id: &str, parent: &str, control_type: &str, at: PhysRect) -> UiElement {
+        let mut node = child(id, parent, control_type);
+        node.rect = Some(at);
+        node.name = String::new();
+        node
+    }
+
+    fn named_child(id: &str, parent: &str, control_type: &str, name: &str) -> UiElement {
+        let mut node = child(id, parent, control_type);
+        node.name = name.into();
+        node
     }
 
     #[test]

@@ -171,7 +171,14 @@ fn selected_model_survives_retries_and_followups() {
                 &look.list,
                 &look.redacted.image,
             );
-            let next = computer_followup(session, "response", "call", &[], &look.redacted.image);
+            let next = computer_followup(
+                session,
+                "response",
+                "call",
+                &[],
+                &look.list,
+                &look.redacted.image,
+            );
             assert_eq!(first["model"], expected);
             assert_eq!(next["model"], expected);
         }
@@ -199,7 +206,7 @@ fn drags_refuse_painted_starts_and_ends() {
     let look = prepared_look(&[painted]);
     let target = look.snapshot.elements[2].rect;
     assert_eq!(
-        targets_for(&look, &response(vec![(20, 20), (50, 50)])),
+        targets_for(&look, &mut response(vec![(20, 20), (50, 50)])),
         vec![target]
     );
     for path in [
@@ -208,8 +215,114 @@ fn drags_refuse_painted_starts_and_ends() {
         vec![(20, 20), (100, 50)],
         Vec::new(),
     ] {
-        assert_eq!(targets_for(&look, &response(path)), vec![None]);
+        assert_eq!(targets_for(&look, &mut response(path)), vec![None]);
     }
+}
+
+fn tagged_click_response(action: Action) -> ParsedResponse {
+    ParsedResponse {
+        id: "response".into(),
+        model: String::new(),
+        status: "completed".into(),
+        commentary: vec!["<point e17>Open Accessibility.".into()],
+        computer_calls: vec![mm_core::api::response::ComputerCall {
+            call_id: "call".into(),
+            actions: vec![action],
+            safety_checks: Vec::new(),
+            replay_receipt: None,
+        }],
+        usage: None,
+        incomplete_reason: None,
+        reasoning_items: 0,
+    }
+}
+
+fn tagged_look() -> Look {
+    let mut look = prepared_look(&[]);
+    let mut element = look.snapshot.elements[2].clone();
+    element.id = "e17".into();
+    element.rect = Some(PhysRect::new(60, 60, 80, 80).unwrap());
+    look.snapshot.elements.push(element);
+    look.list.ids.push("e17".into());
+    look
+}
+
+#[test]
+fn element_id_wins_over_wrong_pixels_and_survives_the_teacher_guard() {
+    let look = tagged_look();
+    let expected = look.snapshot.element("e17").unwrap().rect.unwrap();
+    for action in [
+        Action::Click {
+            x: 20,
+            y: 20,
+            button: "left".into(),
+        },
+        Action::DoubleClick { x: 20, y: 20 },
+    ] {
+        let mut response = tagged_click_response(action.clone());
+        response.computer_calls[0].actions.push(action);
+        let targets = targets_for(&look, &mut response);
+        // Only the first click consumes the tag.
+        assert_eq!(
+            targets,
+            vec![Some(expected), look.snapshot.elements[2].rect]
+        );
+        let mut teacher = Teacher::new(TeacherConfig::default());
+        let commands = teacher.input(TeacherInput::ModelTurn {
+            response,
+            targets,
+            frame: look.redacted.frame,
+        });
+        assert!(commands.iter().any(|command| matches!(
+            command, TeacherCommand::PointAt { rect, .. } if *rect == expected
+        )));
+    }
+}
+
+#[test]
+fn unusable_element_ids_keep_the_pixel_fallback() {
+    for reason in [
+        "unknown",
+        "unlisted",
+        "hidden",
+        "painted",
+        "text",
+        "disabled",
+        "offscreen",
+    ] {
+        let mut look = tagged_look();
+        let element = look.snapshot.elements.last_mut().unwrap();
+        match reason {
+            "unknown" => element.id = "e18".into(),
+            "unlisted" => look.list.ids.clear(),
+            "hidden" => element.is_password = true,
+            "painted" => look.painted.push(element.rect.unwrap()),
+            "text" => element.interactive = false,
+            "disabled" => element.enabled = false,
+            "offscreen" => element.offscreen = true,
+            _ => unreachable!(),
+        }
+        let action = Action::Click {
+            x: 20,
+            y: 20,
+            button: "left".into(),
+        };
+        let mut response = tagged_click_response(action.clone());
+        assert_eq!(
+            targets_for(&look, &mut response),
+            vec![look.snapshot.elements[2].rect],
+            "{reason}"
+        );
+        assert_eq!(response.computer_calls[0].actions[0], action, "{reason}");
+    }
+}
+
+#[test]
+fn commentary_point_tag_is_removed_before_bubble_and_speech() {
+    assert_eq!(
+        crate::card::without_tags("<lang en><mood calm><point e17>Open Accessibility."),
+        "Open Accessibility."
+    );
 }
 
 #[test]

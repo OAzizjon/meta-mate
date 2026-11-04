@@ -154,7 +154,7 @@ pub(crate) async fn teach(
                         // A failed answer is retried with Quick too.
                         body["model"] = serde_json::json!(session.model);
                     }
-                    let response = answer.response;
+                    let mut response = answer.response;
                     let failed = response.status != "completed"
                         || response.incomplete_reason.is_some()
                         || response.computer_calls.len() > 1;
@@ -167,7 +167,7 @@ pub(crate) async fn teach(
                             .first()
                             .map(|call| call.call_id.clone());
                         let turn = (response.id.clone(), call_id);
-                        let mut targets = targets_for(&current, &response);
+                        let mut targets = targets_for(&current, &mut response);
                         outline_unlisted(&proxy, &current, &response, &mut targets).await;
                         #[cfg(debug_assertions)]
                         eprintln!("teacher: turn {response:?} targets {targets:?}");
@@ -274,7 +274,7 @@ pub(crate) async fn teach(
                 }
                 match command {
                     TeacherCommand::SpeakCommentary(text) => {
-                        // The prompt allows a leading `<lang ..><mood ..>`: never spoken.
+                        // Strip markup, including the targeting tag, before cards, bubble and speech.
                         let text = crate::card::without_tags(&text).trim().to_owned();
                         if !closing
                             && card_steps.len() < crate::card::MAX_STEPS
@@ -530,6 +530,7 @@ pub(crate) async fn teach(
                             &response_id,
                             &call_id,
                             &acknowledged,
+                            &current.list,
                             &current.redacted.image,
                         );
                         acknowledged.clear();

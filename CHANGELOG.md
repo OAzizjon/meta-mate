@@ -4,6 +4,13 @@ All notable changes to MetaMate are recorded in this file.
 
 This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-11-05
+
+### Fixed
+
+- A lesson could say the right thing and light the wrong button: on Windows Settings Mate said "Accessibility" and lit "Accounts", then praised the click. A step now names its element from the window's list, as "where is" answers do, and that element takes the beam; the model's pixels remain the fallback (D91).
+- The first question in a Chrome or Edge window asked for Fn + F8 on almost every page, because Chromium keeps empty helper panes as large as the page. A page that is read out no longer counts as opaque; a canvas or a named surface still asks (D91).
+
 ## [0.2.2] - 2026-11-05
 
 ### Fixed

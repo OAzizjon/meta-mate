@@ -37,7 +37,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - crates/mm-core/src/api/request.rs — Building a Responses API request body (docs/prompts.md, D41).
   RedactedImage:18^ ModelChoice:27 ModelChoice::seeing:44 ReasoningEffort:56 SPOKEN_MAX_OUTPUT_TOKENS:78 SCREEN_MAX_OUTPUT_TOKENS:84 ComputerSession:91 must_hide:101
   ElementList:108 ElementLine:121 ElementLine::new:137 render_element_list:209 chat_request:229 point_request:248 safety_request:269 describe_request:289
-  computer_request:309 computer_followup:335
+  computer_request:309 computer_followup:336
   inline tests (16)
 - crates/mm-core/src/api/response.rs — Reading a Responses API response: reasoning, the commentary line, computer calls (D41).
   ParsedResponse:9 ComputerCall:44 SafetyCheck:52 Usage:59 Action:67 ResponseError:144 parse_response:204 parse_response_value:209
@@ -193,9 +193,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - crates/mm-platform/src/target.rs — The user's window a request is about, as opaque ids (no Win32 types).
   TargetWindow:6
 - crates/mm-platform/src/ui_snapshot.rs — A flat snapshot of the target's UI Automation tree, as in `fixtures/uia/*.json`.
-  is_interactive_type:29 UiSnapshot:35 UiSnapshot::unclassifiable:167 UiSnapshot::ambiguous_private_edits:172 UiSnapshot::flat:195 UiSnapshot::hidden_ids:273 UiSnapshot::element:346 UiSnapshot::element_at:353
-  UiSnapshot::target_at:372 mostly_inside:379 same_hidden:394 UiElement:423 UiElement::private_label:447
-  inline tests (27)
+  is_interactive_type:29 UiSnapshot:35 UiSnapshot::unclassifiable:167 UiSnapshot::ambiguous_private_edits:172 UiSnapshot::flat:195 UiSnapshot::hidden_ids:280 UiSnapshot::element:353 UiSnapshot::element_at:360
+  UiSnapshot::target_at:379 mostly_inside:386 same_hidden:401 UiElement:430 UiElement::private_label:454
+  inline tests (28)
 - crates/mm-platform/src/ui_tree.rs — Reading the target's UI Automation tree.
   UiTree:10
 
@@ -358,10 +358,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src-tauri/src/teacher/inputs.rs — The person's clicks while a lesson runs: the low-level mouse hook, recognized into clicks and double clicks, sent to the lesson.
   Clicks:5 listen_for_clicks:9 Keys:40 listen_for_keys:44
 - src-tauri/src/teacher/lesson.rs — One lesson for `question`.
-  teach:41 screenshot_wait_expired:711 input_staleness:716
+  teach:41 screenshot_wait_expired:712 input_staleness:717
 - src-tauri/src/teacher/presentation.rs — Check the whole snapshot ancestry, including the window's title, before offering.
-  pressable:4 PRAISE:60 line_key:67 targets_for:95 lesson_session:133 fell_back:145 outline_unlisted:151 wav_duration:210
-  speak:217 family_note_line:256 speak_family_note:264 finish:280
+  pressable:4 PRAISE:60 line_key:67 targets_for:97 lesson_session:159 fell_back:171 outline_unlisted:177 wav_duration:236
+  speak:243 family_note_line:282 speak_family_note:290 finish:306
 - src-tauri/src/teacher/tests.rs
 - src-tauri/src/updater.rs — Minimal, safe self-update for Windows (NSIS installer in `currentUser` mode).
   CURRENT_VERSION:20 DEFAULT_UPDATE_URL:21 ALLOWED_URL_PREFIX:22 MANIFEST_MAX_BYTES:23 INSTALLER_MAX_BYTES:24 NOTE_MAX_CHARS:25 UpdateNotes:37 UpdateManifest:46
@@ -674,9 +674,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   dotted:253 py_imports_module:257 py_entries:275 cover:304 render:324 no_tests_text:333 main:342
   tests: tools/tests/test_mm_cover.py (9)
 - tools/mm_cut.py — Assemble the demo with the standard library and ffmpeg only.
-  media_path:27 load_list:36 resolve_sources:80 number:97 start_times:103 validate:127 warnings:145 drawtext_escape:172
-  look_filters:178 subtitle_lines:192 write_srt:214 build_graph:222 srt:292 probe:306 web_command:314 main:324
-  tests: tools/tests/test_mm_cut.py (31)
+  media_path:34 load_list:43 resolve_sources:112 number:129 start_times:135 validate:159 warnings:178 drawtext_escape:205
+  look_filters:211 after_filters:222 clip_chain:237 subtitle_lines:245 write_srt:267 build_graph:275 srt:369 probe:383
+  web_command:391 main:401
+  tests: tools/tests/test_mm_cut.py (37)
 - tools/mm_difflint.py — mm difflint [PATCH|-]
   AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284
   tests: tools/tests/test_mm_difflint.py (18)
@@ -943,10 +944,10 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.cant_find`: rs src-tauri/src/chat.rs:201, src-tauri/src/home.rs:137, src-tauri/src/pointing.rs:417, src-tauri/src/screen.rs:400, src-tauri/src/teacher/lesson.rs:340, src-tauri/src/teacher/presentation.rs:78, src-tauri/src/voice.rs:1322; ts src/audio/cue-policy.ts:36, src/audio/types.ts:189, src/ipc/answer-stream.ts:33, src/mate-logic.ts:290,295
 - `robot.cant_look`: rs src-tauri/src/screen.rs:407, src-tauri/src/teacher/lesson.rs:102; ts src/audio/cue-policy.ts:37, src/ipc/answer-stream.ts:36
 - `robot.checking_safety`: rs src-tauri/src/voice.rs:67
-- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:506,650,651; ts src/ipc/answer-stream.ts:47
+- `robot.click_app_first`: rs src-tauri/src/teacher/lesson.rs:506,651,652; ts src/ipc/answer-stream.ts:47
 - `robot.click_stop`: rs src-tauri/src/chat.rs:206, src-tauri/src/voice.rs:724; ts src/ipc/answer-generation.ts:27, src/ipc/answer-stream.ts:34, src/mate-logic.ts:206,236
 - `robot.didnt_catch`: rs src-tauri/src/voice.rs:1462,1519; ts src/ipc/answer-stream.ts:31
-- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:389,397,623,629, src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:61
+- `robot.do_it_for_me`: rs src-tauri/src/teacher/lesson.rs:389,397,624,630, src-tauri/src/teacher/presentation.rs:84; ts src/ipc/answer-stream.ts:61
 - `robot.done`: rs src-tauri/src/teacher/presentation.rs:80; ts src/audio/cue-policy.ts:32,248, src/ipc/answer-stream.ts:56
 - `robot.double_click`: rs src-tauri/src/teacher/presentation.rs:71; ts src/ipc/answer-stream.ts:50
 - `robot.guest_limit`: rs src-tauri/src/signin.rs:94; ts src/audio/cue-policy.ts:51, src/ipc/answer-stream.ts:45
@@ -962,14 +963,14 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `robot.pressing`: rs src-tauri/src/teacher/presentation.rs:85; ts src/ipc/answer-stream.ts:62
 - `robot.private_window`: rs src-tauri/src/screen.rs:398; ts src/audio/cue-policy.ts:40, src/ipc/answer-stream.ts:39
 - `robot.protected_window`: rs src-tauri/src/screen.rs:401; ts src/audio/cue-policy.ts:38, src/ipc/answer-stream.ts:37
-- `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:349,350; ts src/audio/cue-policy.ts:20,27, src/ipc/answer-stream.ts:52
+- `robot.right_click`: rs src-tauri/src/teacher/presentation.rs:61, src-tauri/src/teacher/tests.rs:462,463; ts src/audio/cue-policy.ts:20,27, src/ipc/answer-stream.ts:52
 - `robot.right_click_2`: rs src-tauri/src/teacher/presentation.rs:62; ts src/audio/cue-policy.ts:21,28, src/ipc/answer-stream.ts:53
 - `robot.right_click_3`: rs src-tauri/src/teacher/presentation.rs:63; ts src/audio/cue-policy.ts:22,29, src/ipc/answer-stream.ts:54
 - `robot.right_click_4`: rs src-tauri/src/teacher/presentation.rs:64; ts src/audio/cue-policy.ts:23,30, src/ipc/answer-stream.ts:55
 - `robot.screen_changed`: rs src-tauri/src/teacher/presentation.rs:72; ts src/ipc/answer-stream.ts:51
 - `robot.sign_in_again`: rs src-tauri/src/teacher/lesson.rs:193, src-tauri/src/voice.rs:1482; ts src/audio/cue-policy.ts:49, src/ipc/answer-stream.ts:43
 - `robot.sign_in_first`: rs src-tauri/src/signin.rs:96; ts src/audio/cue-policy.ts:50, src/ipc/answer-stream.ts:44
-- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:486,584; ts src/audio/cue-policy.ts:47, src/ipc/answer-stream.ts:65
+- `robot.sleep`: rs src-tauri/src/teacher/lesson.rs:486,585; ts src/audio/cue-policy.ts:47, src/ipc/answer-stream.ts:65
 - `robot.thinking`: rs src-tauri/src/voice.rs:64
 - `robot.thinking_2`: rs src-tauri/src/voice.rs:64
 - `robot.thinking_3`: rs src-tauri/src/voice.rs:64
@@ -987,7 +988,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:144; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.keycap_ctrl`: rs src-tauri/src/settings.rs:143; ts src/settings/ptt-key.ts:11
 - `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:113
-- `teacher.family_note`: rs src-tauri/src/teacher/presentation.rs:259
+- `teacher.family_note`: rs src-tauri/src/teacher/presentation.rs:285
 - `tray.chat`: rs src-tauri/src/lib.rs:288; ts src/mate-menu.ts:5
 - `tray.hide_hour`: rs src-tauri/src/lib.rs:375,443; ts src/mate-menu.ts:9
 - `tray.open_home`: rs src-tauri/src/lib.rs:287
@@ -1037,10 +1038,10 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | Area | Tests | Files |
 |---|---:|---:|
 | crates/mm-core | 309 | 38 |
-| crates/mm-platform | 46 | 7 |
+| crates/mm-platform | 47 | 7 |
 | crates/mm-win32 | 63 | 12 |
-| src-tauri | 220 | 21 |
+| src-tauri | 223 | 21 |
 | src | 405 | 40 |
-| tools | 554 | 31 |
+| tools | 560 | 31 |
 | server | 105 | 5 |
 | tts | 27 | 2 |

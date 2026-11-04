@@ -326,6 +326,7 @@ pub fn computer_request(
 
 /// The next teacher turn: the screenshot taken after the person did the step, as the
 /// `computer_call_output` for `call_id` of the response `previous_response_id`.
+/// A following user message supplies this screenshot's element ids, replacing stale ids.
 ///
 /// `acknowledged_safety_check_ids` holds only ids of `pending_safety_checks` that a HUMAN
 /// confirmed (invariant 4): in the teacher, the person's own click on the pointed element
@@ -337,6 +338,7 @@ pub fn computer_followup(
     previous_response_id: &str,
     call_id: &str,
     acknowledged_safety_check_ids: &[String],
+    element_list: &ElementList,
     image: &RedactedImage,
 ) -> Value {
     let mut output = json!({
@@ -357,7 +359,7 @@ pub fn computer_followup(
         "model": session.model.seeing(),
         "instructions": teacher_instructions(),
         "previous_response_id": previous_response_id,
-        "input": [output],
+        "input": [output, user_message(&screen_text("Use this look's element ids; earlier ids are stale.", &element_list.text), None)],
         "tools": [computer_tool()],
         "max_output_tokens": SCREEN_MAX_OUTPUT_TOKENS,
         "reasoning": {"effort": session.effort}
@@ -656,7 +658,7 @@ mod tests {
             model: open,
             ..session()
         };
-        let next = computer_followup(session, "resp_1", "call_1", &[], &image());
+        let next = computer_followup(session, "resp_1", "call_1", &[], &list, &image());
         assert_eq!(next["model"], "muse-spark-1.3");
     }
 
@@ -805,7 +807,8 @@ mod tests {
     #[test]
     fn followup_acknowledges_only_the_checks_it_is_given() {
         let confirmed = ["cu_sc_1".to_owned()];
-        let body = computer_followup(session(), "resp_1", "call_1", &confirmed, &image());
+        let list = render_element_list(&[large_button()], 150);
+        let body = computer_followup(session(), "resp_1", "call_1", &confirmed, &list, &image());
         assert_eq!(body["model"], "muse-spark-1.3");
         assert_eq!(body["previous_response_id"], "resp_1");
         assert_eq!(body["tools"], json!([{"type": "computer"}]));
@@ -818,8 +821,19 @@ mod tests {
         assert_eq!(output["acknowledged_safety_checks"], checks);
         let screenshot = json!({"type": "computer_screenshot", "image_url": DATA_URL});
         assert_eq!(output["output"], screenshot);
+        assert_eq!(body["input"].as_array().unwrap().len(), 2);
+        let message = &body["input"][1];
+        assert_eq!(message["role"], "user");
+        assert_eq!(message["content"].as_array().unwrap().len(), 1);
+        assert_eq!(message["content"][0]["type"], "input_text");
+        assert!(
+            message["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains(&list.text)
+        );
 
-        let body = computer_followup(session(), "resp_1", "call_1", &[], &image());
+        let body = computer_followup(session(), "resp_1", "call_1", &[], &list, &image());
         let output = &body["input"][0];
         assert!(output.get("acknowledged_safety_checks").is_none());
     }
@@ -927,7 +941,7 @@ mod tests {
             safety_request(QUICK, ReasoningEffort::SAFETY_CHECK, "Hi", &list, &image()),
             describe_request(QUICK, SPOKEN, "Hi", &list, &image()),
             computer_request(QUICK, ACT, "Hi", &list, &image()),
-            computer_followup(session(), "resp_1", "call_1", &[], &image()),
+            computer_followup(session(), "resp_1", "call_1", &[], &list, &image()),
         ];
         let named = format!("You are {ROBOT_NAME}, ");
         for body in &bodies {
@@ -944,7 +958,7 @@ mod tests {
         let safety = safety_request(QUICK, SPOKEN, "Safe?", &list, &image());
         let describe = describe_request(QUICK, SPOKEN, "What is this?", &list, &image());
         let computer = computer_request(QUICK, ACT, "Help", &list, &image());
-        let followup = computer_followup(session(), "resp_1", "call_1", &[], &image());
+        let followup = computer_followup(session(), "resp_1", "call_1", &[], &list, &image());
         for prompt in [
             SCREEN_PROMPT,
             TEACHER_PROMPT,

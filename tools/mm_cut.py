@@ -13,6 +13,13 @@ STILLS = {'.png', '.jpg', '.jpeg', '.bmp', '.webp'}
 VOICE_CLEAN = 'highpass=f=90,afftdn=nf=-30,loudnorm=I=-16:TP=-1.5:LRA=9,aresample=48000'
 LEVEL = 'loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000'
 CAMERA_LOOK = 'eq=gamma=1.12:contrast=1.04:saturation=1.05'
+# A normalizer lifts a nearly silent row's noise to full level, which sounds like a glitch:
+# a row with "gain" gets a fixed lift instead, and silence stays silence.
+CAMERA_DENOISE = 'highpass=f=90,afftdn=nf=-30'
+EDGE_SECONDS = 0.015
+SPLIT_LEFT = 3 / 8
+SPLIT_BACKGROUND = '0x16233F'
+SPLIT_RULE = '0xFFD34D'
 BURN_NAME = 'final-burn.srt'
 BURN_STYLE = ('FontName=Arial,FontSize=12,Bold=1,PrimaryColour=&H00FFFFFF,BackColour=&H99000000,'
               'BorderStyle=3,Outline=1,Shadow=0,MarginV=18')
@@ -63,6 +70,29 @@ def load_list(text):
                 number(part, row['id'] + ': crop')
         if 'strip' in row and not re.fullmatch(r'0x[0-9A-Fa-f]{6}', str(row['strip'])):
             raise ValueError(row['id'] + ': strip must be a colour like 0xFBF4E3')
+        if 'gain' in row:
+            if isinstance(row['gain'], bool) or not isinstance(row['gain'], (int, float)) or not -60 <= row['gain'] <= 60:
+                raise ValueError(row['id'] + ': gain must be decibels between -60 and 60')
+        if 'zoom' in row:
+            number(row['zoom'], row['id'] + ': zoom')
+            focus = row.get('zoom_at', [0.5, 0.5])
+            if not isinstance(focus, list) or len(focus) != 2 or not all(
+                    isinstance(part, (int, float)) and not isinstance(part, bool) and 0 <= part <= 1 for part in focus):
+                raise ValueError(row['id'] + ': zoom_at must be [x, y] between 0 and 1')
+        if 'face' in row:
+            if isinstance(row['face'], bool) or not isinstance(row['face'], (int, float)) or not 0 <= row['face'] <= 1:
+                raise ValueError(row['id'] + ': face must be between 0 and 1')
+        if 'beside' in row:
+            if not isinstance(row['beside'], list) or not row['beside']:
+                raise ValueError(row['id'] + ': beside must be a nonempty list')
+            for item in row['beside']:
+                if not isinstance(item, dict):
+                    raise ValueError(row['id'] + ': beside needs objects')
+                media_path(Path('video'), item.get('src'))
+                number(item.get('seconds'), row['id'] + ': beside seconds')
+                if item['seconds'] <= 0:
+                    raise ValueError(row['id'] + ': beside seconds must be positive')
+                number(item.get('in', 0), row['id'] + ': beside in')
         if 'subtitle' in row and not isinstance(row['subtitle'], str):
             raise ValueError(row['id'] + ': subtitle must be text')
         if not isinstance(row.get('captions', []), list):
@@ -72,6 +102,8 @@ def load_list(text):
                 raise ValueError(row['id'] + ': caption needs text')
             number(cap.get('at'), 'caption at')
             number(cap.get('for'), 'caption for')
+            if 'y' in cap and (number(cap['y'], 'caption y') > 1):
+                raise ValueError('caption y is a share of the height, 0 to 1')
             if cap['for'] <= 0:
                 raise ValueError('caption for must be positive')
     return rows
@@ -128,7 +160,8 @@ def validate(rows, existing, metadata=None):
     """Validate against a supplied set of existing video-relative paths."""
     missing = []
     for row in rows:
-        for name in [row['src']] + (['voice/' + row['voice']] if row.get('voice') else []):
+        names = [row['src']] + [item['src'] for item in row.get('beside', [])]
+        for name in names + (['voice/' + row['voice']] if row.get('voice') else []):
             if name not in existing:
                 missing.append(row['id'] + ': missing ' + name)
     if missing:
@@ -183,10 +216,30 @@ def look_filters(row):
         parts.append(f'crop={width}:{height}:{x}:{y}')
     if row.get('look') == 'camera':
         parts.append(CAMERA_LOOK)
+    return ''.join(part + ',' for part in parts)
+
+
+def after_filters(row, w, h, duration):
+    """What happens to the finished picture: a slow push-in, then a band under it."""
+    chain = ''
+    if row.get('zoom'):
+        # Twice the size first: zoompan rounds to whole pixels, and at full size a slow zoom shivers.
+        frames = max(1, round(duration * 30))
+        fx, fy = row.get('zoom_at', [0.5, 0.5])
+        chain += (f",scale={2 * w}:{2 * h},zoompan=z='1+{row['zoom']}*on/{frames}':"
+                  f"x='(iw-iw/zoom)*{fx}':y='(ih-ih/zoom)*{fy}':d=1:s={w}x{h}:fps=30,setsar=1")
     if row.get('strip'):
         # A band under the picture, so a subtitle never covers a clip's own bottom line.
-        parts.append(f'scale=iw*0.9:ih*0.9,pad=iw/0.9:ih/0.9:(ow-iw)/2:0:color={row["strip"]}')
-    return ''.join(part + ',' for part in parts)
+        chain += f',scale=iw*0.9:ih*0.9,pad=iw/0.9:ih/0.9:(ow-iw)/2:0:color={row["strip"]},setsar=1'
+    return chain
+
+
+def clip_chain(index, trim, row, w, h, duration, fit=True, background='black'):
+    """One input to a picture of exactly w x h and duration seconds."""
+    fitted = (f'scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color={background}'
+              if fit else f'scale=-2:{h},crop={w}:{h}:(iw-{w})*{row.get("face", 0.5)}:0')
+    return (f'[{index}:v]{trim},setpts=PTS-STARTPTS,{look_filters(row)}{fitted},setsar=1,fps=30,'
+            f'tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},setpts=PTS-STARTPTS')
 
 
 def subtitle_lines(timeline, metadata=None):
@@ -233,28 +286,52 @@ def build_graph(timeline, video, draft=False, music=None, metadata=None, burn=Fa
         trim = f'trim=start={row.get("in", 0)}'
         if 'out' in row:
             trim += f':end={row["out"]}'
-        chain = (f'[{index}:v]{trim},setpts=PTS-STARTPTS,{look_filters(row)}scale={w}:{h}:force_original_aspect_ratio=decrease,'
-                 f'pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,'
-                 f'tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},setpts=PTS-STARTPTS')
+        main_index = index
+        if row.get('beside'):
+            left = round(w * SPLIT_LEFT) // 2 * 2
+            graph.append(clip_chain(main_index, trim, row, left, h, duration, fit=False) + f'[left{i}]')
+            pieces = []
+            for j, item in enumerate(row['beside']):
+                index += 1
+                part = media_path(video, item['src'])
+                if part.suffix.lower() in STILLS:
+                    args += ['-loop', '1']
+                args += ['-i', str(part)]
+                graph.append(clip_chain(index, f'trim=start={item.get("in", 0)}', item, w - left, h, item['seconds'],
+                                        background=SPLIT_BACKGROUND) + f'[right{i}_{j}]')
+                pieces.append(f'[right{i}_{j}]')
+            graph.append(''.join(pieces) + f'concat=n={len(pieces)}:v=1:a=0,'
+                         f'tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},setpts=PTS-STARTPTS[right{i}]')
+            chain = f'[left{i}][right{i}]hstack=inputs=2,drawbox=x={left - 2}:y=0:w=4:h={h}:color={SPLIT_RULE}:t=fill'
+        else:
+            chain = clip_chain(main_index, trim, row, w, h, duration)
+        chain += after_filters(row, w, h, duration)
         for cap in row.get('captions', []):
             font = drawtext_escape('C:/Windows/Fonts/arialbd.ttf')
             chain += (f',drawtext=fontfile={font}:text={drawtext_escape(cap["text"])}:expansion=none:'
                       f'fontsize={32 if draft else 48}:fontcolor=white:box=1:boxcolor=black@0.7:boxborderw=12:'
-                      f'x=(w-text_w)/2:y=h*0.72:enable=gte(t,{cap["at"]})*lt(t,{cap["at"] + cap["for"]})')
+                      f'x=(w-text_w)/2:y=h*{cap.get("y", 0.72)}:enable=gte(t,{cap["at"]})*lt(t,{cap["at"] + cap["for"]})')
         # Commas in enable expressions belong to the expression, not the graph.
         chain = chain.replace('gte(t,', 'gte(t\\,').replace(')*lt(t,', ')*lt(t\\,')
         graph.append(chain + f'[v{i}]')
         own = row.get('keep_audio', row['src'].replace('\\', '/').startswith('takes/'))
         own = own and metadata.get(row['src'], {}).get('audio', True)
         if own:
-            audio = f'[{index}:a]atrim=start={row.get("in", 0)}'
+            audio = f'[{main_index}:a]atrim=start={row.get("in", 0)}'
             if 'out' in row:
                 audio += f':end={row["out"]}'
-            clean = VOICE_CLEAN if row.get('look') == 'camera' else LEVEL
+            if 'gain' in row:
+                denoise = CAMERA_DENOISE + ',' if row.get('look') == 'camera' else ''
+                clean = f'{denoise}volume={row["gain"]}dB,aresample=48000'
+            else:
+                clean = VOICE_CLEAN if row.get('look') == 'camera' else LEVEL
             audio += f',asetpts=PTS-STARTPTS,aresample=48000:async=1:first_pts=0,{clean},aformat=channel_layouts=stereo,apad'
         else:
             audio = 'anullsrc=r=48000:cl=stereo'
-        graph.append(audio + f',atrim=duration={duration}[a{i}]')
+        # Soft row edges: a cut in the middle of a waveform clicks.
+        fade_out = max(duration - EDGE_SECONDS, 0)
+        graph.append(audio + f',atrim=duration={duration},afade=t=in:d={EDGE_SECONDS},'
+                     f'afade=t=out:st={fade_out}:d={EDGE_SECONDS}[a{i}]')
         index += 1
         if row.get('voice'):
             name = 'voice/' + row['voice']
@@ -334,7 +411,8 @@ def main(argv=None, root=ROOT):
     try:
         rows = load_list(args.list.read_text(encoding='utf-8'))
         resolve_sources(rows, video)
-        names = {r['src'] for r in rows} | {'voice/' + r['voice'] for r in rows if r.get('voice')}
+        names = ({r['src'] for r in rows} | {'voice/' + r['voice'] for r in rows if r.get('voice')}
+                 | {item['src'] for r in rows for item in r.get('beside', [])})
         for name in names:
             base = video / 'voice' if name.startswith('voice/') else video
             if not media_path(video, name).resolve().is_relative_to(base.resolve()):

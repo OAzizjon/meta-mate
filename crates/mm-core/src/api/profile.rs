@@ -117,7 +117,7 @@ mod tests {
             point_request(model, effort, "Where?", &list, &image),
             safety_request(model, effort, "Safe?", &list, &image),
             computer_request(model, effort, "How?", &list, &image),
-            computer_followup(session, "response", "call", &[], &image),
+            computer_followup(session, "response", "call", &[], &list, &image),
         ] {
             assert!(
                 !body["instructions"]

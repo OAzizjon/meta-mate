@@ -109,9 +109,62 @@ class CutTests(unittest.TestCase):
                          '1\n00:00:05,000 --> 00:00:08,000\nSpeech\n\n'
                          '2\n00:00:05,125 --> 00:00:06,625\nCaption\n')
 
+    def graph_for(self, row, metadata=None):
+        rows = cut.load_list(json.dumps([row]))
+        return cut.build_graph(cut.start_times(rows), Path('video'), metadata=metadata or {})
+
+    def test_gain_never_normalizes_a_quiet_row(self):
+        row = {'id': 'a', 'src': 'takes/a.mp4', 'seconds': 2, 'gain': 20}
+        _, graph = self.graph_for(row)
+        self.assertIn('volume=20dB', graph)
+        self.assertNotIn('loudnorm', graph)
+        _, graph = self.graph_for({**row, 'look': 'camera'})
+        self.assertIn('afftdn', graph)
+        self.assertNotIn('loudnorm', graph)
+
+    def test_every_row_has_soft_sound_edges(self):
+        _, graph = self.graph_for({'id': 'a', 'src': 'out/a.mp4', 'seconds': 2})
+        self.assertIn('afade=t=in', graph)
+        self.assertIn('afade=t=out:st=1.985', graph)
+
+    def test_split_screen_stacks_the_speaker_and_the_other_pictures(self):
+        row = {'id': 'a', 'src': 'takes/a.mp4', 'seconds': 3, 'look': 'camera', 'face': 0.4,
+               'beside': [{'src': 'out/b.mp4', 'seconds': 1.5, 'in': 2}, {'src': 'out/c.png', 'seconds': 1.5, 'crop': [100, 100, 0, 0]}]}
+        inputs, graph = self.graph_for(row)
+        self.assertEqual(sum(1 for arg in inputs if arg == '-i'), 3)
+        self.assertEqual(inputs.count('-loop'), 1)
+        self.assertIn('crop=720:1080:(iw-720)*0.4:0', graph)
+        self.assertIn('scale=1200:1080:force_original_aspect_ratio=decrease', graph)
+        self.assertIn('hstack=inputs=2', graph)
+        self.assertIn('crop=100:100:0:0', graph)
+        # The sound comes from the speaker, the first input.
+        self.assertIn('[0:a]atrim', graph)
+
+    def test_a_missing_beside_file_is_reported(self):
+        rows = cut.load_list(json.dumps([{'id': 'a', 'src': 'takes/a.mp4', 'seconds': 1,
+                                          'beside': [{'src': 'out/b.mp4', 'seconds': 1}]}]))
+        with self.assertRaisesRegex(ValueError, 'out/b.mp4'):
+            cut.validate(rows, {'takes/a.mp4'})
+
+    def test_bad_new_fields_are_refused(self):
+        base = {'id': 'a', 'src': 'out/a.mp4', 'seconds': 1}
+        for bad in ({'gain': 'loud'}, {'gain': 99}, {'zoom': -1}, {'zoom': 0.1, 'zoom_at': [2, 0]}, {'face': 2},
+                    {'beside': []}, {'beside': ['x']}, {'beside': [{'src': '../x.mp4', 'seconds': 1}]},
+                    {'beside': [{'src': 'out/b.mp4', 'seconds': 0}]},
+                    {'captions': [{'text': 'x', 'at': 0, 'for': 1, 'y': 2}]}):
+            with self.assertRaises(ValueError, msg=str(bad)):
+                cut.load_list(json.dumps([{**base, **bad}]))
+
+    def test_zoom_and_caption_height_reach_the_graph(self):
+        _, graph = self.graph_for({'id': 'a', 'src': 'out/a.mp4', 'seconds': 2, 'zoom': 0.06, 'zoom_at': [0, 1],
+                                   'captions': [{'text': 'x', 'at': 0, 'for': 1, 'y': 0.06}]})
+        self.assertIn("zoompan=z='1+0.06*on/60'", graph)
+        self.assertIn("x='(iw-iw/zoom)*0'", graph)
+        self.assertIn('y=h*0.06', graph)
+
     def test_strip_leaves_a_band_under_the_picture(self):
-        self.assertIn('pad=iw/0.9:ih/0.9:(ow-iw)/2:0:color=0xFBF4E3', cut.look_filters({'strip': '0xFBF4E3'}))
-        self.assertEqual(cut.look_filters({}), '')
+        self.assertIn('pad=iw/0.9:ih/0.9:(ow-iw)/2:0:color=0xFBF4E3', cut.after_filters({'strip': '0xFBF4E3'}, 1920, 1080, 2))
+        self.assertEqual(cut.after_filters({}, 1920, 1080, 2), '')
         for bad in ('white', '0xFFF', "0xFFFFFF:x=1", 7):
             with self.assertRaises(ValueError):
                 cut.load_list(json.dumps([{'id': 'a', 'src': 'out/a.mp4', 'seconds': 1, 'strip': bad}]))

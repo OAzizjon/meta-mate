@@ -92,8 +92,26 @@ pub(super) fn line_key(line: LineKey, steps_done: &mut usize) -> Option<&'static
 /// pointable element under a click, the element under a scroll or move, the whole look
 /// for typing, keys and waiting; None for what cannot be placed (the teacher refuses),
 /// including anything in or touching a painted area: the model saw black there.
-pub(super) fn targets_for(look: &Look, response: &ParsedResponse) -> Vec<Option<PhysRect>> {
+/// A safe commentary id overrides the first click's pixels; normalize that action to
+/// its rectangle's centre so the teacher validates and presents the same target.
+pub(super) fn targets_for(look: &Look, response: &mut ParsedResponse) -> Vec<Option<PhysRect>> {
     let frame = look.redacted.frame;
+    let hidden = look.snapshot.hidden_ids();
+    let mut tagged = response.commentary.iter().find_map(|text| {
+        let (_, tail) = text.split_once("<point ")?;
+        let (id, _) = tail.split_once('>')?;
+        if !look.list.ids.iter().any(|shown| shown == id) || hidden.contains(id) {
+            return None;
+        }
+        let element = look.snapshot.element(id)?;
+        let rect = element.rect?;
+        (element.interactive
+            && element.enabled
+            && !element.offscreen
+            && frame.region().contains(rect.center())
+            && !overlaps_any(rect, &look.painted))
+        .then_some(rect)
+    });
     let at = |x: i64, y: i64| {
         let shot = ShotPoint::new(x as f64 + 0.5, y as f64 + 0.5).ok()?;
         let phys = frame.shot_to_phys_checked(shot)?;
@@ -102,10 +120,18 @@ pub(super) fn targets_for(look: &Look, response: &ParsedResponse) -> Vec<Option<
     let visible = |rect: PhysRect| (!overlaps_any(rect, &look.painted)).then_some(rect);
     response
         .computer_calls
-        .iter()
-        .flat_map(|call| call.actions.iter())
+        .iter_mut()
+        .flat_map(|call| call.actions.iter_mut())
         .map(|action| match action {
             Action::Click { x, y, .. } | Action::DoubleClick { x, y } => {
+                if let Some(rect) = tagged.take() {
+                    // Keep the teacher's pixel/rect plausibility guard consistent with
+                    // the authoritative id, without changing its safety checks.
+                    let shot = frame.phys_to_shot(rect.center());
+                    *x = shot.x as i64;
+                    *y = shot.y as i64;
+                    return Some(rect);
+                }
                 visible(look.snapshot.target_at(at(*x, *y)?)?.rect?)
             }
             Action::Scroll { x, y, .. } | Action::Move { x, y } => {
