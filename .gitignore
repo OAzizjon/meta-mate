@@ -15,6 +15,8 @@ __pycache__/
 /dist/
 /shots/
 /video/out/
+/WIN_*.mp4
+/fixtures/replay/asr/probe-*
 /video/takes/
 /video/voice/
 /build/

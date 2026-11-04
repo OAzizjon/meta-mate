@@ -88,7 +88,7 @@ class CutTests(unittest.TestCase):
             self.assertIn(text, graph)
         self.assertIn('-stream_loop', inputs)
         self.assertIn('[0:a]atrim', graph)
-        self.assertIn('[1:a]aresample', graph)
+        self.assertIn('[1:a]asetpts', graph)
         self.assertNotIn('[2:a]', graph)
 
     def test_missing_audio_and_draft_still(self):
@@ -115,7 +115,7 @@ class CutTests(unittest.TestCase):
         starts = {r['id']: s for r, s, _ in timeline}
         self.assertEqual([starts[n] for n in ('A', 'TH1', 'B-lesson', 'NOTE', 'D', 'E', 'TH2',
                                               'passwords-black', 'F', 'seven-models', 'scam-stamp', 'scale', 'TH3')],
-                         [0, 10, 29, 63, 76, 82, 89, 103, 106, 122, 135, 152, 162])
+                         [0, 10, 27.5, 61.5, 74.5, 80.5, 87.5, 101, 104, 120, 133, 150, 160])
         self.assertEqual(sum(d for _, _, d in timeline), 176)
         self.assertEqual({r['voice'] for r in rows if 'voice' in r}, {f'V{i}.wav' for i in range(1, 7)})
 
@@ -215,6 +215,50 @@ class Warnings(unittest.TestCase):
         rows = [{'id': 'A', 'src': 'out/a.mp4', 'seconds': 4, 'voice': 'V1.mp4'}]
         metadata = {'voice/V1.mp4': {'duration': 3.0, 'audio': False}}
         self.assertIn('has no sound', cut.warnings(cut.start_times(rows, metadata), metadata)[0])
+
+
+class CameraTakes(unittest.TestCase):
+    def graph(self, row, burn=False):
+        timeline = [(row, 0.0, row.get('seconds', 5))]
+        return cut.build_graph(timeline, Path('video'), burn=burn, metadata={row['src']: {'audio': True}})[1]
+
+    def test_a_camera_take_is_cleaned_cropped_and_lit(self):
+        graph = self.graph({'id': 'T', 'src': 'takes/T.mp4', 'seconds': 5, 'look': 'camera', 'crop': [1200, 675, 360, 40]})
+        self.assertIn('crop=1200:675:360:40,eq=gamma', graph)
+        self.assertIn('afftdn', graph)
+        self.assertIn('loudnorm=I=-16', graph)
+
+    def test_a_screen_take_is_only_levelled(self):
+        graph = self.graph({'id': 'A', 'src': 'takes/A.mp4', 'seconds': 5})
+        self.assertIn('loudnorm', graph)
+        self.assertNotIn('afftdn', graph)
+        self.assertNotIn('crop=', graph)
+
+    def test_burned_subtitles_come_after_the_join(self):
+        graph = self.graph({'id': 'A', 'src': 'takes/A.mp4', 'seconds': 5}, burn=True)
+        self.assertIn('[vjoined]subtitles=final-burn.srt', graph)
+        self.assertIn('[vout]', graph)
+
+    def test_a_bad_crop_is_refused(self):
+        with self.assertRaisesRegex(ValueError, 'crop'):
+            cut.load_list(json.dumps([{'id': 'A', 'src': 'takes/A.mp4', 'seconds': 5, 'crop': [1, 2]}]))
+
+    def test_sentences_share_the_time_by_their_words(self):
+        row = {'id': 'A', 'src': 'takes/A.mp4', 'subtitle': 'One two three. Four.'}
+        lines = cut.subtitle_lines([(row, 10.0, 8.0)])
+        self.assertEqual([line[2] for line in lines], ['One two three.', 'Four.'])
+        self.assertAlmostEqual(lines[0][1], 16.0)
+        self.assertAlmostEqual(lines[1][1], 18.0)
+
+    def test_a_closing_quote_ends_a_sentence(self):
+        row = {'id': 'A', 'src': 'takes/A.mp4', 'subtitle': 'He asks: "Where do I click?" You are far away.'}
+        lines = cut.subtitle_lines([(row, 0.0, 9.0)])
+        self.assertEqual([line[2] for line in lines], ['He asks: "Where do I click?"', 'You are far away.'])
+
+    def test_a_short_voice_sets_the_pace(self):
+        row = {'id': 'A', 'src': 'out/a.mp4', 'voice': 'V.wav', 'subtitle': 'One two.'}
+        lines = cut.subtitle_lines([(row, 0.0, 10.0)], {'voice/V.wav': {'duration': 4.0}})
+        self.assertAlmostEqual(lines[0][1], 4.0)
 
 
 if __name__ == '__main__':

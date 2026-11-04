@@ -9,6 +9,13 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 STILLS = {'.png', '.jpg', '.jpeg', '.bmp', '.webp'}
+# A laptop microphone records speech some 30 dB too quiet: clean it, then bring it to level.
+VOICE_CLEAN = 'highpass=f=90,afftdn=nf=-30,loudnorm=I=-16:TP=-1.5:LRA=9,aresample=48000'
+LEVEL = 'loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000'
+CAMERA_LOOK = 'eq=gamma=1.12:contrast=1.04:saturation=1.05'
+BURN_NAME = 'final-burn.srt'
+BURN_STYLE = ('FontName=Arial,FontSize=12,Bold=1,PrimaryColour=&H00FFFFFF,BackColour=&H99000000,'
+              'BorderStyle=3,Outline=1,Shadow=0,MarginV=18')
 
 
 def media_path(base, name):
@@ -42,6 +49,12 @@ def load_list(text):
             raise ValueError(row['id'] + ': seconds must be positive')
         if 'seconds' in row and 'out' in row:
             raise ValueError(row['id'] + ': use either out or seconds, not both')
+        if 'crop' in row:
+            crop = row['crop']
+            if not isinstance(crop, list) or len(crop) != 4:
+                raise ValueError(row['id'] + ': crop must be [width, height, x, y]')
+            for part in crop:
+                number(part, row['id'] + ': crop')
         if 'subtitle' in row and not isinstance(row['subtitle'], str):
             raise ValueError(row['id'] + ': subtitle must be text')
         if not isinstance(row.get('captions', []), list):
@@ -154,7 +167,46 @@ def drawtext_escape(text):
     return ''.join('\\' + char if char in "\\'[],;" else char for char in text)
 
 
-def build_graph(timeline, video, draft=False, music=None, metadata=None):
+def look_filters(row):
+    """The picture's own corrections, each ending in a comma for the chain."""
+    parts = []
+    if row.get('crop'):
+        width, height, x, y = row['crop']
+        parts.append(f'crop={width}:{height}:{x}:{y}')
+    if row.get('look') == 'camera':
+        parts.append(CAMERA_LOOK)
+    return ''.join(part + ',' for part in parts)
+
+
+def subtitle_lines(timeline, metadata=None):
+    """(start, end, sentence) per spoken sentence, timed by its share of the words. A voice
+    shorter than its segment is spoken from the segment's start."""
+    metadata = metadata or {}
+    lines = []
+    for row, start, duration in timeline:
+        if not row.get('subtitle'):
+            continue
+        sentences = [part.strip() for part in re.split(r'(?<=[.?!]["”])\s+|(?<=[.?!])\s+', row['subtitle']) if part.strip()]
+        words = sum(len(part.split()) for part in sentences)
+        spoken = metadata.get('voice/' + row['voice'], {}).get('duration') if row.get('voice') else None
+        span = min(duration, spoken) if spoken else duration
+        at = start
+        for part in sentences:
+            length = span * len(part.split()) / words
+            lines.append((at, at + length, part))
+            at += length
+    return lines
+
+
+def write_srt(entries):
+    def stamp(seconds):
+        ms = round(seconds * 1000)
+        return f'{ms // 3600000:02}:{ms // 60000 % 60:02}:{ms // 1000 % 60:02},{ms % 1000:03}'
+    return '\n\n'.join(f'{i}\n{stamp(a)} --> {stamp(b)}\n{text}'
+                       for i, (a, b, text) in enumerate(entries, 1)) + ('\n' if entries else '')
+
+
+def build_graph(timeline, video, draft=False, music=None, metadata=None, burn=False):
     """Return ffmpeg input arguments and one filter graph; no I/O."""
     metadata = metadata or {}
     args, graph, voices = [], [], []
@@ -168,14 +220,14 @@ def build_graph(timeline, video, draft=False, music=None, metadata=None):
         trim = f'trim=start={row.get("in", 0)}'
         if 'out' in row:
             trim += f':end={row["out"]}'
-        chain = (f'[{index}:v]{trim},setpts=PTS-STARTPTS,scale={w}:{h}:force_original_aspect_ratio=decrease,'
+        chain = (f'[{index}:v]{trim},setpts=PTS-STARTPTS,{look_filters(row)}scale={w}:{h}:force_original_aspect_ratio=decrease,'
                  f'pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,'
                  f'tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},setpts=PTS-STARTPTS')
         for cap in row.get('captions', []):
             font = drawtext_escape('C:/Windows/Fonts/arialbd.ttf')
             chain += (f',drawtext=fontfile={font}:text={drawtext_escape(cap["text"])}:expansion=none:'
                       f'fontsize={32 if draft else 48}:fontcolor=white:box=1:boxcolor=black@0.7:boxborderw=12:'
-                      f'x=(w-text_w)/2:y=h-text_h-60:enable=gte(t,{cap["at"]})*lt(t,{cap["at"] + cap["for"]})')
+                      f'x=(w-text_w)/2:y=h*0.72:enable=gte(t,{cap["at"]})*lt(t,{cap["at"] + cap["for"]})')
         # Commas in enable expressions belong to the expression, not the graph.
         chain = chain.replace('gte(t,', 'gte(t\\,').replace(')*lt(t,', ')*lt(t\\,')
         graph.append(chain + f'[v{i}]')
@@ -185,7 +237,8 @@ def build_graph(timeline, video, draft=False, music=None, metadata=None):
             audio = f'[{index}:a]atrim=start={row.get("in", 0)}'
             if 'out' in row:
                 audio += f':end={row["out"]}'
-            audio += ',asetpts=PTS-STARTPTS,aresample=48000:async=1:first_pts=0,aformat=channel_layouts=stereo,apad'
+            clean = VOICE_CLEAN if row.get('look') == 'camera' else LEVEL
+            audio += f',asetpts=PTS-STARTPTS,aresample=48000:async=1:first_pts=0,{clean},aformat=channel_layouts=stereo,apad'
         else:
             audio = 'anullsrc=r=48000:cl=stereo'
         graph.append(audio + f',atrim=duration={duration}[a{i}]')
@@ -197,8 +250,12 @@ def build_graph(timeline, video, draft=False, music=None, metadata=None):
             length = metadata.get(name, {}).get('duration') or duration
             voices.append((index, start, length))
             index += 1
+    video_out = '[vjoined]' if burn else '[vout]'
     graph.append(''.join(f'[v{i}][a{i}]' for i in range(len(timeline))) +
-                 f'concat=n={len(timeline)}:v=1:a=1[vout][base]')
+                 f'concat=n={len(timeline)}:v=1:a=1{video_out}[base]')
+    if burn:
+        # ffmpeg runs in the output folder, so the name needs no Windows path escaping.
+        graph.append(f"[vjoined]subtitles={BURN_NAME}:force_style='{BURN_STYLE}'[vout]")
     total = sum(d for _, _, d in timeline)
     duck = '+'.join(f'between(t,{s},{s + d})' for _, s, d in voices)
     if duck:
@@ -207,7 +264,7 @@ def build_graph(timeline, video, draft=False, music=None, metadata=None):
         graph.append('[base]volume=1[bed]')
     tracks = ['[bed]']
     for n, (idx, start, _) in enumerate(voices):
-        graph.append(f'[{idx}:a]aresample=48000,aformat=channel_layouts=stereo,asetpts=PTS-STARTPTS,'
+        graph.append(f'[{idx}:a]asetpts=PTS-STARTPTS,{VOICE_CLEAN},aformat=channel_layouts=stereo,'
                      f'adelay={round(start * 1000)}:all=1[voice{n}]')
         tracks.append(f'[voice{n}]')
     if music:
@@ -247,6 +304,7 @@ def main(argv=None, root=ROOT):
     parser.add_argument('--dry-run', action='store_true')
     parser.add_argument('--list', type=Path, default=root / 'video/cut.json')
     parser.add_argument('--music', type=Path)
+    parser.add_argument('--no-burn', action='store_true', help='leave the subtitles out of the picture')
     args = parser.parse_args(argv)
     video = root / 'video'
     try:
@@ -274,7 +332,10 @@ def main(argv=None, root=ROOT):
         print(f'Total: {total:.3f} s')
         for note in warnings(timeline, metadata):
             print('Warning: ' + note)
-        inputs, graph = build_graph(timeline, video, args.draft, args.music, metadata)
+        lines = subtitle_lines(timeline, metadata)
+        burn = bool(lines) and not args.no_burn
+        music = args.music.resolve() if args.music else None
+        inputs, graph = build_graph(timeline, video, args.draft, music, metadata, burn)
         out = video / 'out'
         script = out / 'final.filter.txt'
         command = ['ffmpeg', '-nostdin', '-y', *inputs, '-/filter_complex', str(script),
@@ -288,7 +349,8 @@ def main(argv=None, root=ROOT):
         out.mkdir(parents=True, exist_ok=True)
         script.write_text(graph, encoding='utf-8')
         (out / 'final.srt').write_text(srt(timeline), encoding='utf-8')
-        return subprocess.call(command)
+        (out / BURN_NAME).write_text(write_srt(lines), encoding='utf-8')
+        return subprocess.call(command, cwd=out)
     except (OSError, ValueError, TypeError, subprocess.TimeoutExpired) as error:
         print('mm cut: ' + str(error))
         return 1
