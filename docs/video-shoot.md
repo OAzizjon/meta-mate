@@ -52,7 +52,7 @@ stream. Mate lights the button. Your parent clicks it.
 **V1, over the card (9 s).** After each lesson, a card to keep. Muse Glimmer, Meta's open model on
 our own GPU, writes the steps. Muse Image draws the picture.
 
-**V2, over take D (4 s).** And when he can't find it, he says so. He never guesses.
+**V2, over take D (4 s).** And when it isn't there, he says so.
 
 **V3, over take F (16 s).** This is how it really works. Muse Voice Transcribe hears you while you
 talk. Muse Spark finds the button in the list Windows gives us. MMS-TTS speaks. Every answer shows

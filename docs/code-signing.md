@@ -1,6 +1,6 @@
 # Code signing: why Windows warns, and how to stop it
 
-Checked 2026-11-02 on the 0.1.0 installer: Microsoft Defender finds no threat
+Checked 2026-11-04 on the 0.2.1 installer: Microsoft Defender finds no threat
 (`MpCmdRun -Scan -ScanType 3`), the site serves it as `application/octet-stream` with
 `Content-Disposition: attachment` over HTTPS. The warnings people see are about **reputation
 and an unsigned file**, not a detection:

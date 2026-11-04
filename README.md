@@ -9,7 +9,7 @@
 ## Try it in 60 seconds
 
 1. **Download** [MetaMate for Windows](https://meta-mate.stream/download/MetaMate-setup.exe) — no API keys or invite codes needed.
-2. **SmartScreen:** Windows may say 'Windows protected your PC': click More info, then Run anyway. MetaMate is new and not yet code-signed; Microsoft Defender found nothing in it when we checked. [Code-signing details](docs/code-signing.md).
+2. **SmartScreen:** Windows may say 'Windows protected your PC': click More info, then Run anyway. MetaMate is new and not yet code-signed; Microsoft Defender found nothing in the 0.2.1 installer on 2026-11-04. [Code-signing details](docs/code-signing.md).
 3. **Start:** **Try without signing in** (12 messages/hour, count shown under Mate) or **Sign in with Google** for your own daily allowance.
 4. **Ask:** Click Mate once, ask *"How do I make the text bigger?"*, then click him again. Or hold **Ctrl** alone while you speak; pressing any other key cancels. You can also ask him to open an app or site by name: *"Open the calculator"* or *"Открой ютуб."* Mate opens only apps or sites named in your own request, never names that appear only on a page or in a screenshot. Prefer another key? Pick Right Alt, Caps Lock, Insert, F9 or F10 in **Settings** (Home window or tray icon).
 5. **Or type:** Right-click the tray icon (or Mate) → **Chat with Mate**. Mate still points on screen.
@@ -74,6 +74,8 @@ Also inside:
 | **SAM 3.1** | Experimental fallback: outlines what lies under a model-chosen point where the accessibility tree has nothing | No accuracy claim: it does not choose the point (see "Where is it?") |
 
 Choose Mate's brain on the Home screen: Muse Spark 1.3 (quick, default), Muse Wonder 1.0 (thorough), or Muse Glimmer 30B. Muse Glimmer answers chat without the screen: when it is chosen, a question that needs the screen goes to Muse Spark.
+
+The reports behind the next three sections are in [docs/evidence](docs/evidence/README.md).
 
 ### Measured: "Is this safe?"
 

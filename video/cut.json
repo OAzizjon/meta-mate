@@ -4,7 +4,7 @@
   {"id": "B-lesson", "src": "takes/B.mp4", "in": 0, "out": 34, "captions": [{"text": "Hold Ctrl. Ask out loud.", "at": 0, "for": 11}, {"text": "You click. Not Mate.", "at": 11, "for": 11}, {"text": "Wrong click? No red. Just 'Almost'.", "at": 22, "for": 12}]},
   {"id": "NOTE", "src": "takes/NOTE.mp4", "seconds": 3, "captions": [{"text": "Written by whoever set Mate up", "at": 0, "for": 3}]},
   {"id": "B-card", "src": "takes/B.mp4", "in": 34, "out": 44, "voice": "V1.wav", "captions": [{"text": "Steps: Muse Glimmer 30B", "at": 0, "for": 5}, {"text": "Picture: Muse Image", "at": 5, "for": 5}], "subtitle": "After each lesson, a card to keep. Muse Glimmer, Meta's open model on our own GPU, writes the steps. Muse Image draws the picture."},
-  {"id": "D", "src": "takes/D.mp4", "seconds": 6, "voice": "V2.wav", "captions": [{"text": "Not on this screen, so he says so.", "at": 0, "for": 6}], "subtitle": "And when he can't find it, he says so. He never guesses."},
+  {"id": "D", "src": "takes/D.mp4", "seconds": 6, "voice": "V2.wav", "captions": [{"text": "Not on this screen, so he says so.", "at": 0, "for": 6}], "subtitle": "And when it isn't there, he says so."},
   {"id": "E", "src": "takes/E.mp4", "seconds": 7, "captions": [{"text": "What is going on on this page?", "at": 0, "for": 7}]},
   {"id": "TH2", "src": "takes/TH2.mp4", "seconds": 14, "subtitle": "He never presses Pay. Never Delete. Nothing with a password. If you ask, he presses a normal button, and only after you say yes. And passwords are painted black before anything leaves the PC."},
   {"id": "passwords-black", "src": "out/passwords-black.mp4", "seconds": 3},

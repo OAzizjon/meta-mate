@@ -1,0 +1,931 @@
+# Pointing benchmark
+
+Rates exclude errors. n counts present targets; absent_n counts absent targets. CORRECT is the honest no-point rate on absent targets. First-point times measure completion of the first point tag in streamed text; absent tags are excluded. p90 uses nearest rank. USD is the sum recorded in the ledger; unpriced calls are separate.
+
+| model | elements | lang | n | absent_n | errors | HIT | NEAR | WRONG | NO-POINT | CORRECT | FALSE-POINT | first_point_ms_n | first_point_ms_median | first_point_ms_p90 | latency_ms_n | latency_ms_median | latency_ms_p90 | input_tokens | output_tokens | usd | unpriced |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| muse-spark-1.3 | off | en | 155 | 25 | 0 | 0.4645 | 0.2129 | 0.3226 | 0.0 | 0.8 | 0.2 | 160 | 2155.8225 | 2889.83 | 180 | 2457.7905 | 3211.366 | 430205 | 53076 | 0 | 180 |
+| muse-spark-1.3 | off | ru | 150 | 25 | 0 | 0.4133 | 0.2533 | 0.3333 | 0.0 | 0.76 | 0.24 | 0 | n/a | n/a | 175 | 2671.172 | 3214.528 | 418110 | 55510 | 0 | 175 |
+| muse-spark-1.3 | on | en | 155 | 25 | 0 | 1.0 | 0.0 | 0.0 | 0.0 | 0.4 | 0.6 | 170 | 1955.1435 | 2514.969 | 180 | 2241.61 | 2863.011 | 487145 | 46646 | 0 | 180 |
+| muse-spark-1.3 | on | ru | 150 | 25 | 0 | 1.0 | 0.0 | 0.0 | 0.0 | 0.0 | 1.0 | 1 | 1611.145 | 1611.145 | 175 | 2357.347 | 3047.88 | 475895 | 46723 | 0 | 175 |
+| muse-wonder-1.0 | off | en | 155 | 25 | 0 | 0.3484 | 0.2323 | 0.4194 | 0.0 | 0.4 | 0.6 | 168 | 2167.2585 | 2935.126 | 180 | 2552.3475 | 3441.862 | 430205 | 26159 | 2.244 | 0 |
+| muse-wonder-1.0 | off | ru | 150 | 25 | 0 | 0.3333 | 0.1533 | 0.5133 | 0.0 | 0.0 | 1.0 | 0 | n/a | n/a | 175 | 2680.06 | 3804.506 | 418110 | 26309 | 2.1986 | 0 |
+| muse-wonder-1.0 | on | en | 155 | 25 | 0 | 1.0 | 0.0 | 0.0 | 0.0 | 0.48 | 0.52 | 168 | 1648.6665 | 2167.918 | 180 | 2102.0545 | 2678.767 | 487145 | 16159 | 2.2718 | 0 |
+| muse-wonder-1.0 | on | ru | 150 | 25 | 0 | 1.0 | 0.0 | 0.0 | 0.0 | 0.0 | 1.0 | 0 | n/a | n/a | 175 | 2193.903 | 2798.018 | 475895 | 16168 | 2.2269 | 0 |
+
+## Most-missed questions (up to 10)
+
+- en/clinic-appointment.html: Where can I ask for the doctor to come to my house? (18 misses)
+  - muse-spark-1.3 / on / 1: <lang en><mood calm><point e7> I cannot see a home visit choice on this page. Please try Contact us at the top right for help.
+  - muse-spark-1.3 / on / 2: <lang en><mood calm> I can not see a home visit choice on this page. <point e7> Please try Contact us at the top right to ask for a home visit.
+  - muse-spark-1.3 / on / 3: <lang en><mood calm><point e7> I cannot see a home visit choice on this page. Please check Contact us at the top right for house call help.
+  - muse-spark-1.3 / on / 4: <lang en><mood calm><point e7><sfx ping soft> I cannot see home visits on this page. This page is only for clinic visits. Try Contact us at the top right.
+  - muse-spark-1.3 / on / 5: <lang en><mood calm><sfx ping soft> I cannot see a home visit choice on this page. <point e7> Please try Contact us at the top right to ask about it.
+  - muse-spark-1.3 / off / 1: <lang en><mood calm>I do not see a home visit choice on this page. This page is only for visits at the clinic. Please try Contact us at the top right, or call the clinic to ask.
+  - muse-spark-1.3 / off / 2: <lang en><mood calm>I do not see a home visit choice on this page. <point 856,133> Contact us is at the top right. Please open it to ask about a home visit.
+  - muse-spark-1.3 / off / 3: <lang en><mood calm><point 1098,105> I do not see a home visit choice on this page. This page only books visits at the clinic.  Please press Contact us at the top right to ask about a home visit.
+  - muse-spark-1.3 / off / 4: <lang en><mood calm><sfx think soft> I cannot see a home visit choice on this page. This page is only for visits at the clinic. <point 867,132> Please press Contact us at the top right to ask about a home visit.
+  - muse-spark-1.3 / off / 5: <lang en><mood calm>I do not see a home visit choice on this page. This page only books visits at the clinic. Please call the clinic phone number at the top, or check Contact us at the top right.
+  - muse-wonder-1.0 / on / 1: <lang en><mood calm>I cannot find a home visit request on this page, as this is for visiting the clinic. <point e7><sfx ping soft>Try Contact us at the top right, or call the clinic number shown at the top.
+  - muse-wonder-1.0 / on / 2: <lang en><mood calm>I cannot see a home visit choice on this page. <point e7><sfx ping soft>Try Contact us at the top right, or call the clinic number shown at the top left.
+  - muse-wonder-1.0 / on / 3: <lang en><mood calm>I cannot find a home visit request on this page. <point e7><sfx ping soft>Try Contact us at the top right, or call the clinic number shown at the top.
+  - muse-wonder-1.0 / on / 4: <lang en><mood calm>I cannot see a home visit choice on this page.<point e7><sfx ping soft>Try Contact us at the top right, or call the clinic number shown at the top left.
+  - muse-wonder-1.0 / on / 5: <lang en><mood calm>I cannot find a home visit request on this page. <point e7><sfx ping soft>Try Contact us at the top right, or call the clinic on 01632 960 418.
+  - muse-wonder-1.0 / off / 1: <lang en><mood calm>I cannot see a home visit choice on this page. <point 1090,133><sfx ping soft>Please try Contact us at the top right, or call the clinic number shown at the top left.
+  - muse-wonder-1.0 / off / 2: <lang en><mood calm>I cannot see a home visit choice on this page. <point 1090,106><sfx ping soft>Please try Contact us at the top right, and ask the clinic there.
+  - muse-wonder-1.0 / off / 3: <lang en><mood calm>I cannot find a home visit option on this page. <point 1095,134><sfx ping soft>Try Contact us at the top right, or call the clinic number shown at the top left.
+  - muse-wonder-1.0 / off / 4: <lang en><mood calm>I cannot find a home visit choice on this page. <point 1093,104><sfx ping soft>Try Contact us at the top right, and ask them about a doctor coming to your house.
+  - muse-wonder-1.0 / off / 5: <lang en><mood calm>I cannot see a home visit choice on this page, because this page is only for visits at the clinic. <point 1093,115><sfx ping soft>Please press Contact us at the top right to ask about a home visit, or call the clinic on 01632 960 418.
+- ru/videozvonok.html: Где включить субтитры? (18 misses)
+  - muse-spark-1.3 / on / 1: <lang ru><mood calm>Я не вижу кнопки субтитров на этом экране. <point e8><sfx think soft>Загляните в кнопку Ещё внизу по центру.
+  - muse-spark-1.3 / on / 2: <lang ru><mood calm>Я не вижу кнопки субтитров на этом экране. <point e8><sfx ping soft>Откройте кнопку Ещё внизу по центру. Там поищите слово Субтитры.
+  - muse-spark-1.3 / on / 3: <lang ru><mood calm>Я не вижу кнопки субтитров на этом экране. <point e8><sfx think soft>Нажмите Ещё внизу по центру, субтитры могут быть там.
+  - muse-spark-1.3 / on / 4: <lang ru><mood calm>Я не вижу здесь кнопки для субтитров. <point e8><sfx think soft>Посмотрите в кнопке Ещё с тремя точками внизу по центру.
+  - muse-spark-1.3 / on / 5: <lang ru><mood calm>Я не вижу кнопки для субтитров на этом экране. <point e8><sfx think soft>Загляните в кнопку Ещё внизу по центру. Там могут быть субтитры.
+  - muse-spark-1.3 / off / 1: <lang ru><mood calm>Я не вижу кнопки субтитров на этом экране. <point 533,728><sfx think soft>Нажмите на три точки внизу по центру. Там обычно живут субтитры.
+  - muse-spark-1.3 / off / 2: <lang ru><mood calm>Я не вижу кнопки субтитров на этом экране. <point 533,730>Посмотрите в кнопке с тремя точками внизу по центру.
+  - muse-spark-1.3 / off / 3: <lang ru><mood calm>Я не вижу кнопки субтитров на этом экране. Попробуйте нажать на три точки внизу по центру. Там обычно бывают субтитры и настройки.
+  - muse-spark-1.3 / off / 4: <lang ru><mood calm>Кнопки субтитров на экране не видно. <point 533,727>Нажмите на три точки внизу по центру. Там обычно живут субтитры.
+  - muse-spark-1.3 / off / 5: <lang ru><mood calm>Я не вижу кнопки субтитров на этом экране. Нажмите кнопку с тремя точками внизу по центру. Там обычно бывают субтитры и настройки.
+  - muse-wonder-1.0 / on / 1: <lang ru><mood calm><point e8><sfx ping soft>На этом экране я не вижу кнопки субтитров, поэтому, скорее всего, она спрятана в меню Ещё внизу. Нажмите кнопку Ещё с тремя точками и посмотрите там пункт про субтитры.
+  - muse-wonder-1.0 / on / 2: <lang ru><mood calm>Прямой кнопки субтитров на этом экране я не вижу. <point e8><sfx ping soft>Попробуйте нажать Ещё, кнопку с тремя точками внизу, и поискать субтитры там.
+  - muse-wonder-1.0 / on / 3: <lang ru><mood calm>На этом экране кнопки субтитров я не вижу. <point e8><sfx ping soft>Нажмите кнопку Ещё внизу, в середине. Там стоит поискать субтитры.
+  - muse-wonder-1.0 / on / 4: <lang ru><mood calm><point e8><sfx ping soft>На этом экране кнопки субтитров нет. Нажмите кнопку Ещё внизу, это круг с тремя точками, и поищите там пункт про субтитры.
+  - muse-wonder-1.0 / on / 5: <lang ru><mood calm><point e8><sfx ping soft>На этом экране кнопки субтитров не видно. Нажмите кнопку Ещё с тремя точками внизу, и посмотрим там.
+  - muse-wonder-1.0 / off / 1: <lang ru><mood calm>На этом экране кнопки субтитров я не вижу. <point 543,837><sfx ping soft>Попробуйте нажать кнопку с тремя точками внизу, рядом с красной кнопкой звонка.
+  - muse-wonder-1.0 / off / 2: <lang ru><mood calm><point 542,795><sfx ping soft>Субтитров на этом экране не видно, попробуйте кнопку с тремя точками внизу по центру. Нажмите её, и там может быть пункт про субтитры.
+  - muse-wonder-1.0 / off / 3: <lang ru><mood calm><point 541,804><sfx ping soft>На этом экране кнопки субтитров не видно. Нажмите кнопку с тремя точками внизу, рядом с красной кнопкой. Там ищите пункт про субтитры.
+  - muse-wonder-1.0 / off / 4: <lang ru><mood calm><point 538,924><sfx ping soft>На этом экране кнопки субтитров не видно. Нажмите кнопку с тремя точками внизу, рядом с красной кнопкой, и посмотрите там пункт про субтитры.
+  - muse-wonder-1.0 / off / 5: <lang ru><mood calm><point 423,925><sfx ping soft>На этом экране кнопки субтитров не видно, она скорее всего скрыта за кнопкой с тремя точками внизу, рядом с красной кнопкой. Нажмите эту кнопку с тремя точками и посмотрите, что появится, а потом покажите мне.
+- ru/brauzer-masshtab.html: Где тут включить, чтобы страницу читали вслух? (17 misses)
+  - muse-spark-1.3 / on / 1: <lang ru><mood calm><point e12><sfx think soft>Кнопки чтения вслух не видно на этом экране. Откройте Меню с тремя чёрточками справа вверху, обычно она там.
+  - muse-spark-1.3 / on / 2: <lang ru><mood calm>Кнопки для чтения вслух я здесь не вижу. <point e12>Откройте Меню, это три полоски вверху справа.
+  - muse-spark-1.3 / on / 3: <lang ru><mood calm>Кнопки для чтения вслух я на этом экране не вижу. <point e12>Откройте Меню с тремя полосками вверху справа и поищите там чтение вслух.
+  - muse-spark-1.3 / on / 4: <lang ru><mood calm>На этом экране кнопки чтения вслух я не вижу. <point e12>Откройте Меню вверху справа. Там обычно есть пункт Прочитать вслух.
+  - muse-spark-1.3 / on / 5: <lang ru><mood calm>Я не вижу на этом экране кнопки чтобы читать вслух. <point e12><sfx think soft>Откройте Меню это три черточки вверху справа.
+  - muse-spark-1.3 / off / 1: <lang ru><mood calm>Я не вижу здесь кнопки для чтения вслух. <mood thinking>Откройте главное меню вверху справа и поищите там чтение вслух.
+  - muse-spark-1.3 / off / 2: <lang ru><mood calm>На этом экране кнопки для чтения вслух не видно. Откройте главное меню браузера в правом верхнем углу и поищите там Чтение вслух.
+  - muse-spark-1.3 / off / 3: <lang ru><mood calm>Я не вижу здесь кнопки, чтобы страницу читали вслух. <point 970,72>Посмотрите в кнопку с тремя полосками вверху справа.
+  - muse-spark-1.3 / off / 4: <lang ru><mood calm>Кнопки для чтения вслух я на этом экране не вижу. <point 1248,58>Загляните в кнопку с тремя полосками вверху справа.
+  - muse-spark-1.3 / off / 5: <lang ru><mood calm>На этом экране кнопки для чтения вслух не видно. Попробуйте открыть главное меню браузера вверху справа.
+  - muse-wonder-1.0 / on / 1: <lang ru><mood calm><point e12>На этом экране такой кнопки не видно. <sfx think soft>Нажмите кнопку Меню вверху справа, там посмотрите пункт про чтение вслух.
+  - muse-wonder-1.0 / on / 2: <lang ru><mood calm>На этом экране я не вижу кнопки для чтения вслух. <point e12><sfx ping soft>Попробуйте открыть Меню, кнопка с тремя полосками вверху справа, и посмотрите там.
+  - muse-wonder-1.0 / on / 3: <lang ru><mood calm>На этой странице такой кнопки я не вижу. <point e12><sfx ping soft>Нажмите кнопку Меню, это три линии вверху справа, и я посмотрю там вместе с вами.
+  - muse-wonder-1.0 / on / 4: <lang ru><mood calm>На этом экране кнопки для чтения вслух нет, честно. <point e12><sfx ping soft>Нажмите «Меню» вверху справа, и посмотрим, есть ли она там.
+  - muse-wonder-1.0 / on / 5: <lang ru><mood calm>На этом экране я такой кнопки не вижу. <point e12><sfx ping soft>Нажмите кнопку Меню вверху справа, там может быть чтение вслух.
+  - muse-wonder-1.0 / off / 1: <lang ru><mood calm>На этом экране кнопки чтения вслух я не вижу. <point 1246,72><sfx ping soft>Нажмите три полоски в правом верхнем углу, чтобы открыть меню.
+  - muse-wonder-1.0 / off / 2: <lang ru><mood calm>На этом экране такой кнопки нет, честно скажу. <point 970,73><sfx ping soft>Попробуйте нажать три полоски вверху справа, чтобы открыть меню.
+  - muse-wonder-1.0 / off / 3: <lang ru><mood calm>Я не вижу здесь кнопки для чтения вслух. <point 971,72><sfx ping soft>Нажмите меню с тремя полосками вверху справа. Если там такой кнопки нет, скажите мне, и мы посмотрим вместе.
+  - muse-wonder-1.0 / off / 4: <lang ru><mood calm>На этом экране такой кнопки не видно. <point 971,72>Нажмите кнопку с тремя полосками вверху справа, там нужно искать чтение вслух.
+  - muse-wonder-1.0 / off / 5: <lang ru><mood calm>Я честно не вижу здесь кнопки для чтения вслух. <point 972,72><sfx ping soft>Попробуйте нажать кнопку с тремя полосками в правом верхнем углу. В открывшемся списке, возможно, будет такая возможность.
+- ru/sohranit-kak.html: Как отсюда сразу отправить файл по почте? (16 misses)
+  - muse-spark-1.3 / on / 1: <lang ru><mood calm><point e20> Отсюда отправить по почте не получится. Это окно только сохраняет файл. Нажмите Отмена внизу справа и посмотрите меню Файл наверху.
+  - muse-spark-1.3 / on / 2: <lang ru><mood calm>Отсюда отправить по почте нельзя, это только окно сохранения. <point e18>Сначала нажмите Сохранить справа внизу, а потом поищем отправку в самом окне.
+  - muse-spark-1.3 / on / 3: <lang ru><mood calm><point e20>В этом окне отправки по почте нет. Нажмите Отмена внизу справа. Потом посмотрите меню Файл наверху.
+  - muse-spark-1.3 / on / 4: <lang ru><mood calm>Отсюда отправить по почте не получится. <point e18>Это окно только для сохранения, нажмите Сохранить внизу справа.
+  - muse-spark-1.3 / on / 5: <lang ru><mood calm>В этом окне я не вижу кнопки для отправки по почте. <point e18>Сначала нажмите Сохранить справа внизу, а потом отправим его вместе.
+  - muse-spark-1.3 / off / 1: <lang ru><mood calm>Отсюда отправить по почте не получится. Это окно только для сохранения. Сначала сохраните файл кнопкой Сохранить внизу справа, а потом прикрепите его к письму.
+  - muse-spark-1.3 / off / 2: <lang ru><mood calm>Отсюда отправить по почте нельзя, это только окно сохранения. Сначала нажмите кнопку Сохранить внизу справа, а потом поищем отправку в меню Файл.
+  - muse-spark-1.3 / off / 3: <lang ru><mood calm>Отсюда отправить по почте не получится. Это окно только сохраняет файл. <point 20,55>Сначала нажмите Отмена и откройте меню Файл вверху слева.
+  - muse-spark-1.3 / off / 4: <lang ru><mood calm>Отсюда отправить по почте нельзя, это только окно сохранения. Нажмите кнопку Отмена внизу справа. Потом откройте меню Файл вверху слева и поищите отправку.
+  - muse-spark-1.3 / off / 5: <lang ru><mood calm>Отсюда отправить по почте не получится. Сначала сохраните файл кнопкой Сохранить внизу справа. Потом поищем отправку в меню Файл вверху слева.
+  - muse-wonder-1.0 / on / 1: <lang ru><mood calm>Отсюда сразу по почте отправить нельзя, такой кнопки в этом окне нет. <point e18><sfx ping soft>Сначала нажмите Сохранить, кнопка справа внизу, а потом откройте почту и прикрепите сохранённый файл к письму.
+  - muse-wonder-1.0 / on / 2: <lang ru><mood calm>Отсюда сразу отправить нельзя, здесь только сохранение файла. <point e18><sfx ping soft>Нажмите Сохранить внизу справа, а потом мы откроем меню Файл вверху слева и поищем там отправку.
+  - muse-wonder-1.0 / on / 3: <lang ru><mood calm>Отсюда сразу по почте отправить нельзя, такой кнопки здесь нет. <point e18><sfx ping soft>Сначала нажмите Сохранить, кнопка внизу справа, а потом файл можно прикрепить к письму в почте.
+  - muse-wonder-1.0 / on / 4: <lang ru><mood calm>Отсюда сразу отправить по почте не получится, такой кнопки здесь нет. <point e18><sfx ping soft>Сначала нажмите Сохранить внизу справа. Потом откройте почту и прикрепите сохранённый файл к письму.
+  - muse-wonder-1.0 / on / 5: <lang ru><mood calm>Отсюда сразу отправить по почте нельзя, такой кнопки здесь нет. <point e18><sfx ping soft>Сначала нажмите Сохранить внизу справа. Потом откройте почту и прикрепите сохранённый файл к письму.
+  - muse-wonder-1.0 / off / 1: <lang ru><mood calm><point 950,550>Отсюда сразу по почте отправить нельзя, это окно только для сохранения. Сначала нажмите Сохранить справа, а потом прикрепите сохранённый файл к письму в почте.
+  - muse-wonder-1.0 / off / 2: <lang ru><mood calm>Отсюда сразу отправить нельзя, такой кнопки здесь нет. Это окно сохранения файла. <point 950,566><sfx ping soft>Нажмите Отмена внизу справа, затем откройте Файл вверху слева и поищите там отправку по почте.
+  - muse-wonder-1.0 / off / 3: <lang ru><mood calm><point 952,545>Отсюда сразу по почте отправить нельзя, такой кнопки в этом окне нет. <sfx think soft>Нажмите Отмена внизу справа, затем откройте Файл вверху слева и посмотрите там пункт про отправку.
+  - muse-wonder-1.0 / off / 4: <lang ru><mood calm>Отсюда сразу отправить по почте не получится, это окно сохранения файла. <point 948,548><sfx ping soft>Сначала нажмите Сохранить внизу справа, а потом мы поищем отправку в меню Файл вверху слева.
+  - muse-wonder-1.0 / off / 5: <lang ru><mood calm>Отсюда сразу отправить по почте не видно кнопки, это окно сохранения файла. <point 950,552><sfx ping soft>Сначала нажмите Сохранить справа внизу, а потом отправьте файл из вашей почты.
+- en/settings-display.html: Where do I turn the sound up? (15 misses)
+  - muse-spark-1.3 / on / 1: <lang en><mood calm><point e1> I do not see the sound on this Display page. Please type Sound in the Find a setting box at the top left.
+  - muse-spark-1.3 / on / 2: <lang en><mood calm>I do not see sound on this screen. <point e1>Please type Sound in the Find a setting box on the top left.
+  - muse-spark-1.3 / on / 3: <lang en><mood calm>I do not see the sound control on this Display page. <point e1><sfx ping soft> Type the word Sound in Find a setting at the top left.
+  - muse-spark-1.3 / on / 4: <lang en><mood calm>I cannot find sound on this Display page. <point e1>Please type Sound in Find a setting at the top left.
+  - muse-spark-1.3 / on / 5: <lang en><mood calm><point e1><sfx ping soft> I do not see sound on this screen. This is only brightness. Type Sound in the Find a setting box on the left.
+  - muse-spark-1.3 / off / 1: <lang en><mood calm>I do not see sound on this screen. This page is Display only. Please go back to System on the left and look for Sound there.
+  - muse-spark-1.3 / off / 2: <lang en><mood calm>I cannot see the sound control on this screen. This page is for Display only. Please type Sound in Find a setting at the top left.
+  - muse-spark-1.3 / off / 3: <lang en><mood calm>I cannot find the sound control on this screen. This page is Display only.  Please open System, then Sound, and the volume slider will be at the top.
+  - muse-spark-1.3 / off / 4: <lang en><mood calm>I cannot see the sound control on this screen. <sfx think soft>This page is Display. Please type Sound in the Find a setting box at the top left.
+  - muse-spark-1.3 / off / 5: <lang en><mood calm> I cannot see the sound control on this page. This page is only for Display. Please type sound into the Find a setting box at the top left.
+  - muse-wonder-1.0 / on / 1: <lang en><mood calm><point e2><sfx ping soft>Sound is not on this Display page, so press System on the left. Then look for Sound in the list on the right.
+  - muse-wonder-1.0 / on / 2: <lang en><mood calm>I cannot see a sound setting on this Display page. <point e2><sfx ping soft>Press System on the left, then look for Sound in that list.
+  - muse-wonder-1.0 / on / 3: <lang en><mood calm><point e2><sfx ping soft>There is no sound control on this Display page. Please press System on the left, and then look for Sound.
+  - muse-wonder-1.0 / on / 4: <lang en><mood calm><point e2><sfx ping soft>The sound setting is not on this Display screen. Tap System on the left, then choose Sound from the list that appears.
+  - muse-wonder-1.0 / on / 5: <lang en><mood calm><point e2><sfx ping soft>Sound is under System, on the left side. Press System there, then choose Sound to turn the volume up.
+  - muse-wonder-1.0 / off / 1: <lang en><mood calm><point 55,239><sfx ping soft>Sound is not on this Display page, it is under System on the left. Press System there, then choose Sound to turn the volume up.
+  - muse-wonder-1.0 / off / 2: <lang en><mood calm><point 70,238><sfx ping soft>Sound is not on this Display page, so please tap System on the left. Then choose Sound, and move the Volume line to the right.
+  - muse-wonder-1.0 / off / 3: <lang en><mood calm>I cannot find a sound setting on this Display page. <point 145,158><sfx ping soft>Please press Find a setting at the top left, then type the word Sound.
+  - muse-wonder-1.0 / off / 4: <lang en><mood calm><point 57,238><sfx ping soft>Sound is not on this Display page, so press System on the left first. Then choose Sound, and move its volume line to the right.
+  - muse-wonder-1.0 / off / 5: <lang en><mood calm><point 110,238>Sound is not on this Display page, but System is on the left.  Press System there, then look for Sound.
+- ru/parametry-ekran.html: Где поменять картинку на рабочем столе? (15 misses)
+  - muse-spark-1.3 / on / 1: <lang ru><mood calm><point e1><sfx ping soft> Этого здесь нет, это в другом разделе. Нажмите Главная слева вверху, а там выберите Фон.
+  - muse-spark-1.3 / on / 2: <lang ru><mood calm>Здесь этого нет. Это страница Дисплей. <point e2>Напишите слово Фон в поле Найти параметр вверху слева.
+  - muse-spark-1.3 / on / 3: <lang ru><mood calm><point e1>Здесь это не меняется. Это страница Дисплей. Нажмите Главная вверху слева. Потом выберите Персонализация и Фон.
+  - muse-spark-1.3 / on / 4: <lang ru><mood calm><point e1><sfx ping soft>Здесь поменять картинку нельзя, это раздел Дисплей. Нажмите Главная вверху слева, а там выберите Персонализация.
+  - muse-spark-1.3 / on / 5: <lang ru><mood calm>Это меняется не здесь, а в разделе Персонализация. <point e1>Нажмите Главная вверху слева. Потом откройте Персонализация и Фон.
+  - muse-spark-1.3 / off / 1: <lang ru><mood calm>На этом экране поменять картинку нельзя. <pause 500>Вернитесь в Главная слева вверху.  Затем откройте Персонализация и Фон.
+  - muse-spark-1.3 / off / 2: <lang ru><mood calm>Эта настройка не здесь, а в разделе Персонализация. Нажмите слева вверху слово Главная. Потом скажите мне, что видите, и я подскажу дальше.
+  - muse-spark-1.3 / off / 3: <lang ru><mood calm>Картинка меняется не здесь, а в разделе Персонализация. Нажмите Главная вверху слева. Потом выберите Персонализация и Фон.
+  - muse-spark-1.3 / off / 4: <lang ru><mood calm>На этом экране картинки для рабочего стола нет. Это раздел Дисплей. Вернитесь в Главная слева вверху, затем откройте Персонализация и Фон.
+  - muse-spark-1.3 / off / 5: <lang ru><mood calm>Картинка меняется не здесь, а в разделе Персонализация. Сначала нажмите Главная слева вверху, потом выберите Персонализация.
+  - muse-wonder-1.0 / on / 1: <lang ru><mood calm><point e1><sfx ping soft>На этом экране такого нет, это раздел про дисплей. Нажмите Главная вверху слева, а там выберите Персонализация и потом Фон.
+  - muse-wonder-1.0 / on / 2: <lang ru><mood calm><point e1><sfx ping soft>Здесь, в разделе Дисплей, картинка не меняется, нужно сначала нажать Главная вверху слева. Затем выберите Персонализация, а внутри неё раздел Фон.
+  - muse-wonder-1.0 / on / 3: <lang ru><mood happy><point e1><sfx ping soft>Картинку меняют не здесь, а в разделе Персонализация. Нажмите Главная вверху слева, и я покажу дальше.
+  - muse-wonder-1.0 / on / 4: <lang ru><mood happy><point e1><sfx ping soft>Нажмите Главная вверху слева. Потом выберите Персонализация, а затем Фон, и там можно выбрать новую картинку.
+  - muse-wonder-1.0 / on / 5: <lang ru><mood calm><point e1><sfx ping soft>Здесь, в разделе Дисплей, картинка не меняется. Нажмите Главная вверху слева, а там мы вместе найдём раздел для фона.
+  - muse-wonder-1.0 / off / 1: <lang ru><mood calm><point 65,80><sfx ping soft>Здесь, в разделе Дисплей, картинку не поменять. Нажмите Главная вверху слева, а там выберите Персонализация и Фон.
+  - muse-wonder-1.0 / off / 2: <lang ru><mood calm><point 54,80><sfx ping soft>Здесь, в окне Дисплей, картинки нет, она меняется в другом месте. Нажмите Главная вверху слева, а там выберите Персонализация и потом Фон.
+  - muse-wonder-1.0 / off / 3: <lang ru><mood calm><point 68,81>Картинка рабочего стола меняется не здесь, а в разделе Персонализация. Нажмите Главная вверху слева, а затем выберите Персонализация и Фон.
+  - muse-wonder-1.0 / off / 4: <lang ru><mood calm>Картинка рабочего стола меняется не здесь, а в разделе Персонализация. <point 57,81><sfx ping soft>Сначала нажмите Главная вверху слева, а потом выберите Персонализация и Фон.
+  - muse-wonder-1.0 / off / 5: <lang ru><mood calm><point 70,80>Картинку рабочего стола меняют не здесь, а в разделе Персонализация, в пункте Фон. <sfx ping soft>Сначала нажмите Главная вверху слева, а там выберите Персонализация.
+- ru/zapis-k-vrachu.html: Где вызвать врача на дом? (15 misses)
+  - muse-spark-1.3 / on / 1: <lang ru><mood calm>На этом экране кнопки вызова врача на дом я не вижу. <point e6>Откройте Контакты вверху справа, там обычно такой вызов.
+  - muse-spark-1.3 / on / 2: <lang ru><mood calm>Я не вижу кнопки вызова врача на дом на этом экране. <point e6>Откройте Контакты вверху справа.
+  - muse-spark-1.3 / on / 3: <lang ru><mood calm><point e6>На этом экране кнопки вызова врача на дом я не вижу. Это страница записи на приём в клинику. Посмотрите раздел Контакты вверху справа, там может быть вызов на дом.
+  - muse-spark-1.3 / on / 4: <lang ru><mood calm>На этом экране вызова врача на дом я не вижу. <point e6>Посмотрите раздел Контакты вверху справа.
+  - muse-spark-1.3 / on / 5: <lang ru><mood calm><point e6>Я не вижу здесь кнопки вызова врача на дом. Это страница записи на приём в клинику. Посмотрите раздел Контакты вверху справа, там может быть телефон для вызова.
+  - muse-spark-1.3 / off / 1: <lang ru><mood calm>На этой странице я не вижу вызова врача на дом. <sfx think soft>Посмотрите раздел Контакты вверху или позвоните по телефону вверху справа.
+  - muse-spark-1.3 / off / 2: <lang ru><mood calm>На этом экране я не вижу кнопки вызова врача на дом. Это только запись на приём в клинику. Попробуйте открыть Контакты вверху справа или позвонить по телефону вверху.
+  - muse-spark-1.3 / off / 3: <lang ru><mood calm>На этом окне я не вижу кнопки вызова врача на дом. Откройте Контакты вверху справа и позвоните по телефону клиники.
+  - muse-spark-1.3 / off / 4: <lang ru><mood calm>Я не вижу на этой странице кнопки Вызов врача на дом. Это только запись на приём в клинику. Позвоните по номеру вверху справа и спросите про вызов на дом.
+  - muse-spark-1.3 / off / 5: <lang ru><mood calm>Я не вижу вызова врача на дом на этой странице. <sfx think soft> Эта страница только для записи на приём в клинике. Попробуйте посмотреть раздел Контакты вверху или позвонить по телефону вверху справа.
+  - muse-wonder-1.0 / on / 1: <lang ru><mood calm>На этом экране кнопки вызова врача на дом я не вижу. <point e6><sfx ping soft>Попробуйте открыть «Контакты» вверху справа, там может быть телефон для вызова.
+  - muse-wonder-1.0 / on / 2: <lang ru><mood calm>На этом экране вызова врача на дом я не нахожу, здесь только запись на приём в кабинет двести восемь. <point e6><sfx ping soft>Попробуйте открыть Контакты вверху справа, там должен быть телефон для вызова на дом.
+  - muse-wonder-1.0 / on / 3: <lang ru><mood calm>На этой странице вызова на дом я не нахожу, это запись на приём в клинике. <point e6><sfx ping soft>Попробуйте открыть «Контакты» вверху справа, там может быть номер для вызова.
+  - muse-wonder-1.0 / on / 4: <lang ru><mood calm>На этой странице вызова врача на дом я не вижу, здесь только запись на приём в кабинет. <point e6><sfx ping soft>Попробуйте нажать Контакты вверху справа, там должен быть телефон клиники.
+  - muse-wonder-1.0 / on / 5: <lang ru><mood calm>Я не вижу здесь кнопки вызова врача на дом. <point e6><sfx ping soft>Попробуйте открыть Контакты вверху справа, там должен быть нужный номер телефона.
+  - muse-wonder-1.0 / off / 1: <lang ru><mood calm>На этой странице вызова врача на дом я не вижу. <point 970,100>Попробуйте раздел Контакты вверху справа, или позвоните по номеру вверху справа: плюс 7 800 000-12-34.
+  - muse-wonder-1.0 / off / 2: <lang ru><mood calm>На этой странице вызова врача на дом я не вижу. <point 1130,96>Можно позвонить по номеру плюс семь восемьсот ноль ноль ноль, двенадцать, тридцать четыре, он вверху справа. <point 990,98>Или открыть Контакты вверху и поискать там.
+  - muse-wonder-1.0 / off / 3: <lang ru><mood calm><point 1133,95>На этой странице вызова врача на дом я не вижу. Проще всего позвонить в клинику по номеру плюс семь восемьсот ноль ноль ноль один два три четыре, он вверху справа.
+  - muse-wonder-1.0 / off / 4: <lang ru><mood calm>На этой странице кнопки вызова врача на дом я не вижу. <point 1100,128><sfx ping soft>Попробуйте позвонить по номеру вверху справа: плюс 7 800 000-12-34.
+  - muse-wonder-1.0 / off / 5: <lang ru><mood calm>На этой странице вызова врача на дом я не нашёл, здесь только запись на приём в клинику. <point 1095,105><sfx ping soft>Позвоните по номеру плюс семь восемьсот ноль ноль ноль, двенадцать, тридцать четыре, он вверху справа, и спросите про вызов на дом.
+- ru/pochta-pismo.html: Как сделать буквы покрупнее? (10 misses)
+  - muse-spark-1.3 / on / 1: <lang ru><mood calm><point e16><sfx ping soft> Сначала выделите текст письма мышкой. Потом нажмите кнопку с буквами А рядом с Отправить внизу.
+  - muse-spark-1.3 / on / 2: <lang ru><mood calm><point e16><sfx ping soft>Сначала выделите текст письма, потом нажмите кнопку Размер шрифта внизу письма. Там выберите крупный размер.
+  - muse-spark-1.3 / on / 3: <lang ru><mood calm><point e16><sfx ping soft> Нажмите кнопку Размер шрифта внизу письма. Сначала выделите текст мышкой, потом нажимайте, пока буквы не станут крупные.
+  - muse-spark-1.3 / on / 4: <lang ru><mood calm><point e16><sfx ping soft>Кнопка Размер шрифта внизу письма, рядом с Отправить. Сначала выделите текст письма. Потом нажмите эту кнопку и выберите крупный размер.
+  - muse-spark-1.3 / on / 5: <lang ru><mood calm><point e16><sfx ping soft>Кнопка Размер шрифта внизу письма, рядом с кнопкой Отправить. Сначала выделите текст письма, потом нажмите её и выберите крупный размер.
+  - muse-spark-1.3 / off / 1: <lang ru><mood calm>Сначала выделите текст письма мышкой. <point 364,705><sfx ping soft>Потом нажмите кнопку а А со стрелочкой внизу рядом с кнопкой Отправить. Каждое нажатие делает буквы крупнее.
+  - muse-spark-1.3 / off / 2: <lang ru><mood calm><point 363,706><sfx ping soft> Внизу письма есть кнопка с буквами а А. Нажмите на неё и выберите крупный размер.
+  - muse-spark-1.3 / off / 3: <lang ru><mood calm><point 364,736><sfx ping soft> Внизу письма есть кнопка с двумя буквами А. Нажмите на неё, и буквы станут крупнее.
+  - muse-spark-1.3 / off / 4: <lang ru><mood calm><point 363,894><sfx ping soft>Внизу письма есть кнопка с буквами а А. Сначала выделите текст письма. Потом нажимайте на эту кнопку, и буквы станут крупнее.
+  - muse-spark-1.3 / off / 5: <lang ru><mood calm>Сначала выделите текст письма мышкой. <point 363,893><sfx ping soft>Потом нажмите кнопку с буквами а А внизу слева рядом с Отправить.
+  - muse-wonder-1.0 / on / 1: <lang ru><mood happy>Сначала выделите мышкой текст письма, который хотите увеличить. <point e16><sfx ping soft>Потом нажмите кнопку Размер шрифта внизу, рядом с кнопкой Отправить, и выберите размер покрупнее.
+  - muse-wonder-1.0 / on / 2: <lang ru><mood calm>Сначала выделите мышкой текст письма, который хотите увеличить. <point e16><sfx ping soft>Потом нажмите кнопку Размер шрифта внизу, рядом с кнопкой Отправить, и выберите размер покрупнее.
+  - muse-wonder-1.0 / on / 3: <lang ru><mood happy>Сначала выделите текст письма, который хотите увеличить. <point e16><sfx ping soft>Потом нажмите кнопку Размер шрифта внизу письма, она выглядит как буква А со стрелкой.
+  - muse-wonder-1.0 / on / 4: <lang ru><mood calm>Сначала выделите текст письма, который хотите сделать крупнее. <point e16><sfx ping soft>Потом нажмите Размер шрифта внизу письма, это кнопка с буквой А, и выберите размер покрупнее.
+  - muse-wonder-1.0 / on / 5: <lang ru><mood happy><point e16><sfx ping soft>Сначала выделите текст письма, который хотите увеличить. Потом нажмите кнопку Размер шрифта внизу, рядом с кнопкой Отправить, и выберите размер покрупнее.
+  - muse-wonder-1.0 / off / 1: <lang ru><mood calm><point 469,900><sfx ping soft>Сначала выделите мышкой текст письма, который хотите увеличить. Потом нажмите кнопку аА внизу, рядом с кнопкой Отправить, и выберите размер покрупнее.
+  - muse-wonder-1.0 / off / 2: <lang ru><mood happy><point 468,898><sfx ping soft>Сначала выделите нужный текст, а потом нажмите кнопку аА внизу, рядом с кнопкой Отправить. Затем выберите размер покрупнее из открывшегося списка.
+  - muse-wonder-1.0 / off / 3: <lang ru><mood happy><point 365,900><sfx ping soft>Нажмите кнопку аА внизу, рядом с кнопкой Отправить. Там можно выбрать буквы покрупнее для письма.
+  - muse-wonder-1.0 / off / 4: <lang ru><mood happy><point 468,902><sfx ping soft>Сначала выделите текст письма, который хотите увеличить. Затем нажмите кнопку аА внизу, рядом с кнопкой Отправить, и выберите размер побольше.
+  - muse-wonder-1.0 / off / 5: <lang ru><mood calm><point 468,899><sfx ping soft>Сначала выделите текст письма, который хотите увеличить. Потом нажмите кнопку эй Эй внизу, рядом с кнопкой Отправить, и выберите размер покрупнее.
+- ru/messenger-golub.html: Как отправить внучке фотографию? (10 misses)
+  - muse-spark-1.3 / on / 1: <lang ru><mood happy><point e15><sfx ping soft>Нажмите на скрепку слева от слова Сообщение внизу. Потом выберите фотографию и нажмите стрелку Отправить.
+  - muse-spark-1.3 / on / 2: <lang ru><mood happy><point e15><sfx ping soft>Нажмите кнопку Прикрепить фото или файл со скрепкой слева от сообщения внизу. Выберите фотографию в открывшемся окне. <point e19>Потом нажмите кнопку Отправить со стрелочкой справа внизу.
+  - muse-spark-1.3 / on / 3: <lang ru><mood happy><point e15><sfx ping soft> Нажмите кнопку Прикрепить фото или файл внизу слева рядом с полем Сообщение. Выберите фотографию с дачи. <point e19>Потом нажмите кнопку Отправить внизу справа.
+  - muse-spark-1.3 / on / 4: <lang ru><mood happy><point e15><sfx ping soft>Нажмите кнопку Прикрепить фото или файл, это скрепка внизу слева. Потом выберите фотографию и нажмите Отправить.
+  - muse-spark-1.3 / on / 5: <lang ru><mood happy><point e15><sfx ping soft>Нажмите на скрепку внизу слева, рядом со словом Сообщение. Выберите фотографию в окошке. <point e19>Потом нажмите стрелку Отправить внизу справа.
+  - muse-spark-1.3 / off / 1: <lang ru><mood calm><point 403,955><sfx ping soft>Нажмите на скрепку слева от поля Сообщение внизу. Потом выберите фотографию и нажмите отправить.
+  - muse-spark-1.3 / off / 2: <lang ru><mood calm><point 318,954><sfx ping soft>Нажмите на скрепку слева от слов Сообщение внизу. Потом выберите фотографию и нажмите стрелку отправить.
+  - muse-spark-1.3 / off / 3: <lang ru><mood calm><point 402,953><sfx ping soft>Нажмите на скрепку внизу слева рядом с полем Сообщение. Потом выберите фотографию и нажмите стрелку отправки.
+  - muse-spark-1.3 / off / 4: <lang ru><mood calm>Сейчас подскажу, это совсем несложно. <point 403,953>Внизу слева от слов Сообщение есть кнопка со скрепкой. Нажмите её и выберите фотографию.
+  - muse-spark-1.3 / off / 5: <lang ru><mood happy><point 405,954><sfx ping soft>Кнопка со скрепкой слева от поля Сообщение внизу. Нажмите ее и выберите фотографию. Потом нажмите стрелочку справа, чтобы отправить.
+  - muse-wonder-1.0 / on / 1: <lang ru><mood happy><point e15><sfx ping soft>Нажмите кнопку Прикрепить фото или файл внизу, слева от поля Сообщение. Затем выберите фотографию, и она отправится Насте.
+  - muse-wonder-1.0 / on / 2: <lang ru><mood happy><point e15><sfx ping soft>Нажмите «Прикрепить фото или файл» внизу, слева от поля «Сообщение». Потом выберите фотографию и нажмите «Отправить» справа внизу.
+  - muse-wonder-1.0 / on / 3: <lang ru><mood calm><point e15><sfx ping soft>Нажмите кнопку Прикрепить фото или файл, это скрепка внизу слева рядом с полем Сообщение. Потом выберите фотографию, и она прикрепится к сообщению.
+  - muse-wonder-1.0 / on / 4: <lang ru><mood happy><point e15><sfx ping soft>Нажмите кнопку Прикрепить фото или файл внизу слева, рядом со строкой Сообщение. Затем выберите фотографию и нажмите кнопку Отправить справа внизу.
+  - muse-wonder-1.0 / on / 5: <lang ru><mood calm><point e15><sfx ping soft>Нажмите кнопку Прикрепить фото или файл внизу слева, рядом с полем Сообщение. Потом выберите фотографию, и она откроется для отправки.
+  - muse-wonder-1.0 / off / 1: <lang ru><mood happy><point 320,958><sfx ping soft>Нажмите на скрепку внизу слева, рядом со словом Сообщение. Затем выберите фотографию и нажмите Отправить.
+  - muse-wonder-1.0 / off / 2: <lang ru><mood calm><point 320,956><sfx ping soft>Нажмите скрепку внизу слева, рядом со словом Сообщение. Затем выберите фотографию и нажмите самолётик справа, чтобы отправить.
+  - muse-wonder-1.0 / off / 3: <lang ru><mood calm><point 320,955><sfx ping soft>Нажмите на скрепку внизу слева, рядом с полем Сообщение. Потом выберите нужную фотографию, и она отправится Внучке Насте.
+  - muse-wonder-1.0 / off / 4: <lang ru><mood calm><point 320,956><sfx ping soft>Нажмите на скрепку внизу слева, рядом с полем «Сообщение». Потом выберите фотографию, и она отправится внучке Насте.
+  - muse-wonder-1.0 / off / 5: <lang ru><mood happy><point 321,956><sfx ping soft>Нажмите скрепку внизу, слева от поля Сообщение. Потом выберите фотографию и нажмите самолётик справа, чтобы отправить.
+- ru/pechat-dialog.html: Мне нужно три экземпляра. Где это поставить? (10 misses)
+  - muse-spark-1.3 / on / 1: <lang ru><mood calm><point e8><sfx ping soft>Число копий это белое поле справа, там сейчас стоит один. Напишите там цифру три.
+  - muse-spark-1.3 / on / 2: <lang ru><mood calm><point e8><sfx ping soft>Число копий это окошко справа в середине, там сейчас стоит один. Сотрите единицу и напишите цифру три.
+  - muse-spark-1.3 / on / 3: <lang ru><mood calm><point e8><sfx ping soft>Число копий справа в белом окошечке, там сейчас стоит один. <point e15>Напишите там три, потом нажмите Печать внизу.
+  - muse-spark-1.3 / on / 4: <lang ru><mood calm><point e8><sfx ping soft>Число копий это белое окошко справа в части Копии. Нажмите на него и напишите цифру 3.
+  - muse-spark-1.3 / on / 5: <lang ru><mood calm><point e8><sfx ping soft> Число копий это белое поле справа, сейчас там стоит один. Нажмите в него и напишите цифру три.
+  - muse-spark-1.3 / off / 1: <lang ru><mood calm><point 832,329><sfx ping soft>Нужно поменять цифру в поле Число копий справа в середине. Нажмите на стрелочку вверх два раза, чтобы вместо единицы стала тройка.
+  - muse-spark-1.3 / off / 2: <lang ru><mood happy><point 822,328><sfx ping soft>Поле Число копий справа в середине окна. Нажмите туда, сотрите единицу и напишите цифру 3.
+  - muse-spark-1.3 / off / 3: <lang ru><mood happy><point 832,354><sfx ping soft>Число копий это белое поле с цифрой 1 справа. Нажмите стрелочку вверх два раза, чтобы стало 3.
+  - muse-spark-1.3 / off / 4: <lang ru><mood calm><point 819,327><sfx ping soft>Поле Число копий справа в середине окна сейчас показывает один. Напишите там цифру три.
+  - muse-spark-1.3 / off / 5: <lang ru><mood calm><point 822,318>Число копий это поле с цифрой 1 справа. Поставьте там цифру 3.
+  - muse-wonder-1.0 / on / 1: <lang ru><mood calm><point e8><sfx ping soft>Число копий ставится справа, где сейчас стоит один. Напишите там три вместо одного.
+  - muse-wonder-1.0 / on / 2: <lang ru><mood happy><point e8><sfx ping soft>Поставьте цифру три в поле Число копий, оно справа вверху. Нажимайте стрелку вверх рядом с полем, пока не появится три.
+  - muse-wonder-1.0 / on / 3: <lang ru><mood happy><point e8><sfx ping soft>Число копий стоит справа, сейчас там один. Нажмите туда и поставьте число три.
+  - muse-wonder-1.0 / on / 4: <lang ru><mood happy><point e8><sfx ping soft>Это поле Число копий, справа в окне Печать. Поставьте там цифру три, вместо единицы.
+  - muse-wonder-1.0 / on / 5: <lang ru><mood happy><point e8><sfx ping soft>Число копий — поле справа, сейчас там стоит один. Нажмите на это поле и поставьте три, или два раза нажмите стрелку Больше рядом с ним.
+  - muse-wonder-1.0 / off / 1: <lang ru><mood happy><point 640,383><sfx ping soft>Число копий — это поле с цифрой один, справа в окошке Печать. Нажмите на это поле и напечатайте три.
+  - muse-wonder-1.0 / off / 2: <lang ru><mood happy><point 810,344><sfx ping soft>Поставьте три справа, в поле Число копий, где сейчас стоит один. Нажмите на цифру один и напишите три.
+  - muse-wonder-1.0 / off / 3: <lang ru><mood happy><point 810,343><sfx ping soft>Число копий — вот это окошко справа, сейчас там стоит один. Нажмите в него и введите три, или нажмите верхнюю стрелку рядом два раза.
+  - muse-wonder-1.0 / off / 4: <lang ru><mood happy><point 810,285><sfx ping soft>Число копий — это поле справа, где сейчас стоит один. Нажмите на него и напишите три вместо единицы.
+  - muse-wonder-1.0 / off / 5: <lang ru><mood happy><point 815,333><sfx ping soft>Поставьте число три в поле Число копий, справа в середине окна. Сейчас там стоит единица, уберите её и напечатайте три.
+
+## Errors
+
+- en/clinic-appointment.html / muse-wonder-1.0: mm-core point_parse failed: 
+- en/clinic-appointment.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pochta-pismo.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/messenger-golub.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/brauzer-masshtab.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/foto-albom.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/parametry-ekran.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/videozvonok.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/redaktor-pero.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/sohranit-kak.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/pechat-dialog.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-spark-1.3: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
+- ru/zapis-k-vrachu.html / muse-wonder-1.0: mm-core point_parse failed: 
