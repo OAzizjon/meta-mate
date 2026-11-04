@@ -387,5 +387,9 @@
   "home.wow_warmer": "Warmer, warmer",
   "home.wow_warmer_tip": "In a lesson, I glow brighter as your mouse gets closer to the right button.",
   "home.wow_drop": "Drop me on a button",
-  "home.wow_drop_tip": "Drag me onto any button and click me: I tell you what it does."
+  "home.wow_drop_tip": "Drag me onto any button and click me: I tell you what it does.",
+  "signin.guest_checking": "Checking your free messages...",
+  "signin.guest_slow": "Mate's server isn't answering yet. Check your internet connection; I'll keep trying.",
+  "home.chat_open_failed": "I couldn't open the chat. Please try again.",
+  "home.practice_open_failed": "I couldn't open the practice. Please try again."
 }

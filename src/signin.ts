@@ -16,6 +16,9 @@ import type {
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/** How long "Checking your free messages..." may stay before the line admits the wait. */
+const GUEST_WAIT_MS = 15_000;
+
 const tauriInvoke: AccountInvoke = async (cmd, args) => {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke(cmd, args);
@@ -78,18 +81,27 @@ function mount(root: HTMLElement): void {
 
   // The guest trial: up to 12 messages an hour without an account.
   const guest = el("section", "signin-guest");
-  guest.hidden = true;
-  const guestLine = el("p", "signin-guest-line");
+  // Shown at once, the button waiting for the proxy's answer: a judge must see this way in
+  // from the first second, not only the account buttons.
+  guest.hidden = !isTauri;
+  const guestLine = el("p", "signin-guest-line", t("signin.guest_checking"));
   guestLine.setAttribute("role", "status");
   const guestButton = el("button", "btn btn-quiet signin-btn signin-btn-quiet", t("signin.guest_try"));
   guestButton.type = "button";
+  guestButton.disabled = true;
   guest.append(guestLine, guestButton);
   let guestUsage: unknown = null;
+  let guestWaitOver = false;
   const showGuest = (raw: unknown): void => {
     guestUsage = raw;
     const usage = guestUsageOf(raw);
-    guest.hidden = usage === null;
-    if (!usage) return;
+    if (!usage) {
+      // Not known yet (the trial token is still on its way): keep the way in visible, and
+      // say so when the wait is too long instead of "checking" forever.
+      guestLine.textContent = t(guestWaitOver ? "signin.guest_slow" : "signin.guest_checking");
+      guestButton.disabled = true;
+      return;
+    }
     guestLine.textContent =
       usage.left > 0
         ? t("signin.guest_left", { left: String(usage.left), limit: String(usage.limit) })
@@ -101,6 +113,10 @@ function mount(root: HTMLElement): void {
     void tauriInvoke("try_as_guest").catch(() => showGuest({ left: 0, limit: 12 }));
   });
   if (isTauri) {
+    window.setTimeout(() => {
+      guestWaitOver = true;
+      showGuest(guestUsage);
+    }, GUEST_WAIT_MS);
     void tauriInvoke("guest_usage").then(showGuest, () => undefined);
     void import("@tauri-apps/api/event").then(({ listen }) =>
       listen<unknown>("guest-usage", (event) => showGuest(event.payload)),

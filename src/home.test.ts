@@ -603,6 +603,39 @@ test("the footer: a start-up switch line, Write to Mate and Settings side by sid
   }
 });
 
+for (const [command, buttonId, messageKey] of [
+  ["open_chat", "home-chat-btn", "home.chat_open_failed"],
+  ["open_practice", null, "home.practice_open_failed"],
+] as const) {
+  test(`${command} failure shows a visible message and allows retry`, async () => {
+    let fail = true;
+    const { container, calls, unmount } = await mountFakeHome(SAVED, (cmd) => {
+      if (cmd === command && fail) throw new Error("window creation failed");
+      return null;
+    });
+    try {
+      const button = buttonId ? byId(container, buttonId) : descendants(container)
+        .find((node) => node.tagName === "button" && node.textContent === LOCALES.en["home.practice_open"]);
+      assert.ok(button);
+      button.dispatch("click");
+      await tick();
+      const alert = container.children[1].children[1];
+      assert.equal(alert.attributes.get("role"), "alert");
+      assert.equal(alert.hidden, false);
+      assert.equal(alert.textContent, LOCALES.en[messageKey]);
+      assert.ok(LOCALES.en[messageKey]);
+      assert.ok(LOCALES.ru[messageKey]);
+      fail = false;
+      button.dispatch("click");
+      await tick();
+      assert.equal(calls.filter((cmd) => cmd === command).length, 2);
+      assert.equal(alert.hidden, true);
+    } finally {
+      unmount();
+    }
+  });
+}
+
 test("a failed startup save reports failure and keeps the active choice", async () => {
   const changes: Settings[] = [];
   const home = startHomeSettings(async (cmd) => {

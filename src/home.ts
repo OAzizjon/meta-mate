@@ -465,7 +465,10 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   practiceBtn.type = "button";
   practiceBtn.disabled = !invoke;
   practiceBtn.addEventListener("click", () => {
-    void invoke?.("open_practice").catch(() => console.error("home: could not open the practice"));
+    void invoke?.("open_practice").then(
+      () => setOpenFailed(null),
+      () => setOpenFailed("home.practice_open_failed"),
+    );
   });
   practiceSection.append(practiceBtn);
 
@@ -488,6 +491,10 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   const saveAlert = el("p", "home-try-status is-error");
   saveAlert.setAttribute("role", "alert");
   saveAlert.hidden = true;
+  const setOpenFailed = (key: LocaleKey | null): void => {
+    saveAlert.hidden = key === null;
+    saveAlert.textContent = key ? t(key) : "";
+  };
 
   const actions = el("div", "home-actions");
   const chatBtn = el("button", "btn btn-primary", t("home.write"));
@@ -495,7 +502,10 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   chatBtn.id = "home-chat-btn";
   chatBtn.disabled = !invoke;
   chatBtn.addEventListener("click", () => {
-    void invoke?.("open_chat").catch(() => console.error("home: could not open chat"));
+    void invoke?.("open_chat").then(
+      () => setOpenFailed(null),
+      () => setOpenFailed("home.chat_open_failed"),
+    );
   });
   const settingsBtn = el("button", "btn btn-secondary", t("tray.settings"));
   settingsBtn.type = "button";
