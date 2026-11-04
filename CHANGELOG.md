@@ -4,6 +4,12 @@ All notable changes to MetaMate are recorded in this file.
 
 This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2026-11-05
+
+### Fixed
+
+- The first-question fix of 0.2.3 was too wide: a native window with a toolbar and a large unknown surface could skip the look question. Only a page read out in Chromium's own host skips it now; everything else asks, as before 0.2.3 (D92).
+
 ## [0.2.3] - 2026-11-05
 
 ### Fixed

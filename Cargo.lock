@@ -2141,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "metamate"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "base64 0.23.1",
  "cpal",
@@ -2201,7 +2201,7 @@ dependencies = [
 
 [[package]]
 name = "mm-core"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "base64 0.22.1",
  "insta",
@@ -2214,7 +2214,7 @@ dependencies = [
 
 [[package]]
 name = "mm-platform"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "mm-core",
  "serde",
@@ -2223,7 +2223,7 @@ dependencies = [
 
 [[package]]
 name = "mm-win32"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "mm-core",
  "mm-platform",
