@@ -185,5 +185,37 @@ class ResolveSources(unittest.TestCase):
         self.assertEqual(rows[2]['src'], 'takes/C.mp4')
 
 
+class Warnings(unittest.TestCase):
+    def test_out_and_seconds_together_are_refused(self):
+        rows = [{'id': 'A', 'src': 'takes/A.mp4', 'out': 5, 'seconds': 4}]
+        with self.assertRaisesRegex(ValueError, 'either out or seconds'):
+            cut.load_list(json.dumps(rows))
+
+    def test_a_short_take_is_named_but_a_short_clip_is_not(self):
+        rows = [{'id': 'T', 'src': 'takes/T.mp4', 'seconds': 10}, {'id': 'C', 'src': 'out/c.mp4', 'seconds': 8}]
+        metadata = {'takes/T.mp4': {'duration': 7.0}, 'out/c.mp4': {'duration': 3.0}}
+        notes = cut.warnings(cut.start_times(rows, metadata), metadata)
+        self.assertEqual(len(notes), 1)
+        self.assertIn('takes/T.mp4 ends 3.0 s before', notes[0])
+
+    def test_in_counts_against_the_take(self):
+        rows = [{'id': 'T', 'src': 'takes/T.mp4', 'in': 4, 'seconds': 10}]
+        metadata = {'takes/T.mp4': {'duration': 12.0}}
+        self.assertIn('ends 2.0 s', cut.warnings(cut.start_times(rows, metadata), metadata)[0])
+
+    def test_a_voice_running_into_the_next_one_is_named(self):
+        rows = [{'id': 'A', 'src': 'out/a.mp4', 'seconds': 4, 'voice': 'V1.wav'},
+                {'id': 'B', 'src': 'out/b.mp4', 'seconds': 4, 'voice': 'V2.wav'}]
+        metadata = {'voice/V1.wav': {'duration': 6.0, 'audio': True}, 'voice/V2.wav': {'duration': 3.0, 'audio': True}}
+        notes = cut.warnings(cut.start_times(rows, metadata), metadata)
+        self.assertEqual(len(notes), 1)
+        self.assertIn('V1.wav is 6.0 s and runs 2.0 s', notes[0])
+
+    def test_a_silent_voice_file_is_named(self):
+        rows = [{'id': 'A', 'src': 'out/a.mp4', 'seconds': 4, 'voice': 'V1.mp4'}]
+        metadata = {'voice/V1.mp4': {'duration': 3.0, 'audio': False}}
+        self.assertIn('has no sound', cut.warnings(cut.start_times(rows, metadata), metadata)[0])
+
+
 if __name__ == '__main__':
     unittest.main()

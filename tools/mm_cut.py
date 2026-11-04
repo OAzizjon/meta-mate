@@ -40,6 +40,8 @@ def load_list(text):
             raise ValueError(row['id'] + ': require in < out')
         if 'seconds' in row and row['seconds'] <= 0:
             raise ValueError(row['id'] + ': seconds must be positive')
+        if 'seconds' in row and 'out' in row:
+            raise ValueError(row['id'] + ': use either out or seconds, not both')
         if 'subtitle' in row and not isinstance(row['subtitle'], str):
             raise ValueError(row['id'] + ': subtitle must be text')
         if not isinstance(row.get('captions', []), list):
@@ -119,6 +121,33 @@ def validate(rows, existing, metadata=None):
     return timeline
 
 
+def warnings(timeline, metadata):
+    """What a person should fix in the list, found once the real lengths are known."""
+    notes, voices = [], []
+    for row, start, duration in timeline:
+        actual = metadata.get(row['src'], {}).get('duration')
+        # Clips are meant to hold their last frame; a take that does it freezes the speaker.
+        if actual is not None and row['src'].startswith('takes/'):
+            short = row.get('in', 0) + duration - actual
+            if short > 0.05:
+                notes.append(f'{row["id"]}: {row["src"]} ends {short:.1f} s before its segment, so its last frame '
+                             'holds in silence; lower "seconds" or "in"')
+        if row.get('voice'):
+            name = 'voice/' + row['voice']
+            if metadata.get(name, {}).get('audio') is False:
+                notes.append(f'{row["id"]}: {name} has no sound')
+            voices.append((start, metadata.get(name, {}).get('duration'), row['id'], name))
+    total = sum(item[2] for item in timeline)
+    for i, (start, length, row_id, name) in enumerate(voices):
+        if length is None:
+            continue
+        limit = voices[i + 1][0] if i + 1 < len(voices) else total
+        if start + length > limit + 0.05:
+            notes.append(f'{row_id}: {name} is {length:.1f} s and runs {start + length - limit:.1f} s into what follows; '
+                         'record it shorter or lengthen its segment')
+    return notes
+
+
 def drawtext_escape(text):
     """Escape both ffmpeg's filtergraph and drawtext option parsers (unquoted)."""
     text = text.replace('\\', '\\\\').replace("'", "\\'").replace(':', '\\:')
@@ -156,7 +185,7 @@ def build_graph(timeline, video, draft=False, music=None, metadata=None):
             audio = f'[{index}:a]atrim=start={row.get("in", 0)}'
             if 'out' in row:
                 audio += f':end={row["out"]}'
-            audio += ',asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,apad'
+            audio += ',asetpts=PTS-STARTPTS,aresample=48000:async=1:first_pts=0,aformat=channel_layouts=stereo,apad'
         else:
             audio = 'anullsrc=r=48000:cl=stereo'
         graph.append(audio + f',atrim=duration={duration}[a{i}]')
@@ -243,6 +272,8 @@ def main(argv=None, root=ROOT):
             print(f'{row["id"]:18} {start:8.3f} {duration:8.3f}  {row["src"]}')
         total = sum(d for _, _, d in timeline)
         print(f'Total: {total:.3f} s')
+        for note in warnings(timeline, metadata):
+            print('Warning: ' + note)
         inputs, graph = build_graph(timeline, video, args.draft, args.music, metadata)
         out = video / 'out'
         script = out / 'final.filter.txt'
