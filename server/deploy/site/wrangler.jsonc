@@ -1,0 +1,11 @@
+{
+  // The landing page as a Worker with static assets. `mm ship site` fills ../../../site-dist first.
+  "name": "meta-mate-site",
+  "compatibility_date": "2026-10-23",
+  "assets": { "directory": "../../../site-dist" },
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "meta-mate.stream", "custom_domain": true },
+    { "pattern": "www.meta-mate.stream", "custom_domain": true }
+  ]
+}

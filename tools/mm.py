@@ -940,6 +940,11 @@ def build_parser():
                        ('locales', 'merge locale keys from a patch / add one key')):
         sp = sub.add_parser(name, help=text, add_help=False)
         sp.add_argument('rest', nargs=argparse.REMAINDER)
+    # Not code tools: outside TOOL_MODULES, so `mm agent` can never reach them.
+    for name, text in (('preflight', 'can we submit right now? PASS, WARN or FAIL per requirement'),
+                       ('ship', "the owner's submission steps, each asked first (deploys and goes public)")):
+        sp = sub.add_parser(name, help=text, add_help=False)
+        sp.add_argument('rest', nargs=argparse.REMAINDER)
     sp = sub.add_parser('probe', help='Meta API probe: models | stream | chat | click | sam | asr | safety DIR | point DIR | ledger (uses keys)',
                         add_help=False)
     sp.add_argument('rest', nargs=argparse.REMAINDER)
@@ -954,7 +959,24 @@ def cmd_probe(args):
     return mm_probe.main(args.rest or ['--help'])
 
 
+def cmd_preflight(args):
+    sys.path.insert(0, str(TOOLS))
+    import mm_preflight
+    try:
+        url = json.loads((ROOT / 'server' / '.prod-proxy.json').read_text(encoding='utf-8')).get('url')
+    except (OSError, ValueError):
+        url = None
+    return mm_preflight.main(args.rest, proxy_url=url)
+
+
+def cmd_ship(args):
+    sys.path.insert(0, str(TOOLS))
+    import mm_ship
+    return mm_ship.main(args.rest)
+
+
 COMMANDS = {
+    'preflight': cmd_preflight, 'ship': cmd_ship,
     'doctor': cmd_doctor, 'status': cmd_status, 'plan': cmd_plan, 'check': cmd_check, 'test': cmd_test,
     'uia': cmd_uia, 'art': cmd_art, 'sounds': cmd_sounds, 'agents': cmd_agents, 'keys': cmd_keys,
     'agent': cmd_agent, 'probe': cmd_probe, 'phrases': cmd_phrases, 'release': cmd_release,
@@ -969,7 +991,7 @@ def main(argv=None):
     args, extra = parser.parse_known_args(argv)
     # `mm probe` and the code tools have their own parsers: a leading option such as --help is
     # not part of REMAINDER.
-    if args.command in ('probe', *TOOL_MODULES) or (args.command == 'agent' and args.what in TOOL_MODULES):
+    if args.command in ('probe', 'preflight', 'ship', *TOOL_MODULES) or (args.command == 'agent' and args.what in TOOL_MODULES):
         args.rest = extra + args.rest
     elif extra:
         parser.error('unrecognized arguments: ' + ' '.join(extra))

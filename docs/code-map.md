@@ -492,7 +492,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   setHomeI18n:26 HOME_TRY_COMMAND:32 OPEN_SETTINGS_COMMAND:34 HOME_TRY_KEYS:37 HomeTryKey:42 HOME_TRY_HINTS:45 HOME_NEVER_KEYS:52 HOME_WOW_CHIPS:59
   HOME_STATUS_MS:66 HomeInvoke:69 isHomeTryKey:71 HomeTryOutcome:76 HomeTryRunner:78 createHomeTryRunner:89 tryStatusKey:116 openSettingsWindow:128
   HomeSettings:140 startHomeSettings:169 HomeMate:251 MountHomeOptions:257 HomeController:264 mountHome:305
-  tests: src/home.test.ts (30)
+  tests: src/home.test.ts (31)
 - src/home/dom.ts — The small DOM helpers Home's sections share (src/home/*.ts).
   Translate:7 el:9 button:23
 - src/home/guide.ts — Home's guide (owner request, 2026-11-01): what Mate can do as a strip of comic cards, one picture, a bold title, a short line and one example each.
@@ -643,7 +643,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src/settings/voice-speed-view.ts — The Settings window's voice speed slider (src/settings.ts): the speed beside its label, and in words for screen readers.
   VoiceSpeedRefs:23 buildVoiceSpeedGroup:32
 - src/signin.ts — The sign-in window's entry (signin.html, src-tauri/src/signin.rs): signing in is required before Mate answers.
-  mount:44·
+  mount:47·
 - src/vite-env.d.ts
 
 ### tools
@@ -651,7 +651,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
   run:130 first_line:145 agent_mode_reason:149 say:161 cmd_doctor:198 plan_sections:267 cmd_plan:290 cmd_status:317
   cmd_check:365 cmd_test:389 cmd_agent:432 cmd_tool:465 cmd_release:471 cmd_uia:599 cmd_art:633 cmd_sounds:681
-  cmd_phrases:723 cmd_agents:736 wanted_key_names:749 parse_env:757 cmd_keys:812 build_parser:891 cmd_probe:949 main:965
+  cmd_phrases:723 cmd_agents:736 wanted_key_names:749 parse_env:757 cmd_keys:812 build_parser:891 cmd_probe:954 cmd_preflight:962
+  cmd_ship:972 main:987
   tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
@@ -690,6 +691,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - tools/mm_map.py — Write docs/code-map.md: where things live, for agents that read files but have no shell.
   is_secret:25 mask:176 Source:267 Project:285 summary:346 outline:471 render:910 main:954
   tests: tools/tests/test_mm_map.py (21)
+- tools/mm_preflight.py — Preflight: can we submit right now?
+  Response:40 Check:47 check_license:102 check_repo_visibility:113 check_readme:141 check_site_version:186 check_installer_sha256:226 check_download_size:276
+  check_proxy_health:328 check_git_state:367 check_github_release:402 check_submission_doc:443 run_checks:463 format_text:494 main:498
+  tests: tools/tests/test_mm_preflight.py (36)
 - tools/mm_probe.py — mm probe models|stream|chat|click|sam|asr|safety|point|ledger mm probe models [--provider P] [--model M] [--timeout S] [--budget USD] [--max-unpriced N] [--price IN OUT] [--reasoning EFFORT] mm probe …
   ProbeError:121 is_plain_file:138 read_secret:149 scrub:165 provider_config:178 iter_sse:252 output_text:271 computer_actions:281
   point_actions:306 action_points:329 usage_tokens:341 cost_usd:346 ledger_total:375 ledger_unpriced:379 ledger_add:383 guard_budget:389
@@ -708,6 +713,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   load_pages:21 classify:59 rule_violations:80 aggregate:106 write_report:128 render_page:154 request_body:174 exchange:188
   cmd_safety:210 run_batch:225 add_parser:308
   tests: tools/tests/test_mm_probe_safety.py (14)
+- tools/mm_ship.py — mm ship: the owner's night-of-submission steps, in order, each asked first.
+  app_version:30 installer_path:34 sha256:39 build_site:47 release_notes:65 Runner:77 tool:98 step_glimmer:102
+  step_proxy:108 step_site:114 step_release:126 step_repo:142 step_check:151 main:163
+  tests: tools/tests/test_mm_ship.py (8)
 - tools/mm_shot.py — mm shot: render MetaMate's WebView windows to PNG without Tauri.
   expand:254 last_line:258 display_path:263 source_files:277 dist_stale:288 npm_cmd:295 build_dist:299 load_fixture:319
   mock_context:343 render_mock_js:374 inject_mock:385 make_handler:410 start_server:516 find_edge:525 png_size:536 run_edge:544
@@ -799,7 +808,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `chat_send` src-tauri/src/chat.rs:427 <- src/chat.ts:293
 - `chat_subscribe` src-tauri/src/chat.rs:394 <- src/chat.ts:361
 - `chat_talk` src-tauri/src/chat.rs:409 <- src/chat.ts:308
-- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:650, src/signin.ts:104
+- `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:650, src/signin.ts:120
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:126 <- src/home.ts:32
 - `load_settings` src-tauri/src/settings.rs:286 <- src/highlight.ts:589, src/home.ts:179, src/settings/model.ts:290, src/settings/theme.ts:31
@@ -807,19 +816,19 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `mate_jump` src-tauri/src/debug_view.rs:144 <- src/settings/dev-view.ts:13
 - `mate_menu_size` src-tauri/src/presence.rs:148 <- src/mate-menu.ts:44,52
 - `open_answer_target` src-tauri/src/opening.rs:137 <- src/mate.ts:442
-- `open_chat` src-tauri/src/chat.rs:380 <- src/home.ts:498, src/mate-menu.ts:5
+- `open_chat` src-tauri/src/chat.rs:380 <- src/home.ts:505, src/mate-menu.ts:5
 - `open_home` src-tauri/src/home.rs:49 <- src/mate-menu.ts:6
 - `open_practice` src-tauri/src/home.rs:59 <- src/home.ts:468
 - `open_settings_window` src-tauri/src/lib.rs:542 <- src/home.ts:34, src/mate-menu.ts:7
 - `open_under_the_hood` src-tauri/src/debug_view.rs:121 <- src/settings/dev-view.ts:12
 - `point_at` src-tauri/src/pointing.rs:371 <- src/ipc/answer-stream.ts:273
-- `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:516, src/mate-menu.ts:11
+- `quit_app` src-tauri/src/presence.rs:27 <- src/home.ts:526, src/mate-menu.ts:11
 - `report_playback` src-tauri/src/answer_stream.rs:397 <- src/ipc/answer-stream.ts:292
 - `save_settings` src-tauri/src/settings.rs:293 <- src/settings/model.ts:304
 - `sign_in` src-tauri/src/auth.rs:177 <- src/settings/account.ts:254
 - `sign_out` src-tauri/src/auth.rs:278 <- src/settings/account.ts:275
 - `subscribe_answer_stream` src-tauri/src/answer_stream.rs:423 <- src/ipc/answer-stream.ts:302
-- `try_as_guest` src-tauri/src/signin.rs:214 <- src/signin.ts:101
+- `try_as_guest` src-tauri/src/signin.rs:214 <- src/signin.ts:113
 - `update_check` src-tauri/src/updater.rs:535 <- src/settings/update-view.ts:10
 - `update_install` src-tauri/src/updater.rs:541 <- src/settings/update-view.ts:11
 - `update_status` src-tauri/src/updater.rs:529 <- src/settings/update-view.ts:9
@@ -846,12 +855,12 @@ File names declared as Rust string constants (read or written by the app).
 
 Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) and TypeScript (ts), with a string literal or a constant; `const`: where that constant is defined.
 
-- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:646, src/settings.ts:195, src/signin.ts:26; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
+- `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:646, src/settings.ts:195, src/signin.ts:29; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:30; rs listen src-tauri/src/card.rs:68; const src-tauri/src/card.rs:37, src/card.ts:39
 - `chat-talk`: rs emit src-tauri/src/chat.rs:337,403; ts listen src/chat.ts:356; const src-tauri/src/chat.rs:17
 - `debug`: rs emit src-tauri/src/debug_view.rs:201; ts listen src/debug.ts:84; const src-tauri/src/debug_view.rs:17
 - `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:667; const src-tauri/src/explain.rs:39
-- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:645, src/signin.ts:106; const src-tauri/src/signin.rs:18
+- `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:645, src/signin.ts:122; const src-tauri/src/signin.rs:18
 - `highlight`: rs emit src-tauri/src/highlight.rs:238,244,380, src-tauri/src/pointing.rs:492; ts listen src/highlight.ts:608, src/mate.ts:616; const src-tauri/src/highlight.rs:15
 - `highlight-burst`: rs emit src-tauri/src/highlight.rs:306; ts listen src/highlight.ts:613; const src-tauri/src/highlight.rs:16, src/highlight/geometry.ts:106
 - `home-closed-hint`: rs emit src-tauri/src/home.rs:36; ts listen src/mate.ts:655
@@ -901,7 +910,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.browser_failed`: rs src-tauri/src/auth.rs:374
 - `auth.cancelled`: rs src-tauri/src/auth.rs:216,259,330,429; ts src/settings/account.ts:75
 - `auth.failed`: rs src-tauri/src/auth.rs:215,225,256,360,361,363,364,387,391,404,425; ts src/settings/account.ts:75,263,266
-- `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:146, src/settings/account.ts:75, src/signin.ts:136
+- `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:146, src/settings/account.ts:75, src/signin.ts:152
 - `card.operation_failed`: rs src-tauri/src/card.rs:473
 - `chat.title`: rs src-tauri/src/chat.rs:360; ts src/chat.ts:337
 - `debug.window_title`: rs src-tauri/src/debug_view.rs:104
@@ -971,12 +980,12 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_insert`: rs src-tauri/src/settings.rs:144; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:142; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.keycap_ctrl`: rs src-tauri/src/settings.rs:141; ts src/settings/ptt-key.ts:11
-- `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:96
+- `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:108
 - `tray.chat`: rs src-tauri/src/lib.rs:288; ts src/mate-menu.ts:5
 - `tray.hide_hour`: rs src-tauri/src/lib.rs:375,443; ts src/mate-menu.ts:9
 - `tray.open_home`: rs src-tauri/src/lib.rs:287
 - `tray.quit`: rs src-tauri/src/lib.rs:368,445
-- `tray.settings`: rs src-tauri/src/lib.rs:361,442,562; ts src/home.ts:500, src/mate-menu.ts:7, src/settings.ts:391,393
+- `tray.settings`: rs src-tauri/src/lib.rs:361,442,562; ts src/home.ts:510, src/mate-menu.ts:7, src/settings.ts:391,393
 - `tray.tooltip`: rs src-tauri/src/lib.rs:485
 - `tray.try_bigger`: rs src-tauri/src/home.rs:6,113; ts src/home.ts:40,48
 - `tray.try_safe`: rs src-tauri/src/home.rs:6; ts src/home.ts:39,47
@@ -989,7 +998,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `chat.*` (30 keys): src/chat.ts
 - `highlight.*` (5 keys): src/highlight.ts, src/highlight/jump-view.ts
 - `hints.*` (7 keys): src/hints/logic.ts, src/hints/view.ts
-- `home.*` (100 keys): src/home.ts, src/home/guide.ts, src/home/lessons-view.ts, src/home/model-picker.ts, src/home/profile.ts, src/mate-menu.ts, src/mate.ts
+- `home.*` (102 keys): src/home.ts, src/home/guide.ts, src/home/lessons-view.ts, src/home/model-picker.ts, src/home/profile.ts, src/mate-menu.ts, src/mate.ts
 - `mate.*` (6 keys): src/mate-menu.ts, src/mate.ts, src/safety-stamp.ts
 - `model.*` (5 keys): src/mate.ts
 - `onboarding.*` (7 keys): src/onboarding.ts
@@ -997,7 +1006,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `practice.*` (41 keys): src/practice.ts
 - `robot.*` (3 keys): src/audio/cue-policy.ts, src/ipc/answer-stream.ts, src/mate-logic.ts, src/mate.ts, src/onboarding.ts
 - `settings.*` (55 keys): src/home.ts, src/settings.ts, src/settings/choices-view.ts, src/settings/dev-view.ts, src/settings/ptt-key.ts, src/settings/update-view.ts, src/settings/voice-speed-view.ts
-- `signin.*` (6 keys): src/signin.ts
+- `signin.*` (8 keys): src/signin.ts
 - `tray.*` (2 keys): src/settings/choices-view.ts
 - no literal use (13 keys); prefixes: `card.*`, `practice.*`, `robot.*`
 - `card.window_title`: no literal use
@@ -1024,7 +1033,7 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-platform | 46 | 7 |
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 216 | 21 |
-| src | 401 | 40 |
-| tools | 472 | 27 |
+| src | 402 | 40 |
+| tools | 517 | 30 |
 | server | 105 | 5 |
 | tts | 27 | 2 |
