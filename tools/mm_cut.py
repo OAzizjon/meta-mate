@@ -246,7 +246,7 @@ def after_filters(row, w, h, duration):
 def clip_chain(index, trim, row, w, h, duration, fit=True, background='black'):
     """One input to a picture of exactly w x h and duration seconds."""
     fitted = (f'scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color={background}'
-              if fit else f'scale=-2:{h},crop={w}:{h}:(iw-{w})*{row.get("face", 0.5)}:0')
+              if fit else f'scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}:(iw-{w})*{row.get("face", 0.5)}:0')
     return (f'[{index}:v]{trim},setpts=PTS-STARTPTS,{look_filters(row)}{fitted},setsar=1,fps=30,'
             f'tpad=stop_mode=clone:stop_duration={duration},trim=duration={duration},setpts=PTS-STARTPTS')
 

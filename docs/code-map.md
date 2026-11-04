@@ -193,8 +193,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - crates/mm-platform/src/target.rs — The user's window a request is about, as opaque ids (no Win32 types).
   TargetWindow:6
 - crates/mm-platform/src/ui_snapshot.rs — A flat snapshot of the target's UI Automation tree, as in `fixtures/uia/*.json`.
-  is_interactive_type:29 UiSnapshot:35 UiSnapshot::unclassifiable:167 UiSnapshot::ambiguous_private_edits:172 UiSnapshot::flat:195 UiSnapshot::hidden_ids:280 UiSnapshot::element:353 UiSnapshot::element_at:360
-  UiSnapshot::target_at:379 mostly_inside:386 same_hidden:401 UiElement:430 UiElement::private_label:454
+  is_interactive_type:29 UiSnapshot:35 UiSnapshot::unclassifiable:167 UiSnapshot::ambiguous_private_edits:172 UiSnapshot::flat:195 UiSnapshot::hidden_ids:293 UiSnapshot::element:366 UiSnapshot::element_at:373
+  UiSnapshot::target_at:392 mostly_inside:402 same_hidden:417 UiElement:446 UiElement::private_label:470
   inline tests (28)
 - crates/mm-platform/src/ui_tree.rs — Reading the target's UI Automation tree.
   UiTree:10

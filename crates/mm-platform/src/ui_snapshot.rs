@@ -251,23 +251,36 @@ impl UiSnapshot {
                 && (e.control_type != "Pane" || parents.contains(e.id.as_str()))
         };
         let content = self.elements.iter().filter(readable).count();
-        let reads_content = self.elements.iter().any(|e| {
-            readable(&e)
-                && ((e.control_type == "Edit" && content >= 3)
-                    || (!documents.is_empty()
-                        && matches!(e.control_type.as_str(), "Text" | "Hyperlink" | "Heading")
-                        && !e.name.trim().is_empty()))
+        let reads_page = !documents.is_empty()
+            && self.elements.iter().any(|e| {
+                readable(&e)
+                    && matches!(e.control_type.as_str(), "Text" | "Hyperlink" | "Heading")
+                    && !e.name.trim().is_empty()
+            });
+        let reads_content = reads_page
+            || (content >= 3
+                && self
+                    .elements
+                    .iter()
+                    .any(|e| readable(&e) && e.control_type == "Edit"));
+        // The native pane Chromium hosts its page in, by its fixed name, with the page in it.
+        let chromium_host = self.elements.iter().any(|e| {
+            e.control_type == "Pane"
+                && e.name == CHROMIUM_HOST_PANE
+                && !e.offscreen
+                && parents.contains(e.id.as_str())
         });
         // A large opaque surface can sit beside a perfectly accessible toolbar. Chromium
-        // keeps empty, nameless helper panes (scrims, overlay views) the size of the page
-        // beside the page itself: with the page read out, those hide nothing. A canvas or
-        // plugin inside the page, or any named pane, still counts.
+        // alone keeps empty, nameless helper panes (scrims, overlay views) the size of the
+        // page beside it: with the page read out, those hide nothing. Anything else fails
+        // closed: a canvas inside the page, a named pane, an unknown host, an unread page.
         let opaque = self.elements.iter().any(|e| {
             !e.offscreen
                 && matches!(e.control_type.as_str(), "Custom" | "Pane" | "Image")
                 && !parents.contains(e.id.as_str())
                 && e.rect.is_some_and(|r| mostly_inside(self.frame, r))
-                && !(reads_content
+                && !(chromium_host
+                    && reads_page
                     && e.control_type == "Pane"
                     && e.name.trim().is_empty()
                     && !page.contains(e.id.as_str()))
@@ -383,6 +396,9 @@ impl UiSnapshot {
 }
 
 /// More than half of the element's own area is covered by a hidden field.
+/// The accessible name of the native pane Chromium hosts a page in (Chrome, Edge, WebView2).
+const CHROMIUM_HOST_PANE: &str = "Chrome Legacy Window";
+
 pub fn mostly_inside(rect: PhysRect, field: PhysRect) -> bool {
     let width =
         (i128::from(rect.right.min(field.right)) - i128::from(rect.left.max(field.left))).max(0);
@@ -601,19 +617,40 @@ mod tests {
                 named_child("text", "doc", "Text", "Out for delivery"),
             ]
         };
+        let chromium_page = || {
+            let mut nodes = page();
+            let mut host = child_at("host", "root", "Pane", full);
+            host.name = CHROMIUM_HOST_PANE.into();
+            nodes.push(host);
+            nodes[1].parent = Some("host".into());
+            nodes
+        };
         // Chrome's scrims and overlay views: nameless leaf panes as large as the page.
-        let mut nodes = page();
+        let mut nodes = chromium_page();
         nodes.push(child_at("scrim", "root", "Pane", full));
         assert!(!snapshot(nodes).flat());
         // A canvas inside the page still hides what it draws.
-        let mut nodes = page();
+        let mut nodes = chromium_page();
         nodes.push(child_at("canvas", "doc", "Image", full));
         assert!(snapshot(nodes).flat());
-        let mut nodes = page();
+        let mut nodes = chromium_page();
         nodes.push(child_at("canvas", "doc", "Pane", full));
         assert!(snapshot(nodes).flat());
-        // A named pane beside the page is a real surface, not a helper.
+        // The same page in another host: an unknown nameless pane stays opaque.
         let mut nodes = page();
+        nodes.push(child_at("surface", "root", "Pane", full));
+        assert!(snapshot(nodes).flat());
+        // A native app with a toolbar and an edit box, no page: the pane stays opaque.
+        let nodes = vec![
+            element("root", "Window", full),
+            child("edit", "root", "Edit"),
+            child("bold", "root", "Button"),
+            child("italic", "root", "Button"),
+            child_at("surface", "root", "Pane", full),
+        ];
+        assert!(snapshot(nodes).flat());
+        // A named pane beside the page is a real surface, not a helper.
+        let mut nodes = chromium_page();
         let mut plugin = child_at("plugin", "root", "Pane", full);
         plugin.name = "Remote session".into();
         nodes.push(plugin);
