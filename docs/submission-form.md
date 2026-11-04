@@ -4,13 +4,21 @@
 MetaMate
 
 **Tagline**  
-Mate lights the button. You click it yourself.
+Mate lights the button. Your parent clicks it.
 
 **One-sentence pitch**  
 MetaMate is a Windows desktop helper that listens to questions in English or Russian, answers aloud, and guides people to the right control in the app they are using without taking over.
 
-**Description**  
-MetaMate is a Windows desktop helper for older people and anyone navigating an unfamiliar interface. Ask aloud in English or Russian: Mate answers with his voice, shines a beam on the relevant control, and teaches tasks one step at a time while the person clicks. He never presses Pay, Delete, money-transfer, or password buttons; optional actions require a spoken yes. For “Is this safe?”, he checks the active window, names visible red flags, and never advises clicking, calling, or paying. Muse Voice Transcribe recognizes speech; Muse Spark 1.3 answers, points, teaches, and checks for scams; Muse Wonder 1.0 provides thorough answers and plans a lesson's next step after two clicks away from the beam. SAM 3.1 outlines controls when the accessibility tree is empty. MMS-TTS speaks, and Muse Glimmer 30B plus Muse Image create printable lesson cards. In tests on 40 fictional pages, both Spark and Wonder called every scam a scam; results are from fictional pages, not a real-world rate. Built with Rust, Tauri v2, a TypeScript WebView, and a FastAPI proxy. Next, we want to learn from real sessions and improve safety checks for less common window types.
+**Description**
+Your parent is stuck in an unfamiliar program and cannot find the right button, and you are far away. Mate is a small light bulb on the Windows desktop. Hold Ctrl, ask out loud in English or Russian, and he answers aloud, flies beside the right control and shines a beam on it. You click it yourself. For "how do I" questions he teaches one step at a time and checks each click. "Is this safe?" looks only at the active window and names the red flags it sees. After a lesson he leaves a printable card.
+
+Meta's models each do one job: Muse Voice Transcribe hears you; Muse Spark 1.3 answers, points, teaches and runs the scam check; Muse Wonder 1.0 plans the next step when you click away from the beam twice; MMS-TTS speaks; Muse Glimmer 30B writes the card; Muse Image draws it; SAM 3.1 (experimental) outlines what lies under a point where Windows can't read the app.
+
+Measured on our own 20 fictional windows and 71 questions: with the Windows element list, all 610 answers to a question whose button was on the window named the right control. Without it, under half landed on the control, so we use the list.
+
+Only the window you are using is captured, only when the question needs the screen. Password fields are painted black first, and it fails closed. Mate never presses Pay, Delete, money-transfer or password buttons. "I can't find it" beats a guess.
+
+Mate lights the button. Your parent clicks it.
 
 **Meta models used**
 - Muse Spark 1.3 — default quick answers, pointing, step-by-step lessons, and scam checks.

@@ -6,8 +6,11 @@
 // Message text is never logged to the console.
 
 import { listen } from "@tauri-apps/api/event";
+import { followSettingsLocale } from "./i18n/settings.ts";
 import { DebugStore, renderDebugViewHtml, renderPipelineStripHtml } from "./debug/view.ts";
 import type { DebugAnswerModel, DebugMsg, GenerationRecord } from "./debug/view.ts";
+
+void followSettingsLocale(() => {});
 
 export interface DebugController {
   handleRaw(raw: unknown): boolean;

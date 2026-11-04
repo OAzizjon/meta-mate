@@ -4,6 +4,26 @@ All notable changes to MetaMate are recorded in this file.
 
 This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-11-04
+
+### Added
+
+- A note from family: whoever sets Mate up may leave one line; Mate says it after a finished lesson and it is printed on the keepsake card (D85).
+- `mm preflight` answers "can we submit right now?"; `mm ship` runs the owner's submission steps, each asked first.
+
+### Changed
+
+- Every window: one type and spacing scale, sections with icons in Settings, "Try without signing in" as the first choice, a postcard look for the keepsake card, a more readable dark theme.
+- The final video plan and scenes (D86); the README says plainly what was prepared before the kickoff (D87) and adds a "Hard problems" table.
+
+### Fixed
+
+- The guest line admits a long wait instead of "Checking..." for ever when the server does not answer.
+- Home's Write to Mate and Practice buttons show a message when their window cannot open.
+- Mate speaks "I can't find it" instead of only showing it.
+- Dark windows no longer flash light before their settings load.
+- README and submission text: Muse Wonder does see the screen (only Muse Glimmer hands such questions to Spark), transcription starts when listening starts, and the setting's real names.
+
 ## [0.2.0] - 2026-11-02
 
 ### Added

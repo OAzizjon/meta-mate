@@ -19,15 +19,22 @@ export async function followWindowSettings(
   subscribe: SettingsSubscribe,
   onChange: (settings: Settings) => void,
 ): Promise<void> {
-  applyTheme(undefined, root);
   const apply = (raw: unknown): void => {
     onChange(applyTheme(raw, root));
   };
   let changed = false;
-  await subscribe((raw) => {
-    changed = true;
-    apply(raw);
-  });
-  const initial = await invoke("load_settings");
-  if (!changed) apply(initial);
+  try {
+    await subscribe((raw) => {
+      changed = true;
+      apply(raw);
+    });
+  } catch {
+    // A failed event listener must not leave the initial palette hidden.
+  }
+  try {
+    const initial = await invoke("load_settings");
+    if (!changed) apply(initial);
+  } catch {
+    if (!changed) apply(undefined);
+  }
 }

@@ -359,6 +359,7 @@ export function createStateAnimator(
 
   function wave(): void {
     if (hidden || state !== "idle" || isMotionReduced()) return;
+    greeted = true;
     stopWave();
     motion.squash("hello");
     setLeftHandRaised(refs, true);
@@ -442,7 +443,6 @@ export function createStateAnimator(
       render();
       playOneShots();
       if (next === "idle" && (woke || !greeted)) {
-        greeted = true;
         wave();
       }
     },

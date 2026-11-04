@@ -1147,7 +1147,12 @@ async fn answer(
                                 .retain(|bound| !matches!(bound, Bound::Point(_) | Bound::Step(_)));
                             Item::Say(say)
                         } else {
-                            Item::PointRejected
+                            stream.send(AnswerMsg::Item {
+                                generation,
+                                item: Item::PointRejected,
+                            });
+                            lang = voice_of(locale).to_owned();
+                            Item::Say(rejected_point(say, locale))
                         }
                     }
                     other => other,
@@ -1251,6 +1256,13 @@ async fn answer(
             }
         });
     }
+}
+
+/// Keep the sentence's audio slot, but never speak or execute its rejected instruction.
+fn rejected_point(mut say: mm_core::matescript::Say, locale: &str) -> mm_core::matescript::Say {
+    say.text = crate::locale_text(locale, "robot.cant_find");
+    say.bound.clear();
+    say
 }
 
 /// Whether every point of `say` resolves against `look` (a sentence without one does), or
@@ -1506,6 +1518,25 @@ fn load_built_phrases(phrases: &Phrases, base: &std::path::Path) {
 #[cfg(test)]
 mod tests {
     use super::is_overlay;
+
+    #[test]
+    fn rejected_point_keeps_its_audio_slot_and_only_the_localized_refusal() {
+        use mm_core::matescript::{Bound, Point, Say};
+
+        for locale in ["en", "ru"] {
+            let say = super::rejected_point(
+                Say {
+                    id: 7,
+                    text: "Original instruction".to_owned(),
+                    bound: vec![Bound::Point(Point::Id("missing".to_owned()))],
+                },
+                locale,
+            );
+            assert_eq!(say.id, 7);
+            assert_eq!(say.text, crate::locale_text(locale, "robot.cant_find"));
+            assert!(say.bound.is_empty());
+        }
+    }
 
     #[test]
     fn failure_phrases_use_the_error_key_and_locale() {

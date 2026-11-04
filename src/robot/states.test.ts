@@ -494,6 +494,11 @@ test("Mate waves hello on his first idle and after waking, never with reduced mo
   assert.equal(still.refs.layers["arm-l"].animations.length, 0);
   still.animator.setMood("surprised");
   assert.equal(still.refs.body.animations.length, 0);
+  still.animator.setReduceMotion(false);
+  still.animator.setState("idle");
+  assert.equal(still.refs.layers["arm-l"].animations.length, 1, "a suppressed greeting stays pending");
+  still.animator.setState("idle");
+  assert.equal(still.refs.layers["arm-l"].animations.length, 1, "the pending greeting plays only once");
 });
 
 /** Animation frames by hand: `frame()` moves the clock one frame on and runs what was due. */

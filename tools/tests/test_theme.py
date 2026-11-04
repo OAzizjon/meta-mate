@@ -23,6 +23,15 @@ def contrast(first, second):
 
 
 class ThemeTests(unittest.TestCase):
+    def test_pending_palette_hides_controls_on_a_dark_canvas(self):
+        source = (ROOT / 'src/theme.css').read_text(encoding='utf-8')
+        canvas = re.search(r':root:not\(\[data-theme\]\)\s*\{([^}]+)\}', source)
+        controls = re.search(r':root:not\(\[data-theme\]\) body\s*\{([^}]+)\}', source)
+        self.assertIsNotNone(canvas)
+        self.assertIsNotNone(controls)
+        self.assertIn('background: #14161d !important;', canvas[1])
+        self.assertIn('visibility: hidden;', controls[1])
+
     def setUp(self):
         source = (ROOT / "src/theme.css").read_text(encoding="utf-8")
         self.light = tokens(re.search(r":root\s*\{([^}]+)\}", source)[1])

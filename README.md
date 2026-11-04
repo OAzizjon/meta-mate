@@ -51,7 +51,7 @@ Also inside:
 - **Warmer, warmer:** During a lesson step, the ring and Mate's glow brighten as the mouse nears the right button and hold steady once it is on it, guiding the hand before the click (`src-tauri/src/pointing.rs`).
 - **A trail, not a scolding:** After a click in the wrong place during a lesson, a dotted line of light runs from that spot to the ring while Mate says "Almost"; no red, no cross (`src-tauri/src/teacher/lesson.rs`).
 - **X-ray look:** While Mate thinks, faint outlines sweep top to bottom over the elements he is reading, and every field painted over for privacy shows as a dark tile with a lock, so you can see what he is reading and which fields were painted over for privacy (`src-tauri/src/highlight.rs`, `src/highlight.ts`).
-- **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name; password fields, sign-in codes, tabs and window titles, and any name with an e-mail or web address or a run of four digits are skipped.
+- **Drop Mate on it:** Drag Mate onto any button or icon and click him: he lights it up and explains what it does (`src-tauri/src/explain.rs`). Nothing leaves the PC until that click, and then only the control's name, its type and the app's name, plus the name and the line about yourself if you saved them; password fields, sign-in codes, tabs and window titles, and any name with an e-mail or web address or a run of four digits are skipped.
 - **Home window:** An accessible starting hub (`home.html`) featuring an animated Ctrl keycap explaining push-to-talk, one-click "Try it" sample questions, a clear summary of actions Mate never takes, and a direct path to saved keepsake cards.
 - **Chat window:** Type a question instead of speaking (`chat.html`): Mate's answers appear in comic-style speech balloons tinted by his mood, button names look like key chips, and steps appear as lists. Mate still points on screen.
 - **Look with permission:** In Chrome, when Mate asks if he may look at the window, click him to answer yes.
@@ -66,13 +66,13 @@ Also inside:
 |---|---|---|
 | **Muse Spark 1.3** | Quick answers (the default), pointing beam, step-by-step lessons, and "Is this safe?" scam check | First token in 1.4–2.6 s at reasoning effort `minimal` (D41, D45) |
 | **Muse Wonder 1.0** | Thorough answers; on Quick, a lesson's next step after two clicks away from the beam | High-reasoning model for complex guidance and fallback escalation (D56) |
-| **Muse Voice Transcribe** | Realtime push-to-talk speech recognition (Ctrl) | Final transcript 250–360 ms after key-up (socket opens at key-down) (D44, D45) |
+| **Muse Voice Transcribe** | Realtime push-to-talk speech recognition (Ctrl) | Final transcript 250–360 ms after key-up (the socket opens when listening starts, not after you finish) (D44, D45) |
 | **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal GPU) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
 | **Muse Glimmer 30B** | Chat answers and keepsake lesson card text (Meta open weights on our own Modal GPU) | Q4_K_M ~15 tokens/s on a Modal L4 / A10G GPU (D53, D57) |
 | **Muse Image** | Keepsake lesson card illustration (soft gouache art with Mate, without text; printable) | Generates custom scene illustration for completed lessons (D55) |
 | **SAM 3.1** | Experimental fallback: outlines what lies under a model-chosen point where the accessibility tree has nothing | No accuracy claim: it does not choose the point (see "Where is it?") |
 
-Choose Mate's brain on the Home screen: Muse Spark 1.3 (quick, default), Muse Wonder 1.0 (thorough), or Muse Glimmer 30B. Screen questions still use Muse Spark because only Spark sees the screenshot.
+Choose Mate's brain on the Home screen: Muse Spark 1.3 (quick, default), Muse Wonder 1.0 (thorough), or Muse Glimmer 30B. Muse Glimmer answers chat without the screen: when it is chosen, a question that needs the screen goes to Muse Spark.
 
 ### Measured: "Is this safe?"
 

@@ -5,8 +5,10 @@ import { applyTheme, followWindowSettings } from "../settings/theme.ts";
 
 export async function followSettingsLocale(render: () => void): Promise<void> {
   if (typeof document === "undefined") return;
-  applyTheme(undefined, document.documentElement);
-  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) return;
+  if (typeof window === "undefined" || !("__TAURI_INTERNALS__" in window)) {
+    applyTheme(undefined, document.documentElement);
+    return;
+  }
   const { listen } = await import("@tauri-apps/api/event");
   const { invoke } = await import("@tauri-apps/api/core");
   await followWindowSettings(document.documentElement, invoke, async (onChanged) => {
