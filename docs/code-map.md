@@ -675,8 +675,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   tests: tools/tests/test_mm_cover.py (9)
 - tools/mm_cut.py — Assemble the demo with the standard library and ffmpeg only.
   media_path:21 load_list:30 resolve_sources:72 number:89 start_times:95 validate:119 warnings:137 drawtext_escape:164
-  look_filters:170 subtitle_lines:181 write_srt:201 build_graph:209 srt:279 probe:293 main:301
-  tests: tools/tests/test_mm_cut.py (28)
+  look_filters:170 subtitle_lines:181 write_srt:203 build_graph:211 srt:281 probe:295 main:303
+  tests: tools/tests/test_mm_cut.py (29)
 - tools/mm_difflint.py — mm difflint [PATCH|-]
   AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284
   tests: tools/tests/test_mm_difflint.py (18)
@@ -1041,6 +1041,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 219 | 21 |
 | src | 405 | 40 |
-| tools | 550 | 31 |
+| tools | 551 | 31 |
 | server | 105 | 5 |
 | tts | 27 | 2 |

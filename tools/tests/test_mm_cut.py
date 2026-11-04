@@ -255,6 +255,10 @@ class CameraTakes(unittest.TestCase):
         lines = cut.subtitle_lines([(row, 0.0, 9.0)])
         self.assertEqual([line[2] for line in lines], ['He asks: "Where do I click?"', 'You are far away.'])
 
+    def test_a_blank_subtitle_is_skipped(self):
+        row = {'id': 'A', 'src': 'takes/A.mp4', 'subtitle': '   '}
+        self.assertEqual(cut.subtitle_lines([(row, 0.0, 5.0)]), [])
+
     def test_a_short_voice_sets_the_pace(self):
         row = {'id': 'A', 'src': 'out/a.mp4', 'voice': 'V.wav', 'subtitle': 'One two.'}
         lines = cut.subtitle_lines([(row, 0.0, 10.0)], {'voice/V.wav': {'duration': 4.0}})

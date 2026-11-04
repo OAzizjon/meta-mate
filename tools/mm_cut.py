@@ -188,6 +188,8 @@ def subtitle_lines(timeline, metadata=None):
             continue
         sentences = [part.strip() for part in re.split(r'(?<=[.?!]["”])\s+|(?<=[.?!])\s+', row['subtitle']) if part.strip()]
         words = sum(len(part.split()) for part in sentences)
+        if not words:
+            continue
         spoken = metadata.get('voice/' + row['voice'], {}).get('duration') if row.get('voice') else None
         span = min(duration, spoken) if spoken else duration
         at = start
