@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="clip" content="duration=5;fps=60;width=1920;height=1080;alpha=1">
+<title>Phone frame - Mate left</title>
+<link rel="stylesheet" href="_kit.css">
+<style>
+  /* Transparent 9:16 slot: x 1100..1708, y 0..1080. Nothing may cover it. */
+  html, body { margin: 0; padding: 0; }
+  .sheet {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1000px;
+    height: 1080px;
+    border-right: 16px solid var(--ink);
+  }
+  .caption {
+    position: absolute;
+    left: 64px;
+    bottom: 64px;
+    width: 660px;
+    height: 230px;
+    box-sizing: border-box;
+    background: var(--paper);
+    border: 8px solid var(--ink);
+    border-radius: 28px;
+    box-shadow: 12px 14px 0 var(--ink);
+  }
+  /* Clip guarantees the beam can never reach the slot. Right edge at x = 1060. */
+  .beam-clip {
+    position: absolute;
+    left: 140px;
+    top: 80px;
+    width: 920px;
+    height: 860px;
+    overflow: hidden;
+  }
+  .mate-float {
+    margin-left: 30px;
+    margin-top: 30px;
+    width: 460px;
+    animation-name: floaty;
+    animation-duration: 2s;
+    animation-timing-function: ease-in-out;
+    animation-delay: 0s;
+    animation-fill-mode: both;
+    animation-iteration-count: infinite;
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-18px); }
+  }
+  .beam-glow {
+    position: absolute;
+    left: 904px;
+    top: 250px;
+    width: 160px;
+    height: 260px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, var(--bulb) 0%, transparent 70%);
+    animation-name: beampulse;
+    animation-duration: 1.6s;
+    animation-timing-function: ease-in-out;
+    animation-delay: 0s;
+    animation-fill-mode: both;
+    animation-iteration-count: infinite;
+  }
+  @keyframes beampulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.85; }
+  }
+  /* Ink ring around the slot; inner edge lands exactly on the slot boundary. */
+  .slot-frame {
+    position: absolute;
+    left: 1082px;
+    top: -18px;
+    width: 644px;
+    height: 1116px;
+    box-sizing: border-box;
+    border: 18px solid var(--ink);
+    border-radius: 72px;
+    background: transparent;
+    outline: 6px solid var(--bulb);
+    outline-offset: 10px;
+  }
+</style>
+</head>
+<body class="alpha">
+<script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+<div class="sheet panel halftone"></div>
+<div class="beam-clip"><div class="mate-float" id="mateMount"></div></div>
+<div class="beam-glow"></div>
+<div class="slot-frame"></div>
+<script src="../../assets/art/src/mate-lib.js"></script>
+<script>
+  document.getElementById('mateMount').innerHTML = mate({ eyes: 'open', mouth: 'smile', arm: 'point', glow: true, size: 460 });
+</script>
+</body>
+</html>

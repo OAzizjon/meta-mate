@@ -70,7 +70,7 @@ Also inside:
 | **MMS-TTS** | Spoken voice output (Meta open weights, served on Modal GPU) | 90–110 ms GPU synthesis per sentence on a Modal T4 (D44, D53) |
 | **Muse Glimmer 30B** | Chat answers and keepsake lesson card text (Meta open weights on our own Modal GPU) | Q4_K_M ~15 tokens/s on a Modal L4 / A10G GPU (D53, D57) |
 | **Muse Image** | Keepsake lesson card illustration (soft gouache art with Mate, without text; printable) | Generates custom scene illustration for completed lessons (D55) |
-| **SAM 3.1** | Experimental: outlines what lies under a point where the accessibility tree has nothing (canvas, Qt apps, games) | Target segmentation masks and boundary guidance |
+| **SAM 3.1** | Experimental fallback: outlines what lies under a model-chosen point where the accessibility tree has nothing | No accuracy claim: it does not choose the point (see "Where is it?") |
 
 Choose Mate's brain on the Home screen: Muse Spark 1.3 (quick, default), Muse Wonder 1.0 (thorough), or Muse Glimmer 30B. Screen questions still use Muse Spark because only Spark sees the screenshot.
 
@@ -126,6 +126,18 @@ The first run (before two prompt rules about naming a real warning sign) had Rus
 ## How it's built
 
 MetaMate is built in **Rust + Tauri v2** with a TypeScript WebView (SVG character animations, multi-monitor highlight overlays, and Web Audio API engine).
+
+### Hard problems
+
+| Problem | How MetaMate solves it | Check it yourself |
+|---|---|---|
+| Overlay windows must never steal focus | Applies `WS_EX_NOACTIVATE`, `SWP_NOACTIVATE`, and `SW_SHOWNOACTIVATE` before showing or moving overlays; refuses windows where no-activate styles fail (`crates/mm-win32/src/overlay.rs`). | `metamate --s1-selftest` |
+| Mixed-DPI multi-monitor screens and a per-frame coordinate transform | Uses Per-Monitor DPI v2 physical pixels, per-frame `FrameTransform` for downscaled screenshots, and `MonitorTransform` for WebView CSS drawing (`crates/mm-core/src/geom.rs`). | `metamate --s1-selftest` |
+| Passwords, including one revealed with the eye button, must never leave the PC | Paints black `IsPassword`, password-like, and reveal-toggle sibling fields (`hidden_ids`); fails closed on truncated or unlocated fields (`crates/mm-core/src/redaction.rs`, `src-tauri/src/screen.rs`). | `metamate --s3-selftest` |
+| Push-to-talk on bare Ctrl with no `RegisterHotKey` key-up and a release watchdog | Pumps `WH_KEYBOARD_LL` on a dedicated thread, requires 300 ms solo Ctrl hold, and polls `GetAsyncKeyState` as a release watchdog (`crates/mm-win32/src/keyboard.rs`, `crates/mm-core/src/ptt.rs`). | `metamate --ptt-probe` |
+| Pointing accuracy: UI Automation element list versus screenshot only | Sends UI Automation element IDs with screenshots and resolves points to controls (`src-tauri/src/screen.rs`): 100% (610/610) with list vs. 33–46% without. | `mm probe point` |
+| A lesson that verifies each click the person makes | Hooks mouse clicks after each step is shown, checks target bounds before advancing, and draws a miss trail (`src-tauri/src/teacher/lesson.rs`). | `./mm test` (`crates/mm-core/tests/clicks.rs`) |
+| Streaming MateScript that keeps speech, pointing, and moods in step | Incrementally parses streaming `<point>`, `<mood>`, and `<sfx>` tags and binds them to each spoken sentence item (`crates/mm-core/src/matescript/parser.rs`). | `metamate --voice-selftest FILE.wav` |
 
 ```text
 Voice:  Ctrl (WH_KEYBOARD_LL) → Muse Voice Transcribe (WSS) → Muse Spark 1.3 / Muse Wonder 1.0 → MateScript → MMS-TTS (Modal GPU)
@@ -215,7 +227,9 @@ cargo run -p metamate --features custom-protocol -- --ask "Where is the text siz
 
 ### Prepared before the kickoff
 
-The hackathon build runs from October 26 to November 4, 2026. Prior to kickoff, only non-product scaffolding was prepared in the open: design documentation in [`docs/`](docs/), developer utilities in [`tools/`](tools/), concept art in [`assets/art/`](assets/art/), and sound cues in [`assets/sounds/`](assets/sounds/). No application code existed before kickoff (see [CHANGELOG.md](CHANGELOG.md)).
+The hackathon build runs from October 26 to November 4, 2026. Before the kickoff we prepared design documentation in [`docs/`](docs/), developer utilities in [`tools/`](tools/), concept art in [`assets/art/`](assets/art/) and sound cues in [`assets/sounds/`](assets/sounds/). We also fetched and compiled the expected dependencies and built an empty Tauri template to warm the caches ([`docs/setup-windows.md`](docs/setup-windows.md)), and wrote a throwaway local draft of the MateScript parser on October 24 that did not work and was not used ([`docs/plan.md`](docs/plan.md)). Nothing was committed before the kickoff: the first commit is from the kickoff night, and the application code was written during the hackathon (see [CHANGELOG.md](CHANGELOG.md)).
+
+This repository keeps the project's working notes as they were written: the decision log, strategy and plans, and the instructions for the AI coding agents that helped build it.
 
 ### License
 

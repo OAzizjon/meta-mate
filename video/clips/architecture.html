@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="clip" content="duration=8.0;fps=60;width=1920;height=1080;alpha=0">
+<meta charset="utf-8">
+<title>architecture</title>
+<link rel="stylesheet" href="_kit.css">
+<style>
+  /* Architecture, 8.0 s: two-row animated comic pipeline drawn left to right with dashed
+     connector lines (stroke-dashoffset keyframes). Each box pops in as its line arrives;
+     Mate sits at the end of row 1 and shines his beam onto the last box of row 2 ("The beam").
+     All animations finish by 6.5 s so the last 1.5 s holds cleanly. */
+  .scene { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); }
+  .full { position: absolute; inset: 0; }
+  .bleed { position: absolute; inset: -24px; }
+
+  .bg {
+    background: radial-gradient(circle at 960px 500px, #fff7db 0%, #fcf9f1 55%, #eee3c7 100%);
+  }
+  .dots {
+    --dot: rgb(31 42 68 / 0.1);
+    -webkit-mask-image: radial-gradient(circle at 960px 500px, transparent 22%, #000 78%);
+    mask-image: radial-gradient(circle at 960px 500px, transparent 22%, #000 78%);
+  }
+
+  .shake-open { animation: shake 0.2s linear 0.16s both; }
+  .shake-beam { animation: shake 0.2s linear 5.75s both; }
+
+  /* Headline (>= 64 px). */
+  .title-row {
+    position: absolute; left: 0; right: 0; top: 18px; height: 112px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .title {
+    font-size: 88px; line-height: 1.1; white-space: nowrap; color: var(--bulb);
+    -webkit-text-stroke: 11px var(--ink); filter: drop-shadow(7px 7px 0 var(--ink));
+    animation: slam 0.28s var(--snap) 0s both;
+  }
+
+  /* Dashed connector SVG layer across the whole stage. */
+  .wires {
+    position: absolute; inset: 0; width: 1920px; height: 1080px; pointer-events: none;
+  }
+  .wire-mask {
+    fill: none; stroke: #fff; stroke-width: 28; stroke-linecap: round;
+    stroke-dasharray: 1 2;
+    animation: draw-offset 0.3s ease-in-out var(--wt) both;
+  }
+  .wire-dash {
+    fill: none; stroke: var(--ink); stroke-width: 8; stroke-linecap: round;
+    stroke-dasharray: 16 12;
+    animation: dash-offset 0.3s ease-out var(--wt) both;
+  }
+  .wire-tip {
+    fill: var(--ink);
+    transform-box: fill-box; transform-origin: 50% 50%;
+    animation: tip-pop 0.2s var(--pop) calc(var(--wt) + 0.24s) both;
+  }
+
+  /* Pipeline nodes (comic panels). */
+  .node {
+    position: absolute; box-sizing: border-box; padding: 16px 18px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; background: var(--c, #fff);
+    animation: pop-in 0.32s var(--pop) var(--nt) both;
+  }
+  .node-tag {
+    font-size: 21px; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 2px 12px 4px; border-radius: 10px; border: 3px solid var(--ink);
+    background: var(--white); margin-bottom: 10px;
+  }
+  .node-label {
+    font-size: 32px; line-height: 1.18; color: var(--ink);
+  }
+
+  /* Row 1 nodes (top: 172px, height: 220px, center y: 282px). */
+  .r1-1 { left: 48px; top: 172px; width: 218px; height: 220px; --nt: 0.25s; --c: #fffdf5; }
+  .r1-2 { left: 322px; top: 172px; width: 254px; height: 220px; --nt: 0.80s; --c: #dff5d8; }
+  .r1-3 { left: 632px; top: 172px; width: 304px; height: 220px; --nt: 1.35s; --c: #ffd8cf; }
+  .r1-4 { left: 992px; top: 172px; width: 222px; height: 220px; --nt: 1.90s; --c: #fff0b8; }
+  .r1-5 { left: 1270px; top: 172px; width: 238px; height: 220px; --nt: 2.45s; --c: #d3f3ee; }
+
+  /* Soundwave bars inside "Your voice". */
+  .wave {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    height: 44px; margin-top: 10px;
+  }
+  .wave i {
+    width: 8px; height: 28px; border-radius: 4px; background: var(--alarm);
+    border: 2px solid var(--ink);
+    animation: wave-bar 0.45s ease-in-out var(--dt) 6 alternate both;
+  }
+
+  /* Mate at the end of row 1 (left: 1554px, top: 140px, width: 310px, height: 286px). */
+  .mate { position: absolute; left: 1554px; top: 140px; width: 310px; height: 286px; }
+  .mate .layer { position: absolute; inset: 0; transform-origin: 42.3% 86.7%; }
+  .mate svg { display: block; }
+  .m-pop { animation: mate-pop 0.34s linear 2.98s both; }
+  .m-hop { animation: hop 0.36s linear 5.55s both; }
+  #mate-a { animation: fade-out 0.06s linear 5.62s both; }
+  #mate-b { animation: fade-in 0.08s linear 5.56s both; }
+
+  /* Row 2 nodes (top: 516px, height: 238px, center y: 635px). */
+  .r2-1 { left: 48px; top: 516px; width: 280px; height: 238px; --nt: 3.30s; --c: #fffdf5; }
+  .r2-2 { left: 404px; top: 516px; width: 356px; height: 238px; --nt: 3.85s; --c: #d6ecff; }
+  .r2-3 { left: 836px; top: 516px; width: 416px; height: 238px; --nt: 4.40s; --c: #ffe2c4; }
+  .r2-4 {
+    left: 1328px; top: 516px; width: 516px; height: 238px; --nt: 5.28s; --c: #fff4cf;
+    animation: pop-in 0.32s var(--pop) 5.28s both, target-lit 0.55s ease-out 5.72s both;
+  }
+
+  /* Mini illustrations inside Row 2. */
+  .mini-app {
+    width: 190px; height: 74px; margin-top: 10px; border: 4px solid var(--ink);
+    border-radius: 10px; background: #e9f1fa; position: relative; overflow: hidden;
+  }
+  .mini-app::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 18px;
+    background: #9bb8d6; border-bottom: 3px solid var(--ink);
+  }
+  .mini-app i {
+    position: absolute; left: 14px; top: 30px; width: 96px; height: 12px;
+    border-radius: 6px; background: #6b8cae;
+  }
+  .mini-app b {
+    position: absolute; right: 12px; bottom: 10px; width: 48px; height: 24px;
+    border: 3px solid var(--ink); border-radius: 7px; background: var(--bulb);
+  }
+
+  .sam-boxes {
+    display: flex; gap: 12px; margin-top: 10px;
+  }
+  .sam-chip {
+    padding: 6px 14px; border: 3px dashed var(--ok); border-radius: 10px;
+    background: #eefaf0; font-size: 22px; font-weight: 800; color: var(--ok);
+  }
+
+  /* "Passwords blacked out" (a black bar sweep). */
+  .pw-box {
+    position: relative; width: 336px; height: 64px; margin-top: 12px;
+    border: 4px solid var(--ink); border-radius: 12px; background: var(--white);
+    display: flex; align-items: center; padding: 0 16px; box-sizing: border-box;
+    overflow: hidden;
+  }
+  .pw-dots {
+    font-size: 32px; letter-spacing: 0.22em; color: var(--ink); font-weight: 900;
+  }
+  .pw-sweep {
+    position: absolute; inset: 4px; border-radius: 7px; background: #000;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bulb); font-size: 24px; font-weight: 900; letter-spacing: 0.08em;
+    transform-origin: 0% 50%;
+    animation: black-sweep 0.38s var(--snap) 4.72s both;
+  }
+
+  /* "The beam" box target button & Mate's spotlight beam reaching it from row 1. */
+  .beam-target {
+    margin-top: 10px; padding: 8px 32px 10px; border: 4px solid var(--ink);
+    border-radius: 40px; background: #3b6688; color: var(--white);
+    font-size: 30px; box-shadow: 5px 5px 0 var(--ink);
+    animation: btn-pulse 0.5s var(--pop) 5.75s both;
+  }
+
+  /* Mate's beam from his flashlight lens at row 1 (1822, 246) down-left to row 2 box 4 (1586, 635). */
+  .mate-beam {
+    position: absolute; left: 1822px; top: 186px; width: 470px; height: 120px;
+    transform-origin: 0 50%; pointer-events: none;
+    filter: drop-shadow(0 0 16px rgb(255 214 90 / 0.9));
+    animation: mate-beam-shoot 0.42s var(--snap) 5.58s both;
+  }
+  .mate-beam i {
+    position: absolute; inset: 0;
+    clip-path: polygon(0 42%, 100% 0, 100% 100%, 0 58%);
+    background: linear-gradient(90deg, rgb(255 252 225 / 0.96), rgb(255 214 90 / 0.82) 65%, rgb(255 205 60 / 0.35));
+  }
+
+  /* Bottom caption. */
+  .caption-row {
+    position: absolute; left: 48px; right: 48px; bottom: 34px; height: 112px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .caption-panel {
+    padding: 16px 42px 20px; background: var(--bulb-soft);
+    display: flex; align-items: center; gap: 36px;
+    font-size: 36px; font-weight: 900; line-height: 1.2; color: var(--ink);
+    animation: pop-in 0.36s var(--pop) 5.95s both;
+  }
+  .cap-sep {
+    width: 5px; height: 48px; border-radius: 3px; background: var(--ink);
+  }
+
+  @keyframes draw-offset {
+    from { stroke-dashoffset: 1.02; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes dash-offset {
+    from { stroke-dashoffset: 56; }
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes tip-pop {
+    from { opacity: 0; transform: scale(0); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  @keyframes wave-bar {
+    from { transform: scaleY(0.45); }
+    to { transform: scaleY(1.15); }
+  }
+  @keyframes mate-pop {
+    0% { opacity: 0; transform: scale(0.1, 0.1); }
+    50% { opacity: 1; transform: scale(0.9, 1.25); }
+    75% { transform: scale(1.14, 0.92); }
+    100% { opacity: 1; transform: scale(1, 1); }
+  }
+  @keyframes hop {
+    0%, 100% { transform: translateY(0) scale(1, 1); }
+    25% { transform: translateY(0) scale(1.1, 0.88); }
+    55% { transform: translateY(-28px) scale(0.94, 1.08); }
+    80% { transform: translateY(0) scale(1.06, 0.94); }
+  }
+  @keyframes black-sweep {
+    0% { transform: scaleX(0); }
+    100% { transform: scaleX(1); }
+  }
+  @keyframes mate-beam-shoot {
+    0% { opacity: 0; transform: rotate(121deg) scaleX(0.1); }
+    30% { opacity: 1; }
+    100% { opacity: 1; transform: rotate(121deg) scaleX(1); }
+  }
+  @keyframes target-lit {
+    0% { box-shadow: 10px 10px 0 var(--ink); }
+    50% { box-shadow: 10px 10px 0 var(--ink), 0 0 0 16px var(--bulb), 0 0 42px 18px rgb(255 205 60 / 0.9); }
+    100% { box-shadow: 10px 10px 0 var(--ink), 0 0 0 10px var(--bulb), 0 0 28px 10px rgb(255 205 60 / 0.75); }
+  }
+  @keyframes btn-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.12); background: #ffcd3c; color: var(--ink); }
+  }
+</style>
+</head>
+<body>
+<script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+<div class="scene">
+  <div class="shake-open full"><div class="shake-beam full">
+    <div class="bg bleed"></div>
+    <div class="dots halftone bleed"></div>
+
+    <div class="title-row"><div class="title shout">How Mate works.</div></div>
+
+    <!-- Dashed connector lines (stroke-dashoffset keyframes) for Row 1 and Row 2 -->
+    <svg class="wires" viewBox="0 0 1920 1080">
+      <defs>
+        <mask id="m-w1"><path class="wire-mask" style="--wt: 0.50s" d="M266 282 H322" pathLength="1"/></mask>
+        <mask id="m-w2"><path class="wire-mask" style="--wt: 1.05s" d="M576 282 H632" pathLength="1"/></mask>
+        <mask id="m-w3"><path class="wire-mask" style="--wt: 1.60s" d="M936 282 H992" pathLength="1"/></mask>
+        <mask id="m-w4"><path class="wire-mask" style="--wt: 2.15s" d="M1214 282 H1270" pathLength="1"/></mask>
+        <mask id="m-w5"><path class="wire-mask" style="--wt: 2.70s" d="M1508 282 H1568" pathLength="1"/></mask>
+        <mask id="m-w6"><path class="wire-mask" style="--wt: 3.55s" d="M328 635 H404" pathLength="1"/></mask>
+        <mask id="m-w7"><path class="wire-mask" style="--wt: 4.10s" d="M760 635 H836" pathLength="1"/></mask>
+        <mask id="m-w8"><path class="wire-mask" style="--wt: 4.98s" d="M1252 635 H1328" pathLength="1"/></mask>
+      </defs>
+
+      <!-- Row 1 connectors -->
+      <path class="wire-dash" style="--wt: 0.50s" mask="url(#m-w1)" d="M266 282 H314"/>
+      <polygon class="wire-tip" style="--wt: 0.50s" points="306,269 324,282 306,295"/>
+
+      <path class="wire-dash" style="--wt: 1.05s" mask="url(#m-w2)" d="M576 282 H624"/>
+      <polygon class="wire-tip" style="--wt: 1.05s" points="616,269 634,282 616,295"/>
+
+      <path class="wire-dash" style="--wt: 1.60s" mask="url(#m-w3)" d="M936 282 H984"/>
+      <polygon class="wire-tip" style="--wt: 1.60s" points="976,269 994,282 976,295"/>
+
+      <path class="wire-dash" style="--wt: 2.15s" mask="url(#m-w4)" d="M1214 282 H1262"/>
+      <polygon class="wire-tip" style="--wt: 2.15s" points="1254,269 1272,282 1254,295"/>
+
+      <path class="wire-dash" style="--wt: 2.70s" mask="url(#m-w5)" d="M1508 282 H1558"/>
+      <polygon class="wire-tip" style="--wt: 2.70s" points="1550,269 1568,282 1550,295"/>
+
+      <!-- Row 2 connectors -->
+      <path class="wire-dash" style="--wt: 3.55s" mask="url(#m-w6)" d="M328 635 H396"/>
+      <polygon class="wire-tip" style="--wt: 3.55s" points="388,622 406,635 388,648"/>
+
+      <path class="wire-dash" style="--wt: 4.10s" mask="url(#m-w7)" d="M760 635 H828"/>
+      <polygon class="wire-tip" style="--wt: 4.10s" points="820,622 838,635 820,648"/>
+
+      <path class="wire-dash" style="--wt: 4.98s" mask="url(#m-w8)" d="M1252 635 H1320"/>
+      <polygon class="wire-tip" style="--wt: 4.98s" points="1312,622 1330,635 1312,648"/>
+    </svg>
+
+    <!-- Row 1: Voice -> Transcribe -> Brain -> Script -> TTS -> Mate -->
+    <div class="node panel r1-1">
+      <div class="node-tag">PC</div>
+      <div class="node-label comic">Your voice</div>
+      <div class="wave">
+        <i style="--dt: 0.30s"></i>
+        <i style="--dt: 0.42s"></i>
+        <i style="--dt: 0.35s"></i>
+        <i style="--dt: 0.48s"></i>
+        <i style="--dt: 0.38s"></i>
+      </div>
+    </div>
+
+    <div class="node panel r1-2">
+      <div class="node-tag">Cloud</div>
+      <div class="node-label comic">Muse Voice<br>Transcribe</div>
+    </div>
+
+    <div class="node panel r1-3">
+      <div class="node-tag">Cloud</div>
+      <div class="node-label comic">Muse Spark /<br>Wonder / Glimmer</div>
+    </div>
+
+    <div class="node panel r1-4">
+      <div class="node-tag">Cloud</div>
+      <div class="node-label comic">Mate&rsquo;s script</div>
+    </div>
+
+    <div class="node panel r1-5">
+      <div class="node-tag">Cloud</div>
+      <div class="node-label comic">MMS-TTS<br>voice</div>
+    </div>
+
+    <!--Row 2: The window -> UI Automation + SAM 3.1 -> Passwords blacked out -> The beam -->
+    <div class="node panel r2-1">
+      <div class="node-tag">PC</div>
+      <div class="node-label comic">The window</div>
+      <div class="mini-app"><i></i><b></b></div>
+    </div>
+
+    <div class="node panel r2-2">
+      <div class="node-tag">PC + Cloud</div>
+      <div class="node-label comic">UI Automation<br>+ SAM 3.1</div>
+      <div class="sam-boxes">
+        <span class="sam-chip">[Button]</span>
+        <span class="sam-chip">[Menu]</span>
+      </div>
+    </div>
+
+    <div class="node panel r2-3">
+      <div class="node-tag">PC</div>
+      <div class="node-label comic">Passwords blacked out</div>
+      <div class="pw-box">
+        <span class="pw-dots">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>
+        <div class="pw-sweep">REDACTED ON PC</div>
+      </div>
+    </div>
+
+    <div class="node panel r2-4">
+      <div class="node-tag">PC</div>
+      <div class="node-label comic">The beam</div>
+      <div class="beam-target comic">Mate lights the button</div>
+    </div>
+
+    <!-- Mate's beam reaching from row 1 end to row 2 last box -->
+    <div class="mate-beam"><i></i></div>
+
+    <!-- Mate at the end of row 1 -->
+    <div class="mate">
+      <div class="layer m-pop"><div class="layer m-hop">
+        <div class="layer" id="mate-a"></div>
+        <div class="layer" id="mate-b"></div>
+      </div></div>
+    </div>
+
+    <!-- Bottom caption -->
+    <div class="caption-row">
+      <div class="caption-panel panel comic">
+        <span>On your PC: capture, redaction, the beam.</span>
+        <span class="cap-sep"></span>
+        <span>In the cloud: Meta models.</span>
+      </div>
+    </div>
+  </div></div>
+</div>
+<script src="../../assets/art/src/mate-lib.js"></script>
+<script>
+  document.getElementById('mate-a').innerHTML = mate({ eyes: 'open', mouth: 'smile', arm: 'none', glow: true, size: 310 });
+  document.getElementById('mate-b').innerHTML = mate({ eyes: 'happy', mouth: 'grin', arm: 'point', glow: true, size: 310 });
+</script>
+</body>
+</html>

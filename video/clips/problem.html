@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="clip" content="duration=6.0;fps=60;width=1920;height=1080;alpha=0">
+<meta charset="utf-8">
+<title>problem</title>
+<link rel="stylesheet" href="_kit.css">
+<style>
+  /* Problem, 6.0 s: the pain, warm not mocking. A cluttered fake app window with menus and
+     20 tiny unlabeled toolbar icons sits on warm paper; a small hand cursor wanders, hesitates
+     and circles while question marks pop around it (0.5-3.0 s); a comic phone with a speech
+     balloon slides in (3.0-4.0 s); the headline slams in at 4.2 s and holds to 6.0 s. */
+  .scene { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); }
+  .full { position: absolute; inset: 0; }
+  .bleed { position: absolute; inset: -24px; }
+
+  .warm {
+    background: radial-gradient(circle at 960px 540px, #fff8e4 0%, #fcf4dc 52%, #f0dfc0 100%);
+  }
+  .dots {
+    --dot: rgb(140 82 20 / 0.13);
+    -webkit-mask-image: radial-gradient(circle at 960px 540px, transparent 18%, #000 78%);
+    mask-image: radial-gradient(circle at 960px 540px, transparent 18%, #000 78%);
+  }
+
+  /* Stage group shifts down slightly when the 4.2 s headline slams in above it. */
+  .desk-stage {
+    position: absolute; inset: 0;
+    animation: stage-duck 0.34s var(--snap) 4.2s both;
+  }
+
+  /* Cluttered fake app window in comic style. */
+  .app-win {
+    position: absolute; left: 110px; top: 150px; width: 1360px; height: 760px;
+    box-sizing: border-box; overflow: hidden; background: #f7f4eb;
+    animation: win-in 0.35s var(--snap) 0s both;
+  }
+  .titlebar {
+    height: 54px; background: #d8e2ec; border-bottom: 5px solid var(--ink);
+    display: flex; align-items: center; padding: 0 20px; gap: 12px;
+  }
+  .win-dot {
+    width: 18px; height: 18px; border-radius: 50%; border: 4px solid var(--ink); background: var(--white);
+  }
+  .win-dot.d1 { background: #ff9b85; }
+  .win-dot.d2 { background: #ffe082; }
+  .win-dot.d3 { background: #a5d6a7; }
+  .title-pill {
+    margin-left: 16px; width: 220px; height: 20px; border-radius: 10px;
+    background: #9eb1c4; border: 3px solid var(--ink);
+  }
+
+  /* Fake menu bar row. */
+  .menubar {
+    height: 46px; background: #eae5d7; border-bottom: 4px solid var(--ink);
+    display: flex; align-items: center; padding: 0 18px; gap: 16px;
+  }
+  .menu-item {
+    height: 20px; border-radius: 8px; background: #c5beb0; border: 3px solid var(--ink);
+  }
+  .menu-drop {
+    position: absolute; left: 210px; top: 100px; width: 210px; padding: 10px;
+    background: var(--white); border: 4px solid var(--ink); border-radius: 12px;
+    box-shadow: 6px 6px 0 var(--ink); z-index: 2;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .menu-drop i {
+    display: block; height: 14px; border-radius: 6px; background: #d5cfc2; border: 2px solid var(--ink);
+  }
+
+  /* Generic toolbar of 20 tiny unlabeled icons. */
+  .toolbar {
+    height: 76px; background: #e2dcd0; border-bottom: 5px solid var(--ink);
+    display: grid; grid-template-columns: repeat(20, 1fr); align-items: center;
+    padding: 0 16px; gap: 8px;
+  }
+  .tb-btn {
+    height: 48px; border: 3.5px solid var(--ink); border-radius: 10px;
+    background: var(--white); box-shadow: 3px 3px 0 var(--ink);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tb-btn svg { width: 24px; height: 24px; stroke: var(--ink); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Cluttered inner workspace: sidebars, mystery sliders, dense grids and toggles. */
+  .workspace {
+    position: absolute; left: 0; right: 0; top: 186px; bottom: 0;
+    display: grid; grid-template-columns: 260px 1fr 310px;
+  }
+  .side-left {
+    border-right: 5px solid var(--ink); background: #efeae0; padding: 18px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .tree-row { display: flex; align-items: center; gap: 10px; }
+  .tree-box { width: 20px; height: 20px; border: 3px solid var(--ink); border-radius: 5px; background: var(--white); flex-shrink: 0; }
+  .tree-bar { height: 16px; border-radius: 7px; background: #cbd3dc; border: 3px solid var(--ink); }
+
+  .center-maze {
+    padding: 22px; background: #fbf9f3;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-auto-rows: 118px; gap: 18px;
+  }
+  .sub-card {
+    border: 4px solid var(--ink); border-radius: 14px; background: var(--white);
+    box-shadow: 5px 5px 0 var(--ink); padding: 12px;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .sub-head { display: flex; justify-content: space-between; align-items: center; }
+  .sub-pill { width: 58%; height: 14px; border-radius: 6px; background: #b8c4d0; border: 2.5px solid var(--ink); }
+  .sub-dot { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid var(--ink); background: #ffd88a; }
+  .sub-lines { display: flex; flex-direction: column; gap: 8px; }
+  .sub-line { height: 10px; border-radius: 5px; background: #e1ddd2; border: 2px solid var(--ink); }
+  .sub-knobs { display: flex; gap: 8px; }
+  .sub-knob { flex: 1; height: 22px; border-radius: 6px; border: 2.5px solid var(--ink); background: #eef2f6; }
+
+  .side-right {
+    border-left: 5px solid var(--ink); background: #efeae0; padding: 18px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .slider-row {
+    border: 3.5px solid var(--ink); border-radius: 10px; background: var(--white); padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .slider-track { height: 10px; border-radius: 5px; background: #d6d0c4; border: 2.5px solid var(--ink); position: relative; }
+  .slider-thumb { position: absolute; top: -6px; width: 18px; height: 18px; border-radius: 50%; background: var(--bulb); border: 3px solid var(--ink); }
+
+  /* Wandering, hesitating, circling hand cursor. */
+  .cursor-roam {
+    position: absolute; left: 480px; top: 295px; width: 86px; height: 104px; z-index: 5;
+    filter: drop-shadow(6px 6px 0 var(--ink));
+    animation: roam 3.6s ease-in-out 0.1s both;
+  }
+  .cursor-roam svg { display: block; width: 86px; height: 104px; }
+
+  /* Question marks popping around the cursor (0.5-3.0 s). */
+  .qmark {
+    position: absolute; z-index: 6; font-size: 112px; line-height: 1;
+    color: var(--bulb); -webkit-text-stroke: 10px var(--ink);
+    filter: drop-shadow(7px 7px 0 var(--ink));
+    animation: pop-in 0.34s var(--pop) var(--t) both;
+  }
+  .qmark.red { color: #ff7a59; }
+
+  /* Comic phone + speech balloon sliding in (3.0-4.0 s). */
+  .phone-call {
+    position: absolute; left: 1030px; top: 430px; width: 830px; height: 560px; z-index: 8;
+    animation: phone-slide 0.68s var(--pop) 3.0s both;
+  }
+  .balloon {
+    position: absolute; left: 0; top: 0; width: 640px; padding: 28px 36px 32px;
+    background: #fffdf7; border: 6px solid var(--ink); border-radius: 34px;
+    box-shadow: 12px 12px 0 var(--ink);
+    font-size: 56px; line-height: 1.22; color: var(--ink); text-align: center;
+  }
+  .balloon::after {
+    content: ""; position: absolute; right: 74px; bottom: -36px;
+    width: 44px; height: 44px; background: #fffdf7;
+    border-right: 6px solid var(--ink); border-bottom: 6px solid var(--ink);
+    transform: rotate(35deg) skewX(12deg);
+  }
+  .phone-handset {
+    position: absolute; right: 24px; bottom: 18px; width: 240px; height: 310px;
+    transform-origin: 50% 60%;
+    animation: phone-ring 0.45s ease-in-out 3.45s 2 both;
+  }
+  .phone-handset svg { display: block; width: 100%; height: 100%; filter: drop-shadow(10px 10px 0 var(--ink)); }
+
+  /* Headline slams at 4.2 s (two lines max, <= 6 words per line, >= 64 px). */
+  .headline-wrap {
+    position: absolute; left: 0; right: 0; top: 28px; z-index: 10;
+    display: flex; justify-content: center;
+  }
+  .headline-card {
+    padding: 16px 56px 24px; background: var(--bulb);
+    border: 7px solid var(--ink); border-radius: 28px;
+    box-shadow: 14px 14px 0 var(--ink);
+    text-align: center; rotate: -1deg;
+    animation: slam 0.34s var(--snap) 4.2s both;
+  }
+  .headline-line {
+    font-size: 92px; line-height: 1.12; color: var(--white);
+    -webkit-text-stroke: 11px var(--ink); filter: drop-shadow(6px 6px 0 var(--ink));
+    white-space: nowrap;
+  }
+  .headline-line.accent {
+    color: var(--ink); -webkit-text-stroke: 11px var(--white);
+  }
+
+  .shake-slam { animation: shake 0.24s linear 4.38s both; }
+
+  @keyframes win-in {
+    from { opacity: 0; transform: translateY(24px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes stage-duck {
+    0% { transform: translateY(0); }
+    45% { transform: translateY(128px) scale(0.985, 0.96); }
+    100% { transform: translateY(112px) scale(0.99, 0.99); }
+  }
+  @keyframes roam {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    14% { transform: translate(290px, -10px) rotate(8deg); }
+    24% { transform: translate(270px, 15px) rotate(-6deg); }
+    38% { transform: translate(580px, 5px) rotate(10deg); }
+    50% { transform: translate(420px, 190px) rotate(-12deg); }
+    62% { transform: translate(310px, 260px) rotate(6deg); }
+    72% { transform: translate(230px, 180px) rotate(-14deg); }
+    82% { transform: translate(350px, 120px) rotate(9deg); }
+    91% { transform: translate(290px, 210px) rotate(-8deg); }
+    100% { transform: translate(260px, 195px) rotate(-4deg); }
+  }
+  @keyframes phone-slide {
+    0% { opacity: 0; transform: translate(540px, 220px) rotate(14deg) scale(0.85); }
+    65% { opacity: 1; transform: translate(-18px, -10px) rotate(-2deg) scale(1.03); }
+    100% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  }
+  @keyframes phone-ring {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-6deg) translate(-4px, -2px); }
+    50% { transform: rotate(6deg) translate(4px, -2px); }
+    75% { transform: rotate(-4deg); }
+  }
+</style>
+</head>
+<body>
+<script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+<div class="scene">
+  <div class="shake-slam full">
+    <div class="warm bleed"></div>
+    <div class="dots halftone bleed"></div>
+
+    <div class="desk-stage">
+      <div class="app-win panel">
+        <div class="titlebar">
+          <div class="win-dot d1"></div>
+          <div class="win-dot d2"></div>
+          <div class="win-dot d3"></div>
+          <div class="title-pill"></div>
+          <div class="title-pill" style="width: 110px; margin-left: auto; background: #bac7d4"></div>
+        </div>
+        <div class="menubar">
+          <div class="menu-item" style="width: 68px"></div>
+          <div class="menu-item" style="width: 76px"></div>
+          <div class="menu-item" style="width: 84px; background: var(--bulb)"></div>
+          <div class="menu-item" style="width: 72px"></div>
+          <div class="menu-item" style="width: 92px"></div>
+          <div class="menu-item" style="width: 64px"></div>
+          <div class="menu-item" style="width: 80px"></div>
+          <div class="menu-item" style="width: 74px"></div>
+        </div>
+        <div class="menu-drop">
+          <i style="width: 82%"></i>
+          <i style="width: 64%"></i>
+          <i style="width: 90%"></i>
+          <i style="width: 55%"></i>
+        </div>
+
+        <!-- 20 tiny unlabeled toolbar icons -->
+        <div class="toolbar">
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><polygon points="12,4 20,19 4,19"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="5"/><path d="M14 14l5 5"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M4 18l5-6 4 4 7-9"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="7" height="14"/><rect x="13" y="5" width="7" height="14"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M4 8h16l-6 7v5l-4-2v-3z"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M4 6h6l2 3h8v10H4z"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16M4 9h6M14 15h6"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><polygon points="12,3 15,9 21,10 16,15 18,21 12,18 6,21 8,15 3,10 9,9"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M12 4L4 8l8 4 8-4-8-4zM4 14l8 4 8-4"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/><path d="M10 10l4 4"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><path d="M5 19V9l7-5 7 5v10"/></svg></div>
+          <div class="tb-btn"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="18" cy="12" r="2"/></svg></div>
+        </div>
+
+        <div class="workspace">
+          <div class="side-left">
+            <div class="tree-row"><div class="tree-box"></div><div class="tree-bar" style="width: 140px"></div></div>
+            <div class="tree-row" style="padding-left: 18px"><div class="tree-box"></div><div class="tree-bar" style="width: 110px"></div></div>
+            <div class="tree-row" style="padding-left: 18px"><div class="tree-box"></div><div class="tree-bar" style="width: 125px"></div></div>
+            <div class="tree-row"><div class="tree-box"></div><div class="tree-bar" style="width: 150px"></div></div>
+            <div class="tree-row" style="padding-left: 18px"><div class="tree-box"></div><div class="tree-bar" style="width: 96px"></div></div>
+            <div class="tree-row"><div class="tree-box"></div><div class="tree-bar" style="width: 132px"></div></div>
+            <div class="tree-row" style="padding-left: 18px"><div class="tree-box"></div><div class="tree-bar" style="width: 118px"></div></div>
+            <div class="tree-row"><div class="tree-box"></div><div class="tree-bar" style="width: 144px"></div></div>
+          </div>
+          <div class="center-maze">
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 75%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill" style="width: 70%"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 60%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill" style="width: 48%"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 82%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill" style="width: 64%"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 68%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill" style="width: 52%"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 78%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill" style="width: 74%"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 55%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill" style="width: 60%"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 72%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill" style="width: 50%"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 84%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+            <div class="sub-card"><div class="sub-head"><div class="sub-pill" style="width: 66%"></div><div class="sub-dot"></div></div><div class="sub-lines"><div class="sub-line"></div><div class="sub-line" style="width: 62%"></div></div><div class="sub-knobs"><div class="sub-knob"></div><div class="sub-knob"></div></div></div>
+          </div>
+          <div class="side-right">
+            <div class="slider-row"><div class="sub-pill" style="width: 70%"></div><div class="slider-track"><div class="slider-thumb" style="left: 28%"></div></div></div>
+            <div class="slider-row"><div class="sub-pill" style="width: 52%"></div><div class="slider-track"><div class="slider-thumb" style="left: 66%"></div></div></div>
+            <div class="slider-row"><div class="sub-pill" style="width: 80%"></div><div class="slider-track"><div class="slider-thumb" style="left: 18%"></div></div></div>
+            <div class="slider-row"><div class="sub-pill" style="width: 60%"></div><div class="slider-track"><div class="slider-thumb" style="left: 52%"></div></div></div>
+            <div class="slider-row"><div class="sub-pill" style="width: 74%"></div><div class="slider-track"><div class="slider-thumb" style="left: 40%"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Small hand cursor that wanders, hesitates and circles -->
+      <div class="cursor-roam">
+        <svg viewBox="0 0 90 110">
+          <path d="M28 10 C28 4 40 4 40 10 V46 C44 43 52 44 54 50 C59 48 66 50 68 56 C73 55 78 59 78 66 V82 C78 96 65 104 46 104 H34 C22 104 14 92 10 78 L6 62 C4 55 12 50 18 54 L28 62 Z" fill="#ffffff" stroke="#1f2a44" stroke-width="6" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <!-- Question marks popping one by one (0.5-3.0 s) -->
+      <div class="qmark shout" style="left: 690px; top: 210px; rotate: -12deg; --t: 0.55s">?</div>
+      <div class="qmark shout red" style="left: 990px; top: 225px; rotate: 10deg; --t: 1.02s">?</div>
+      <div class="qmark shout" style="left: 840px; top: 390px; rotate: -8deg; --t: 1.48s">?</div>
+      <div class="qmark shout red" style="left: 640px; top: 470px; rotate: 14deg; --t: 1.94s">?</div>
+      <div class="qmark shout" style="left: 910px; top: 530px; rotate: -10deg; --t: 2.40s">?</div>
+      <div class="qmark shout red" style="left: 745px; top: 340px; rotate: 7deg; --t: 2.82s">?</div>
+
+      <!-- Comic phone with speech balloon sliding in (3.0-4.0 s) -->
+      <div class="phone-call">
+        <div class="balloon comic">
+          Hold on, I&rsquo;ll call<br>my grandson&hellip;
+        </div>
+        <div class="phone-handset">
+          <svg viewBox="0 0 220 280">
+            <!-- Comic ring lines -->
+            <path d="M24 58 Q14 34 38 22 M12 76 Q-2 42 28 18" fill="none" stroke="#e0322a" stroke-width="6" stroke-linecap="round"/>
+            <path d="M196 58 Q206 34 182 22 M208 76 Q222 42 192 18" fill="none" stroke="#e0322a" stroke-width="6" stroke-linecap="round"/>
+            <!-- Phone body -->
+            <rect x="46" y="28" width="128" height="224" rx="26" transform="rotate(-8 110 140)" fill="#3b6688" stroke="#1f2a44" stroke-width="8"/>
+            <rect x="60" y="54" width="100" height="154" rx="14" transform="rotate(-8 110 140)" fill="#fff4cf" stroke="#1f2a44" stroke-width="5"/>
+            <circle cx="110" cy="116" r="24" fill="#ffcd3c" stroke="#1f2a44" stroke-width="5"/>
+            <path d="M84 166 Q110 146 136 166" fill="none" stroke="#1f2a44" stroke-width="6" stroke-linecap="round"/>
+            <circle cx="118" cy="228" r="10" fill="#a5d6a7" stroke="#1f2a44" stroke-width="4"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Headline slams at 4.2 s (two lines max) -->
+    <div class="headline-wrap">
+      <div class="headline-card">
+        <div class="headline-line shout">Computers can feel</div>
+        <div class="headline-line accent shout">like a maze.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="clip" content="duration=2.5;fps=60;width=1920;height=1080;alpha=0">
+<title>Chapter 4 - Built for families</title>
+<link rel="stylesheet" href="_kit.css">
+<style>
+  /* Shared chapter-card block (copied into chapter-1..4). Slam in at 0.2 s,
+     hold, wipe out in the last 0.3 s. */
+  html, body { margin: 0; padding: 0; }
+  .page {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: var(--paper);
+  }
+  .dots {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(31, 42, 68, 0.14) 3px, transparent 4px);
+    background-size: 36px 36px;
+  }
+  .card {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1560px;
+    height: 800px;
+    margin-left: -780px;
+    margin-top: -400px;
+    animation-name: visguard, slam, wipeout;
+    animation-duration: 0.2s, 0.45s, 0.3s;
+    animation-timing-function: linear, var(--pop), ease-in;
+    animation-delay: 0s, 0.2s, 2.2s;
+    animation-fill-mode: backwards, backwards, forwards;
+  }
+  @keyframes visguard {
+    0%, 99.9% { visibility: hidden; }
+    100% { visibility: visible; }
+  }
+  @keyframes wipeout {
+    to { transform: translateX(115%) skewX(-6deg); }
+  }
+  .rays-sun {
+    position: absolute;
+    left: -130px;
+    top: 10px;
+    width: 780px;
+    height: 780px;
+    animation-name: spin;
+    animation-duration: 12s;
+    animation-timing-function: linear;
+    animation-delay: 0s;
+    animation-fill-mode: both;
+    animation-iteration-count: infinite;
+  }
+  .badge {
+    position: absolute;
+    left: 90px;
+    top: 230px;
+    width: 340px;
+    height: 340px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--bulb);
+    border: 12px solid var(--ink);
+    box-shadow: 12px 14px 0 var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .num {
+    font-family: var(--comic);
+    font-size: 210px;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .title {
+    position: absolute;
+    left: 520px;
+    top: 50%;
+    width: 560px;
+    margin: 0;
+    transform: translateY(-50%);
+    font-family: var(--comic);
+    font-size: 100px;
+    line-height: 1.08;
+    color: var(--ink);
+  }
+  .mate-box {
+    position: absolute;
+    right: 100px;
+    top: 50%;
+    width: 340px;
+    transform: translateY(-50%);
+  }
+  .mate-lean {
+    transform: rotate(-7deg);
+  }
+  .heart-slot {
+    position: absolute;
+    left: 990px;
+    top: 160px;
+    animation-name: pop-in;
+    animation-duration: 0.4s;
+    animation-timing-function: var(--pop);
+    animation-delay: 0.6s;
+    animation-fill-mode: backwards;
+  }
+  .heart {
+    position: relative;
+    width: 52px;
+    height: 52px;
+    background: var(--alarm);
+    transform: rotate(-45deg);
+  }
+  .heart::before,
+  .heart::after {
+    content: "";
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--alarm);
+  }
+  .heart::before { top: -26px; left: 0; }
+  .heart::after { top: 0; left: 26px; }
+</style>
+</head>
+<body>
+<script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+<div class="page">
+  <div class="dots"></div>
+  <div class="card">
+    <div class="rays-sun rays"></div>
+    <div class="badge"><span class="num">4</span></div>
+    <h1 class="shout title">Built for families</h1>
+    <div class="heart-slot"><div class="heart"></div></div>
+    <div class="mate-box" id="mateMount"></div>
+  </div>
+</div>
+<script src="../../assets/art/src/mate-lib.js"></script>
+<script>
+  document.getElementById('mateMount').innerHTML = mate({ eyes: 'happy', mouth: 'grin', arm: 'none', glow: true, size: 340 });
+</script>
+</body>
+</html>

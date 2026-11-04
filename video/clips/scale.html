@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="clip" content="duration=7.0;fps=60;width=1920;height=1080;alpha=0">
+<meta charset="utf-8">
+<title>scale</title>
+<link rel="stylesheet" href="_kit.css">
+<style>
+  /* Scale, 7.0 s: "Built to grow." slams at 0 s; four comic tiles flip in 0.4 s apart (0.5 s, 0.9 s,
+     1.3 s, 1.7 s), each with its own animated comic illustration. All motion finishes by 5.5 s so
+     the last 1.5 s holds cleanly at rest. */
+  .scene { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); }
+  .full { position: absolute; inset: 0; }
+  .bleed { position: absolute; inset: -24px; }
+
+  .bg {
+    background: radial-gradient(circle at 984px 540px, #fff6d6 0%, #fcf9f1 52%, #efe4c8 100%);
+  }
+  .dots {
+    --dot: rgb(31 42 68 / 0.11);
+    -webkit-mask-image: radial-gradient(circle at 984px 540px, transparent 24%, #000 78%);
+    mask-image: radial-gradient(circle at 984px 540px, transparent 24%, #000 78%);
+  }
+
+  .shake-open { animation: shake 0.22s linear 0.18s both; }
+
+  /* Headline at top from 0 s (>= 64 px). */
+  .title-row {
+    position: absolute; left: 0; right: 0; top: 22px; height: 130px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .title {
+    font-size: 108px; line-height: 1.1; white-space: nowrap; color: var(--bulb);
+    -webkit-text-stroke: 12px var(--ink); filter: drop-shadow(8px 8px 0 var(--ink));
+    animation: slam 0.3s var(--snap) 0s both;
+  }
+
+  /* 2x2 grid of comic tiles flipping in 0.4 s apart. */
+  .grid {
+    position: absolute; left: 88px; top: 168px; width: 1744px; height: 868px;
+    perspective: 1400px;
+  }
+  .tile {
+    position: absolute; width: 848px; height: 414px; box-sizing: border-box;
+    padding: 20px 28px; overflow: hidden;
+    transform-origin: 50% 0%;
+    animation: tile-flip 0.48s var(--pop) var(--t) both;
+  }
+  .tile-1 { left: 0; top: 0; --t: 0.5s; background: #fffdf7; }
+  .tile-2 { left: 896px; top: 0; --t: 0.9s; background: #fffdf7; }
+  .tile-3 { left: 0; top: 454px; --t: 1.3s; background: #fffdf7; }
+  .tile-4 { left: 896px; top: 454px; --t: 1.7s; background: #fffdf7; }
+
+  .tile-head {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
+  }
+  .tile-num {
+    width: 52px; height: 52px; border-radius: 14px; border: 4px solid var(--ink);
+    background: var(--bulb); box-shadow: 4px 4px 0 var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; line-height: 1; color: var(--ink);
+  }
+  .tile-title {
+    font-size: 48px; line-height: 1.15; color: var(--ink); white-space: nowrap;
+  }
+
+  /* --- Tile 1: Any Windows app (9 generic app windows + Mate's beam hopping) --- */
+  .t1-stage { position: relative; width: 792px; height: 300px; }
+  .t1-mate { position: absolute; left: -12px; top: 26px; width: 240px; height: 222px; }
+  .t1-mate .layer { position: absolute; inset: 0; transform-origin: 42.3% 86.7%; }
+  .t1-mate svg { display: block; }
+  .t1-m-pop { animation: mate-pop 0.32s linear 0.72s both; }
+  .t1-m-hop { animation: hop 0.34s linear 4.6s both; }
+  #t1-mate-a { animation: fade-out 0.06s linear 4.68s both; }
+  #t1-mate-b { animation: fade-in 0.08s linear 4.62s both; }
+
+  .app-grid {
+    position: absolute; left: 264px; top: 4px; width: 516px; height: 288px;
+    display: grid; grid-template-columns: repeat(3, 160px); grid-template-rows: repeat(3, 86px);
+    gap: 15px 18px;
+  }
+  .mini-win {
+    position: relative; border: 4px solid var(--ink); border-radius: 12px;
+    background: #f7f9fc; box-shadow: 5px 5px 0 var(--ink); overflow: hidden;
+  }
+  .mini-win::before {
+    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 20px;
+    background: var(--bar, #d8e4f2); border-bottom: 3px solid var(--ink);
+  }
+  .mini-win::after {
+    content: ""; position: absolute; left: 8px; top: 6px; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--ink); box-shadow: 11px 0 0 var(--ink), 22px 0 0 var(--ink);
+  }
+  .mini-win i {
+    position: absolute; height: 10px; border-radius: 5px; background: var(--accent, #9bb5d1);
+  }
+  .mini-win .btn-dot {
+    position: absolute; right: 10px; bottom: 10px; width: 42px; height: 22px;
+    border: 3px solid var(--ink); border-radius: 8px; background: var(--btn, #ffd866);
+  }
+  .win-lit-1 { animation: win-glow 0.75s ease-out 1.05s both; }
+  .win-lit-2 { animation: win-glow 0.75s ease-out 1.80s both; }
+  .win-lit-3 { animation: win-glow 0.75s ease-out 2.55s both; }
+  .win-lit-4 { animation: win-glow 0.75s ease-out 3.30s both; }
+  .win-lit-5 { animation: win-glow 0.75s ease-out 4.00s both; }
+  .win-lit-final { animation: win-glow-hold 0.5s var(--pop) 4.65s both; }
+
+  /* Mate's flashlight beam hopping across the 9-window grid and holding on window #6. */
+  .t1-beam {
+    position: absolute; left: 196px; top: 68px; width: 480px; height: 110px;
+    transform-origin: 0 50%; pointer-events: none;
+    filter: drop-shadow(0 0 10px rgb(255 214 90 / 0.85));
+    animation: beam-hop 4.1s var(--snap) 0.95s both;
+  }
+  .t1-beam i {
+    position: absolute; inset: 0;
+    clip-path: polygon(0 44%, 100% 10%, 100% 90%, 0 56%);
+    background: linear-gradient(90deg, rgb(255 245 190 / 0.96), rgb(255 214 90 / 0.75) 65%, rgb(255 205 60 / 0));
+  }
+
+  /* --- Tile 2: 25 languages ready (6 speech balloons + caption under) --- */
+  .t2-stage { position: relative; width: 792px; height: 300px; }
+  .balloons { position: relative; width: 792px; height: 218px; }
+  .balloon {
+    position: absolute; padding: 10px 26px 14px; border: 4px solid var(--ink);
+    border-radius: 26px; background: var(--bg, #fff); box-shadow: 6px 6px 0 var(--ink);
+    font-size: 38px; font-weight: 900; line-height: 1.15; color: var(--ink);
+    white-space: nowrap;
+    animation: pop-in 0.34s var(--pop) var(--bt) both;
+  }
+  .balloon::after {
+    content: ""; position: absolute; bottom: -14px; left: 26px;
+    width: 18px; height: 14px; background: var(--bg, #fff);
+    border-left: 4px solid var(--ink); border-right: 4px solid var(--ink);
+    clip-path: polygon(0 0, 100% 0, 35% 100%);
+  }
+  .t2-caption {
+    position: absolute; left: 0; right: 0; bottom: 4px;
+    padding: 10px 20px; border: 4px solid var(--ink); border-radius: 16px;
+    background: var(--bulb-soft); box-shadow: 5px 5px 0 var(--ink);
+    text-align: center; font-size: 32px; font-weight: 800; line-height: 1.2; color: var(--ink);
+    animation: rise-in 0.34s var(--pop) 2.75s both;
+  }
+
+  /* --- Tile 3: Install once, no account (download arrow into laptop + check mark) --- */
+  .t3-stage { position: relative; width: 792px; height: 300px; }
+  .laptop-wrap {
+    position: absolute; left: 56px; top: 28px; width: 380px; height: 248px;
+    animation: pop-in 0.36s var(--pop) 1.55s both;
+  }
+  .dl-arrow {
+    position: absolute; left: 198px; top: 18px; width: 96px; height: 118px;
+    animation: arrow-drop 0.55s var(--pop) 1.95s both;
+  }
+  .check-badge {
+    position: absolute; left: 458px; top: 36px; width: 300px; height: 140px;
+    border: 5px solid var(--ink); border-radius: 22px; background: #dff5d8;
+    box-shadow: 7px 7px 0 var(--ink);
+    display: flex; align-items: center; gap: 18px; padding: 0 22px; box-sizing: border-box;
+    animation: pop-in 0.38s var(--pop) 2.45s both;
+  }
+  .check-circle {
+    width: 78px; height: 78px; border-radius: 50%; border: 4px solid var(--ink);
+    background: #17603a; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .check-text {
+    font-size: 34px; font-weight: 900; line-height: 1.15; color: var(--ink);
+  }
+  .free-pill {
+    position: absolute; left: 458px; top: 198px; width: 300px;
+    padding: 12px 18px; box-sizing: border-box;
+    border: 4px solid var(--ink); border-radius: 16px; background: var(--bulb-soft);
+    box-shadow: 5px 5px 0 var(--ink); text-align: center;
+    font-size: 30px; font-weight: 800; line-height: 1.2; color: var(--ink);
+    animation: rise-in 0.34s var(--pop) 2.85s both;
+  }
+
+  /* --- Tile 4: Seven Meta models (seven small colored chips) --- */
+  .t4-stage {
+    position: relative; width: 792px; height: 300px;
+    display: flex; flex-wrap: wrap; align-content: flex-start; justify-content: center;
+    gap: 16px 16px; padding-top: 12px; box-sizing: border-box;
+  }
+  .chip {
+    padding: 12px 22px 14px; border: 4px solid var(--ink); border-radius: 20px;
+    background: var(--c); box-shadow: 6px 6px 0 var(--ink);
+    font-size: 31px; line-height: 1.15; color: var(--ink); white-space: nowrap;
+    animation: pop-in 0.32s var(--pop) var(--ct) both, chip-shine 0.65s ease-out calc(var(--ct) + 1.8s) both;
+  }
+
+  @keyframes tile-flip {
+    0% { opacity: 0; transform: rotateX(-80deg) translateY(30px) scale(0.86); }
+    65% { opacity: 1; transform: rotateX(8deg) translateY(-4px) scale(1.03); }
+    100% { opacity: 1; transform: rotateX(0deg) translateY(0) scale(1); }
+  }
+  @keyframes mate-pop {
+    0% { opacity: 0; transform: scale(0.1, 0.1); }
+    50% { opacity: 1; transform: scale(0.92, 1.22); }
+    75% { transform: scale(1.12, 0.94); }
+    100% { opacity: 1; transform: scale(1, 1); }
+  }
+  @keyframes hop {
+    0%, 100% { transform: translateY(0) scale(1, 1); }
+    25% { transform: translateY(0) scale(1.1, 0.88); }
+    55% { transform: translateY(-24px) scale(0.94, 1.08); }
+    80% { transform: translateY(0) scale(1.05, 0.95); }
+  }
+  @keyframes beam-hop {
+    0% { opacity: 0; transform: rotate(-22deg) scaleX(0.2); }
+    6% { opacity: 1; transform: rotate(-16deg) scaleX(0.55); }
+    18% { transform: rotate(-2deg) scaleX(0.82); }
+    36% { transform: rotate(18deg) scaleX(0.60); }
+    54% { transform: rotate(-11deg) scaleX(1.02); }
+    72% { transform: rotate(22deg) scaleX(0.98); }
+    88%, 100% { opacity: 1; transform: rotate(4deg) scaleX(1.0); }
+  }
+  @keyframes win-glow {
+    0%, 100% { box-shadow: 5px 5px 0 var(--ink); transform: scale(1); }
+    40% { box-shadow: 5px 5px 0 var(--ink), 0 0 0 8px var(--bulb), 0 0 24px 8px rgb(255 205 60 / 0.8); transform: scale(1.06); }
+  }
+  @keyframes win-glow-hold {
+    0% { box-shadow: 5px 5px 0 var(--ink); transform: scale(1); }
+    50% { box-shadow: 5px 5px 0 var(--ink), 0 0 0 10px var(--bulb), 0 0 28px 10px rgb(255 205 60 / 0.9); transform: scale(1.08); }
+    100% { box-shadow: 5px 5px 0 var(--ink), 0 0 0 7px var(--bulb), 0 0 20px 6px rgb(255 205 60 / 0.75); transform: scale(1.04); }
+  }
+  @keyframes rise-in {
+    0% { opacity: 0; transform: translateY(28px) scale(0.9); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes arrow-drop {
+    0% { opacity: 0; transform: translateY(-90px) scale(0.7, 1.3); }
+    60% { opacity: 1; transform: translateY(10px) scale(1.18, 0.84); }
+    82% { transform: translateY(-6px) scale(0.95, 1.05); }
+    100% { opacity: 1; transform: translateY(0) scale(1, 1); }
+  }
+  @keyframes chip-shine {
+    0%, 100% { box-shadow: 6px 6px 0 var(--ink); transform: scale(1); }
+    45% { box-shadow: 6px 6px 0 var(--ink), 0 0 0 10px rgb(255 205 60 / 0.85); transform: scale(1.07); }
+  }
+</style>
+</head>
+<body>
+<script>if (location.search.includes('render=1')) document.documentElement.classList.add('render');</script>
+<div class="scene">
+  <div class="shake-open full">
+    <div class="bg bleed"></div>
+    <div class="dots halftone bleed"></div>
+
+    <div class="title-row"><div class="title shout">Built to grow.</div></div>
+
+    <div class="grid">
+      <!-- Tile 1: Any Windows app -->
+      <div class="tile panel tile-1">
+        <div class="tile-head">
+          <div class="tile-num comic">1</div>
+          <div class="tile-title comic">Apps Windows can read</div>
+        </div>
+        <div class="t1-stage">
+          <div class="t1-beam"><i></i></div>
+          <div class="app-grid">
+            <div class="mini-win win-lit-1" style="--bar: #ffd8cf; --accent: #e59888; --btn: #ffcd3c"><i style="left: 12px; top: 32px; width: 65%"></i><i style="left: 12px; top: 50px; width: 42%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win win-lit-2" style="--bar: #d6ecff; --accent: #7aaed6; --btn: #8ff5e9"><i style="left: 12px; top: 32px; width: 72%"></i><i style="left: 12px; top: 50px; width: 50%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win win-lit-4" style="--bar: #dff5d8; --accent: #7ec26b; --btn: #ffd866"><i style="left: 12px; top: 32px; width: 55%"></i><i style="left: 12px; top: 50px; width: 74%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win" style="--bar: #fff0b8; --accent: #d9b44a; --btn: #ffb3a7"><i style="left: 12px; top: 32px; width: 68%"></i><i style="left: 12px; top: 50px; width: 38%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win win-lit-3" style="--bar: #e8dcff; --accent: #a28ad4; --btn: #ffd866"><i style="left: 12px; top: 32px; width: 48%"></i><i style="left: 12px; top: 50px; width: 66%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win win-lit-final" style="--bar: #d3f3ee; --accent: #5cb8aa; --btn: #ffcd3c"><i style="left: 12px; top: 32px; width: 70%"></i><i style="left: 12px; top: 50px; width: 45%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win" style="--bar: #ffe2c4; --accent: #d99b66; --btn: #8ff5e9"><i style="left: 12px; top: 32px; width: 60%"></i><i style="left: 12px; top: 50px; width: 52%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win" style="--bar: #f5d8e6; --accent: #c982a6; --btn: #ffd866"><i style="left: 12px; top: 32px; width: 76%"></i><i style="left: 12px; top: 50px; width: 40%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win win-lit-5" style="--bar: #dce7f7; --accent: #7b96bd; --btn: #ffcd3c"><i style="left: 12px; top: 32px; width: 58%"></i><i style="left: 12px; top: 50px; width: 44%"></i><div class="btn-dot"></div></div>
+          </div>
+          <div class="t1-mate">
+            <div class="layer t1-m-pop"><div class="layer t1-m-hop">
+              <div class="layer" id="t1-mate-a"></div>
+              <div class="layer" id="t1-mate-b"></div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tile 2: 25 languages ready -->
+      <div class="tile panel tile-2">
+        <div class="tile-head">
+          <div class="tile-num comic">2</div>
+          <div class="tile-title comic">English + Russian today</div>
+        </div>
+        <div class="t2-stage">
+          <div class="balloons">
+            <div class="balloon comic" style="left: 120px; top: 60px; --bg: #ffd8cf; --bt: 1.25s">Hello</div>
+            <div class="balloon comic" style="left: 440px; top: 60px; --bg: #d6ecff; --bt: 1.48s">Привет</div>
+          </div>
+          <div class="t2-caption comic">The speech model hears 25 languages. Mate ships two.</div>
+        </div>
+      </div>
+
+      <!-- Tile 3: Install once, no account -->
+      <div class="tile panel tile-3">
+        <div class="tile-head">
+          <div class="tile-num comic">3</div>
+          <div class="tile-title comic">Install once, no account</div>
+        </div>
+        <div class="t3-stage">
+          <div class="laptop-wrap">
+            <svg viewBox="0 0 380 248" width="380" height="248">
+              <!-- Laptop screen -->
+              <rect x="48" y="10" width="284" height="176" rx="16" fill="#3b6688" stroke="#1f2a44" stroke-width="6"/>
+              <rect x="64" y="26" width="252" height="144" rx="8" fill="#eaf3fc" stroke="#1f2a44" stroke-width="4"/>
+              <!-- Laptop base -->
+              <path d="M16 186 H364 L344 222 H36 Z" fill="#b8c7d9" stroke="#1f2a44" stroke-width="6" stroke-linejoin="round"/>
+              <rect x="148" y="194" width="84" height="10" rx="5" fill="#1f2a44"/>
+            </svg>
+          </div>
+          <div class="dl-arrow">
+            <svg viewBox="0 0 96 118" width="96" height="118">
+              <path d="M32 8 H64 V56 H86 L48 102 L10 56 H32 Z" fill="#ffcd3c" stroke="#1f2a44" stroke-width="6" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="check-badge">
+            <div class="check-circle">
+              <svg viewBox="0 0 48 48" width="48" height="48">
+                <path d="M10 25 L20 35 L38 14" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="check-text comic">Ready right away</div>
+          </div>
+          <div class="free-pill comic">12 free messages an hour</div>
+        </div>
+      </div>
+
+      <!-- Tile 4: Seven Meta models -->
+      <div class="tile panel tile-4">
+        <div class="tile-head">
+          <div class="tile-num comic">4</div>
+          <div class="tile-title comic">Seven Meta models</div>
+        </div>
+        <div class="t4-stage">
+          <div class="chip comic" style="--c: #ffd8cf; --ct: 2.05s">Muse Spark 1.3</div>
+          <div class="chip comic" style="--c: #d6ecff; --ct: 2.22s">Muse Wonder 1.0</div>
+          <div class="chip comic" style="--c: #dff5d8; --ct: 2.39s">Muse Voice Transcribe</div>
+          <div class="chip comic" style="--c: #fff0b8; --ct: 2.56s">SAM 3.1</div>
+          <div class="chip comic" style="--c: #e8dcff; --ct: 2.73s">Muse Glimmer 30B</div>
+          <div class="chip comic" style="--c: #ffe2c4; --ct: 2.90s">Muse Image</div>
+          <div class="chip comic" style="--c: #d3f3ee; --ct: 3.07s">MMS-TTS</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="../../assets/art/src/mate-lib.js"></script>
+<script>
+  document.getElementById('t1-mate-a').innerHTML = mate({ eyes: 'open', mouth: 'smile', arm: 'point', glow: true, size: 240 });
+  document.getElementById('t1-mate-b').innerHTML = mate({ eyes: 'happy', mouth: 'grin', arm: 'point', glow: true, size: 240 });
+</script>
+</body>
+</html>
