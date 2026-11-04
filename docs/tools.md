@@ -10,6 +10,7 @@ Run `mm` from the project root. Owner, lead and backup lead may use ordinary com
 | `mm status` | Show Git state, deadline, plan and agent queue. | Owner, lead, backup lead |
 | `mm release [--dry-run] [--allow-dirty]` | Check and build the Windows installer; print its hash and build identity. | Lead only |
 | `mm preflight [--json]` | Can we submit right now? One PASS, WARN or FAIL line per requirement with its fix. | Owner, lead, backup lead |
+| `mm cut [--draft] [--dry-run] [--list FILE] [--music FILE]` | Assemble video/cut.json into video/out/final.mp4 and final.srt; dry-run validates and prints only. | Owner, lead, backup lead |
 | `mm ship [STEP ...] [--dry-run] [--yes]` | Glimmer, proxy, site, release, repo, check, in order, each asked first. It deploys and goes public. | Owner only |
 | `mm plan [today\|N]` | Show the plan for today or day N. | Owner, lead, backup lead |
 | `mm check [options]` | Run project checks; `--changed` limits checks to affected areas. | Owner, lead, backup lead |

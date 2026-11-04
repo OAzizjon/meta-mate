@@ -7,6 +7,8 @@
                                    fast checks (tools/mm_checks.py)
     mm test [--changed] [--base REF] [--dry-run]
                                    unit tests, optionally limited to changed files
+    mm cut [--draft] [--dry-run] [--list FILE] [--music FILE]
+                                   assemble the demo video and subtitles with ffmpeg
     mm check --changed [--base REF] [--dry-run]
                                    the same affected test plan; docs select md-links,typos
     mm release [--allow-dirty] [--dry-run]
@@ -944,6 +946,7 @@ def build_parser():
         sp.add_argument('rest', nargs=argparse.REMAINDER)
     # Not code tools: outside TOOL_MODULES, so `mm agent` can never reach them.
     for name, text in (('preflight', 'can we submit right now? PASS, WARN or FAIL per requirement'),
+                       ('cut', 'assemble the final demo video with ffmpeg'),
                        ('ship', "the owner's submission steps, each asked first (deploys and goes public)")):
         sp = sub.add_parser(name, help=text, add_help=False)
         sp.add_argument('rest', nargs=argparse.REMAINDER)
@@ -977,8 +980,15 @@ def cmd_ship(args):
     return mm_ship.main(args.rest)
 
 
+def cmd_cut(args):
+    _extend_path()
+    sys.path.insert(0, str(TOOLS))
+    import mm_cut
+    return mm_cut.main(args.rest)
+
+
 COMMANDS = {
-    'preflight': cmd_preflight, 'ship': cmd_ship,
+    'preflight': cmd_preflight, 'ship': cmd_ship, 'cut': cmd_cut,
     'doctor': cmd_doctor, 'status': cmd_status, 'plan': cmd_plan, 'check': cmd_check, 'test': cmd_test,
     'uia': cmd_uia, 'art': cmd_art, 'sounds': cmd_sounds, 'agents': cmd_agents, 'keys': cmd_keys,
     'agent': cmd_agent, 'probe': cmd_probe, 'phrases': cmd_phrases, 'release': cmd_release,
@@ -993,7 +1003,7 @@ def main(argv=None):
     args, extra = parser.parse_known_args(argv)
     # `mm probe` and the code tools have their own parsers: a leading option such as --help is
     # not part of REMAINDER.
-    if args.command in ('probe', 'preflight', 'ship', *TOOL_MODULES) or (args.command == 'agent' and args.what in TOOL_MODULES):
+    if args.command in ('probe', 'preflight', 'ship', 'cut', *TOOL_MODULES) or (args.command == 'agent' and args.what in TOOL_MODULES):
         args.rest = extra + args.rest
     elif extra:
         parser.error('unrecognized arguments: ' + ' '.join(extra))

@@ -20,6 +20,7 @@ The build started at the kickoff on 2026-10-26, 22:00 Tashkent (D38); submission
 | `mm status` | git, deadline countdown, today's plan, agent queue |
 | `mm release [--dry-run] [--allow-dirty]` | require one changed NSIS installer; print its path, size, SHA-256, commit (+dirty when applicable), proxy host and app version |
 | `mm preflight [--json]` | can we submit right now? License, public repo, README links, live version.json, installer hash and size, proxy, clean git, GitHub release; exit 1 on a FAIL |
+| `mm cut [--draft] [--dry-run] [--list FILE] [--music FILE]` | assemble the demo from video/cut.json into video/out/final.mp4 and final.srt; draft is 720p; dry-run validates and prints only |
 | `mm ship [STEP ...] [--dry-run] [--yes]` | owner only: glimmer, proxy, site, release, repo, check, in order, each asked first (it deploys and makes the repository public) |
 | `mm plan [today\|N]` | today's (or day N's) plan |
 | `mm check [--full] [--only CHECKS] [--changed] [--base REF] [--dry-run]` | fast checks: secrets, env names, Markdown links, typos; Rust/TS once they exist |
