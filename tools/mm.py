@@ -10,6 +10,8 @@
     mm check --changed [--base REF] [--dry-run]
                                    the same affected test plan; docs select md-links,typos
     mm release [--allow-dirty] [--dry-run]
+    mm preflight               can we submit right now? PASS, WARN or FAIL per requirement
+    mm ship [STEP ...]         the owner's submission steps, each asked first
                                    check and build one Windows NSIS installer; print hash and build identity
     mm uia [--delay S] [--depth N] [--save NAME]
                                    UI Automation tree of the foreground window; --save writes

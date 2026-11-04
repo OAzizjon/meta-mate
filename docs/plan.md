@@ -133,4 +133,4 @@ Never cut: the main scenario, step-by-step mode with click verification, screens
 | local | Summaries, test data, private tasks (weak model: verify results) |
 | oss | Free `gpt-oss:120b-cloud` only (Ollama Cloud paid balance ran out, 402): second opinions; on 24.10 it got facts wrong twice — verify everything |
 | DeepSeek | Owner's paid API key (`deepseek-v4-pro`): now and then the same creative ask as oss, to take the better answer (first run 25.10 beat oss) |
-| (new) | You'll add agents. Candidate — **Muse Code** from Meta: judges will appreciate a Meta agent on the team |
+| (new) | You'll add agents. Candidate — **Muse Code** from Meta |

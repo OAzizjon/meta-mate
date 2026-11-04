@@ -1,5 +1,7 @@
 # Video: the 3:00 edit with the motion-graphics clips (2026-11-02)
 
+**Superseded by [video-shoot.md](video-shoot.md) (D86).** Kept as the working history. Two lines below are wrong and were fixed there: the set had 20 scams among 40 pages, not "40 of 40 scams", and Muse Wonder does see the screen.
+
 Drafted by Meta Muse Wonder from docs/video.md, README and the new features; checked by the lead. Live first: the real scam check opens the video, the rendered clips (`video/clips/`, `node tools/render_clips.mjs`, output in `video/out/`) are punctuation, 27.5 s in total. Every live take is a real run of the installed build; smoke-test each new element (voice bar, chat chips and Talk, Mate's brain, Under the hood) for a minute before recording it.
 
 ## Final edit — 0:00 to 3:00

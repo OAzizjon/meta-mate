@@ -42,7 +42,7 @@ MetaMate is Mate, a small light-bulb companion living on the Windows desktop des
 
 - **Mate's beam:** "Where is the button?" works live across multi-monitor setups: Mate flies directly beside the target control without covering it and projects a focused beam onto it. With the accessibility element list he named the right control in all 610 measured answers (below); where it cannot read the window, he says he can't find it rather than guess.
 - **Step-by-step lessons:** For "How do I..." requests, Mate acts as a patient teacher rather than an autonomous takeover. He guides one step at a time, verifies the person clicked each target before continuing, and if the person clicks away from the beam twice on Quick, Muse Wonder 1.0 automatically plans the next step.
-- **Scam check ("Is this safe?"):** Evaluates suspicious emails, pop-ups, and websites in the active window. Muse Spark 1.3 delivers an immediate verdict via Mate's expression (`<mood calm>`, `<mood surprised>`, or `<mood sad>`), explains the specific red flags detected (mismatched domains, artificial urgency, fake security warnings), and shines a beam on the worst one—without ever telling the user to click, call, or pay.
+- **Scam check ("Is this safe?"):** Evaluates suspicious emails, pop-ups, and websites in the active window. Muse Spark 1.3 delivers an immediate verdict via Mate's expression (`<mood calm>`, `<mood surprised>`, or `<mood sad>`), explains the specific red flags detected (mismatched domains, artificial urgency, fake security warnings), and shines a beam on the worst one—without ever telling the user to click, call a number from the page, or pay.
 - **Keepsake lesson cards:** After completing a lesson, Mate produces a printable recap card saved in `Pictures\MetaMate` with steps rewritten into plain language by Muse Glimmer 30B and illustrated in a soft gouache style by Muse Image.
 
 Also inside:
@@ -119,7 +119,7 @@ The first run (before two prompt rules about naming a real warning sign) had Rus
 - **Target window only:** Captures exclusively the foreground window and its owned popups when a question needs the screen (where something is, how to do something, whether a window is safe, or a question about a button, a link or the screen). Background windows and occluded gaps are painted black.
 - **Automatic password redaction:** UI Automation identifies password fields (`IsPassword`, password-like labels, and reveal toggle siblings). They are painted solid black before transmission; if redaction cannot be guaranteed, Mate fails closed.
 - **Teacher, not an autonomous agent:** The human performs each action; Mate never clicks Pay, Delete, money transfer, or password buttons. Gated "Do it for me" assistance requires spoken voice confirmation and strictly enforces an action blocklist.
-- **Safe advice:** The scam check evaluates the active window and never advises clicking suspicious links, calling phone numbers, or sending payments.
+- **Safe advice:** The scam check evaluates the active window and never advises clicking suspicious links, calling numbers from the page, or sending payments.
 - **Honest limits:** "I can't find it" beats pointing at a guess.
 - **Key security:** Meta API credentials reside exclusively on the proxy backend; no secrets or private keys are shipped in the client binary.
 

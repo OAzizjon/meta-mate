@@ -31,26 +31,7 @@ Run `C:/mmw/py-proxy/Scripts/python.exe server/run_dev.py --tts` to start the pr
 
 Production uvicorn uses `--ws-max-size 65536 --ws-max-queue 4` (also set by `run_dev.py`): an 80 ms audio frame is under 4 KB, while the default 16 MiB per-message limit lets an unauthenticated socket hold excessive memory.
 
-## Shutting down JustLog3: checklist (only after your explicit “yes” that day)
-
-JustLog3 is a live service (NOWPayments payments, Telegram bot, users, SEO, GitHub App). Steps:
-
-1. **Decide what to do with the jl3-cloud.site domain:** keep a “Service paused” page (better for SEO and users), or point it to MetaMate.
-2. **Provider snapshot of the whole VPS** before anything is stopped: the rollback path if the MetaMate deploy fails.
-3. **Backups** (to your computer, not git):
-   - databases (SQLite and PostgreSQL for logs), uploaded files;
-   - server settings file with secrets — **you** copy it (I won't open it);
-   - nginx configs, systemd units, crontab, TLS certificates and keys.
-   Then **test-restore** the database backup into a temporary instance and spot-check a few records.
-4. Users, if any: export their data and notify them (email/bot); disable the NOWPayments webhook (IPN), stop the bot, pause the GitHub App.
-5. Stop and disable everything of JustLog3: the `justlog3-*` services (`systemctl list-units --type=service`, then `systemctl disable --now`), its cron jobs (`crontab -l`) and containers (`docker ps -a`), if any. **Do not delete** the directories for a week; keep its secrets at `chmod 600` meanwhile.
-6. Audit open ports (`ss -tlnp`, firewall): only 22, 80 and 443 remain.
-7. Check available resources for the proxy: `free -h`, `df -h`.
-8. Install MetaMate (proxy + landing page), nginx vhost, certbot, health check.
-9. Test externally: landing page, `/healthz`, proxy with a test invite code.
-10. A week later: remove JustLog3's directories.
-
-Rejected (D39): running JustLog3 and MetaMate side by side; JustLog3 is backed up and shut down on Day 6 (D10).
+The server also hosts an unrelated service; its operating steps are kept outside this repository.
 
 ## Modal (TTS)
 

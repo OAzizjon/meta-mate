@@ -651,10 +651,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 ### tools
 
 - tools/mm.py — mm: the MetaMate project CLI, for the lead (owner and Claude) and, in agent mode, for sandboxed AI agents.
-  run:130 first_line:145 agent_mode_reason:149 say:161 cmd_doctor:198 plan_sections:267 cmd_plan:290 cmd_status:317
-  cmd_check:365 cmd_test:389 cmd_agent:432 cmd_tool:465 cmd_release:471 cmd_uia:599 cmd_art:633 cmd_sounds:681
-  cmd_phrases:723 cmd_agents:736 wanted_key_names:749 parse_env:757 cmd_keys:812 build_parser:891 cmd_probe:954 cmd_preflight:962
-  cmd_ship:972 main:987
+  run:132 first_line:147 agent_mode_reason:151 say:163 cmd_doctor:200 plan_sections:269 cmd_plan:292 cmd_status:319
+  cmd_check:367 cmd_test:391 cmd_agent:434 cmd_tool:467 cmd_release:473 cmd_uia:601 cmd_art:635 cmd_sounds:683
+  cmd_phrases:725 cmd_agents:738 wanted_key_names:751 parse_env:759 cmd_keys:814 build_parser:893 cmd_probe:956 cmd_preflight:964
+  cmd_ship:974 main:989
   tests: tools/tests/test_mm.py (57)
 - tools/mm_changed.py — Changed-file test plans and the lightweight agent Rust configuration (stdlib only).
   agent_rust_env:13 workspace_graph:23 reverse_closure:38 embedded_inputs:57 affected_steps:77 changed_files:112 build_plan:124 cmd_changed:145
