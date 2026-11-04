@@ -23,6 +23,7 @@ import {
 } from "./settings/choices-view.ts";
 import { syncCheckbox, syncRadioSelection } from "./settings/controls.ts";
 import type { RadioGroupRefs } from "./settings/controls.ts";
+import { buildPrivacyNote, buildSettingsSection } from "./settings/sections-view.ts";
 import {
   DEV_STATUS_DURATION_MS,
   MATE_JUMP_CMD,
@@ -349,21 +350,26 @@ export function mountSettings(
     },
   );
 
-  // The everyday choices first; the account and developer tools come last (WP85).
-  form.append(
-    languageGroup.fieldset,
-    themeGroup.fieldset,
-    modelGroup.fieldset,
-    pttKeyGroup.fieldset,
-    pttGroup.fieldset,
-    soundGroup.fieldset,
-    speedGroup,
-    sizeGroup.fieldset,
-    togglesGroup,
-    accountGroup.section,
-    updateGroup.section,
-    devGroup.section,
-  );
+  // Six sections, the everyday choices first; the account and developer tools come last (WP85).
+  const privacyNote = buildPrivacyNote();
+  const sections = [
+    buildSettingsSection("mate", "settings.section_mate", [modelGroup.fieldset, togglesGroup]),
+    buildSettingsSection("voice", "settings.section_voice", [
+      pttKeyGroup.fieldset,
+      pttGroup.fieldset,
+      soundGroup.fieldset,
+      speedGroup,
+    ]),
+    buildSettingsSection("look", "settings.section_look", [
+      languageGroup.fieldset,
+      themeGroup.fieldset,
+      sizeGroup.fieldset,
+    ]),
+    buildSettingsSection("privacy", "settings.section_privacy", [privacyNote.card, accountGroup.section]),
+    buildSettingsSection("updates", "settings.section_updates", [updateGroup.section]),
+    buildSettingsSection("judges", "settings.section_judges", [devGroup.section]),
+  ];
+  form.append(...sections.map(({ section }) => section));
 
   container.replaceChildren(header, saveAlert, form);
 
@@ -393,6 +399,12 @@ export function mountSettings(
     titleHeading.textContent = t("tray.settings");
     savedNote.textContent = t("settings.saved_note");
     saveAlert.textContent = saveFailed ? t("settings.save_failed") : "";
+    for (const section of sections) {
+      section.titleText.textContent = t(section.titleKey);
+    }
+    for (const line of privacyNote.lines) {
+      line.el.textContent = t(line.key);
+    }
 
     const radioGroups: readonly RadioGroupRefs<string>[] = [
       languageGroup,

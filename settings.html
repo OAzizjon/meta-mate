@@ -1,11 +1,13 @@
 <!doctype html>
 <!-- Settings window (WP24): src/settings.ts and its sections in src/settings/. The Home
      window's look from src/theme.css: the same palette, type scale, cards, buttons and focus
-     rings. A warm header with Mate's bulb, then one card per setting. Short choices are
-     segments on one row that wraps when the window is narrow; only the model choice, whose
-     options each have a description, keeps a whole card per option. The chosen option is
-     tinted and rimmed in gold; on/off settings are switches in plain rows. Sized for the
-     560x720 window, works from 360px wide. -->
+     rings. A warm header with Mate's bulb, then six sections (src/settings/sections-view.ts),
+     each a comic caption with a small picture over its cards, one card per setting. Short
+     choices are segments on one row that wraps when the window is narrow; only the model
+     choice, whose options each have a description, keeps a whole card per option. The chosen
+     option is Mate's yellow with navy words and a lifted shadow in both themes; on/off
+     settings are switches in plain rows. Sized for the 560x720 window, works from 360px
+     wide. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -26,20 +28,20 @@
       #settings-app {
         width: min(100%, 640px);
         margin: 0 auto;
-        padding: 16px clamp(14px, 4vw, 24px) 24px;
+        padding: var(--space-4) var(--panel-pad-x) var(--space-6);
       }
 
       /* The title and the saved note beside Mate's bulb, in the Home window's warm header. */
       .settings-header {
         display: flex;
         align-items: center;
-        gap: 16px;
-        margin-bottom: 18px;
-        padding: 14px clamp(14px, 4vw, 22px);
+        gap: var(--space-4);
+        margin-bottom: var(--space-6);
+        padding: var(--panel-pad);
         background: var(--surface);
-        border: 2.5px solid var(--panel-ink);
+        border: var(--ink-width) solid var(--panel-ink);
         border-radius: var(--radius-lg);
-        box-shadow: 4px 4px 0 var(--panel-shadow);
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--panel-shadow);
       }
 
       .settings-header-text {
@@ -86,18 +88,115 @@
       .settings-form {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: var(--space-6);
+      }
+
+      .settings-section {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
+      }
+
+      /* A comic caption over the section's cards: a solid box, never text on the halftone. */
+      .settings-section-title {
+        align-self: flex-start;
+        max-width: 100%;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-3);
+        margin: 0;
+        padding: var(--space-1) var(--space-4) var(--space-1) var(--space-1);
+        border: var(--ink-width) solid var(--panel-ink);
+        border-radius: var(--radius-sm);
+        background: var(--accent-soft);
+        color: var(--text);
+        font: 700 var(--text-xl) / 1.25 var(--font-comic);
+      }
+
+      .settings-section-text {
+        min-width: 0;
+        overflow-wrap: break-word;
+      }
+
+      /* Navy on Mate's yellow in both themes. */
+      .settings-section-icon {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border: 2px solid var(--on-accent);
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--on-accent);
+      }
+
+      .settings-section-icon svg {
+        width: 24px;
+        height: 24px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .settings-section-icon .i-paper {
+        fill: #fffbe8;
+      }
+
+      /* The Updates and For judges cards repeat their section's title: screen readers only. */
+      .settings-section .settings-update-title,
+      .settings-section .settings-dev-title {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+
+      .settings-privacy-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      /* One calm green mark per line, as on Home's "What Mate never does". */
+      .settings-privacy-line {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-3);
+        text-wrap: pretty;
+      }
+
+      .settings-privacy-line::before {
+        content: "\2713" / "";
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--success-bg);
+        color: var(--success-text);
+        font-weight: 700;
+        line-height: 1;
       }
 
       /* Each setting is a card like the Home window's. */
       .settings-group {
         min-width: 0;
         margin: 0;
-        padding: 12px clamp(14px, 4vw, 20px) 14px;
+        padding: var(--panel-pad);
         background: var(--surface);
-        border: 2.5px solid var(--panel-ink);
+        border: var(--ink-width) solid var(--panel-ink);
         border-radius: var(--radius-lg);
-        box-shadow: 4px 4px 0 var(--panel-shadow);
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--panel-shadow);
       }
 
       .settings-legend,
@@ -138,10 +237,10 @@
       .settings-segment {
         display: flex;
         align-items: flex-start;
-        gap: 12px;
+        gap: var(--space-3);
         min-height: 52px;
-        padding: 13px 14px;
-        border: 2px solid var(--panel-ink);
+        padding: var(--space-3) var(--space-4);
+        border: var(--ink-width) solid var(--panel-ink);
         border-radius: var(--radius);
         background: var(--surface-soft);
         cursor: pointer;
@@ -150,16 +249,17 @@
           border-color 140ms ease-out;
       }
 
-      /* Short choices side by side on one row, sharing its width; they wrap on a narrow window. */
+      /* Short choices side by side on one row, sharing its width; they wrap on a narrow window.
+         The gap leaves room for the chosen one's shadow. */
       .settings-segments {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: var(--space-3);
       }
 
       /* A pill to click, at least 44px tall for an unsteady hand. Its radio stays in the page
-         for the keyboard and screen readers, see-through over the whole pill; the tint and the
-         gold rim show the choice. */
+         for the keyboard and screen readers, see-through over the whole pill; the fill, the
+         check mark and the shadow show the choice. */
       .settings-segment {
         position: relative;
         flex: 1 1 auto;
@@ -174,7 +274,6 @@
       .settings-radio-option:hover,
       .settings-segment:hover {
         background: var(--surface-hover);
-        border-color: var(--border-strong);
       }
 
       .settings-segment::before {
@@ -185,18 +284,26 @@
 
       .settings-segment.is-selected::before {
         content: "\2713" / "";
+        font-weight: 800;
       }
 
+      /* The chosen option: Mate's yellow with navy words and a lifted shadow, the same in both
+         themes and on Home's brain cards. */
       .settings-radio-option.is-selected,
       .settings-segment.is-selected {
-        background: var(--accent-soft);
-        border-color: var(--accent-line);
-        box-shadow: inset 0 0 0 1px var(--accent-line);
+        border-color: var(--on-accent);
+        background: var(--accent);
+        color: var(--on-accent);
+        box-shadow: var(--ink-offset-sm) var(--ink-offset-sm) 0 var(--panel-shadow);
       }
 
       .settings-radio-option.is-selected:hover,
       .settings-segment.is-selected:hover {
-        background: var(--accent-soft-hover);
+        background: var(--accent-hover);
+      }
+
+      .settings-radio-option.is-selected .option-hint {
+        color: var(--on-accent);
       }
 
       /* Level with the first line of the title. */
@@ -207,6 +314,10 @@
         margin: 1px 0 0;
         accent-color: var(--control);
         cursor: pointer;
+      }
+
+      .settings-radio-option.is-selected input[type="radio"] {
+        accent-color: var(--on-accent);
       }
 
       .settings-segment input[type="radio"] {
@@ -445,8 +556,8 @@
       .settings-radio-option:has(input:focus-visible),
       .settings-checkbox-option:has(input:focus-visible),
       .settings-segment:has(input:focus-visible) {
-        outline: 3px solid var(--focus);
-        outline-offset: 2px;
+        outline: var(--focus-ring);
+        outline-offset: var(--focus-offset);
       }
 
       .settings-radio-option input:focus-visible,
@@ -488,6 +599,18 @@
 
         .settings-saved-note::before {
           display: none;
+        }
+
+        .settings-section-icon {
+          color: CanvasText;
+        }
+
+        .settings-section-icon .i-paper {
+          fill: Canvas;
+        }
+
+        .settings-privacy-line::before {
+          border: 1px solid CanvasText;
         }
 
         .settings-range-input::-webkit-slider-thumb {

@@ -1,8 +1,9 @@
 <!doctype html>
 <!-- Lesson card window (WP62): comic-page keepsake recap for older users.
      Composes a 1200x1600 captioned comic keepsake on canvas (saved once via
-     card_save_captioned) and displays it alongside accessible comic speech-bubble
-     steps, model credits (WP71), and Print / Close buttons. Uses src/theme.css
+     card_save_captioned) and displays it as a postcard: a dashed inner frame, the
+     title on a yellow band, numbered circles before the speech-bubble steps, model
+     credits (WP71), and Print / Close buttons. Uses src/theme.css
      tokens for light/dark themes, Windows contrast themes, and reduced motion.
      Prints the captioned keepsake page cleanly on one A4 or Letter sheet. -->
 <html lang="en">
@@ -14,28 +15,34 @@
     <style>
       :root {
         --panel-bg: var(--surface);
-        --comic-ink: var(--text);
+        --comic-ink: var(--panel-ink);
         --comic-shadow: #1f2a44;
         --halftone-dot: rgb(31 42 68 / 0.085);
-        --badge-bg: var(--accent);
-        --badge-text: var(--on-accent);
+        --badge-bg: var(--surface);
+        --badge-text: var(--text);
         --step-bg: var(--surface-soft);
         --step-border: var(--comic-ink);
         --step-num-bg: var(--accent);
         --step-num-text: var(--on-accent);
+        --band-bg: var(--accent);
+        --band-text: var(--on-accent);
+        --frame-line: var(--border-strong);
       }
 
       :root[data-theme="dark"] {
         --panel-bg: var(--surface);
-        --comic-ink: var(--text);
+        --comic-ink: var(--panel-ink);
         --comic-shadow: #090b10;
         --halftone-dot: rgb(255 210 63 / 0.085);
-        --badge-bg: var(--accent);
-        --badge-text: var(--on-accent);
+        --badge-bg: var(--surface);
+        --badge-text: var(--text);
         --step-bg: var(--surface-soft);
         --step-border: var(--comic-ink);
         --step-num-bg: var(--accent);
         --step-num-text: var(--on-accent);
+        --band-bg: var(--accent);
+        --band-text: var(--on-accent);
+        --frame-line: var(--border-strong);
       }
 
       html,
@@ -58,25 +65,36 @@
       #card-app {
         width: min(100%, 820px);
         margin: 0 auto;
-        padding: 16px;
+        padding: var(--space-4);
       }
 
+      /* A postcard: an inked card with a dashed frame just inside its edge. */
       .card-layout {
+        position: relative;
         display: flex;
         flex-direction: column;
-        gap: 22px;
+        gap: var(--space-6);
         background: var(--panel-bg);
-        border: 3px solid var(--comic-ink);
+        border: var(--ink-width) solid var(--comic-ink);
         border-radius: var(--radius-lg);
-        padding: clamp(16px, 3vw, 24px) clamp(12px, 3vw, 24px) 8px;
-        box-shadow: 4px 4px 0 var(--comic-shadow);
+        padding: clamp(20px, 3vw, 28px) clamp(18px, 3vw, 28px) var(--space-4);
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--comic-shadow);
+      }
+
+      .card-layout::before {
+        content: "";
+        position: absolute;
+        inset: 7px;
+        border: 2px dashed var(--frame-line);
+        border-radius: calc(var(--radius-lg) - 6px);
+        pointer-events: none;
       }
 
       /* Keepsake preview beside the badge and title so the first steps show without scrolling. */
       .card-header {
         display: grid;
         grid-template-columns: clamp(145px, 32vw, 220px) minmax(0, 1fr);
-        gap: 22px;
+        gap: var(--space-6);
         align-items: center;
       }
 
@@ -93,11 +111,11 @@
         width: 100%;
         max-width: 240px;
         aspect-ratio: 3 / 4;
-        border-radius: 12px;
+        border-radius: var(--radius);
         overflow: hidden;
         background: var(--accent-soft);
-        border: 3px solid var(--comic-ink);
-        box-shadow: 4px 4px 0 var(--comic-shadow);
+        border: var(--ink-width) solid var(--comic-ink);
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--comic-shadow);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -127,21 +145,27 @@
         filter: drop-shadow(0 4px 12px var(--glow));
       }
 
+      /* The postcard's title band: the badge on paper, then the title on Mate's yellow. */
       .card-heading {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 12px;
+        gap: var(--space-3);
         min-width: 0;
+        padding: var(--space-4) var(--space-5) var(--space-5);
+        border: var(--ink-width) solid var(--comic-ink);
+        border-radius: var(--radius);
+        background: var(--band-bg);
+        color: var(--band-text);
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--comic-shadow);
       }
 
       .card-badge {
         max-width: 100%;
         display: inline-block;
-        padding: 5px 14px;
-        border-radius: 8px;
-        border: 2.5px solid var(--comic-ink);
-        box-shadow: 3px 3px 0 var(--comic-shadow);
+        padding: 4px 14px;
+        border-radius: var(--radius-sm);
+        border: 2px solid var(--comic-ink);
         font-family: var(--font);
         font-size: var(--text-sm);
         font-weight: 700;
@@ -152,10 +176,11 @@
 
       .card-title {
         margin: 0;
+        font-family: var(--font-comic);
         font-size: var(--text-2xl);
-        font-weight: 800;
-        line-height: 1.22;
-        color: var(--text);
+        font-weight: 700;
+        line-height: 1.25;
+        color: var(--band-text);
         overflow-wrap: break-word;
         text-wrap: balance;
       }
@@ -166,12 +191,12 @@
         }
 
         .card-layout {
-          padding: 16px 16px 4px;
+          padding: var(--space-5) var(--space-4) var(--space-4);
         }
 
         .card-header {
           grid-template-columns: minmax(0, 1fr);
-          gap: 18px;
+          gap: var(--space-5);
         }
       }
 
@@ -190,16 +215,17 @@
         gap: clamp(12px, 2.5vw, 18px);
       }
 
+      /* Each step's number in a yellow coin, like the keepsake's. */
       .card-step-num {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 44px;
-        height: 44px;
-        margin-top: 4px;
+        width: 48px;
+        height: 48px;
+        margin-top: 2px;
         border-radius: 50%;
-        border: 2.5px solid var(--comic-ink);
-        box-shadow: 2px 2px 0 var(--comic-shadow);
+        border: var(--ink-width) solid var(--comic-ink);
+        box-shadow: var(--ink-offset-sm) var(--ink-offset-sm) 0 var(--comic-shadow);
         background: var(--step-num-bg);
         color: var(--step-num-text);
         font-family: var(--font);
@@ -215,9 +241,9 @@
         min-width: 0;
         position: relative;
         background: var(--step-bg);
-        border: 2.5px solid var(--step-border);
+        border: var(--ink-width) solid var(--step-border);
         border-radius: var(--radius);
-        box-shadow: 4px 4px 0 var(--comic-shadow);
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--comic-shadow);
         padding: 12px clamp(12px, 2.5vw, 18px);
         font-size: clamp(20px, 3vw, 22px);
         font-weight: 600;
@@ -282,9 +308,9 @@
         z-index: 1;
         display: flex;
         flex-wrap: wrap;
-        gap: 16px;
-        padding: 16px 0;
-        border-top: 2.5px solid var(--comic-ink);
+        gap: var(--space-4);
+        padding: var(--space-4) 0;
+        border-top: var(--ink-width) solid var(--comic-ink);
         background: var(--panel-bg);
       }
 
@@ -294,16 +320,6 @@
         padding: 12px clamp(12px, 3vw, 28px);
         font-size: 21px;
         font-weight: 700;
-        border: 2.5px solid var(--comic-ink);
-        box-shadow: 3px 3px 0 var(--comic-shadow);
-      }
-
-      .card-actions .btn-primary:hover:not(:disabled) {
-        border-color: var(--comic-ink);
-      }
-
-      .card-actions .btn-secondary:hover:not(:disabled) {
-        border-color: var(--comic-ink);
       }
 
       /* Windows contrast themes drop fills and decorative tails while keeping solid outlines. */
@@ -314,12 +330,17 @@
 
         .card-layout,
         .card-image-wrapper,
+        .card-heading,
         .card-badge,
         .card-step-num,
         .card-step-text,
         .card-actions .btn {
           box-shadow: none;
           border: 2px solid CanvasText;
+        }
+
+        .card-layout::before {
+          border-color: CanvasText;
         }
 
         .card-step-text::before,
@@ -349,6 +370,8 @@
           --step-border: #000000;
           --step-num-bg: #ffffff;
           --step-num-text: #000000;
+          --band-bg: #ffffff;
+          --band-text: #000000;
           --comic-ink: #000000;
           --comic-shadow: transparent;
         }
@@ -372,6 +395,15 @@
           border: none;
           border-radius: 0;
           box-shadow: none;
+        }
+
+        .card-layout::before {
+          display: none;
+        }
+
+        .card-heading {
+          padding: 0;
+          border: none;
         }
 
         .card-layout.has-captioned .card-header {

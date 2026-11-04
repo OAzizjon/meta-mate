@@ -1,6 +1,6 @@
 /* The look shared by the normal windows (home.html, settings.html, chat.html, signin.html):
-   Mate's palette (docs/robot.md: warm glass, navy ink, bulb yellow), the type scale, buttons,
-   switches, the bulb badge and focus rings. Each page keeps only its own layout in its <style>.
+   Mate's palette (docs/robot.md: warm glass, navy ink, bulb yellow), the type and spacing
+   scales, the comic ink, buttons, switches, the bulb badge and focus rings. Each page keeps only its own layout in its <style>.
    Not for the transparent overlays (src/styles.css). Local fonts only. Light and warm
    by default; the saved Background choice sets data-theme="dark" for the dark palette, with
    Windows contrast themes and reduced motion. */
@@ -67,9 +67,27 @@
      text stays at 18 px, as the windows had before this theme. */
   --text-sm: 18px;
   --text-md: 18px;
+  /* Card and option titles. */
   --text-lg: 20px;
-  --text-xl: 22px;
+  /* Section titles, in the comic font. */
+  --text-xl: 24px;
+  /* Window titles, in the comic font. */
   --text-2xl: clamp(24px, 2vw + 16px, 30px);
+  /* One spacing scale (4 px steps) for every window. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --panel-pad-x: clamp(14px, 4vw, 24px);
+  --panel-pad: var(--space-4) var(--panel-pad-x) var(--space-5);
+  /* The comic ink: one rim width; panels cast a 4 px shadow, buttons and chosen options 3 px. */
+  --ink-width: 2.5px;
+  --ink-offset: 4px;
+  --ink-offset-sm: 3px;
+  --focus-ring: 3px solid var(--focus);
+  --focus-offset: 3px;
 }
 
 :root[data-theme="dark"] {
@@ -118,8 +136,21 @@
   --text-sm: 18px;
   --text-md: 18px;
   --text-lg: 20px;
-  --text-xl: 22px;
+  --text-xl: 24px;
   --text-2xl: clamp(24px, 2vw + 16px, 30px);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --panel-pad-x: clamp(14px, 4vw, 24px);
+  --panel-pad: var(--space-4) var(--panel-pad-x) var(--space-5);
+  --ink-width: 2.5px;
+  --ink-offset: 4px;
+  --ink-offset-sm: 3px;
+  --focus-ring: 3px solid var(--focus);
+  --focus-offset: 3px;
 }
 
 *,
@@ -157,19 +188,9 @@ h3 {
   background-size: 12px 12px;
 }
 
-.comic-page .btn {
-  border-color: var(--panel-ink);
-  box-shadow: 3px 3px 0 var(--panel-shadow);
-}
-
 @media (forced-colors: active) {
   .comic-page {
     background-image: none;
-  }
-
-  .comic-page .btn {
-    border-color: ButtonText;
-    box-shadow: none;
   }
 }
 
@@ -182,12 +203,12 @@ textarea {
 
 /* One ring for every window: Mate's navy in light, his yellow in dark. */
 :focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
 }
 
-/* Buttons: at least 48px tall. A press darkens the button but never shrinks it: a shaking
-   hand stays on target. */
+/* Buttons: at least 48px tall, inked like the panels in every window. A press darkens the
+   button but never shrinks it: a shaking hand stays on target. */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -197,8 +218,9 @@ textarea {
   min-width: 0;
   max-width: 100%;
   padding: 10px 20px;
-  border: 2px solid transparent;
+  border: var(--ink-width) solid var(--panel-ink);
   border-radius: var(--radius);
+  box-shadow: var(--ink-offset-sm) var(--ink-offset-sm) 0 var(--panel-shadow);
   font: 600 var(--text-md) / 1.25 var(--font);
   text-align: center;
   white-space: normal;
@@ -223,49 +245,41 @@ textarea {
   cursor: not-allowed;
 }
 
-.btn:focus-visible {
-  outline-offset: 3px;
-}
-
 /* The one main action of a view. */
 .btn-primary {
   background: var(--accent);
-  border-color: var(--accent);
   color: var(--on-accent);
-  box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-hover);
-  border-color: var(--accent-hover);
 }
 
 /* A friendly invitation, lighter than the main action. */
 .btn-soft {
   background: var(--accent-soft);
-  border-color: var(--accent-soft-border);
   color: var(--text);
 }
 
 .btn-soft:hover:not(:disabled) {
   background: var(--accent-soft-hover);
-  border-color: var(--accent-line);
 }
 
 .btn-secondary {
   background: var(--surface);
-  border-color: var(--border-soft);
   color: var(--text);
 }
 
 .btn-secondary:hover:not(:disabled) {
   background: var(--surface-hover);
-  border-color: var(--border-strong);
 }
 
+/* Small tools (Copy): a thin rim and no shadow, so they never compete with the actions. */
 .btn-quiet {
   background: transparent;
-  border-color: var(--border-soft);
+  border-width: 2px;
+  border-color: var(--border-strong);
+  box-shadow: none;
   color: var(--text-muted);
 }
 
@@ -340,6 +354,7 @@ textarea {
   .btn,
   .bulb-badge {
     border: 2px solid ButtonText;
+    box-shadow: none;
   }
 
   .btn.is-waiting {

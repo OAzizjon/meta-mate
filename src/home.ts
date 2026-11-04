@@ -55,12 +55,13 @@ export const HOME_NEVER_KEYS = [
   "home.never_passwords",
 ] as const satisfies readonly LocaleKey[];
 
-/** The chips under the greeting: features first-time visitors miss, each with a one-line tip. */
+/** The chips under the greeting: features first-time visitors miss, each with a one-line tip
+ *  and a small picture (`.home-wow-{icon}` in home.html). */
 export const HOME_WOW_CHIPS = [
-  { label: "home.wow_spotlight", tip: "home.wow_spotlight_tip" },
-  { label: "home.wow_warmer", tip: "home.wow_warmer_tip" },
-  { label: "home.wow_drop", tip: "home.wow_drop_tip" },
-] as const satisfies readonly { readonly label: LocaleKey; readonly tip: LocaleKey }[];
+  { label: "home.wow_spotlight", tip: "home.wow_spotlight_tip", icon: "spotlight" },
+  { label: "home.wow_warmer", tip: "home.wow_warmer_tip", icon: "warmer" },
+  { label: "home.wow_drop", tip: "home.wow_drop_tip", icon: "drop" },
+] as const satisfies readonly { readonly label: LocaleKey; readonly tip: LocaleKey; readonly icon: string }[];
 
 /** How long the line under the questions stays after a click. */
 export const HOME_STATUS_MS = 30_000;
@@ -361,7 +362,7 @@ export function mountHome(container: HTMLElement, options: MountHomeOptions = {}
   greeting.append(title, editBtn, guideBtn);
   const wow = el("ul", "home-wow");
   for (const chip of HOME_WOW_CHIPS) {
-    const item = el("li", "home-wow-chip", t(chip.label));
+    const item = el("li", `home-wow-chip home-wow-${chip.icon}`, t(chip.label));
     item.title = t(chip.tip);
     wow.append(item);
   }

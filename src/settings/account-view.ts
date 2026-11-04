@@ -22,7 +22,8 @@ export function buildAccountSection(accountStore: AccountStore): AccountSectionR
   const headerDiv = document.createElement("div");
   headerDiv.className = "settings-account-header";
 
-  const titleEl = document.createElement("h2");
+  // Under the Privacy section's title (src/settings/sections-view.ts).
+  const titleEl = document.createElement("h3");
   titleEl.id = "settings-account-title";
   titleEl.className = "settings-account-title";
 

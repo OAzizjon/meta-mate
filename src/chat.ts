@@ -5,6 +5,7 @@ import { bulbBadge } from "./bulb-badge.ts";
 import { getLocale, t } from "./i18n/index.ts";
 import { canSend, parseHistory, sendsOnKey } from "./chat/model.ts";
 import { followSettingsLocale } from "./i18n/settings.ts";
+import { mountRobot } from "./robot/index.ts";
 import type { Message } from "./chat/model.ts";
 import { canReuseMessages, mateAnswerGrew, nextAwaitingReply, parseMateBlocks } from "./chat/history.ts";
 import type { AwaitingReply } from "./chat/history.ts";
@@ -39,6 +40,10 @@ log.setAttribute("aria-live", "polite");
 log.setAttribute("aria-relevant", "additions text");
 const emptyState = document.createElement("li");
 emptyState.className = "empty-state";
+// Mate himself greets an empty chat (mounted below, once the page is built).
+const emptyMate = document.createElement("div");
+emptyMate.className = "empty-mate";
+emptyMate.setAttribute("aria-hidden", "true");
 const greeting = document.createElement("p");
 greeting.className = "greeting";
 const intro = document.createElement("p");
@@ -48,7 +53,7 @@ suggestions.setAttribute("role", "group");
 const chips = SUGGESTIONS.map((key) => {
   const chip = document.createElement("button");
   chip.type = "button";
-  chip.className = "btn suggestion";
+  chip.className = "btn btn-soft suggestion";
   chip.addEventListener("click", () => {
     // The chip hides with the empty chat: DOM focus only, in the window just clicked.
     if (document.hasFocus()) input.focus();
@@ -57,7 +62,7 @@ const chips = SUGGESTIONS.map((key) => {
   return chip;
 });
 suggestions.append(...chips);
-emptyState.append(greeting, intro, suggestions);
+emptyState.append(emptyMate, greeting, intro, suggestions);
 log.append(emptyState);
 // Shown after the last message while an answer is awaited; never counted as a message.
 const thinking = document.createElement("li");
@@ -107,6 +112,11 @@ talk.className = "btn btn-secondary";
 actions.append(hint, talk, send);
 form.append(label, input, actions);
 root.append(header, logWrap, status, form);
+// Idle and calm, as on Home; the box fits his size to a low window (chat.html).
+const mate = mountRobot(emptyMate);
+mate.setMood("calm");
+mate.setState("idle");
+mate.setSize("L");
 
 let messages: Message[] = [];
 let ready = false;

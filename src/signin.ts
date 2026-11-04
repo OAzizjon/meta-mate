@@ -1,6 +1,7 @@
 // The sign-in window's entry (signin.html, src-tauri/src/signin.rs): signing in is required
-// before Mate answers. Mate, one sentence and two big buttons; the account store
-// (src/settings/account.ts) does the rest, and Rust closes the window once signed in.
+// before Mate answers. Mate, one sentence, the guest trial as the main button, then the
+// account buttons; the account store (src/settings/account.ts) does the rest, and Rust closes
+// the window once signed in.
 import { getAppName, t } from "./i18n/index.ts";
 import { followSettingsLocale } from "./i18n/settings.ts";
 import type { LocaleKey } from "./i18n/index.ts";
@@ -77,19 +78,23 @@ function mount(root: HTMLElement): void {
     sync(store.getState());
   });
 
+  // The accounts second, with the small note on what happens next.
   const browser = el("p", "signin-browser", t("signin.browser"));
+  const accounts = el("section", "signin-accounts");
+  accounts.append(buttons, browser);
 
-  // The guest trial: up to 12 messages an hour without an account.
+  // The guest trial first, as the one big main button: up to 12 messages an hour without an
+  // account.
   const guest = el("section", "signin-guest");
   // Shown at once, the button waiting for the proxy's answer: a judge must see this way in
-  // from the first second, not only the account buttons.
+  // from the first second.
   guest.hidden = !isTauri;
   const guestLine = el("p", "signin-guest-line", t("signin.guest_checking"));
   guestLine.setAttribute("role", "status");
-  const guestButton = el("button", "btn btn-quiet signin-btn signin-btn-quiet", t("signin.guest_try"));
+  const guestButton = el("button", "btn btn-primary signin-btn signin-btn-guest", t("signin.guest_try"));
   guestButton.type = "button";
   guestButton.disabled = true;
-  guest.append(guestLine, guestButton);
+  guest.append(guestButton, guestLine);
   let guestUsage: unknown = null;
   let guestWaitOver = false;
   const showGuest = (raw: unknown): void => {
@@ -129,7 +134,7 @@ function mount(root: HTMLElement): void {
   const alert = el("p", "signin-status is-error");
   alert.setAttribute("role", "alert");
 
-  root.append(hero, buttons, browser, guest, status, alert);
+  root.append(hero, guest, accounts, status, alert);
 
   const robot = mountRobot(mateBox);
   robot.setMood("calm");

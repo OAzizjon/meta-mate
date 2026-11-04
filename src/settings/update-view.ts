@@ -118,7 +118,8 @@ export function buildUpdateSection(
   section.className = "settings-group settings-update";
   section.setAttribute("aria-labelledby", "settings-update-title");
 
-  const titleEl = document.createElement("h2");
+  // Under the Updates section's title (src/settings/sections-view.ts).
+  const titleEl = document.createElement("h3");
   titleEl.id = "settings-update-title";
   titleEl.className = "settings-account-title settings-update-title";
 

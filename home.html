@@ -17,7 +17,8 @@
     <link rel="stylesheet" href="/src/theme.css" />
     <style>
       :root {
-        --pad-x: max(clamp(14px, 4vw, 24px), calc((100% - 760px) / 2));
+        /* Up to 880px of content: a 1100px window leaves the three brain cards room. */
+        --pad-x: max(clamp(14px, 4vw, 24px), calc((100% - 880px) / 2));
         --keycap-bg: linear-gradient(#ffffff, #f6f1e2);
         --keycap-border: #1f2a44;
         --keycap-text: #1f2a44;
@@ -48,8 +49,8 @@
         scrollbar-gutter: stable;
         display: flex;
         flex-direction: column;
-        gap: 24px;
-        padding: 20px var(--pad-x) 28px;
+        gap: var(--space-6);
+        padding: var(--space-5) var(--pad-x) var(--space-6);
       }
 
       .home-content > * {
@@ -66,8 +67,8 @@
           "mate wow"
           "mate intro"
           "talk talk";
-        column-gap: 20px;
-        padding: 20px clamp(14px, 4vw, 24px) clamp(14px, 4vw, 24px);
+        column-gap: var(--space-5);
+        padding: var(--space-5) var(--panel-pad-x) var(--panel-pad-x);
         background: var(--hero-bg);
         border: 1px solid var(--hero-border);
         border-radius: var(--radius-lg);
@@ -114,21 +115,51 @@
         grid-area: wow;
         display: flex;
         flex-wrap: wrap;
-        gap: 6px 8px;
-        margin: 8px 0 0;
+        gap: var(--space-2);
+        margin: var(--space-2) 0 0;
         padding: 0;
         list-style: none;
       }
 
+      /* Inked like the panels but without a shadow: chips are not buttons. Each has a small
+         picture in a bulb-yellow coin (navy on yellow in both themes). */
       .home-wow-chip {
-        padding: 2px 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        padding: 3px 14px 3px 4px;
         background: var(--surface);
-        border: 1px solid var(--border);
+        border: 2px solid var(--panel-ink);
         border-radius: 999px;
         font-size: var(--text-sm);
         font-weight: 600;
         line-height: 1.5;
         cursor: help;
+      }
+
+      .home-wow-chip::before {
+        content: "";
+        flex: none;
+        width: 28px;
+        height: 28px;
+        border: 2px solid var(--on-accent);
+        border-radius: 50%;
+        background: var(--wow-icon, none) center / 18px no-repeat, var(--accent);
+      }
+
+      /* Mate's flashlight and its beam. */
+      .home-wow-spotlight {
+        --wow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f2a44' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 10h5v4H3z' fill='%23fffbe8'/%3E%3Cpath d='M8 9l4-2.5v11L8 15z' fill='%23fffbe8'/%3E%3Cpath d='M15.5 8l4.5-2.5M15.5 12h5.5M15.5 16l4.5 2.5'/%3E%3C/svg%3E");
+      }
+
+      /* A flame: warmer and warmer. */
+      .home-wow-warmer {
+        --wow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f2a44' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3c.5 3.5 5 5.5 5 10.5a5 5 0 0 1-10 0c0-2.5 1.5-4 2.5-5.5.5 1.5 1.5 2.5 2.5 2.5-.5-2.5-.5-5 0-7.5z' fill='%23fffbe8'/%3E%3C/svg%3E");
+      }
+
+      /* An arrow dropping onto a button. */
+      .home-wow-drop {
+        --wow-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231f2a44' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 15h14a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2z' fill='%23fffbe8'/%3E%3Cpath d='M12 3v8M8.5 7.5L12 11l3.5-3.5'/%3E%3C/svg%3E");
       }
 
       /* How to talk to Mate: a white card inside the header. */
@@ -223,61 +254,78 @@
 
       /* Mate's brain: three comic pill cards side by side (stacked on narrow windows). */
       .home-model {
-        padding: 18px clamp(14px, 4vw, 24px) 20px;
+        padding: var(--panel-pad);
         background: var(--surface-soft);
-        border: var(--ink-width, 2.5px) solid var(--ink, var(--border));
+        border: var(--ink-width) solid var(--ink, var(--panel-ink));
         border-radius: var(--radius-lg);
-        box-shadow: 4px 4px 0 var(--ink-shadow, rgb(0 0 0 / 0.14));
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--ink-shadow, var(--panel-shadow));
       }
 
       .home-model-list {
-        margin: 14px 0 0;
+        margin: var(--space-4) 0 0;
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
+        gap: var(--space-4);
       }
 
+      /* Options look like the Settings window's: inked, flat until chosen. */
       .home-model-card {
         position: relative;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
-        gap: 6px;
+        gap: var(--space-2);
         min-width: 0;
-        padding: 14px 16px;
-        border: var(--ink-width, 2.5px) solid var(--ink, var(--border));
-        border-radius: 22px;
+        padding: var(--space-4);
+        border: var(--ink-width) solid var(--ink, var(--panel-ink));
+        border-radius: var(--radius-lg);
         background: var(--surface);
         color: var(--text);
         font: inherit;
         text-align: left;
         cursor: pointer;
-        box-shadow: 4px 4px 0 var(--ink-shadow, rgb(0 0 0 / 0.14));
       }
 
       .home-model-card:hover {
         background: var(--surface-hover);
       }
 
+      /* The chosen brain: Mate's yellow with navy words and a lifted shadow, in both themes. */
       .home-model-card.is-selected,
       .home-model-card[aria-checked="true"] {
-        background: var(--accent-soft);
+        border-color: var(--on-accent);
+        background: var(--accent);
+        color: var(--on-accent);
+        box-shadow: var(--ink-offset-sm) var(--ink-offset-sm) 0 var(--panel-shadow);
+      }
+
+      .home-model-card[aria-checked="true"] .home-model-hint {
+        color: var(--on-accent);
+      }
+
+      .home-model-card[aria-checked="true"] .home-icon :is(.i-fill, .i-paper, .i-line) {
+        stroke: var(--on-accent);
+      }
+
+      .home-model-card[aria-checked="true"] .home-icon .i-fill {
+        fill: #fffbe8;
       }
 
       .home-model-card::after {
         content: "";
         position: absolute;
-        top: 14px;
-        right: 14px;
-        width: 20px;
-        height: 20px;
-        border: 2.5px solid var(--ink, currentColor);
+        top: var(--space-4);
+        right: var(--space-4);
+        width: 22px;
+        height: 22px;
+        border: var(--ink-width) solid var(--ink, currentColor);
         border-radius: 50%;
         background: var(--surface);
       }
 
       .home-model-card[aria-checked="true"]::after {
-        background: radial-gradient(circle, var(--ink, currentColor) 0 42%, var(--accent) 45% 100%);
+        border-color: var(--on-accent);
+        background: radial-gradient(circle, var(--on-accent) 0 42%, #fffbe8 45% 100%);
       }
 
       .home-model-icon {
@@ -303,18 +351,18 @@
       /* Try it: cards wrap as space allows, each with its own button. */
       .home-try-list {
         list-style: none;
-        margin: 14px 0 0;
+        margin: var(--space-4) 0 0;
         padding: 0;
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
-        gap: 12px;
+        gap: var(--space-4);
       }
 
       .home-try-card {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        padding: 16px;
+        gap: var(--space-2);
+        padding: var(--space-4);
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius-lg);
@@ -401,7 +449,7 @@
 
       .home-never,
       .home-cards {
-        padding: 18px clamp(14px, 4vw, 24px) 20px;
+        padding: var(--panel-pad);
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius-lg);
@@ -472,16 +520,16 @@
         mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5A1.5 1.5 0 0 1 4.5 5h4.6l2 2.5h8.4A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z'/%3E%3C/svg%3E") center / contain no-repeat;
       }
 
-      /* Three short tiers: the start-up switch, the two buttons, Quit. */
+      /* Three short tiers: the start-up switch, the two buttons, Quit; an inked edge like the
+         chat's composer. */
       .home-footer {
         flex: none;
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        padding: 6px var(--pad-x) 4px;
+        gap: var(--space-2);
+        padding: var(--space-3) var(--pad-x) var(--space-2);
         background: var(--surface);
-        border-top: 1px solid var(--border);
-        box-shadow: 0 -6px 18px rgb(31 42 68 / 0.05);
+        border-top: var(--ink-width) solid var(--panel-ink);
       }
 
       /* The start-up switch as a small line; the whole line is its label. */
@@ -513,7 +561,7 @@
         display: flex;
         flex-wrap: wrap;
         min-width: 0;
-        gap: 10px;
+        gap: var(--space-3);
       }
 
       .home-actions .btn {
@@ -638,6 +686,10 @@
         .home-cards-folder::before {
           forced-color-adjust: none;
           background: CanvasText;
+        }
+
+        .home-wow-chip::before {
+          display: none;
         }
 
         .home-try-btn.is-busy::after {

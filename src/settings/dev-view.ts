@@ -46,7 +46,8 @@ export function buildDevSection(
   section.className = "settings-group settings-dev";
   section.setAttribute("aria-labelledby", "settings-dev-title");
 
-  const titleEl = document.createElement("h2");
+  // Under the For judges section's title (src/settings/sections-view.ts).
+  const titleEl = document.createElement("h3");
   titleEl.id = "settings-dev-title";
   titleEl.className = "settings-account-title settings-dev-title";
 

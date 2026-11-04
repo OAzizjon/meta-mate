@@ -1,8 +1,9 @@
 <!doctype html>
 <!-- Sign-in window (src-tauri/src/signin.rs, src/signin.ts): signing in is required before
-     Mate answers. A welcome column: Mate in his glow, one sentence, two big buttons (Google,
-     GitHub), what happens next, and the guest trial under a divider. The Home window's look
-     from src/theme.css. Sized for the 560x600 window, works from 360px wide. -->
+     Mate answers. A welcome column: Mate in his glow, one sentence, the guest trial as the one
+     big main button, then the account buttons (Google, GitHub) with a small note on what
+     happens next. The Home window's look from src/theme.css. Sized for the 560x600 window,
+     works from 360px wide. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -22,10 +23,10 @@
       #signin-app {
         width: min(100%, 520px);
         margin: 0 auto;
-        padding: clamp(16px, 4vh, 32px) clamp(16px, 5vw, 28px) 28px;
+        padding: clamp(16px, 4vh, 32px) var(--panel-pad-x) var(--space-6);
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: var(--space-5);
       }
 
       /* Mate above the title, centered like a welcome card. */
@@ -33,7 +34,7 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 16px;
+        gap: var(--space-4);
         text-align: center;
       }
 
@@ -51,11 +52,11 @@
       .signin-words {
         position: relative;
         min-width: 0;
-        padding: 18px;
-        border: 2.5px solid var(--panel-ink);
+        padding: var(--panel-pad);
+        border: var(--ink-width) solid var(--panel-ink);
         border-radius: var(--radius-lg);
         background: var(--surface);
-        box-shadow: 4px 4px 0 var(--panel-shadow);
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--panel-shadow);
       }
 
       .signin-words::before {
@@ -65,8 +66,8 @@
         left: calc(50% - 9px);
         width: 16px;
         height: 16px;
-        border-top: 2.5px solid var(--panel-ink);
-        border-left: 2.5px solid var(--panel-ink);
+        border-top: var(--ink-width) solid var(--panel-ink);
+        border-left: var(--ink-width) solid var(--panel-ink);
         background: var(--surface);
         transform: rotate(45deg);
       }
@@ -86,43 +87,17 @@
         text-wrap: pretty;
       }
 
-      .signin-buttons {
+      /* The guest trial and the accounts: two panels, the trial first. */
+      .signin-guest,
+      .signin-accounts {
         display: flex;
         flex-direction: column;
-        gap: 12px;
-      }
-
-      /* The two ways in: large, equal, white, so neither looks like the "right" one. */
-      .signin-btn {
-        min-height: 56px;
-        font-size: var(--text-lg);
-      }
-
-      .signin-buttons .signin-btn {
-        box-shadow: 3px 3px 0 var(--panel-shadow);
-      }
-
-      .signin-browser {
-        margin: 0;
-        padding: 12px 16px;
-        border: 2px solid var(--panel-ink);
-        border-radius: var(--radius);
-        background: var(--surface-soft);
-        color: var(--text-muted);
-        font-size: var(--text-sm);
-        text-align: center;
-        text-wrap: pretty;
-      }
-
-      .signin-guest {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin-top: 4px;
-        padding: 16px;
-        border: 2px solid var(--panel-ink);
-        border-radius: var(--radius);
+        gap: var(--space-3);
+        padding: var(--panel-pad);
+        border: var(--ink-width) solid var(--panel-ink);
+        border-radius: var(--radius-lg);
         background: var(--surface);
+        box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--panel-shadow);
         text-align: center;
       }
 
@@ -136,9 +111,32 @@
         color: var(--text-muted);
       }
 
-      .signin-btn-quiet {
-        min-height: 48px;
-        font-size: var(--text-md);
+      .signin-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      /* The account buttons: large, equal, white, so neither looks like the "right" one. */
+      .signin-btn {
+        min-height: 56px;
+        font-size: var(--text-lg);
+      }
+
+      /* The first choice: the one big yellow button of the window. */
+      .signin-btn-guest {
+        min-height: 64px;
+        font-size: var(--text-xl);
+        font-weight: 700;
+      }
+
+      /* What happens next: a small line under the account buttons. */
+      .signin-browser {
+        margin: 0;
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+        line-height: 1.4;
+        text-wrap: pretty;
       }
 
       /* No display when empty: nothing shifts until a line is shown. */
@@ -164,7 +162,8 @@
 
       @media (forced-colors: active) {
         .signin-words,
-        .signin-buttons .signin-btn {
+        .signin-guest,
+        .signin-accounts {
           box-shadow: none;
         }
 

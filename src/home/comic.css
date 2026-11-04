@@ -6,10 +6,10 @@
    in the theme's font. Every text colour keeps at least 4.5:1 in both themes; nothing here
    animates, so reduced motion has nothing to stop. */
 
+/* The rim width and shadow offsets are src/theme.css's (--ink-width, --ink-offset). */
 :root {
   --ink: #1f2a44;
   --ink-shadow: #1f2a44;
-  --ink-width: 2.5px;
   --dot: rgb(31 42 68 / 0.07);
   --font-comic: "Segoe Print", "Comic Sans MS", "Segoe UI Variable Display", system-ui, sans-serif;
   --halftone: radial-gradient(var(--dot) 1.1px, transparent 1.6px) 0 0 / 12px 12px;
@@ -37,7 +37,7 @@
 #home-app .home-guide-title,
 #home-app .home-section-title {
   font-family: var(--font-comic);
-  font-size: 24px;
+  font-size: var(--text-xl);
 }
 
 #home-app .home-title {
@@ -56,7 +56,7 @@
 .home-cards,
 .comic-panel {
   border: var(--ink-width) solid var(--ink);
-  box-shadow: 4px 4px 0 var(--ink-shadow);
+  box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--ink-shadow);
 }
 
 .home-hero {
@@ -64,18 +64,18 @@
 }
 
 .home-section-head {
-  padding: 12px 16px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius);
   background: var(--surface);
 }
 
 .home-keycap {
   border-bottom-width: 3px;
-  box-shadow: 3px 3px 0 var(--ink-shadow);
+  box-shadow: var(--ink-offset-sm) var(--ink-offset-sm) 0 var(--ink-shadow);
 }
 
 .home-talk {
-  border: 2px solid var(--ink);
+  border: var(--ink-width) solid var(--ink);
 }
 
 /* Speech bubbles: Mate's lines, the tail pointing at him on the left. */
@@ -140,8 +140,6 @@
 
 .home-guide-btn {
   margin-inline-start: auto;
-  border: 2px solid var(--ink);
-  box-shadow: 2px 2px 0 var(--ink-shadow);
 }
 
 /* A quiet underlined word that is still easy to hit (Edit, Show all). */
@@ -431,11 +429,11 @@
   max-height: calc(100vh - 24px);
   padding: 0;
   overflow: auto;
-  border: 3px solid var(--ink);
+  border: var(--ink-width) solid var(--ink);
   border-radius: var(--radius-lg);
   background: var(--halftone), var(--bg);
   color: var(--text);
-  box-shadow: 4px 4px 0 var(--ink-shadow);
+  box-shadow: var(--ink-offset) var(--ink-offset) 0 var(--ink-shadow);
 }
 
 .home-guide::backdrop {
