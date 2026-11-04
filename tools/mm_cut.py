@@ -54,6 +54,23 @@ def load_list(text):
     return rows
 
 
+def resolve_sources(rows, video):
+    """OBS records .mkv by default and a phone .m4a: takes/A.mp4 may be there as takes/A.mkv."""
+    for row in rows:
+        if not media_path(video, row['src']).is_file():
+            for suffix in ('.mkv', '.mov', '.webm', '.m4v'):
+                other = Path(row['src']).with_suffix(suffix)
+                if media_path(video, other.as_posix()).is_file():
+                    row['src'] = other.as_posix()
+                    break
+        if row.get('voice') and not media_path(video / 'voice', row['voice']).is_file():
+            for suffix in ('.m4a', '.mp3', '.aac', '.ogg', '.mp4', '.mkv'):
+                other = Path(row['voice']).with_suffix(suffix)
+                if media_path(video / 'voice', other.as_posix()).is_file():
+                    row['voice'] = other.as_posix()
+                    break
+
+
 def number(value, label):
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
         raise ValueError(label + ' must be a finite nonnegative number')
@@ -205,6 +222,7 @@ def main(argv=None, root=ROOT):
     video = root / 'video'
     try:
         rows = load_list(args.list.read_text(encoding='utf-8'))
+        resolve_sources(rows, video)
         names = {r['src'] for r in rows} | {'voice/' + r['voice'] for r in rows if r.get('voice')}
         for name in names:
             base = video / 'voice' if name.startswith('voice/') else video

@@ -167,5 +167,23 @@ class CutTests(unittest.TestCase):
             mm.build_parser().parse_args(['agent', 'cut'])
 
 
+class ResolveSources(unittest.TestCase):
+    def test_other_containers_stand_in_for_the_named_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            video = Path(folder)
+            (video / 'takes').mkdir()
+            (video / 'voice').mkdir()
+            (video / 'takes/A.mkv').write_bytes(b'x')
+            (video / 'takes/B.mp4').write_bytes(b'x')
+            (video / 'voice/V1.m4a').write_bytes(b'x')
+            rows = [{'id': 'A', 'src': 'takes/A.mp4', 'voice': 'V1.wav'}, {'id': 'B', 'src': 'takes/B.mp4'},
+                    {'id': 'C', 'src': 'takes/C.mp4'}]
+            cut.resolve_sources(rows, video)
+        self.assertEqual(rows[0]['src'], 'takes/A.mkv')
+        self.assertEqual(rows[0]['voice'], 'V1.m4a')
+        self.assertEqual(rows[1]['src'], 'takes/B.mp4')
+        self.assertEqual(rows[2]['src'], 'takes/C.mp4')
+
+
 if __name__ == '__main__':
     unittest.main()
