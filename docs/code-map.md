@@ -435,7 +435,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   MountCardOptions:271 mountLessonCard:281
   tests: src/card.test.ts (26)
 - src/chat.ts — Chat is a normal, deliberately opened window.
-  startThinking:140· stopThinking:149· answerTools:157· render:185· ask:296· localize:345· start:362·
+  startThinking:143· stopThinking:152· answerTools:160· render:188· ask:299· localize:348· start:365·
 - src/chat/history.ts — Chat history rendering policy, independent of the DOM and Tauri.
   InlineNode:4 MessageBlock:5 parseMateInline:10 parseMateBlocks:33 AwaitingReply:51 canReuseMessages:54 mateAnswerGrew:62 nextAwaitingReply:69
   tests: src/chat/history.test.ts (12)
@@ -806,10 +806,10 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 - `card_show` src-tauri/src/card.rs:502 <- src/home/lessons.ts:8
 - `cards_list` src-tauri/src/card.rs:492 <- src/home/lessons.ts:6
 - `cards_open_folder` src-tauri/src/card.rs:543 <- src/home/lessons.ts:10
-- `chat_clear` src-tauri/src/chat.rs:457 <- src/chat.ts:337
-- `chat_send` src-tauri/src/chat.rs:427 <- src/chat.ts:303
-- `chat_subscribe` src-tauri/src/chat.rs:394 <- src/chat.ts:371
-- `chat_talk` src-tauri/src/chat.rs:409 <- src/chat.ts:318
+- `chat_clear` src-tauri/src/chat.rs:457 <- src/chat.ts:340
+- `chat_send` src-tauri/src/chat.rs:427 <- src/chat.ts:306
+- `chat_subscribe` src-tauri/src/chat.rs:394 <- src/chat.ts:374
+- `chat_talk` src-tauri/src/chat.rs:409 <- src/chat.ts:321
 - `guest_usage` src-tauri/src/signin.rs:203 <- src/mate.ts:650, src/signin.ts:125
 - `hide_mate` src-tauri/src/presence.rs:36 <- src/mate-menu.ts:9
 - `home_try` src-tauri/src/home.rs:126 <- src/home.ts:32
@@ -839,7 +839,7 @@ Rust `#[tauri::command]` <- TypeScript string literals naming it (`invoke("name"
 
 Commands accepting `Channel<...>` <- TypeScript `new Channel` bindings passed to them.
 
-- `chat_subscribe` src-tauri/src/chat.rs:394 <- src/chat.ts:363
+- `chat_subscribe` src-tauri/src/chat.rs:394 <- src/chat.ts:366
 - `subscribe_answer_stream` src-tauri/src/answer_stream.rs:423 <- src/ipc/answer-stream.ts:300
 
 ### Files on disk
@@ -859,7 +859,7 @@ Tauri events by name: `emit`/`emit_to` and `listen`/`once` calls in Rust (rs) an
 
 - `auth-changed`: rs emit src-tauri/src/auth.rs:270,342; ts listen src/mate.ts:646, src/settings.ts:196, src/signin.ts:30; const src-tauri/src/auth.rs:36, src/settings/account.ts:7
 - `card-ready`: ts emit src/card-page.ts:30; rs listen src-tauri/src/card.rs:70; const src-tauri/src/card.rs:39, src/card.ts:42
-- `chat-talk`: rs emit src-tauri/src/chat.rs:337,403; ts listen src/chat.ts:366; const src-tauri/src/chat.rs:17
+- `chat-talk`: rs emit src-tauri/src/chat.rs:337,403; ts listen src/chat.ts:369; const src-tauri/src/chat.rs:17
 - `debug`: rs emit src-tauri/src/debug_view.rs:201; ts listen src/debug.ts:84; const src-tauri/src/debug_view.rs:17
 - `explain-offer`: rs emit src-tauri/src/explain.rs:260; ts listen src/mate.ts:667; const src-tauri/src/explain.rs:39
 - `guest-usage`: rs emit src-tauri/src/signin.rs:167; ts listen src/mate.ts:645, src/signin.ts:127; const src-tauri/src/signin.rs:18
@@ -914,7 +914,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `auth.failed`: rs src-tauri/src/auth.rs:215,225,256,360,361,363,364,387,391,404,425; ts src/settings/account.ts:75,263,266
 - `auth.unavailable`: rs src-tauri/src/auth.rs:179,182,248,370; ts src/settings/account-view.ts:147, src/settings/account.ts:75, src/signin.ts:157
 - `card.operation_failed`: rs src-tauri/src/card.rs:481
-- `chat.title`: rs src-tauri/src/chat.rs:360; ts src/chat.ts:347
+- `chat.title`: rs src-tauri/src/chat.rs:360; ts src/chat.ts:350
 - `debug.window_title`: rs src-tauri/src/debug_view.rs:104
 - `mate.explain_question`: rs src-tauri/src/explain.rs:315
 - `open.app_browser`: rs crates/mm-core/src/matescript/open.rs:40

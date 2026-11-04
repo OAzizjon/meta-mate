@@ -116,7 +116,10 @@ root.append(header, logWrap, status, form);
 const mate = mountRobot(emptyMate);
 mate.setMood("calm");
 mate.setState("idle");
-mate.setSize("L");
+// The empty state shrinks in a short window (chat.html): M fits there, L does not.
+const sizeMate = (): void => mate.setSize(window.innerHeight <= 640 ? "M" : "L");
+sizeMate();
+window.addEventListener("resize", sizeMate);
 
 let messages: Message[] = [];
 let ready = false;
