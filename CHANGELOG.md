@@ -8,6 +8,7 @@ This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.
 
 ### Added
 
+- The code is licensed under Apache-2.0 (D88).
 - A note from family: whoever sets Mate up may leave one line; Mate says it after a finished lesson and it is printed on the keepsake card (D85).
 - `mm preflight` answers "can we submit right now?"; `mm ship` runs the owner's submission steps, each asked first.
 

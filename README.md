@@ -236,4 +236,4 @@ This repository keeps the project's working notes as they were written: the deci
 
 ### License
 
-License: chosen before the repository goes public (see the Links). The MMS-TTS model weights are licensed **CC-BY-NC-4.0**; see [architecture notes](docs/architecture.md) for details.
+The code is licensed under [Apache-2.0](LICENSE). Model weights keep their own licenses: the MMS-TTS weights are **CC-BY-NC-4.0**; see the [architecture notes](docs/architecture.md).
