@@ -4,6 +4,17 @@ All notable changes to MetaMate are recorded in this file.
 
 This changelog follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- The demo video: 2:00, the maker's pieces short and in split screen, Mate's real answers full screen, a quiet original music bed, retimed motion graphics, and the noise bursts gone (`mm cut`: fixed gain, split screen, push-in, soft row edges; `tools/synth_music.py`).
+- A lesson's tag stands only when that very element is at its target's centre (Gemini).
+
+### Known
+
+- The first question in a Chrome or Edge window still asks for F8 or a click on Mate, once per window: the exception in 0.2.3 and 0.2.4 does not take effect in a real window, because the walk does not list the pane it looks for (D93). It fails closed, so nothing leaks; it is one extra step.
+
 ## [0.2.4] - 2026-11-05
 
 ### Fixed

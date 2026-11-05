@@ -193,6 +193,11 @@ impl UiSnapshot {
 
     /// Browser chrome is never evidence that a canvas page can be inspected.
     pub fn flat(&self) -> bool {
+        self.flat_reason().is_some()
+    }
+
+    /// Why the window counts as flat, for the trace: ids, types and counts, never names.
+    pub fn flat_reason(&self) -> Option<String> {
         let mut chrome: BTreeSet<&str> = self
             .elements
             .iter()
@@ -274,7 +279,7 @@ impl UiSnapshot {
         // alone keeps empty, nameless helper panes (scrims, overlay views) the size of the
         // page beside it: with the page read out, those hide nothing. Anything else fails
         // closed: a canvas inside the page, a named pane, an unknown host, an unread page.
-        let opaque = self.elements.iter().any(|e| {
+        let opaque_element = |e: &&UiElement| {
             !e.offscreen
                 && matches!(e.control_type.as_str(), "Custom" | "Pane" | "Image")
                 && !parents.contains(e.id.as_str())
@@ -284,8 +289,18 @@ impl UiSnapshot {
                     && e.control_type == "Pane"
                     && e.name.trim().is_empty()
                     && !page.contains(e.id.as_str()))
-        });
-        opaque || (content < 8 && !reads_content)
+        };
+        if let Some(e) = self.elements.iter().find(opaque_element) {
+            return Some(format!(
+                "opaque {} {} (named: {}, in page: {}, host: {chromium_host}, reads page: {reads_page}, documents: {})",
+                e.id,
+                e.control_type,
+                !e.name.trim().is_empty(),
+                page.contains(e.id.as_str()),
+                documents.len()
+            ));
+        }
+        (content < 8 && !reads_content).then(|| format!("thin: {content} readable elements"))
     }
 
     /// Ids whose pixels and names must be hidden, including revealed password siblings

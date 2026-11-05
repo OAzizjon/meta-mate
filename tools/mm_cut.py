@@ -104,6 +104,8 @@ def load_list(text):
             # number() refuses a negative height, which would draw the caption off the picture.
             if 'y' in cap and (number(cap['y'], 'caption y') > 1):
                 raise ValueError('caption y is a share of the height, 0 to 1')
+            if 'x' in cap and (number(cap['x'], 'caption x') > 1):
+                raise ValueError('caption x is a share of the width, 0 to 1')
             if cap['for'] <= 0:
                 raise ValueError('caption for must be positive')
     return rows
@@ -319,7 +321,7 @@ def build_graph(timeline, video, draft=False, music=None, metadata=None, burn=Fa
             font = drawtext_escape('C:/Windows/Fonts/arialbd.ttf')
             chain += (f',drawtext=fontfile={font}:text={drawtext_escape(cap["text"])}:expansion=none:'
                       f'fontsize={32 if draft else 48}:fontcolor=white:box=1:boxcolor=black@0.7:boxborderw=12:'
-                      f'x=(w-text_w)/2:y=h*{cap.get("y", 0.72)}:enable=gte(t,{cap["at"]})*lt(t,{cap["at"] + cap["for"]})')
+                      f'x=w*{cap.get("x", 0.5)}-text_w/2:y=h*{cap.get("y", 0.72)}:enable=gte(t,{cap["at"]})*lt(t,{cap["at"] + cap["for"]})')
         # Commas in enable expressions belong to the expression, not the graph.
         chain = chain.replace('gte(t,', 'gte(t\\,').replace(')*lt(t,', ')*lt(t\\,')
         graph.append(chain + f'[v{i}]')

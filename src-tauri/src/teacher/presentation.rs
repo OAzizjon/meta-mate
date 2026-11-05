@@ -109,7 +109,13 @@ pub(super) fn targets_for(look: &Look, response: &mut ParsedResponse) -> Vec<Opt
             && element.enabled
             && !element.offscreen
             && frame.region().contains(rect.center())
-            && !overlaps_any(rect, &look.painted))
+            && !overlaps_any(rect, &look.painted)
+            // A wide row may hold another control at its centre: "Do it for me" presses the
+            // centre, so the tag stands only when that is this very element.
+            && look
+                .snapshot
+                .target_at(rect.center())
+                .is_some_and(|hit| hit.id == id))
         .then_some(rect)
     });
     let at = |x: i64, y: i64| {

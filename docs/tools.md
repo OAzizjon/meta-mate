@@ -132,3 +132,5 @@ Submit with `team.py submit <agent> <mode> -C <root> --prompt "..."` (lead only)
 | Unused Rust dependencies | `cargo machete` |
 | Everything left behind by refactors | `mm legacy` (`--only ts`, `--strict` for a gate) |
 | What a window looks like now | `mm shot home` (`mm shot mate --state thinking\|answer\|consent\|warning`) |
+
+`python tools/synth_music.py OUT.wav [--seconds N]`: the video's quiet original music bed, standard library only; pass it to `mm cut --music`.

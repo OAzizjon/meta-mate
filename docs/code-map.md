@@ -193,8 +193,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - crates/mm-platform/src/target.rs — The user's window a request is about, as opaque ids (no Win32 types).
   TargetWindow:6
 - crates/mm-platform/src/ui_snapshot.rs — A flat snapshot of the target's UI Automation tree, as in `fixtures/uia/*.json`.
-  is_interactive_type:29 UiSnapshot:35 UiSnapshot::unclassifiable:167 UiSnapshot::ambiguous_private_edits:172 UiSnapshot::flat:195 UiSnapshot::hidden_ids:293 UiSnapshot::element:366 UiSnapshot::element_at:373
-  UiSnapshot::target_at:392 mostly_inside:402 same_hidden:417 UiElement:446 UiElement::private_label:470
+  is_interactive_type:29 UiSnapshot:35 UiSnapshot::unclassifiable:167 UiSnapshot::ambiguous_private_edits:172 UiSnapshot::flat:195 UiSnapshot::flat_reason:200 UiSnapshot::hidden_ids:308 UiSnapshot::element:381
+  UiSnapshot::element_at:388 UiSnapshot::target_at:407 mostly_inside:417 same_hidden:432 UiElement:461 UiElement::private_label:485
   inline tests (28)
 - crates/mm-platform/src/ui_tree.rs — Reading the target's UI Automation tree.
   UiTree:10
@@ -339,7 +339,7 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   inline tests (3)
 - src-tauri/src/screen.rs — "Where's the button?" (docs/plan.md Day 4), the part between the platform and the model: one look at the target window turned into what the model may see and point at, and its answer turned back into …
   MAX_EDGE:21 MAX_LISTED:25 Look:28 LookError:56 Look::resolve_live:190 Look::scan:230 Look::parser_settings:284 Look::resolve:298
-  LookFailure:361 LookFailure::line:395 take_look_at:536 consent_clicked:604 confirm_look:612 confirm_question:630 probe:1030
+  LookFailure:361 LookFailure::line:395 take_look_at:536 consent_clicked:604 confirm_look:612 confirm_question:630 probe:1037
   inline tests (32)
 - src-tauri/src/selftest.rs — Spike S1 without a person at the desk: run with `--s1-selftest`.
   spawn:41 spawn_control:151
@@ -360,8 +360,8 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
 - src-tauri/src/teacher/lesson.rs — One lesson for `question`.
   teach:41 screenshot_wait_expired:712 input_staleness:717
 - src-tauri/src/teacher/presentation.rs — Check the whole snapshot ancestry, including the window's title, before offering.
-  pressable:4 PRAISE:60 line_key:67 targets_for:97 lesson_session:159 fell_back:171 outline_unlisted:177 wav_duration:236
-  speak:243 family_note_line:282 speak_family_note:290 finish:306
+  pressable:4 PRAISE:60 line_key:67 targets_for:97 lesson_session:165 fell_back:177 outline_unlisted:183 wav_duration:242
+  speak:249 family_note_line:288 speak_family_note:296 finish:312
 - src-tauri/src/teacher/tests.rs
 - src-tauri/src/updater.rs — Minimal, safe self-update for Windows (NSIS installer in `currentUser` mode).
   CURRENT_VERSION:20 DEFAULT_UPDATE_URL:21 ALLOWED_URL_PREFIX:22 MANIFEST_MAX_BYTES:23 INSTALLER_MAX_BYTES:24 NOTE_MAX_CHARS:25 UpdateNotes:37 UpdateManifest:46
@@ -674,9 +674,9 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   dotted:253 py_imports_module:257 py_entries:275 cover:304 render:324 no_tests_text:333 main:342
   tests: tools/tests/test_mm_cover.py (9)
 - tools/mm_cut.py — Assemble the demo with the standard library and ffmpeg only.
-  media_path:34 load_list:43 check_crop:112 resolve_sources:121 number:138 start_times:144 validate:168 warnings:187
-  drawtext_escape:214 look_filters:220 after_filters:231 clip_chain:246 subtitle_lines:254 write_srt:276 build_graph:284 srt:378
-  probe:392 web_command:400 main:410
+  media_path:34 load_list:43 check_crop:114 resolve_sources:123 number:140 start_times:146 validate:170 warnings:189
+  drawtext_escape:216 look_filters:222 after_filters:233 clip_chain:248 subtitle_lines:256 write_srt:278 build_graph:286 srt:380
+  probe:394 web_command:402 main:412
   tests: tools/tests/test_mm_cut.py (37)
 - tools/mm_difflint.py — mm difflint [PATCH|-]
   AddedLine:29 FileDiff:36 Finding:43 is_secret:70 parse_diff:76 lint:190 working_diff:266 main:284
@@ -750,6 +750,10 @@ Each file with its purpose, then its public items: Rust `pub` (and `pub(crate)`)
   silence:29 mix_into:33 envelope:43 tone:56 triangle_harmonics:77 db:87 Biquad:91 pink_noise:119
   band:133 finish:139 cue_ping:152 cue_success:158 cue_oops:165 cue_think:172 cue_listen:199 cue_done:204
   cue_whoosh:212 cue_pop:234 cue_sleep:246 cue_wake:252 write_wav:264 main:274
+- tools/synth_music.py — Render a quiet, warm background music track (WAV) for the product video.
+  midi_hz:43 sine_buf:47 soften_edges:62 render_note:69 mix_note:92 apply_fades:110 comb:121 render:127
+  main:192
+  tests: tools/tests/test_synth_music.py (4)
 
 ### server/metamate_proxy
 
@@ -988,7 +992,7 @@ Keys of locales/en.json: Rust uses (rs) and keys without literal use are listed 
 - `settings.key_rightAlt`: rs src-tauri/src/settings.rs:144; ts src/settings/choices-view.ts:33, src/settings/ptt-key.ts:7
 - `settings.keycap_ctrl`: rs src-tauri/src/settings.rs:143; ts src/settings/ptt-key.ts:11
 - `signin.guest_none`: rs src-tauri/src/signin.rs:219; ts src/signin.ts:113
-- `teacher.family_note`: rs src-tauri/src/teacher/presentation.rs:285
+- `teacher.family_note`: rs src-tauri/src/teacher/presentation.rs:291
 - `tray.chat`: rs src-tauri/src/lib.rs:288; ts src/mate-menu.ts:5
 - `tray.hide_hour`: rs src-tauri/src/lib.rs:375,443; ts src/mate-menu.ts:9
 - `tray.open_home`: rs src-tauri/src/lib.rs:287
@@ -1042,6 +1046,6 @@ Counts include standalone test files and source files with inline tests. Rust `#
 | crates/mm-win32 | 63 | 12 |
 | src-tauri | 223 | 21 |
 | src | 405 | 40 |
-| tools | 560 | 31 |
+| tools | 564 | 32 |
 | server | 105 | 5 |
 | tts | 27 | 2 |

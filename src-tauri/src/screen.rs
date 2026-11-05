@@ -827,6 +827,13 @@ fn look_once(
     // Check the actual walk before scan results can make a flat tree look complete.
     // Ambiguous private edits need no consent: they are always painted (`hidden_ids`).
     let needs_consent = target.requires_consent || snapshot.flat();
+    if needs_consent && crate::voice::trace_on() {
+        eprintln!(
+            "look: asks; remote or foreign: {}, flat: {:?}",
+            target.requires_consent,
+            snapshot.flat_reason()
+        );
+    }
     if !consent && needs_consent {
         if !wanted() || !confirm(target.window) || !wanted() {
             return Err(LookFailure::Cancelled);

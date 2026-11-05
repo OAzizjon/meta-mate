@@ -30,7 +30,7 @@ Mate lights the button. Your parent clicks it.
 - SAM 3.1 — experimental outlines of controls where the accessibility tree has nothing.
 
 **For judges**
-Install from the site or the GitHub release, then click "Try without signing in" (12 messages an hour). Sign in with Google to see the full keepsake card. Developer mode in Settings, under "For judges and developers", opens "Under the hood".
+Install from the site or the GitHub release, then click "Try without signing in" (12 messages an hour). In a browser, Mate asks once per window before he looks: press F8 (Fn + F8 on a laptop) or click him. Sign in with Google to see the full keepsake card. Developer mode in Settings, under "For judges and developers", opens "Under the hood".
 
 **Links**
 - Video: https://meta-mate.stream/video

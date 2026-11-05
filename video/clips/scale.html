@@ -1,14 +1,16 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="clip" content="duration=7.0;fps=60;width=1920;height=1080;alpha=0">
+<meta name="clip" content="duration=11.5;fps=60;width=1920;height=1080;alpha=0">
 <meta charset="utf-8">
 <title>scale</title>
 <link rel="stylesheet" href="_kit.css">
 <style>
-  /* Scale, 7.0 s: "Built to grow." slams at 0 s; four comic tiles flip in 0.4 s apart (0.5 s, 0.9 s,
-     1.3 s, 1.7 s), each with its own animated comic illustration. All motion finishes by 5.5 s so
-     the last 1.5 s holds cleanly at rest. */
+  /* Scale, 11.5 s, paced to V6: "Built to grow." slams at 0 s. "A son or daughter installs me once"
+     (0 s): tile 3 flips in at 0.3 s. "A new app needs no new code where Windows lists its buttons"
+     (3.0 s): tile 1 at 3.0 s, its beam hops over the apps 3.45-7.55 s; tile 4, which no line names,
+     flips in mid-sentence at 5.6 s. "Where it doesn't, I say so" (8.0 s): the apps the beam never
+     lit dim and tile 2 (Mate speaking) flips in at 8.0 s. The chips shine 9.75-11.42 s. */
   .scene { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--paper); }
   .full { position: absolute; inset: 0; }
   .bleed { position: absolute; inset: -24px; }
@@ -35,10 +37,12 @@
     animation: slam 0.3s var(--snap) 0s both;
   }
 
-  /* 2x2 grid of comic tiles flipping in 0.4 s apart. */
+  /* 2x2 grid of comic tiles, each flipping in on its words. Scaled to 0.9 so it ends at y 958:
+     the bottom 10 % is for subtitles. */
   .grid {
     position: absolute; left: 88px; top: 168px; width: 1744px; height: 868px;
     perspective: 1400px;
+    transform: scale(0.9); transform-origin: 50% 0;
   }
   .tile {
     position: absolute; width: 848px; height: 414px; box-sizing: border-box;
@@ -46,10 +50,10 @@
     transform-origin: 50% 0%;
     animation: tile-flip 0.48s var(--pop) var(--t) both;
   }
-  .tile-1 { left: 0; top: 0; --t: 0.5s; background: #fffdf7; }
-  .tile-2 { left: 896px; top: 0; --t: 0.9s; background: #fffdf7; }
-  .tile-3 { left: 0; top: 454px; --t: 1.3s; background: #fffdf7; }
-  .tile-4 { left: 896px; top: 454px; --t: 1.7s; background: #fffdf7; }
+  .tile-1 { left: 0; top: 0; --t: 3.0s; background: #fffdf7; }
+  .tile-2 { left: 896px; top: 0; --t: 8.0s; background: #fffdf7; }
+  .tile-3 { left: 0; top: 454px; --t: 0.3s; background: #fffdf7; }
+  .tile-4 { left: 896px; top: 454px; --t: 5.6s; background: #fffdf7; }
 
   .tile-head {
     display: flex; align-items: center; gap: 14px; margin-bottom: 12px;
@@ -69,10 +73,10 @@
   .t1-mate { position: absolute; left: -12px; top: 26px; width: 240px; height: 222px; }
   .t1-mate .layer { position: absolute; inset: 0; transform-origin: 42.3% 86.7%; }
   .t1-mate svg { display: block; }
-  .t1-m-pop { animation: mate-pop 0.32s linear 0.72s both; }
-  .t1-m-hop { animation: hop 0.34s linear 4.6s both; }
-  #t1-mate-a { animation: fade-out 0.06s linear 4.68s both; }
-  #t1-mate-b { animation: fade-in 0.08s linear 4.62s both; }
+  .t1-m-pop { animation: mate-pop 0.32s linear 3.22s both; }
+  .t1-m-hop { animation: hop 0.34s linear 7.1s both; }
+  #t1-mate-a { animation: fade-out 0.06s linear 7.18s both; }
+  #t1-mate-b { animation: fade-in 0.08s linear 7.12s both; }
 
   .app-grid {
     position: absolute; left: 264px; top: 4px; width: 516px; height: 288px;
@@ -98,19 +102,21 @@
     position: absolute; right: 10px; bottom: 10px; width: 42px; height: 22px;
     border: 3px solid var(--ink); border-radius: 8px; background: var(--btn, #ffd866);
   }
-  .win-lit-1 { animation: win-glow 0.75s ease-out 1.05s both; }
-  .win-lit-2 { animation: win-glow 0.75s ease-out 1.80s both; }
-  .win-lit-3 { animation: win-glow 0.75s ease-out 2.55s both; }
-  .win-lit-4 { animation: win-glow 0.75s ease-out 3.30s both; }
-  .win-lit-5 { animation: win-glow 0.75s ease-out 4.00s both; }
-  .win-lit-final { animation: win-glow-hold 0.5s var(--pop) 4.65s both; }
+  .win-lit-1 { animation: win-glow 0.75s ease-out 3.55s both; }
+  .win-lit-2 { animation: win-glow 0.75s ease-out 4.30s both; }
+  .win-lit-3 { animation: win-glow 0.75s ease-out 5.05s both; }
+  .win-lit-4 { animation: win-glow 0.75s ease-out 5.80s both; }
+  .win-lit-5 { animation: win-glow 0.75s ease-out 6.50s both; }
+  .win-lit-final { animation: win-glow-hold 0.5s var(--pop) 7.15s both; }
+  /* "Where it doesn't": the windows the beam never lit dim. */
+  .win-unread { animation: win-dim 0.4s ease-out 8.0s both; }
 
   /* Mate's flashlight beam hopping across the 9-window grid and holding on window #6. */
   .t1-beam {
     position: absolute; left: 196px; top: 68px; width: 480px; height: 110px;
     transform-origin: 0 50%; pointer-events: none;
     filter: drop-shadow(0 0 10px rgb(255 214 90 / 0.85));
-    animation: beam-hop 4.1s var(--snap) 0.95s both;
+    animation: beam-hop 4.1s var(--snap) 3.45s both;
   }
   .t1-beam i {
     position: absolute; inset: 0;
@@ -139,25 +145,25 @@
     padding: 10px 20px; border: 4px solid var(--ink); border-radius: 16px;
     background: var(--bulb-soft); box-shadow: 5px 5px 0 var(--ink);
     text-align: center; font-size: 32px; font-weight: 800; line-height: 1.2; color: var(--ink);
-    animation: rise-in 0.34s var(--pop) 2.75s both;
+    animation: rise-in 0.34s var(--pop) 9.2s both;
   }
 
   /* --- Tile 3: Install once, no account (download arrow into laptop + check mark) --- */
   .t3-stage { position: relative; width: 792px; height: 300px; }
   .laptop-wrap {
     position: absolute; left: 56px; top: 28px; width: 380px; height: 248px;
-    animation: pop-in 0.36s var(--pop) 1.55s both;
+    animation: pop-in 0.36s var(--pop) 0.55s both;
   }
   .dl-arrow {
     position: absolute; left: 198px; top: 18px; width: 96px; height: 118px;
-    animation: arrow-drop 0.55s var(--pop) 1.95s both;
+    animation: arrow-drop 0.55s var(--pop) 0.95s both;
   }
   .check-badge {
     position: absolute; left: 458px; top: 36px; width: 300px; height: 140px;
     border: 5px solid var(--ink); border-radius: 22px; background: #dff5d8;
     box-shadow: 7px 7px 0 var(--ink);
     display: flex; align-items: center; gap: 18px; padding: 0 22px; box-sizing: border-box;
-    animation: pop-in 0.38s var(--pop) 2.45s both;
+    animation: pop-in 0.38s var(--pop) 1.45s both;
   }
   .check-circle {
     width: 78px; height: 78px; border-radius: 50%; border: 4px solid var(--ink);
@@ -173,7 +179,7 @@
     border: 4px solid var(--ink); border-radius: 16px; background: var(--bulb-soft);
     box-shadow: 5px 5px 0 var(--ink); text-align: center;
     font-size: 25px; font-weight: 800; line-height: 1.15; color: var(--ink);
-    animation: rise-in 0.34s var(--pop) 2.85s both;
+    animation: rise-in 0.34s var(--pop) 1.85s both;
   }
 
   /* --- Tile 4: Seven Meta models (seven small colored chips) --- */
@@ -186,7 +192,7 @@
     padding: 8px 18px 10px; border: 4px solid var(--ink); border-radius: 18px;
     background: var(--c); box-shadow: 5px 5px 0 var(--ink);
     font-size: 27px; line-height: 1.15; color: var(--ink); white-space: nowrap;
-    animation: pop-in 0.32s var(--pop) var(--ct) both, chip-shine 0.65s ease-out calc(var(--ct) + 1.8s) both;
+    animation: pop-in 0.32s var(--pop) var(--ct) both, chip-shine 0.65s ease-out calc(var(--ct) + 3.8s) both;
   }
 
   @keyframes tile-flip {
@@ -218,6 +224,10 @@
   @keyframes win-glow {
     0%, 100% { box-shadow: 5px 5px 0 var(--ink); transform: scale(1); }
     40% { box-shadow: 5px 5px 0 var(--ink), 0 0 0 8px var(--bulb), 0 0 24px 8px rgb(255 205 60 / 0.8); transform: scale(1.06); }
+  }
+  @keyframes win-dim {
+    from { opacity: 1; filter: grayscale(0); }
+    to { opacity: 0.45; filter: grayscale(1); }
   }
   @keyframes win-glow-hold {
     0% { box-shadow: 5px 5px 0 var(--ink); transform: scale(1); }
@@ -262,11 +272,11 @@
             <div class="mini-win win-lit-1" style="--bar: #ffd8cf; --accent: #e59888; --btn: #ffcd3c"><i style="left: 12px; top: 32px; width: 65%"></i><i style="left: 12px; top: 50px; width: 42%"></i><div class="btn-dot"></div></div>
             <div class="mini-win win-lit-2" style="--bar: #d6ecff; --accent: #7aaed6; --btn: #8ff5e9"><i style="left: 12px; top: 32px; width: 72%"></i><i style="left: 12px; top: 50px; width: 50%"></i><div class="btn-dot"></div></div>
             <div class="mini-win win-lit-4" style="--bar: #dff5d8; --accent: #7ec26b; --btn: #ffd866"><i style="left: 12px; top: 32px; width: 55%"></i><i style="left: 12px; top: 50px; width: 74%"></i><div class="btn-dot"></div></div>
-            <div class="mini-win" style="--bar: #fff0b8; --accent: #d9b44a; --btn: #ffb3a7"><i style="left: 12px; top: 32px; width: 68%"></i><i style="left: 12px; top: 50px; width: 38%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win win-unread" style="--bar: #fff0b8; --accent: #d9b44a; --btn: #ffb3a7"><i style="left: 12px; top: 32px; width: 68%"></i><i style="left: 12px; top: 50px; width: 38%"></i><div class="btn-dot"></div></div>
             <div class="mini-win win-lit-3" style="--bar: #e8dcff; --accent: #a28ad4; --btn: #ffd866"><i style="left: 12px; top: 32px; width: 48%"></i><i style="left: 12px; top: 50px; width: 66%"></i><div class="btn-dot"></div></div>
             <div class="mini-win win-lit-final" style="--bar: #d3f3ee; --accent: #5cb8aa; --btn: #ffcd3c"><i style="left: 12px; top: 32px; width: 70%"></i><i style="left: 12px; top: 50px; width: 45%"></i><div class="btn-dot"></div></div>
-            <div class="mini-win" style="--bar: #ffe2c4; --accent: #d99b66; --btn: #8ff5e9"><i style="left: 12px; top: 32px; width: 60%"></i><i style="left: 12px; top: 50px; width: 52%"></i><div class="btn-dot"></div></div>
-            <div class="mini-win" style="--bar: #f5d8e6; --accent: #c982a6; --btn: #ffd866"><i style="left: 12px; top: 32px; width: 76%"></i><i style="left: 12px; top: 50px; width: 40%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win win-unread" style="--bar: #ffe2c4; --accent: #d99b66; --btn: #8ff5e9"><i style="left: 12px; top: 32px; width: 60%"></i><i style="left: 12px; top: 50px; width: 52%"></i><div class="btn-dot"></div></div>
+            <div class="mini-win win-unread" style="--bar: #f5d8e6; --accent: #c982a6; --btn: #ffd866"><i style="left: 12px; top: 32px; width: 76%"></i><i style="left: 12px; top: 50px; width: 40%"></i><div class="btn-dot"></div></div>
             <div class="mini-win win-lit-5" style="--bar: #dce7f7; --accent: #7b96bd; --btn: #ffcd3c"><i style="left: 12px; top: 32px; width: 58%"></i><i style="left: 12px; top: 50px; width: 44%"></i><div class="btn-dot"></div></div>
           </div>
           <div class="t1-mate">
@@ -286,8 +296,8 @@
         </div>
         <div class="t2-stage">
           <div class="balloons">
-            <div class="balloon comic" style="left: 120px; top: 60px; --bg: #ffd8cf; --bt: 1.25s">Hello</div>
-            <div class="balloon comic" style="left: 440px; top: 60px; --bg: #d6ecff; --bt: 1.48s">Привет</div>
+            <div class="balloon comic" style="left: 120px; top: 60px; --bg: #ffd8cf; --bt: 8.35s">Hello</div>
+            <div class="balloon comic" style="left: 440px; top: 60px; --bg: #d6ecff; --bt: 8.58s">Привет</div>
           </div>
           <div class="t2-caption comic">The speech model hears 25 languages. Mate ships two.</div>
         </div>
@@ -334,13 +344,13 @@
           <div class="tile-title comic">Seven Meta models</div>
         </div>
         <div class="t4-stage">
-          <div class="chip comic" style="--c: #ffd8cf; --ct: 2.05s">Muse Spark 1.3</div>
-          <div class="chip comic" style="--c: #d6ecff; --ct: 2.22s">Muse Wonder 1.0</div>
-          <div class="chip comic" style="--c: #dff5d8; --ct: 2.39s">Muse Voice Transcribe</div>
-          <div class="chip comic" style="--c: #fff0b8; --ct: 2.56s">SAM 3.1</div>
-          <div class="chip comic" style="--c: #e8dcff; --ct: 2.73s">Muse Glimmer 30B</div>
-          <div class="chip comic" style="--c: #ffe2c4; --ct: 2.90s">Muse Image</div>
-          <div class="chip comic" style="--c: #d3f3ee; --ct: 3.07s">MMS-TTS</div>
+          <div class="chip comic" style="--c: #ffd8cf; --ct: 5.95s">Muse Spark 1.3</div>
+          <div class="chip comic" style="--c: #d6ecff; --ct: 6.12s">Muse Wonder 1.0</div>
+          <div class="chip comic" style="--c: #dff5d8; --ct: 6.29s">Muse Voice Transcribe</div>
+          <div class="chip comic" style="--c: #fff0b8; --ct: 6.46s">SAM 3.1</div>
+          <div class="chip comic" style="--c: #e8dcff; --ct: 6.63s">Muse Glimmer 30B</div>
+          <div class="chip comic" style="--c: #ffe2c4; --ct: 6.80s">Muse Image</div>
+          <div class="chip comic" style="--c: #d3f3ee; --ct: 6.97s">MMS-TTS</div>
         </div>
       </div>
     </div>

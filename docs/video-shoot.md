@@ -1,5 +1,7 @@
 # Video shoot: final night (4-5 November 2026)
 
+**What shipped (5 November):** a 2:00 cut in `video/cut.json`, not the table below: the maker's two pieces are short and in split screen, screen takes were recorded by a script on the installed app with the question typed and captioned (D90), and the third camera piece became Mate's own closing line. No lesson with clicks, Under the hood or model picker take made it in time.
+
 The final plan for the video, 2:56 long (the limit is 3:00). It replaces the older cut in
 [video-edit.md](video-edit.md); the recording checklist stays in [video.md](video.md). Built from
 four Muse Wonder judge reviews (Impact, Use of Meta AI tooling, Technical depth, Demo) and checked

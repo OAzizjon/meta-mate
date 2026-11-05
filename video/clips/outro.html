@@ -1,15 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="clip" content="duration=5.0;fps=60;width=1920;height=1080;alpha=0">
+<meta name="clip" content="duration=12;fps=60;width=1920;height=1080;alpha=0">
 <meta charset="utf-8">
 <title>outro</title>
 <link rel="stylesheet" href="_kit.css">
 <style>
-  /* Outro, 5.0 s: the cold open's bookend. Mate in the centre with a breathing glow, the tagline
-     in the cold open's lettering, the site with a hand-drawn underline at 2.5 s, "Hold Ctrl and
-     talk." under it, and a halftone vignette that closes in slightly at 4.5 s. It is the last frame
-     of the video, so it never fades to black. Mate is 420 px wide; his head centre is at 960,173. */
+  /* Outro, 12 s, timed to V7: the cold open's bookend. Mate pops in with a breathing glow on "One
+     installer"; "Hold Ctrl and talk." rises on "No account to try" (1.6 s) and its Ctrl key is held
+     down; Mate hops and greets in both languages on "English and Russian today" (3.3-5.5 s); the
+     site with a hand-drawn underline on "Try me at" (5.5 s); the tagline in the cold open's
+     lettering on "I light the button" (8.3 s, the glow flares) and "You click it" (10.0 s); a
+     halftone vignette closes in slightly at 11.0 s. It is the last frame of the video, so it never
+     fades to black. Mate is 420 px wide; his head centre is at 960,173. */
   .scene { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--bulb); }
   .full { position: absolute; inset: 0; }
   .bleed { position: absolute; inset: -24px; } /* oversized so the shake never shows an edge */
@@ -22,46 +25,65 @@
   }
 
   .glow { position: absolute; left: 530px; top: -257px; width: 860px; height: 860px; animation: glow-in 0.4s var(--snap) 0s both; }
-  /* 1.15 s breaths from 0.4 s: exactly four by 5.0 s, so the last frame is at rest. */
+  /* 1.15 s breaths from 0.4 s: ten end at 11.9 s, so the last frame is at rest. */
   .glow-breathe {
     position: absolute; inset: 0; border-radius: 50%;
     background: radial-gradient(circle, rgb(255 252 230 / 0.95) 0%, rgb(255 236 160 / 0.7) 26%, rgb(255 214 90 / 0) 68%);
-    animation: glow-breathe 1.15s ease-in-out 0.4s infinite both;
+    animation: glow-breathe 1.15s ease-in-out 0.4s 10 both;
   }
+  .glow-flare { position: absolute; inset: 0; animation: glow-flare 0.7s ease-out 8.3s both; }
 
   .mate { position: absolute; left: 782px; top: 18px; width: 420px; height: 388px; }
   .layer { position: absolute; inset: 0; transform-origin: 42.3% 86.7%; } /* origin = his base */
   .mate svg { display: block; }
   .m-pop { animation: mate-pop 0.36s linear 0s both; }
-  .m-hop { animation: hop 0.36s linear 2.5s both; }
-  .m-breathe { animation: mate-breathe 1.15s ease-in-out 0.4s infinite both; }
-  #mate-a { animation: fade-out 0.06s linear 2.62s both; }
-  #mate-b { animation: fade-in 0.1s linear 2.52s both; }
+  .m-hop { animation: hop 0.36s linear 3.3s both; }
+  .m-breathe { animation: mate-breathe 1.15s ease-in-out 0.4s 10 both; }
+  #mate-a { animation: fade-out 0.06s linear 3.42s both; }
+  #mate-b { animation: fade-in 0.1s linear 3.32s both; }
+
+  /* Greetings beside his head on "English and Russian today", gone before the site lands. */
+  .say {
+    position: absolute; top: 112px; padding: 8px 30px 14px; white-space: nowrap;
+    border: 5px solid var(--ink); border-radius: 30px; background: var(--white); box-shadow: 7px 7px 0 var(--ink);
+    font-size: 60px; line-height: 1.2; color: var(--ink);
+    animation: pop-in 0.34s var(--pop) var(--t) both, say-out 0.3s ease-in 5.2s forwards;
+  }
+  .say::after {
+    content: ""; position: absolute; bottom: -18px; width: 24px; height: 18px; background: var(--white);
+    border-left: 5px solid var(--ink); border-right: 5px solid var(--ink);
+  }
+  .say-en { right: 1230px; --t: 3.45s; }
+  .say-en::after { right: 34px; clip-path: polygon(0 0, 100% 0, 65% 100%); }
+  .say-ru { left: 1230px; --t: 3.75s; }
+  .say-ru::after { left: 34px; clip-path: polygon(0 0, 100% 0, 35% 100%); }
 
   /* Same lettering as the cold open. */
   .line { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; line-height: 1.2; }
   .line1 { top: 372px; font-size: 96px; color: #fff; -webkit-text-stroke: 10px var(--ink); filter: drop-shadow(7px 7px 0 var(--ink)); }
   .line1 .w { display: inline-block; animation: word-snap 0.22s var(--snap) var(--t) both; }
   .line2 { top: 482px; font-size: 124px; color: var(--ink); -webkit-text-stroke: 14px #fff; filter: drop-shadow(8px 8px 0 var(--ink)); }
-  .line2 .slam-in { display: inline-block; animation: slam 0.32s var(--snap) 1.4s both; }
+  .line2 .slam-in { display: inline-block; animation: slam 0.32s var(--snap) 10.0s both; }
 
   .url-row { position: absolute; left: 0; right: 0; top: 648px; display: flex; justify-content: center; }
   .url {
     font-size: 112px; line-height: 1.2; white-space: nowrap; color: var(--ink); text-shadow: 5px 5px 0 var(--bulb-soft);
-    animation: url-in 0.4s linear 2.5s both;
+    animation: url-in 0.4s linear 5.5s both, nudge 0.6s ease-in-out 7.1s both;
   }
   /* Hand-drawn underline: pathLength 1, dash 1 + gap 2, offset 1.01 (hidden) -> 0 (drawn). */
   .underline { position: absolute; left: 460px; top: 782px; overflow: visible; }
   .underline path {
     fill: none; stroke: var(--alarm); stroke-width: 14; stroke-linecap: round;
-    stroke-dasharray: 1 2; animation: draw 0.5s ease-in-out 2.82s both;
+    stroke-dasharray: 1 2; animation: draw 0.5s ease-in-out 5.82s both;
   }
 
-  .hint-row { position: absolute; left: 0; right: 0; top: 872px; display: flex; justify-content: center; }
-  .hint { font-size: 62px; line-height: 1.3; white-space: nowrap; color: var(--ink); animation: rise 0.34s var(--pop) 3.4s both; }
+  /* 860 px keeps the key and its shadow above y 972: the bottom 10 % is for subtitles. */
+  .hint-row { position: absolute; left: 0; right: 0; top: 860px; display: flex; justify-content: center; }
+  .hint { font-size: 62px; line-height: 1.3; white-space: nowrap; color: var(--ink); animation: rise 0.34s var(--pop) 1.6s both; }
   .key {
     display: inline-block; margin: 0 6px; padding: 0 22px 6px; line-height: 1.15;
     border: 5px solid var(--ink); border-radius: 16px; background: var(--white); box-shadow: 6px 6px 0 var(--ink);
+    animation: key-hold 1s ease-in-out 2.2s both;
   }
 
   /* Ink dots and a light tint at the edges only; the centre (all the text and Mate) stays clear. */
@@ -70,10 +92,10 @@
     background-size: 18px 18px, auto;
     -webkit-mask-image: radial-gradient(1150px 720px at 50% 48%, transparent 72%, #000 100%);
     mask-image: radial-gradient(1150px 720px at 50% 48%, transparent 72%, #000 100%);
-    animation: vignette 0.5s ease-out 4.5s both;
+    animation: vignette 0.5s ease-out 11.0s both;
   }
 
-  .shake { animation: shake 0.22s linear 1.56s both; }
+  .shake { animation: shake 0.22s linear 10.16s both; }
 
   @keyframes glow-in {
     0% { opacity: 0; transform: scale(0.2); }
@@ -125,6 +147,23 @@
     0% { opacity: 0; transform: scale(1.22); }
     100% { opacity: 1; transform: scale(1); }
   }
+  @keyframes glow-flare {
+    0%, 100% { transform: scale(1); }
+    35% { transform: scale(1.22); }
+  }
+  @keyframes say-out {
+    from { opacity: 1; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.6); }
+  }
+  @keyframes key-hold {
+    0%, 100% { transform: translate(0, 0); box-shadow: 6px 6px 0 var(--ink); }
+    15%, 85% { transform: translate(5px, 5px); box-shadow: 1px 1px 0 var(--ink); }
+  }
+  /* On the `scale` property, so it adds to url-in's transform. */
+  @keyframes nudge {
+    0%, 100% { scale: 1; }
+    45% { scale: 1.05; }
+  }
 </style>
 </head>
 <body>
@@ -134,7 +173,7 @@
     <div class="warm bleed"></div>
     <div class="dots halftone bleed"></div>
 
-    <div class="glow"><div class="glow-breathe"></div></div>
+    <div class="glow"><div class="glow-flare"><div class="glow-breathe"></div></div></div>
 
     <div class="mate">
       <div class="layer m-pop"><div class="layer m-hop"><div class="layer m-breathe">
@@ -143,11 +182,14 @@
       </div></div></div>
     </div>
 
+    <div class="say say-en comic">Hello</div>
+    <div class="say say-ru comic">Привет</div>
+
     <div class="line line1 shout">
-      <span class="w" style="--t: 0.5s">Mate</span>
-      <span class="w" style="--t: 0.64s">lights</span>
-      <span class="w" style="--t: 0.78s">the</span>
-      <span class="w" style="--t: 0.92s">button.</span>
+      <span class="w" style="--t: 8.3s">Mate</span>
+      <span class="w" style="--t: 8.44s">lights</span>
+      <span class="w" style="--t: 8.58s">the</span>
+      <span class="w" style="--t: 8.72s">button.</span>
     </div>
     <div class="line line2 shout"><span class="slam-in">You click it.</span></div>
 

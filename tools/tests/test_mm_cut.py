@@ -155,6 +155,7 @@ class CutTests(unittest.TestCase):
                     {'beside': [{'src': 'out/b.mp4', 'seconds': 1, 'crop': [1, 1]}]},
                     {'beside': [{'src': 'out/b.mp4', 'seconds': 1, 'look': 'camera'}]},
                     {'captions': [{'text': 'x', 'at': 0, 'for': 1, 'y': -0.5}]},
+                    {'captions': [{'text': 'x', 'at': 0, 'for': 1, 'x': 2}]},
                     {'captions': [{'text': 'x', 'at': 0, 'for': 1, 'y': 2}]}):
             with self.assertRaises(ValueError, msg=str(bad)):
                 cut.load_list(json.dumps([{**base, **bad}]))
@@ -165,6 +166,9 @@ class CutTests(unittest.TestCase):
         self.assertIn("zoompan=z='1+0.06*on/60'", graph)
         self.assertIn("x='(iw-iw/zoom)*0'", graph)
         self.assertIn('y=h*0.06', graph)
+        _, graph = self.graph_for({'id': 'a', 'src': 'out/a.mp4', 'seconds': 2,
+                                   'captions': [{'text': 'x', 'at': 0, 'for': 1, 'x': 0.2}]})
+        self.assertIn('x=w*0.2-text_w/2', graph)
 
     def test_strip_leaves_a_band_under_the_picture(self):
         self.assertIn('pad=iw/0.9:ih/0.9:(ow-iw)/2:0:color=0xFBF4E3', cut.after_filters({'strip': '0xFBF4E3'}, 1920, 1080, 2))
@@ -185,8 +189,7 @@ class CutTests(unittest.TestCase):
         rows = cut.load_list((cut.ROOT / 'video/cut.json').read_text(encoding='utf-8'))
         timeline = cut.start_times(rows)
         starts = {r['id']: s for r, s, _ in timeline}
-        order = [starts[n] for n in ('A', 'TH1', 'D', 'TH2', 'passwords-black',
-                                     'seven-models', 'scam-stamp', 'scale', 'end')]
+        order = [starts[n] for n in ('A', 'TH1', 'D', 'TH2', 'TH2-black', 'scam-stamp', 'scale', 'end')]
         self.assertEqual(order, sorted(order))
         self.assertLessEqual(sum(d for _, _, d in timeline), 180)
         self.assertLessEqual({r['voice'] for r in rows if 'voice' in r}, {f'V{i}.wav' for i in range(1, 8)})

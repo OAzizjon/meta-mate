@@ -1,16 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="clip" content="duration=3;fps=60;width=1920;height=1080;alpha=0">
+<meta name="clip" content="duration=8;fps=60;width=1920;height=1080;alpha=0">
 <link rel="stylesheet" href="_kit.css">
 <style>
+  /* Scam stamp, 8 s, timed to V5: the page pops in and its Pay button baits on "We measured it."
+     (0-3.7 s), a check sweeps the page twice (1.8-4.2 s), the stamp lands on "every scam" (4.5 s),
+     then the plate, the badge and a last wobble; the rays turn through the whole clip. */
   html, body { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hidden;
                background: var(--paper, #F6EFDF); }
   .stage { position: relative; width: 1920px; height: 1080px; overflow: hidden;
            font-family: var(--comic, "Comic Sans MS", "Comic Neue", cursive);
            color: var(--ink, #1F2A44); }
   .bg-dots { position: absolute; inset: 0; opacity: .55; }
-  .bg-rays { position: absolute; left: 260px; top: -180px; width: 1400px; height: 1400px; opacity: .35; }
+  /* 80 s for a full turn: 36 deg over the 8 s clip. */
+  .bg-rays { position: absolute; left: 260px; top: -180px; width: 1400px; height: 1400px; opacity: .35;
+             animation: spin 80s linear 0s both; }
 
   .popup { position: absolute; left: 480px; top: 230px; width: 960px; height: 620px;
            background: #FFFDF6; border: 8px solid var(--ink, #1F2A44); border-radius: 22px;
@@ -31,10 +36,17 @@
              background: var(--alarm, #E23B2E); color: #FFFDF6;
              border: 8px solid var(--ink, #1F2A44); border-radius: 20px;
              box-shadow: 10px 10px 0 var(--ink, #1F2A44);
-             font-size: 76px; font-weight: 900; line-height: 124px; text-align: center; }
+             font-size: 76px; font-weight: 900; line-height: 124px; text-align: center;
+             animation: bait .8s ease-in-out .5s 4 both; }
+
+  /* The check: a light band sweeping across the page, clipped to it. */
+  .scan { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; }
+  .scan i { position: absolute; left: 0; top: -40px; bottom: -40px; width: 240px;
+            background: linear-gradient(90deg, rgba(255, 211, 77, 0), rgba(255, 211, 77, .55) 50%, rgba(255, 211, 77, 0));
+            animation: scan-sweep 1.2s ease-in-out 1.8s 2 both; }
 
   .stamp-wrap { position: absolute; left: 510px; top: 420px; width: 900px; height: 240px;
-                animation: stamp-wobble .6s 2.4s both; }
+                animation: stamp-wobble .6s 6.6s both; }
   .stamp { width: 900px; height: 240px; box-sizing: border-box; white-space: nowrap;
            border: 12px solid var(--alarm, #E23B2E); border-radius: 18px;
            outline: 6px solid var(--alarm, #E23B2E); outline-offset: -30px;
@@ -43,19 +55,21 @@
            font-size: 100px; font-weight: 900; letter-spacing: 2px;
            line-height: 216px; text-align: center;
            transform: rotate(-8deg);
-           animation: stamp-slam .4s .3s both; }
+           animation: stamp-slam .4s 4.3s both; }
 
-  .plate { position: absolute; left: 560px; top: 880px; width: 800px; height: 110px;
+  /* Plate and badge sit 34 px higher than before so the plate ends above y 972: the bottom 10 %
+     is for subtitles. */
+  .plate { position: absolute; left: 560px; top: 846px; width: 800px; height: 110px;
            background: var(--ink, #1F2A44); color: #FFFDF6;
            border-radius: 16px; box-shadow: 10px 10px 0 rgba(31, 42, 68, .3);
            font-size: 68px; font-weight: 900; line-height: 110px; text-align: center;
-           animation: plate-in .8s .8s both; }
+           animation: plate-in .8s 5s both; }
 
-  .badge { position: absolute; left: 1260px; top: 780px; width: 460px; height: 92px;
+  .badge { position: absolute; left: 1260px; top: 746px; width: 460px; height: 92px;
            background: var(--bulb, #FFD34D); border: 6px solid var(--ink, #1F2A44);
            border-radius: 46px; box-shadow: 7px 7px 0 var(--ink, #1F2A44);
            font-size: 46px; font-weight: 700; line-height: 92px; text-align: center;
-           animation: badge-pop .45s 1.4s both; }
+           animation: badge-pop .45s 5.8s both; }
 
   @keyframes win-pop {
     0% { opacity: 0; transform: rotate(-8deg) scale(.65); }
@@ -88,6 +102,14 @@
     60% { opacity: 1; transform: scale(1.18) rotate(-5deg); }
     100% { opacity: 1; transform: scale(1) rotate(0); }
   }
+  @keyframes bait {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.07); }
+  }
+  @keyframes scan-sweep {
+    from { transform: translateX(-360px) skewX(-14deg); }
+    to { transform: translateX(1060px) skewX(-14deg); }
+  }
 </style>
 </head>
 <body>
@@ -101,6 +123,7 @@
     <div class="pop-brand">Moon Cheese Club</div>
     <div class="pop-line">Claim 9,000 lunar cheeses!</div>
     <div class="pop-btn">Pay now</div>
+    <div class="scan"><i></i></div>
   </div>
 
   <div class="stamp-wrap">

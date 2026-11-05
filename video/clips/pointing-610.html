@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="clip" content="duration=3;fps=60;width=1920;height=1080;alpha=0">
+<meta name="clip" content="duration=10.5;fps=60;width=1920;height=1080;alpha=0">
 <link rel="stylesheet" href="_kit.css">
 <script src="../../assets/art/src/mate-lib.js"></script>
 <style>
+  /* Pointing 610, 10.5 s, timed to V5: the buttons pop in, Windows lists them (dashed boxes,
+     1.4-2.45 s), Mate sweeps to the right one (2.4-3.3 s), 610 / 610 lands on "six hundred ten"
+     (4.3 s). At 6.0 s ("Without that list") the boxes go, the hit ring goes, the spot drifts off the
+     button and the result moves left for "Under half" on the right. On "We report both numbers"
+     (8.5 s) both results nod in turn; both stay to the end. */
   html, body { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hidden;
                background: var(--paper, #F6EFDF); }
   .stage { position: relative; width: 1920px; height: 1080px; overflow: hidden;
@@ -29,13 +34,17 @@
          display: flex; align-items: center; justify-content: center;
          animation: btn-pop .3s both; }
   .btn .ic { display: block; }
+  /* The button list from Windows: a dashed box per button, gone at 6.0 s. */
+  .btn::after { content: ""; position: absolute; inset: -13px; border: 4px dashed rgba(31, 42, 68, .55);
+                border-radius: 24px;
+                animation: listed .3s var(--snap) var(--l) both, fade-out .3s linear 6s forwards; }
 
-  .btn.b1 { left: 235px; animation-delay: .12s; }
-  .btn.b2 { left: 415px; animation-delay: .18s; }
-  .btn.b3 { left: 595px; animation-delay: .24s; }
-  .btn.b4 { left: 775px; animation-delay: .3s; }
-  .btn.b5 { left: 955px; animation-delay: .36s; }
-  .btn.b6 { left: 1135px; animation-delay: .42s; }
+  .btn.b1 { left: 235px; animation-delay: .12s; --l: 1.4s; }
+  .btn.b2 { left: 415px; animation-delay: .18s; --l: 1.55s; }
+  .btn.b3 { left: 595px; animation-delay: .24s; --l: 1.7s; }
+  .btn.b4 { left: 775px; animation-delay: .3s; --l: 1.85s; }
+  .btn.b5 { left: 955px; animation-delay: .36s; --l: 2s; }
+  .btn.b6 { left: 1135px; animation-delay: .42s; --l: 2.15s; }
 
   .ic-circle { width: 46px; height: 46px; border-radius: 50%; background: var(--ink, #1F2A44); }
   .ic-square { width: 44px; height: 44px; background: var(--ink, #1F2A44); }
@@ -50,23 +59,28 @@
   .ic-ring { width: 48px; height: 48px; border-radius: 50%; border: 11px solid var(--ink, #1F2A44); }
 
   .mate { position: absolute; left: 70px; top: 690px; width: 250px; height: 250px; z-index: 4;
-          animation: mate-sweep .9s .2s both; }
+          animation: mate-sweep .9s 2.4s both; }
+  .mate .layer { position: absolute; inset: 0; }
+  .mate svg { display: block; }
+  /* Grin, unsure from 6.3 s, grin again from 8.6 s. */
+  #mate-a { animation: fade-out .06s linear 6.36s both, fade-in .1s linear 8.6s forwards; }
+  #mate-b { animation: fade-in .1s linear 6.3s both, fade-out .06s linear 8.66s forwards; }
 
   .glow { position: absolute; left: 465px; top: 565px; width: 90px; height: 90px; z-index: 3;
           border-radius: 50%;
           background: radial-gradient(circle, rgba(255, 211, 77, .95) 0%, rgba(255, 211, 77, 0) 70%);
-          animation: glow-sweep .9s .2s both; }
+          animation: glow-sweep .9s 2.4s both, glow-wander 1.5s ease-in-out 6.1s forwards; }
 
   .ring { position: absolute; left: 955px; top: 515px; width: 190px; height: 190px; z-index: 5;
           border: 10px solid var(--bulb, #FFD34D); border-radius: 26px;
           box-shadow: 0 0 30px rgba(255, 211, 77, .9), inset 0 0 22px rgba(255, 211, 77, .6);
           box-sizing: border-box;
-          animation: ring-pop .35s 1.2s both; }
+          animation: ring-pop .35s 3.4s both, fade-out .3s linear 6s forwards; }
 
   .burst-nice { position: absolute; left: 1130px; top: 420px; z-index: 6;
                 width: 300px; height: 190px; display: grid; place-items: center;
                 font-size: 72px; font-weight: 900;
-                animation: nice-pop .35s 1.3s both; }
+                animation: nice-pop .35s 3.5s both, nice-out .3s 6s forwards; }
   .nice-star { position: absolute; inset: 0; background: var(--bulb, #FFD34D); }
   .nice-text { position: relative; color: var(--white, #fff); -webkit-text-stroke: 5px var(--ink, #1F2A44); }
 
@@ -75,14 +89,18 @@
   .counter span { position: absolute; left: 0; top: 0; width: 140px;
                   animation: digit-step .05s 0s both; }
 
-  .stat { position: absolute; left: 0; right: 0; top: 70px; z-index: 7;
-          font-size: 150px; font-weight: 900; text-align: center;
-          text-shadow: 6px 6px 0 rgba(31, 42, 68, .25);
-          animation: stat-slam .4s 1.6s both; }
-
-  .line { position: absolute; left: 0; right: 0; top: 930px; z-index: 7; text-align: center;
-          font-size: 72px; font-weight: 700;
-          animation: fade-in .5s 2s both; }
+  /* Each result keeps its scope line under it, above the window (the bottom 10 % is for
+     subtitles). "With" is centred, then moves to the left half; "Without" fills the right half. */
+  .result { position: absolute; top: 34px; z-index: 7; text-align: center; transform-origin: 50% 0; }
+  .result.with { left: 0; right: 0; animation: result-left .45s var(--snap) 6s both; }
+  .result.without { left: 960px; width: 960px; transform: scale(.8); }
+  .stat { font-size: 150px; font-weight: 900; line-height: 1.1; white-space: nowrap;
+          text-shadow: 6px 6px 0 rgba(31, 42, 68, .25); }
+  .with .stat { animation: stat-slam .4s 4.3s both, stat-nod .5s ease-in-out 8.6s both; }
+  .without .stat { animation: stat-slam .4s 6.3s both, stat-nod .5s ease-in-out 9.05s both; }
+  .line { font-size: 52px; font-weight: 700; line-height: 1.25; white-space: nowrap; }
+  .with .line { animation: fade-in .5s 4.8s both; }
+  .without .line { animation: fade-in .5s 6.75s both; }
 
   @keyframes win-pop {
     0% { opacity: 0; transform: scale(.92); }
@@ -92,6 +110,10 @@
   @keyframes btn-pop {
     0% { opacity: 0; transform: scale(.4); }
     70% { opacity: 1; transform: scale(1.12); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes listed {
+    0% { opacity: 0; transform: scale(1.25); }
     100% { opacity: 1; transform: scale(1); }
   }
   @keyframes mate-sweep {
@@ -115,6 +137,13 @@
     72% { transform: translateX(540px); animation-timing-function: ease-in-out; }
     100% { opacity: 1; transform: translateX(540px); }
   }
+  /* Without the list: the spot hunts and settles just below the button. */
+  @keyframes glow-wander {
+    0% { transform: translate(540px, 0); }
+    30% { transform: translate(450px, 40px); }
+    65% { transform: translate(640px, -30px); }
+    100% { transform: translate(620px, 120px); }
+  }
   @keyframes ring-pop {
     0% { opacity: 0; transform: scale(.3); }
     60% { opacity: 1; transform: scale(1.18); }
@@ -124,6 +153,10 @@
     0% { opacity: 0; transform: scale(0) rotate(-10deg); }
     60% { opacity: 1; transform: scale(1.2) rotate(4deg); }
     100% { opacity: 1; transform: scale(1) rotate(0); }
+  }
+  @keyframes nice-out {
+    from { opacity: 1; transform: scale(1) rotate(0); }
+    to { opacity: 0; transform: scale(.4) rotate(8deg); }
   }
   @keyframes digit-step {
     0% { opacity: 0; }
@@ -135,6 +168,15 @@
     0% { opacity: 0; transform: scale(2.2); }
     55% { opacity: 1; transform: scale(.9); }
     100% { opacity: 1; transform: scale(1); }
+  }
+  /* On the `scale` property, so it adds to stat-slam's transform instead of replacing it. */
+  @keyframes stat-nod {
+    0%, 100% { scale: 1; }
+    45% { scale: 1.08; }
+  }
+  @keyframes result-left {
+    from { transform: translateX(0) scale(1); }
+    to { transform: translateX(-480px) scale(.8); }
   }
 </style>
 </head>
@@ -155,7 +197,7 @@
   </div>
 
   <div class="glow"></div>
-  <div class="mate" id="mate"></div>
+  <div class="mate"><div class="layer" id="mate-a"></div><div class="layer" id="mate-b"></div></div>
   <div class="ring"></div>
   <div class="burst-nice"><div class="nice-star burst"></div><span class="nice-text shout">NICE!</span></div>
 
@@ -173,11 +215,18 @@
     <span style="animation-delay:1.5s">610</span>
   </div>
 
-  <div class="stat shout">610 / 610</div>
-  <div class="line">With the button list from Windows.</div>
+  <div class="result with">
+    <div class="stat shout">610 / 610</div>
+    <div class="line">With the button list from Windows.</div>
+  </div>
+  <div class="result without">
+    <div class="stat shout">Under half</div>
+    <div class="line">Without the list.</div>
+  </div>
 </div>
 <script>
-  document.getElementById('mate').innerHTML = mate({ eyes: 'open', mouth: 'grin', arm: 'point', glow: true, size: 250 });
+  document.getElementById('mate-a').innerHTML = mate({ eyes: 'open', mouth: 'grin', arm: 'point', glow: true, size: 250 });
+  document.getElementById('mate-b').innerHTML = mate({ eyes: 'open', mouth: 'flat', arm: 'point', glow: true, size: 250, brows: 'tilted' });
 </script>
 </body>
 </html>
